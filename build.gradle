@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'com.github.johnrengelman.shadow' version '1.2.4'
+}
+
+group 'us.cyrien'
+version '1.0-SNAPSHOT'
+
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    jcenter()
+    mavenLocal()
+    maven {
+        url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+}
+
+dependencies {
+    compileOnly 'org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT'
+}
+
+jar {
+    baseName = project.name
+    manifest {
+        attributes 'Implementation-Version': version
+    }
+}
+
+shadowJar {
+    classifier = 'Shaded'
+}
+
+build {
+    dependsOn shadowJar
+}

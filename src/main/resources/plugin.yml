@@ -1,0 +1,6 @@
+name: CommandPrompter
+version: 0.1.3
+author: CyRien
+description: Test
+
+main: us.cyrien.cp.CommandPrompter
