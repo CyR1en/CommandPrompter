@@ -1,4 +1,4 @@
-## CommandPrompter
+## ![cp](https://www.spigotmc.org/data/resource_icons/47/47772.jpg?1506763424) CommandPrompter
 _Making commands more interactive._
 
 ### What is this plugin for?
