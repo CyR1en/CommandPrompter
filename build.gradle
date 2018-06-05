@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'us.cyrien'
-version '0.1.4'
+version '0.1.5'
 
 sourceCompatibility = 1.8
 
@@ -14,11 +14,20 @@ repositories {
     jcenter()
     mavenLocal()
     maven {
+        url 'https://jitpack.io'
+    }
+    maven {
         url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
     }
 }
 
 dependencies {
+    //<groupId>mkremins</groupId>
+    //  <artifactId>fanciful</artifactId>
+    //  <version>0.3.1</version>
+    compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
+    compile group: 'commons-io', name: 'commons-io', version: '2.5'
+    compile 'com.github.mkremins:fanciful:master-SNAPSHOT'
     compileOnly 'org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT'
 }
 

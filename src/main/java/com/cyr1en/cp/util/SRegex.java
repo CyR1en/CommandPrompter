@@ -1,4 +1,4 @@
-package us.cyrien.cp;
+package com.cyr1en.cp.util;
 
 import java.util.ArrayList;
 import java.util.List;

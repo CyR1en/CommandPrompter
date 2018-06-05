@@ -1,4 +1,4 @@
-package us.cyrien.cp.config;
+package com.cyr1en.cp.config;
 
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;

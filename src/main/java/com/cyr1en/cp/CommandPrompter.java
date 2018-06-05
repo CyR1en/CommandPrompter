@@ -1,11 +1,11 @@
-package us.cyrien.cp;
+package com.cyr1en.cp;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
-import us.cyrien.cp.config.SimpleConfig;
-import us.cyrien.cp.config.SimpleConfigManager;
-import us.cyrien.cp.listener.CommandListener;
-import us.cyrien.cp.util.SpigotPluginUpdater;
+import com.cyr1en.cp.config.SimpleConfig;
+import com.cyr1en.cp.config.SimpleConfigManager;
+import com.cyr1en.cp.listener.CommandListener;
+import com.cyr1en.cp.util.PluginUpdater;
 
 import java.util.logging.Logger;
 
@@ -20,16 +20,15 @@ public class CommandPrompter extends JavaPlugin {
     @Override
     public void onEnable() {
         logger = getLogger();
-        SpigotPluginUpdater spu = new SpigotPluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plugin.html");
-        spu.enableOut();
+        PluginUpdater spu = new PluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plinfo/");
         if(spu.needsUpdate()) {
             logger.warning("A new update is available!");
-            spu.externalUpdate();
         } else {
             logger.info("No update was found.");
         }
         this.manager = new SimpleConfigManager(this);
         Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
+        Bukkit.getPluginManager().registerEvents(spu, this);
         setupConfig();
     }
 

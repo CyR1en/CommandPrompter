@@ -1,12 +1,12 @@
-package us.cyrien.cp.listener;
+package com.cyr1en.cp.listener;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import us.cyrien.cp.CommandPrompter;
-import us.cyrien.cp.SRegex;
+import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.util.SRegex;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ public class CommandListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         SRegex simpleRegex = new SRegex();
         simpleRegex.find(event.getMessage(), "<.*?>");

@@ -1,4 +1,4 @@
-package us.cyrien.cp.config;
+package com.cyr1en.cp.config;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
