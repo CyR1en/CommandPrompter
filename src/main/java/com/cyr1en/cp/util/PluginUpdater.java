@@ -154,31 +154,33 @@ public class PluginUpdater implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onJoin(PlayerJoinEvent event) {
-        if(!newVersionAvailable())
-            return;
-        String v = version.replaceAll("[a-zA-z: ]", "");
-        if(event.getPlayer().isOp()) {
-            try {
-                if(Class.forName("org.spigotmc.SpigotConfig") != null) {
-                    BaseComponent[] textComponent = new ComponentBuilder("[")
-                            .color(ChatColor.GOLD)
-                            .append("CommandPrompter")
-                            .color(ChatColor.GREEN)
-                            .append("]")
-                            .color(ChatColor.GOLD)
-                            .append(" A new update is available: ")
-                            .color(ChatColor.AQUA)
-                            .append(v)
-                            .color(ChatColor.YELLOW)
-                            .event(new ClickEvent(ClickEvent.Action.OPEN_URL, downloadURL))
-                            .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click here to update").create()))
-                            .create();
-                    event.getPlayer().spigot().sendMessage(textComponent);
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            if(!newVersionAvailable())
+                return;
+            String v = version.replaceAll("[a-zA-z: ]", "");
+            if(event.getPlayer().isOp()) {
+                try {
+                    if(Class.forName("org.spigotmc.SpigotConfig") != null) {
+                        BaseComponent[] textComponent = new ComponentBuilder("[")
+                                .color(ChatColor.GOLD)
+                                .append("CommandPrompter")
+                                .color(ChatColor.GREEN)
+                                .append("]")
+                                .color(ChatColor.GOLD)
+                                .append(" A new update is available: ")
+                                .color(ChatColor.AQUA)
+                                .append(v)
+                                .color(ChatColor.YELLOW)
+                                .event(new ClickEvent(ClickEvent.Action.OPEN_URL, downloadURL))
+                                .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("Click here to update").create()))
+                                .create();
+                        event.getPlayer().spigot().sendMessage(textComponent);
+                    }
+                } catch (ClassNotFoundException e) {
+                    String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&6[&aCommandPrmpter&6] &bA new update is available: &e" + v);
+                    event.getPlayer().sendRawMessage(msg);
                 }
-            } catch (ClassNotFoundException e) {
-                String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&6[&aCommandPrmpter&6] &bA new update is available: &e" + v);
-                event.getPlayer().sendRawMessage(msg);
             }
-        }
+        });
     }
 }
