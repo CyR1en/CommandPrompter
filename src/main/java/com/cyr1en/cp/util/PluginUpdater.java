@@ -177,7 +177,7 @@ public class PluginUpdater implements Listener {
                         event.getPlayer().spigot().sendMessage(textComponent);
                     }
                 } catch (ClassNotFoundException e) {
-                    String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&6[&aCommandPrmpter&6] &bA new update is available: &e" + v);
+                    String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&6[&aCommandPrompter&6] &bA new update is available: &e" + v);
                     event.getPlayer().sendRawMessage(msg);
                 }
             }
