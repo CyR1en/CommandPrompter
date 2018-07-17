@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,22 +58,30 @@ public class PluginUpdater implements Listener {
     }
 
     private void queryUpdateData() {
-        try {
-            Document doc = Jsoup.connect(url.toString()).get();
-            version = doc.getElementById("pl-version").text();
-            downloadURL = doc.getElementById("links-direct").text();
-            changeLog = doc.getElementById("pl-changelog").text();
-            changeLog = checkChangeLog();
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
-            plugin.getLogger().log(Level.WARNING, "Error: ", e);
-        }
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                Document doc = Jsoup.connect(url.toString()).get();
+                version = doc.getElementById("pl-version").text();
+                downloadURL = doc.getElementById("links-direct").text();
+                changeLog = doc.getElementById("pl-changelog").text();
+                changeLog = checkChangeLog();
+            } catch (SocketTimeoutException sE) {
+                plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
+                plugin.getLogger().log(Level.WARNING, "Connection Timeout. Please add filter exceptions for the following host in " +
+                        "your firewall configuration: " + url.getPath());
+                canceled = true;
+            } catch (IOException e) {
+                plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
+                plugin.getLogger().log(Level.WARNING, "Error: ", e);
+                canceled = true;
+            }
+        });
     }
 
     public boolean needsUpdate() {
-        queryUpdateData();
         if (canceled)
             return false;
+        queryUpdateData();
         if (newVersionAvailable()) {
             if (out) {
                 plugin.getLogger().log(Level.INFO, "- New Version found: {0}", version);
@@ -86,6 +95,8 @@ public class PluginUpdater implements Listener {
 
 
     private boolean newVersionAvailable() {
+        if(canceled)
+            return false;
         queryUpdateData();
         String curr = plugin.getDescription().getVersion().replaceAll("\\.", "");
         String arg = version.replaceAll("[a-zA-z ]|:", "").replaceAll("\\.", "");
@@ -95,24 +106,26 @@ public class PluginUpdater implements Listener {
     }
 
     public void update() {
-        try {
-            URL download = new URL(downloadURL);
-            if (out)
-                plugin.getLogger().log(Level.INFO, "Trying to download {0} ..", downloadURL);
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                File file = new File("plugins/" + plugin.getName() + "-" + version.replaceAll("[a-zA-z ]|:", "") + ".jar");
-                moveOldPluginJar();
-                FileUtils.copyURLToFile(download, file);
-                if (out) {
-                    Bukkit.getLogger().info("Successfully downloaded update");
-                    Bukkit.getLogger().info("Restart server to apply changes");
+                URL download = new URL(downloadURL);
+                if (out)
+                    plugin.getLogger().log(Level.INFO, "Trying to download {0} ..", downloadURL);
+                try {
+                    File file = new File("plugins/" + plugin.getName() + "-" + version.replaceAll("[a-zA-z ]|:", "") + ".jar");
+                    moveOldPluginJar();
+                    FileUtils.copyURLToFile(download, file);
+                    if (out) {
+                        Bukkit.getLogger().info("Successfully downloaded update");
+                        Bukkit.getLogger().info("Restart server to apply changes");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        });
     }
 
     private void moveOldPluginJar() {

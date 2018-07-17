@@ -234,10 +234,10 @@ public class SimpleConfigManager {
                 if (comment.startsWith("# +-")) {
 
                     /*
-                    * If header line = 0 then it is
-                    * header start, if it's equal
-                    * to 1 it's the end of header
-                    */
+                     * If header line = 0 then it is
+                     * header start, if it's equal
+                     * to 1 it's the end of header
+                     */
 
                     if (headerLine == 0) {
                         config.append(comment + "\n");
@@ -287,13 +287,11 @@ public class SimpleConfigManager {
 
     public void saveConfig(String configString, File file) {
         String configuration = this.prepareConfigString(configString);
-
         try {
             BufferedWriter writer = new BufferedWriter(new FileWriter(file));
             writer.write(configuration);
             writer.flush();
             writer.close();
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -305,24 +303,18 @@ public class SimpleConfigManager {
     }
 
     private void copyResource(InputStream resource, File file) {
-
         try {
             OutputStream out = new FileOutputStream(file);
-
             int lenght;
             byte[] buf = new byte[1024];
-
             while ((lenght = resource.read(buf)) > 0) {
                 out.write(buf, 0, lenght);
             }
-
             out.close();
             resource.close();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
 }

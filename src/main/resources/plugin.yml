@@ -1,6 +1,7 @@
 name: CommandPrompter
-version: 0.1.6
+version: 0.1.8
 author: CyRien
 description: Perfect plugin companion for DeluxeMenus and ChestCommands
 
 main: com.cyr1en.cp.CommandPrompter
+api-version: 1.13
