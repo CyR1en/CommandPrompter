@@ -26,6 +26,14 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        Bukkit.getServer().getScheduler().runTaskLater(this, this::start, 1L);
+    }
+
+    @Override
+    public void onDisable() {
+    }
+
+    private void start() {
         logger = getLogger();
         if (ProxySelector.getDefault() == null) {
             ProxySelector.setDefault(new ProxySelector() {
@@ -35,18 +43,16 @@ public class CommandPrompter extends JavaPlugin {
             });
         }
         PluginUpdater spu = new PluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plinfo/");
-        if (spu.needsUpdate())
-            logger.warning("A new update is available!");
-        else
-            logger.info("No update was found.");
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            if (spu.needsUpdate())
+                logger.warning("A new update is available!");
+            else
+                logger.info("No update was found.");
+        });
         this.manager = new SimpleConfigManager(this);
         Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
         Bukkit.getPluginManager().registerEvents(spu, this);
         setupConfig();
-    }
-
-    @Override
-    public void onDisable() {
     }
 
     private void setupConfig() {

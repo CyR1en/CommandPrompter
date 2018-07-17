@@ -39,7 +39,7 @@ public class Prompt implements Listener {
             cancel();
             String prefix = plugin.getConfiguration().getString("Prompt-Prefix");
             String cMsg = plugin.getConfiguration().getString("Timeout-Message");
-            sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + " " + cMsg));
+            sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + cMsg));
         }, timeout, TimeUnit.SECONDS);
         String prompt = prompts.get(0).replaceAll("<", "");
         prompt = prompt.replaceAll(">", "");
@@ -55,7 +55,8 @@ public class Prompt implements Listener {
         if (event.getMessage().equalsIgnoreCase("cancel")) {
             cancel();
             String prefix = plugin.getConfiguration().getString("Prompt-Prefix");
-            event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + "Command cancelled!"));
+            String cMsg = plugin.getConfiguration().getString("Timeout-Message");
+            event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + cMsg));
             event.setCancelled(true);
         } else if (prompts.size() > 1) {
             prompts.set(0, prompts.get(0).replaceAll("[^\\w\\s<>]", "\\\\$0"));

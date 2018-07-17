@@ -28,10 +28,8 @@ import java.util.HashMap;
 import java.util.logging.Level;
 
 /**
- *
  * @author Benjamin | Bentipa
  * @version 1.0 Created on 03.04.2015
- *
  */
 public class PluginUpdater implements Listener {
 
@@ -58,24 +56,22 @@ public class PluginUpdater implements Listener {
     }
 
     private void queryUpdateData() {
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                Document doc = Jsoup.connect(url.toString()).get();
-                version = doc.getElementById("pl-version").text();
-                downloadURL = doc.getElementById("links-direct").text();
-                changeLog = doc.getElementById("pl-changelog").text();
-                changeLog = checkChangeLog();
-            } catch (SocketTimeoutException sE) {
-                plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
-                plugin.getLogger().log(Level.WARNING, "Connection Timeout. Please add filter exceptions for the following host in " +
-                        "your firewall configuration: " + url.getPath());
-                canceled = true;
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
-                plugin.getLogger().log(Level.WARNING, "Error: ", e);
-                canceled = true;
-            }
-        });
+        try {
+            Document doc = Jsoup.connect(url.toString()).get();
+            version = doc.getElementById("pl-version").text();
+            downloadURL = doc.getElementById("links-direct").text();
+            changeLog = doc.getElementById("pl-changelog").text();
+            changeLog = checkChangeLog();
+        } catch (SocketTimeoutException sE) {
+            plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
+            plugin.getLogger().log(Level.WARNING, "Connection Timeout. Please add filter exceptions for the following host in " +
+                    "your firewall configuration: " + url.getPath());
+            canceled = true;
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
+            plugin.getLogger().log(Level.WARNING, "Error: ", e);
+            canceled = true;
+        }
     }
 
     public boolean needsUpdate() {
@@ -95,7 +91,7 @@ public class PluginUpdater implements Listener {
 
 
     private boolean newVersionAvailable() {
-        if(canceled)
+        if (canceled)
             return false;
         queryUpdateData();
         String curr = plugin.getDescription().getVersion().replaceAll("\\.", "");
@@ -168,12 +164,12 @@ public class PluginUpdater implements Listener {
     @EventHandler(priority = EventPriority.LOW)
     public void onJoin(PlayerJoinEvent event) {
         Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            if(!newVersionAvailable())
+            if (!newVersionAvailable())
                 return;
             String v = version.replaceAll("[a-zA-z: ]", "");
-            if(event.getPlayer().isOp()) {
+            if (event.getPlayer().isOp()) {
                 try {
-                    if(Class.forName("org.spigotmc.SpigotConfig") != null) {
+                    if (Class.forName("org.spigotmc.SpigotConfig") != null) {
                         BaseComponent[] textComponent = new ComponentBuilder("[")
                                 .color(ChatColor.GOLD)
                                 .append("CommandPrompter")
