@@ -1,10 +1,13 @@
 package com.cyr1en.cp;
 
+import co.aikar.commands.PaperCommandManager;
+import com.cyr1en.cp.commands.CommandPrompterCmd;
 import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
 import com.cyr1en.cp.listener.Prompt;
 import com.cyr1en.cp.util.PluginUpdater;
+import com.google.common.collect.ImmutableList;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
@@ -28,6 +31,7 @@ public class CommandPrompter extends JavaPlugin {
   private SimpleConfig config;
   private Logger logger;
   private List<Prompt> registeredPrompts;
+  private PaperCommandManager afc;
 
   @Override
   public void onEnable() {
@@ -44,8 +48,13 @@ public class CommandPrompter extends JavaPlugin {
     if (ProxySelector.getDefault() == null) {
       ProxySelector.setDefault(new ProxySelector() {
         private final List<Proxy> DIRECT_CONNECTION = Collections.unmodifiableList(Collections.singletonList(Proxy.NO_PROXY));
-        public void connectFailed(URI arg0, SocketAddress arg1, IOException arg2) { }
-        public List<Proxy> select(URI uri) { return DIRECT_CONNECTION; }
+
+        public void connectFailed(URI arg0, SocketAddress arg1, IOException arg2) {
+        }
+
+        public List<Proxy> select(URI uri) {
+          return DIRECT_CONNECTION;
+        }
       });
     }
     PluginUpdater spu = new PluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plinfo/");
@@ -59,7 +68,11 @@ public class CommandPrompter extends JavaPlugin {
     Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
     Bukkit.getPluginManager().registerEvents(spu, this);
     registeredPrompts = new ArrayList<>();
+    afc = new PaperCommandManager(this);
+    afc.enableUnstableAPI("brigadier");
     setupConfig();
+    setupCommands();
+    setupContexts();
   }
 
   private void setupConfig() {
@@ -77,6 +90,20 @@ public class CommandPrompter extends JavaPlugin {
               new String[]{"Message that will be sent", "to players when prompts", "automatically cancels"});
       config.saveConfig();
     }
+  }
+
+  private void setupCommands() {
+    afc.registerCommand(new CommandPrompterCmd(this));
+  }
+
+  private void setupContexts() {
+    afc.getCommandCompletions().registerAsyncCompletion("reload", c -> ImmutableList.of("true", "false"));
+  }
+
+  public void reload(boolean clean) {
+    config.reloadConfig();
+    if (clean)
+      new ArrayList<>(registeredPrompts).forEach(this::deregisterPrompt);
   }
 
   public SimpleConfig getConfiguration() {

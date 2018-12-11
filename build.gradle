@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'us.cyrien'
-version '0.1.10'
+version '0.1.11'
 
 sourceCompatibility = 1.8
 
@@ -13,6 +13,7 @@ repositories {
     mavenCentral()
     jcenter()
     mavenLocal()
+    maven { url = "https://repo.aikar.co/content/groups/aikar/" }
     maven { url 'https://jitpack.io' }
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
     maven { url 'https://nexus.wesjd.net/repository/thirdparty/' }
@@ -21,9 +22,16 @@ repositories {
 dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
+    compile "co.aikar:acf-paper:0.5.0-SNAPSHOT"
     compile 'com.github.mkremins:fanciful:master-SNAPSHOT'
     compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'
+}
+
+compileJava {
+    options.compilerArgs += ["-parameters"]
+    options.fork = true
+    options.forkOptions.executable = 'javac'
 }
 
 jar {
@@ -35,6 +43,7 @@ jar {
 
 shadowJar {
     classifier = 'Shaded'
+    relocate 'co.aikar.commands', 'com.cyr1en.cp.acf'
 }
 
 build {
