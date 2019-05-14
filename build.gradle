@@ -1,13 +1,19 @@
 plugins {
     id 'java'
-    id 'idea'
-    id 'com.github.johnrengelman.shadow' version '2.0.0'
+    id 'maven'
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
 }
 
-group 'us.cyrien'
-version '0.1.11'
+group 'com.cyr1en'
+version '0.1-SNAPSHOT'
 
 sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+project.ext.majorVersion = '0'
+project.ext.minorVersion = '1'
+project.ext.patchVersion = '12'
+project.ext.fullVersion = project.ext.majorVersion + '.' + project.ext.minorVersion + '.' + project.ext.patchVersion
 
 repositories {
     mavenCentral()
@@ -17,6 +23,9 @@ repositories {
     maven { url 'https://jitpack.io' }
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
     maven { url 'https://nexus.wesjd.net/repository/thirdparty/' }
+    maven { url 'https://repo.lucko.me/' }
+    maven { url 'https://libraries.minecraft.net'}
+    maven { url "http://repo.dmulloy2.net/nexus/repository/public/" }
 }
 
 dependencies {
@@ -25,27 +34,27 @@ dependencies {
     compile "co.aikar:acf-paper:0.5.0-SNAPSHOT"
     compile 'com.github.mkremins:fanciful:master-SNAPSHOT'
     compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
+    compile 'me.lucko:commodore:1.2'
+    compile 'me.lucko:helper:5.5.0'
+    compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'
+    compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.4.0"
 }
 
-compileJava {
-    options.compilerArgs += ["-parameters"]
-    options.fork = true
-    options.forkOptions.executable = 'javac'
-}
-
-jar {
-    baseName = project.name
-    manifest {
-        attributes 'Implementation-Version': version
+processResources {
+    from(sourceSets.main.resources.srcDirs) {
+        expand 'pluginVersion': project.ext.fullVersion
+        include 'plugin.yml'
     }
 }
 
 shadowJar {
-    classifier = 'Shaded'
+    archiveName = "CommandPrompter-${project.ext.fullVersion}.jar"
     relocate 'co.aikar.commands', 'com.cyr1en.cp.acf'
+    relocate 'me.lucko.commodore', 'com.cyr1en.cp.commodore'
+    relocate 'me.lucko.helper', 'com.cyr1en.cp.helper'
 }
 
-build {
-    dependsOn shadowJar
+artifacts {
+    archives shadowJar
 }

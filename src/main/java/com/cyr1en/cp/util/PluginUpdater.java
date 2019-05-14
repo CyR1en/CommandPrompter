@@ -27,10 +27,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.logging.Level;
 
-/**
- * @author Benjamin | Bentipa
- * @version 1.0 Created on 03.04.2015
- */
 public class PluginUpdater implements Listener {
 
   private URL url;
@@ -69,7 +65,6 @@ public class PluginUpdater implements Listener {
       canceled = true;
     } catch (IOException e) {
       plugin.getLogger().log(Level.WARNING, "Error querying update data for ''{0}''!", plugin.getName());
-      plugin.getLogger().log(Level.WARNING, "Error: ", e);
       canceled = true;
     }
   }

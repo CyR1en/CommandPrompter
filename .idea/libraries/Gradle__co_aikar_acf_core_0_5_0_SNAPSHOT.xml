@@ -1,0 +1,16 @@
+<component name="libraryTable">
+  <library name="Gradle: co.aikar:acf-core:0.5.0-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/71793eb875c1fd71be8e27beaa906418644b526b/acf-core-0.5.0-SNAPSHOT.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/e31b6add4fcab31a8a5f6b39ad00a750b9df12f/acf-core-0.5.0-SNAPSHOT.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/57c4ce06cae3cc4294f7b8ff5d9218c2b44dd3ee/acf-core-0.5.0-SNAPSHOT.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/8dde83b42603f46e1734895ab134c2cccc5c3184/acf-core-0.5.0-SNAPSHOT-sources.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/4aac58e8edd0d1713354c2a21a9fe83f1f42ef6a/acf-core-0.5.0-SNAPSHOT-sources.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/4d30580b12ba53f07545f449fc9c641a2e2bf9f9/acf-core-0.5.0-SNAPSHOT-sources.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/co.aikar/acf-core/0.5.0-SNAPSHOT/256e4e9c3e543a5d4ef28bcb94cc0c574133c01b/acf-core-0.5.0-SNAPSHOT-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

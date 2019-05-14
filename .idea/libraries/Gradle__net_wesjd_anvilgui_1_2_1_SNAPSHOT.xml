@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: net.wesjd:anvilgui:1.2.1-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.wesjd/anvilgui/1.2.1-SNAPSHOT/8ea1e5d1bb8bcf2ccc2d4688fb723a970b301443/anvilgui-1.2.1-SNAPSHOT.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/net.wesjd/anvilgui/1.2.1-SNAPSHOT/65ff52d175856784907d3ecb8b3270e90c8b377b/anvilgui-1.2.1-SNAPSHOT.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

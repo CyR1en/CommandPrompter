@@ -7,6 +7,7 @@ import java.io.*;
 import java.util.zip.ZipFile;
 
 public class FileUtil {
+
   public static boolean isJarFile(File file) throws IOException {
     if (!isZipFile(file)) {
       return false;
@@ -44,7 +45,7 @@ public class FileUtil {
   }
 
   public static PluginDescriptionFile getPluginDescriptionFile() {
-    InputStream is = getResourceAsStream("plugin.ymk");
+    InputStream is = getResourceAsStream("plugin.yml");
     PluginDescriptionFile pdl = null;
     try {
       pdl = new PluginDescriptionFile(is);

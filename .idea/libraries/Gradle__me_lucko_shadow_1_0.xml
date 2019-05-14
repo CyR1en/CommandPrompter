@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="Gradle: me.lucko:shadow:1.0">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/me.lucko/shadow/1.0/70aa10d01dbfbd8d23141dbc1a956c791190f031/shadow-1.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/me.lucko/shadow/1.0/dbba47b5faafc3cdc0186cc1fcc20a53df1b1613/shadow-1.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

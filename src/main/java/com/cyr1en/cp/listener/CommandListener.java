@@ -21,14 +21,13 @@ public class CommandListener implements Listener {
   @EventHandler(priority = EventPriority.LOWEST)
   public void onCommand(PlayerCommandPreprocessEvent event) {
     if (plugin.inCommandProcess(event.getPlayer())) {
-      System.out.println("Player is still in command completion");
       String prefix = plugin.getConfiguration().getString("Prompt-Prefix");
-      event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix +
-              "&6You are still trying to complete a command. Type \"cancel\" to cancel"));
+      event.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + plugin.getI18N().getProperty("PromptInProgress")));
       event.setCancelled(true);
     } else {
       SRegex simpleRegex = new SRegex();
-      simpleRegex.find(event.getMessage(), "<.*?>");
+      String regex = plugin.getConfiguration().getString("Argument-Regex");
+      simpleRegex.find(event.getMessage(), regex);
       List<String> prompts = simpleRegex.getResults();
       if (prompts.size() > 0) {
         event.setCancelled(true);
