@@ -11,7 +11,7 @@ import com.cyr1en.cp.util.PluginUpdater;
 import com.cyr1en.cp.util.SignGUI;
 import com.google.common.collect.ImmutableList;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -134,8 +134,8 @@ public class CommandPrompter extends JavaPlugin {
     return config;
   }
 
-  public boolean inCommandProcess(Player player) {
-    return registeredPrompts.stream().anyMatch(prompt -> prompt.getSender() == player);
+  public boolean inCommandProcess(CommandSender sender) {
+    return registeredPrompts.stream().anyMatch(prompt -> prompt.getSender() == sender);
   }
 
   public void registerPrompt(Prompt prompt) {

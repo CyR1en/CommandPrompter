@@ -12,7 +12,7 @@ targetCompatibility = 1.8
 
 project.ext.majorVersion = '0'
 project.ext.minorVersion = '1'
-project.ext.patchVersion = '12'
+project.ext.patchVersion = '11'
 project.ext.fullVersion = project.ext.majorVersion + '.' + project.ext.minorVersion + '.' + project.ext.patchVersion
 
 repositories {
@@ -26,6 +26,7 @@ repositories {
     maven { url 'https://repo.lucko.me/' }
     maven { url 'https://libraries.minecraft.net'}
     maven { url "http://repo.dmulloy2.net/nexus/repository/public/" }
+    flatDir { dirs 'libs' }
 }
 
 dependencies {
@@ -36,6 +37,7 @@ dependencies {
     compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
     compile 'me.lucko:commodore:1.2'
     compile 'me.lucko:helper:5.5.0'
+    compileOnly name: 'GUIPlusDemo-1.0'
     compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'
     compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.4.0"

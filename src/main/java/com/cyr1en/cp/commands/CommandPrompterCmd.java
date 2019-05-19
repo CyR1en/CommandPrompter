@@ -2,6 +2,7 @@ package com.cyr1en.cp.commands;
 
 import co.aikar.commands.annotation.*;
 import com.cyr1en.cp.CommandPrompter;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 @CommandAlias("cmdprompter|cmdprmptr|cmdp|cp")
@@ -9,6 +10,12 @@ public class CommandPrompterCmd extends CPBaseCommand {
 
   public CommandPrompterCmd(CommandPrompter plugin) {
     super(plugin);
+  }
+
+  @Default
+  @Subcommand("testDispatch")
+  public void testDispatch(Player player) {
+    Bukkit.getServer().dispatchCommand(player, "gamemode creative");
   }
 
   @Default
