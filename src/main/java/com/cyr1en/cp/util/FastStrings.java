@@ -24,6 +24,7 @@
 
 package com.cyr1en.cp.util;
 
+import java.util.Arrays;
 import java.util.StringJoiner;
 
 /**
@@ -68,8 +69,13 @@ public class FastStrings {
    */
   public static boolean isNumeric(CharSequence charSequence) {
     if (isBlank(charSequence)) return false;
-    for (int i = 0; i < charSequence.length(); i++) {
-      if (!charIsNumeric((int) charSequence.charAt(i)))
+    int numDot = 0;
+    for (int i = charSequence.charAt(0) == 0x002D ? 1 : 0; i < charSequence.length(); i++) {
+      if (charSequence.charAt(i) == 0x002E) {
+        numDot++;
+        if (numDot > 1)
+          return false;
+      } else if (!charIsNumeric((int) charSequence.charAt(i)))
         return false;
     }
     return true;
@@ -91,9 +97,9 @@ public class FastStrings {
    * @return returns true if code point is an escape sequence or a space.
    */
   public static boolean isGhostChars(int codepoint) {
-    if(!Character.isValidCodePoint(codepoint))
+    if (!Character.isValidCodePoint(codepoint))
       return false;
-    return     codepoint == 0x0020 // space
+    return codepoint == 0x0020 // space
             || codepoint == 0x000D // carriage-return
             || codepoint == 0x000A // new-line
             || codepoint == 0x0009 // tab
@@ -158,5 +164,11 @@ public class FastStrings {
       }
     }
     return sb.toString();
+  }
+
+  public static void main(String[] args) {
+    String[] args1 = new String[]{"(What", "gamemode"};
+    String[] shortened = Arrays.copyOfRange(args1, 1, args1.length);
+    System.out.println(Arrays.toString(shortened));
   }
 }

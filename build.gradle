@@ -32,12 +32,9 @@ repositories {
 dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
-    compile "co.aikar:acf-paper:0.5.0-SNAPSHOT"
     compile 'com.github.mkremins:fanciful:master-SNAPSHOT'
     compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
-    compile 'me.lucko:commodore:1.2'
-    compile 'me.lucko:helper:5.5.0'
-    compileOnly name: 'GUIPlusDemo-1.0'
+    compile 'me.lucko:commodore:1.3'
     compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'
     compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.4.0"
@@ -52,9 +49,7 @@ processResources {
 
 shadowJar {
     archiveName = "CommandPrompter-${project.ext.fullVersion}.jar"
-    relocate 'co.aikar.commands', 'com.cyr1en.cp.acf'
     relocate 'me.lucko.commodore', 'com.cyr1en.cp.commodore'
-    relocate 'me.lucko.helper', 'com.cyr1en.cp.helper'
 }
 
 artifacts {

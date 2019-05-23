@@ -103,7 +103,6 @@ public class SimpleConfig {
     }
 
     this.config.set(path, value);
-
   }
 
   public void set(String path, Object value, String[] comment) {
