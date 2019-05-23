@@ -32,12 +32,10 @@ repositories {
 dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
-    compile 'com.github.mkremins:fanciful:master-SNAPSHOT'
     compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
     compile 'me.lucko:commodore:1.3'
     compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'
-    compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.4.0"
 }
 
 processResources {

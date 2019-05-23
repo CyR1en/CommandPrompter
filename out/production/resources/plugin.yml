@@ -8,8 +8,13 @@ api-version: 1.13
 
 commands:
   commandprompter:
+    aliases:
+      - cp
+      - cmdprompter
+      - cmdprmptr
+      - cmdp
     description: General CommandPrompter commands
 
 permissions:
-  reload:
+  commandprompter.reload:
     description: Allow sender to reload plugin.
