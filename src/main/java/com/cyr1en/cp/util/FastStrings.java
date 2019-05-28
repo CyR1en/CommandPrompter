@@ -24,7 +24,6 @@
 
 package com.cyr1en.cp.util;
 
-import java.util.Arrays;
 import java.util.StringJoiner;
 
 /**
@@ -138,37 +137,5 @@ public class FastStrings {
 
   public static boolean isEmpty(CharSequence charSequence) {
     return charSequence == null || charSequence.length() == 0;
-  }
-
-  public static boolean containsNonPlaneChar(String string) {
-    int length = string.length();
-    return length > string.codePointCount(0, length);
-  }
-
-  private static boolean isPlaneChar(int codePoint) {
-    return codePoint >= 0x0000 && codePoint <= 0xFFFF;
-  }
-
-  public static String removeNonPlaneChar(String str) {
-    if (isBlank(str))
-      return "";
-
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < str.length(); ) {
-      int c = str.codePointAt(i);
-      if (isPlaneChar(c)) {
-        sb.append((char) c);
-        i++;
-      } else {
-        i += 2;
-      }
-    }
-    return sb.toString();
-  }
-
-  public static void main(String[] args) {
-    String[] args1 = new String[]{"(What", "gamemode"};
-    String[] shortened = Arrays.copyOfRange(args1, 1, args1.length);
-    System.out.println(Arrays.toString(shortened));
   }
 }

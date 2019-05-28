@@ -8,9 +8,11 @@ import org.bukkit.command.Command;
 
 public class BrigadierRegistry {
   public static void register(CommandPrompter plugin, Command cmd) {
-    Commodore commodore = CommodoreProvider.getCommodore(plugin);
-    commodore.register(cmd, LiteralArgumentBuilder.literal("commandprompter")
-            .then(LiteralArgumentBuilder.literal("reload"))
-    );
+    if(CommodoreProvider.isSupported()) {
+      Commodore commodore = CommodoreProvider.getCommodore(plugin);
+      commodore.register(cmd, LiteralArgumentBuilder.literal("commandprompter")
+              .then(LiteralArgumentBuilder.literal("reload"))
+      );
+    }
   }
 }
