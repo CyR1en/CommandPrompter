@@ -12,7 +12,7 @@ targetCompatibility = 1.8
 
 project.ext.majorVersion = '0'
 project.ext.minorVersion = '1'
-project.ext.patchVersion = '12'
+project.ext.patchVersion = '14'
 project.ext.fullVersion = project.ext.majorVersion + '.' + project.ext.minorVersion + '.' + project.ext.patchVersion
 
 repositories {
@@ -32,7 +32,7 @@ repositories {
 dependencies {
     compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
-    compile 'net.wesjd:anvilgui:1.2.1-SNAPSHOT'
+    compile name: 'anvilgui-1.2.3-SNAPSHOT'
     compile 'me.lucko:commodore:1.3'
     compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.13-pre7-R0.1-SNAPSHOT'

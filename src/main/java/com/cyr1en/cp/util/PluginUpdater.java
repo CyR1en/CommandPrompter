@@ -96,6 +96,10 @@ public class PluginUpdater implements Listener {
     return iArg > iCurr;
   }
 
+  public String getVersion() {
+    return version;
+  }
+
   public void update() {
     Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
       try {

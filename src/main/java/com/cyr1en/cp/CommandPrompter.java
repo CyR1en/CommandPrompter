@@ -36,6 +36,7 @@ public class CommandPrompter extends JavaPlugin {
   private List<Prompt> registeredPrompts;
   private CommandManager commandManager;
   private I18N i18n;
+  private PluginUpdater spu;
 
   @Override
   public void onEnable() {
@@ -68,8 +69,12 @@ public class CommandPrompter extends JavaPlugin {
       config.set("Prompt-Timeout", 300, new String[]{"After how many seconds", "until CommandPrompter cancels", "a prompt"});
       config.saveConfig();
     }
+    if(config.get("Cancel-Keyword") == null) {
+      config.set("Cancel-Keyword", "cancel", new String[]{"Word that cancels command", "prompting."});
+      config.saveConfig();
+    }
     if (config.get("Argument-Regex") == null) {
-      config.set("Argument-Regex", " [.*?] ",
+      config.set("Argument-Regex", " <.*?> ",
               new String[]{"This will determine if",
                       "a part of a command is",
                       "a prompt.",
@@ -100,7 +105,7 @@ public class CommandPrompter extends JavaPlugin {
         }
       });
     }
-    PluginUpdater spu = new PluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plinfo/");
+    spu = new PluginUpdater(this, "https://contents.cyr1en.com/command-prompter/plinfo/");
     Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
       if (spu.needsUpdate())
         logger.warning("A new update is available!");
@@ -140,5 +145,9 @@ public class CommandPrompter extends JavaPlugin {
   public void deregisterPrompt(Prompt prompt) {
     registeredPrompts.remove(prompt);
     HandlerList.unregisterAll(prompt);
+  }
+
+  public PluginUpdater getSpu() {
+    return spu;
   }
 }
