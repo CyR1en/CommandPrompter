@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class Prompt implements Listener {
 
@@ -54,7 +55,8 @@ public class Prompt implements Listener {
 
     if (prompt.contains("-a ")) {
       prompt = prompt.replaceAll("-a ", "").trim();
-      List<String> parts = Arrays.asList(prompt.split("\\{br}"));
+      List<String> parts = Arrays.stream(prompt.split("\\{br}")).map(s ->
+              ChatColor.translateAlternateColorCodes('&', s)).collect(Collectors.toList());
 
       ItemStack item = new ItemStack(Material.PAPER);
       ItemMeta meta = item.getItemMeta();

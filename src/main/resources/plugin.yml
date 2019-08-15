@@ -18,3 +18,5 @@ commands:
 permissions:
   commandprompter.reload:
     description: Allow sender to reload plugin.
+  commandprompter.use:
+    description: Allow sender to use CommandPrompter argument feature.

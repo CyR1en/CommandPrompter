@@ -10,6 +10,7 @@ import com.cyr1en.cp.listener.CommandListener;
 import com.cyr1en.cp.listener.Prompt;
 import com.cyr1en.cp.util.I18N;
 import com.cyr1en.cp.util.PluginUpdater;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
@@ -49,6 +50,7 @@ public class CommandPrompter extends JavaPlugin {
   }
 
   private void start() {
+    new Metrics(this);
     logger = getLogger();
     this.manager = new SimpleConfigManager(this);
     Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
@@ -71,6 +73,11 @@ public class CommandPrompter extends JavaPlugin {
     }
     if(config.get("Cancel-Keyword") == null) {
       config.set("Cancel-Keyword", "cancel", new String[]{"Word that cancels command", "prompting."});
+      config.saveConfig();
+    }
+    if(config.get("Enable-Permission") == null) {
+      config.set("Enable-Permission", false, new String[]{"Enable permission check", "before a player can use", "the prompting feature",
+              "", "Checking for commandprompter.use"});
       config.saveConfig();
     }
     if (config.get("Argument-Regex") == null) {
