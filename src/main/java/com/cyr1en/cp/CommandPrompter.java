@@ -158,3 +158,4 @@ public class CommandPrompter extends JavaPlugin {
     return spu;
   }
 }
+

@@ -4,7 +4,7 @@ author: CyRien
 description: Perfect plugin companion for DeluxeMenus and ChestCommands
 
 main: com.cyr1en.cp.CommandPrompter
-api-version: 1.13
+api-version: 1.15
 
 commands:
   commandprompter:
