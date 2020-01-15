@@ -30,12 +30,12 @@
     <orderEntry type="library" name="Gradle: com.github.CyR1en.AnvilGUI:anvilgui-1_9_R2:ca30eea111" level="project" />
     <orderEntry type="library" name="Gradle: com.github.CyR1en.AnvilGUI:anvilgui-abstraction:ca30eea111" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Gradle: com.mojang:brigadier:1.0.14" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Gradle: com.mojang:brigadier:1.0.15" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Gradle: org.yaml:snakeyaml:1.25" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Gradle: com.google.guava:guava:21.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Gradle: commons-lang:commons-lang:2.6" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: net.md-5:bungeecord-chat:1.13-SNAPSHOT" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: com.google.code.gson:gson:2.8.0" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Gradle: commons-lang:commons-lang:2.6" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Gradle: com.google.guava:guava:21.0" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Gradle: org.yaml:snakeyaml:1.25" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Gradle: org.spigotmc:spigot-api:1.15.1-R0.1-SNAPSHOT" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Gradle: com.mojang:brigadier:1.0.15" level="project" />
   </component>
 </module>

@@ -1,6 +1,7 @@
 package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.api.Dispatcher;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -14,7 +15,6 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -139,11 +139,7 @@ public class Prompt implements Listener {
   }
 
   private void dispatch(Player sender, String command) {
-    new BukkitRunnable() {
-      public void run() {
-        sender.chat(command);
-      }
-    }.runTask(plugin);
+    Dispatcher.dispatchCommand(plugin, sender, command);
     plugin.deregisterPrompt(this);
   }
 
