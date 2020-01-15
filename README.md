@@ -1,6 +1,6 @@
-## ![cp](https://www.spigotmc.org/data/resource_icons/47/47772.jpg?1506763424) CommandPrompter
-_Making commands more interactive._
+## ![cp](https://www.spigotmc.org/data/resource_icons/47/47772.jpg?1506763424) CommandPrompter [![Actions Status](https://github.com/CyR1en/CommandPrompter/workflows/Java%20CI/badge.svg)](https://github.com/CyR1en/CommandPrompter/actions)
 
+_Making commands more interactive._ 
 ### What is this plugin for?
 CommandPrompter is for plugins such as Chest Commands. Where players could click an Item in the GUI and execute a command that have been pre-defined in the config as the player that clicked the item. The downside of Chest Command is that you already have to provide a command argument for an IconCommand(The item). Now with CommandPrompter, you can configure that pre-defined command for an Item to have an argument prompt.
 
