@@ -1,6 +1,7 @@
 package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.PromptRegistry;
 import com.cyr1en.cp.api.Dispatcher;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.Bukkit;
@@ -131,16 +132,20 @@ public class Prompt implements Listener {
   private void cancel() {
     if (!prompts.isEmpty() && plugin.inCommandProcess(sender)) {
       prompts.clear();
-      plugin.deregisterPrompt(this);
+      PromptRegistry.deregisterPrompt(this);
       String prefix = plugin.getConfiguration().getString("Prompt-Prefix");
       String cMsg = plugin.getI18N().getProperty("PromptCancel");
       sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + cMsg));
     }
   }
 
+  public CommandPrompter getPlugin() {
+    return plugin;
+  }
+
   private void dispatch(Player sender, String command) {
     Dispatcher.dispatchCommand(plugin, sender, command);
-    plugin.deregisterPrompt(this);
+    PromptRegistry.deregisterPrompt(this);
   }
 
 }

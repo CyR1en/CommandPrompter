@@ -7,14 +7,12 @@ import com.cyr1en.cp.commands.Reload;
 import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
-import com.cyr1en.cp.listener.Prompt;
 import com.cyr1en.cp.util.I18N;
 import com.cyr1en.cp.util.PluginUpdater;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -22,7 +20,6 @@ import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.SocketAddress;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
@@ -34,7 +31,6 @@ public class CommandPrompter extends JavaPlugin {
   private SimpleConfigManager manager;
   private SimpleConfig config;
   private Logger logger;
-  private List<Prompt> registeredPrompts;
   private CommandManager commandManager;
   private I18N i18n;
   private PluginUpdater spu;
@@ -46,7 +42,7 @@ public class CommandPrompter extends JavaPlugin {
 
   @Override
   public void onDisable() {
-    Collections.unmodifiableList(registeredPrompts).forEach(this::deregisterPrompt);
+    PromptRegistry.clean();
   }
 
   private void start() {
@@ -54,7 +50,6 @@ public class CommandPrompter extends JavaPlugin {
     logger = getLogger();
     this.manager = new SimpleConfigManager(this);
     Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
-    registeredPrompts = new ArrayList<>();
     i18n = new I18N(this, "CommandPrompter");
     setupConfig();
     setupUpdater();
@@ -71,13 +66,17 @@ public class CommandPrompter extends JavaPlugin {
       config.set("Prompt-Timeout", 300, new String[]{"After how many seconds", "until CommandPrompter cancels", "a prompt"});
       config.saveConfig();
     }
-    if(config.get("Cancel-Keyword") == null) {
+    if (config.get("Cancel-Keyword") == null) {
       config.set("Cancel-Keyword", "cancel", new String[]{"Word that cancels command", "prompting."});
       config.saveConfig();
     }
-    if(config.get("Enable-Permission") == null) {
+    if (config.get("Enable-Permission") == null) {
       config.set("Enable-Permission", false, new String[]{"Enable permission check", "before a player can use", "the prompting feature",
               "", "Checking for commandprompter.use"});
+      config.saveConfig();
+    }
+    if (config.get("Update-Checker") == null) {
+      config.set("Update-Checker", true, new String[]{"Allow CommandPrompter to", "check if it's up to date."});
       config.saveConfig();
     }
     if (config.get("Argument-Regex") == null) {
@@ -102,11 +101,17 @@ public class CommandPrompter extends JavaPlugin {
   }
 
   private void setupUpdater() {
+    if(!config.getBoolean("Update-Checker")) {
+      return;
+    }
     if (ProxySelector.getDefault() == null) {
       ProxySelector.setDefault(new ProxySelector() {
         private final List<Proxy> DIRECT_CONNECTION = Collections
                 .unmodifiableList(Collections.singletonList(Proxy.NO_PROXY));
-        public void connectFailed(URI arg0, SocketAddress arg1, IOException arg2) { }
+
+        public void connectFailed(URI arg0, SocketAddress arg1, IOException arg2) {
+        }
+
         public List<Proxy> select(URI uri) {
           return DIRECT_CONNECTION;
         }
@@ -133,7 +138,7 @@ public class CommandPrompter extends JavaPlugin {
   public void reload(boolean clean) {
     config.reloadConfig();
     if (clean)
-      new ArrayList<>(registeredPrompts).forEach(this::deregisterPrompt);
+      PromptRegistry.clean();
   }
 
   public SimpleConfig getConfiguration() {
@@ -141,17 +146,7 @@ public class CommandPrompter extends JavaPlugin {
   }
 
   public boolean inCommandProcess(CommandSender sender) {
-    return registeredPrompts.stream().anyMatch(prompt -> prompt.getSender() == sender);
-  }
-
-  public void registerPrompt(Prompt prompt) {
-    registeredPrompts.add(prompt);
-    Bukkit.getPluginManager().registerEvents(prompt, this);
-  }
-
-  public void deregisterPrompt(Prompt prompt) {
-    registeredPrompts.remove(prompt);
-    HandlerList.unregisterAll(prompt);
+    return PromptRegistry.getRegistry().stream().anyMatch(prompt -> prompt.getSender() == sender);
   }
 
   public PluginUpdater getSpu() {

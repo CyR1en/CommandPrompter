@@ -1,6 +1,7 @@
 package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.PromptRegistry;
 import com.cyr1en.cp.util.SRegex;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -45,7 +46,7 @@ public class CommandListener implements Listener {
             List<String> prompts = simpleRegex.getResultsList();
             if (prompts.size() > 0) {
                 cancellable.setCancelled(true);
-                plugin.registerPrompt(new Prompt(plugin, player, new LinkedList<>(prompts), command));
+                PromptRegistry.registerPrompt(new Prompt(plugin, player, new LinkedList<>(prompts), command));
             }
         }
     }
