@@ -32,6 +32,7 @@ import org.bukkit.command.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 
 public class CommandManager implements CommandExecutor {
@@ -63,7 +64,7 @@ public class CommandManager implements CommandExecutor {
               commandPrompter.getDescription().getVersion()));
 
       PluginUpdater spu = commandPrompter.getSpu();
-      if (commandPrompter.getSpu().needsUpdate()) {
+      if (Objects.nonNull(spu) && commandPrompter.getSpu().needsUpdate()) {
         String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&bA new update is available: &e" + spu.getVersion());
         messenger.sendMessage(sender, msg);
       }
