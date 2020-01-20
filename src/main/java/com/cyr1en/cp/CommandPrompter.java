@@ -137,6 +137,7 @@ public class CommandPrompter extends JavaPlugin {
 
   public void reload(boolean clean) {
     config.reloadConfig();
+    i18n = new I18N(this, "CommandPrompter");
     if (clean)
       PromptRegistry.clean();
   }
@@ -145,9 +146,6 @@ public class CommandPrompter extends JavaPlugin {
     return config;
   }
 
-  public boolean inCommandProcess(CommandSender sender) {
-    return PromptRegistry.getRegistry().stream().anyMatch(prompt -> prompt.getSender() == sender);
-  }
 
   public PluginUpdater getSpu() {
     return spu;
