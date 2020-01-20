@@ -130,7 +130,7 @@ public class Prompt implements Listener {
   }
 
   private void cancel() {
-    if (!prompts.isEmpty() && plugin.inCommandProcess(sender)) {
+    if (!prompts.isEmpty() && PromptRegistry.inCommandProcess(sender)) {
       prompts.clear();
       PromptRegistry.deregisterPrompt(this);
       String prefix = plugin.getConfiguration().getString("Prompt-Prefix");

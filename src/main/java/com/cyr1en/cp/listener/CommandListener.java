@@ -32,7 +32,7 @@ public class CommandListener implements Listener {
         if (plugin.getConfiguration().getBoolean("Enable-Permission") && !player.hasPermission("commandprompter.use")) {
             return;
         }
-        if (plugin.inCommandProcess(player.getPlayer())) {
+        if (PromptRegistry.inCommandProcess(player.getPlayer())) {
             String prefix = plugin.getConfiguration().getString("Prompt-Prefix");
             player.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + plugin.getI18N().getProperty("PromptInProgress")));
             cancellable.setCancelled(true);
