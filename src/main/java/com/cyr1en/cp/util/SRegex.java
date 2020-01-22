@@ -44,7 +44,8 @@ public class SRegex {
                     "foo@demo.net\tbar.ba@test.co.uk\n";
 
     public static final String ANSI_RESET = "\033[0m";
-    public static final String ANSI_GREEN = "\033[42m";
+    public static final String ANSI_GREEN_FOREGROUND = "\033[42m";
+    public static final String ANSI_GREEN = "\u001b[32m";
 
     private Pattern regex;
 
@@ -151,7 +152,7 @@ public class SRegex {
         String tempSample = sample;
         find(p);
         for (String string : resultsList) {
-            tempSample = tempSample.replace(string, ANSI_GREEN + string + ANSI_RESET);
+            tempSample = tempSample.replace(string, ANSI_GREEN_FOREGROUND + string + ANSI_RESET);
         }
         result = tempSample;
         System.out.println(this);
