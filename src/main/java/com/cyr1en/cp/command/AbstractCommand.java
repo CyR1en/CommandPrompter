@@ -69,8 +69,9 @@ public abstract class AbstractCommand implements ArgumentCounter {
     }
     if (countRequiredArgs() != args.length) {
       String message = plugin.getI18N().getProperty("CommandInvalidArgs");
+      String usageMsg = plugin.getI18N().getFormattedProperty("CommandUsage", String.format("/cp %s %s", getName(), getArgument()));
       sendErrMessage(sender, message);
-      sendErrMessage(sender, String.format("/%s %s", getName(), getArgument()));
+      sendErrMessage(sender, usageMsg);
       return false;
     }
     doCommand(sender, args);

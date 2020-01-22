@@ -13,6 +13,11 @@ public class CommandMessenger {
   }
 
   public void sendMessage(CommandSender sender, String message) {
+    sendMessage(sender, message, true);
+  }
+
+  public void sendMessage(CommandSender sender, String message, boolean configuredPrefix) {
+    String prefix = configuredPrefix ? this.prefix : "&6[&aCommandPrompter&6] ";
     String formattedMsg = ChatColor.translateAlternateColorCodes('&', prefix + message);
     sender.sendMessage(formattedMsg);
   }

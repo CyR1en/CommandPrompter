@@ -25,7 +25,7 @@
 package com.cyr1en.cp.command;
 
 import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.util.PluginUpdater;
+import com.cyr1en.cp.util.UpdateChecker;
 import com.google.common.collect.Lists;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
@@ -61,13 +61,10 @@ public class CommandManager implements CommandExecutor {
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
     if (args.length == 0) {
       messenger.sendMessage(sender, commandPrompter.getI18N().getFormattedProperty("PluginVersion",
-              commandPrompter.getDescription().getVersion()));
-
-      PluginUpdater spu = commandPrompter.getSpu();
-      if (Objects.nonNull(spu) && commandPrompter.getSpu().needsUpdate()) {
-        String msg = org.bukkit.ChatColor.translateAlternateColorCodes('&', "&bA new update is available: &e" + spu.getVersion());
-        messenger.sendMessage(sender, msg);
-      }
+              commandPrompter.getDescription().getVersion()), false);
+      UpdateChecker uC = commandPrompter.getUpdateChecker();
+      if (!uC.isDisabled() && commandPrompter.getUpdateChecker().newVersionAvailable())
+        uC.sendUpdateAvailableMessage(sender);
       return false;
     }
     for (AbstractCommand cmd : commands)
