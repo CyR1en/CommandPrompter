@@ -22,6 +22,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Objects;
+import java.util.logging.Level;
 
 public class UpdateChecker implements Listener {
 
@@ -48,11 +49,12 @@ public class UpdateChecker implements Listener {
   public String getCurrVersion() {
     String version = "0.0.0";
     try{
-      InputStreamReader ir = new InputStreamReader(buildConnection(Objects.requireNonNull(stringAsUrl())).getInputStream());
+      HttpURLConnection connection = buildConnection(Objects.requireNonNull(stringAsUrl()));
+      InputStreamReader ir = new InputStreamReader(connection.getInputStream());
       BufferedReader br = new BufferedReader(ir);
       version = br.readLine();
     } catch (IOException e) {
-      e.printStackTrace();
+      plugin.getLogger().log(Level.WARNING, "An error occurred while getting update data: ''{0}''!", e.getCause());
     }
     return version;
   }
@@ -66,10 +68,11 @@ public class UpdateChecker implements Listener {
   }
 
   private URL stringAsUrl() {
+    String formatted = String.format(API_URL, resourceID);
     try {
-      return new URL(String.format(API_URL, resourceID));
+      return new URL(formatted);
     } catch (MalformedURLException e) {
-      System.out.println(UpdateChecker.API_URL);
+      plugin.getLogger().log(Level.WARNING, "''{0}'' is a malformed URL!", formatted);
       return null;
     }
   }
