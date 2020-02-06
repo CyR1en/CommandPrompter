@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019 Ethan Bacurio
+ * Copyright (c) 2020 Ethan Bacurio
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@ import org.bukkit.command.TabCompleter;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class CommandTabCompleter implements TabCompleter {
@@ -62,32 +63,11 @@ public class CommandTabCompleter implements TabCompleter {
   }
 
   private List<String> getMatch(CommandSender commandSender, String query) {
-    List<String> exact = new ArrayList<>();
-    List<String> wrongcase = new ArrayList<>();
-    List<String> startswith = new ArrayList<>();
-    commands.forEach(cmd -> {
-      String name = cmd.getName();
+    Predicate<AbstractCommand> pM = (c) -> c.getName().equalsIgnoreCase(query) && commandSender.hasPermission(c.getPermission());
+    Predicate<AbstractCommand> pS = (c) -> c.getName().toLowerCase().startsWith(query.toLowerCase()) && commandSender.hasPermission(c.getPermission());
 
-      List<String> lowerCaseAliases = cmd.getAlias();
-      lowerCaseAliases.replaceAll(String::toLowerCase);
-
-      if (name.equals(query)) {
-        if (commandSender.hasPermission(cmd.getPermission()))
-          exact.add(name);
-      } else if ((name.equalsIgnoreCase(query)) && exact.isEmpty()) {
-        if (commandSender.hasPermission(cmd.getPermission()))
-          wrongcase.add(name);
-      } else if ((name.toLowerCase().startsWith(query.toLowerCase())) && wrongcase.isEmpty()) {
-        if (commandSender.hasPermission(cmd.getPermission()))
-          startswith.add(name);
-      }
-    });
-    if (!exact.isEmpty())
-      return Collections.unmodifiableList(exact);
-    if (!wrongcase.isEmpty())
-      return Collections.unmodifiableList(wrongcase);
-    if (!startswith.isEmpty())
-      return Collections.unmodifiableList(startswith);
-    return ImmutableList.of();
+    List<String> match = commands.stream().filter(pM).map(AbstractCommand::getName).collect(Collectors.toList());
+    return !match.isEmpty() ? match : commands.stream().filter(pS).map(AbstractCommand::getName).collect(Collectors.toList());
   }
+
 }
