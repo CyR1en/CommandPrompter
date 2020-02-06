@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019 Ethan Bacurio
+ * Copyright (c) 2020 Ethan Bacurio
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,7 @@ public class CommandManager implements CommandExecutor {
 
   public void registerTabCompleter(CommandTabCompleter commandTabCompleter) {
     PluginCommand command = Bukkit.getPluginCommand("commandprompter");
-    command.setTabCompleter(commandTabCompleter);
+    Objects.requireNonNull(command).setTabCompleter(commandTabCompleter);
   }
 
   @Override
