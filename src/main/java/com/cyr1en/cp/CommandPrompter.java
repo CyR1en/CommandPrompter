@@ -31,11 +31,13 @@ import com.cyr1en.cp.commands.Reload;
 import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
+import com.cyr1en.cp.listener.InventoryClickListener;
 import com.cyr1en.cp.util.I18N;
 import com.cyr1en.cp.util.SRegex;
 import com.cyr1en.cp.util.UpdateChecker;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -54,6 +56,7 @@ public class CommandPrompter extends JavaPlugin {
   private I18N i18n;
   private UpdateChecker updateChecker;
 
+
   @Override
   public void onEnable() {
     Bukkit.getServer().getScheduler().runTaskLater(this, this::start, 1L);
@@ -71,6 +74,7 @@ public class CommandPrompter extends JavaPlugin {
     logger = getLogger();
     this.manager = new SimpleConfigManager(this);
     Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
+    Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
     i18n = new I18N(this, "CommandPrompter");
     setupConfig();
     setupUpdater();
@@ -157,5 +161,6 @@ public class CommandPrompter extends JavaPlugin {
   public UpdateChecker getUpdateChecker() {
     return updateChecker;
   }
+
 }
 
