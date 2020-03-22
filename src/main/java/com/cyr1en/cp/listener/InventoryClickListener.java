@@ -8,6 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
 
 import java.util.List;
 
@@ -35,6 +36,17 @@ public class InventoryClickListener implements Listener {
                         playerList.drop();
                         playerList.complete(name);
                         p.closeInventory();
+                        return;
+                    }
+                    if (event.getCurrentItem().getType() == Material.FEATHER) {
+                        String name = event.getCurrentItem().getItemMeta().getDisplayName();
+                        if(name.equals("=>"))
+                           playerList.nextPage();
+                        else if(name.equals("<="))
+                            playerList.prevPage();
+
+                        event.setCancelled(true);
+                        p.updateInventory();
                         return;
                     }
                 }
