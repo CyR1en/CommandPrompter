@@ -32,6 +32,8 @@ import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
 import com.cyr1en.cp.listener.InventoryClickListener;
+import com.cyr1en.cp.listener.PlayerLoginListener;
+import com.cyr1en.cp.listener.PlayerQuitListener;
 import com.cyr1en.cp.util.I18N;
 import com.cyr1en.cp.util.SRegex;
 import com.cyr1en.cp.util.UpdateChecker;
@@ -75,6 +77,8 @@ public class CommandPrompter extends JavaPlugin {
     this.manager = new SimpleConfigManager(this);
     Bukkit.getPluginManager().registerEvents(new CommandListener(this), this);
     Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
+    Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(), this);
+    Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
     i18n = new I18N(this, "CommandPrompter");
     setupConfig();
     setupUpdater();
