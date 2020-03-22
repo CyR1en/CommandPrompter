@@ -26,7 +26,6 @@ public class PlayerList {
     private Player player;
     private Consumer<Player> closeListener;
     private BiConsumer<Player, String> completeListener;
-    private String title;
     CommandPrompter plugin;
 
     static {
@@ -37,7 +36,6 @@ public class PlayerList {
 
     public PlayerList(CommandPrompter plugin, Player player, String title) {
         this.plugin = plugin;
-        this.title = title;
         this.player = player;
         this.inventory = Bukkit.createInventory(player, 54, title);
     }
@@ -55,8 +53,7 @@ public class PlayerList {
     public static void uncachePlayer(String player) {
         for (ItemStack item : skulls) {
             String name = item.getItemMeta().getDisplayName();
-            if (name.equals(player))
-            {
+            if (name.equals(player)) {
                 skulls.remove(item);
                 return;
             }
