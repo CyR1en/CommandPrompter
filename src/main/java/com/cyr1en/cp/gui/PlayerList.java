@@ -24,6 +24,11 @@ public class PlayerList {
     private Inventory inventory;
 
     private Player player;
+
+    public Consumer<Player> getCloseListener() {
+        return closeListener;
+    }
+
     private Consumer<Player> closeListener;
     private BiConsumer<Player, String> completeListener;
     CommandPrompter plugin;
@@ -145,7 +150,6 @@ public class PlayerList {
 
     public void close() {
         closeListener.accept(player);
-
     }
 
     public void complete(String str) {

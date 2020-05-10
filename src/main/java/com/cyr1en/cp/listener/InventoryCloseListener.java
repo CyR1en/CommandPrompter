@@ -25,6 +25,7 @@ public class InventoryCloseListener implements Listener {
                 return;
             playerList.drop();
             playerList.close();
+            break;
         }
     }
 }
