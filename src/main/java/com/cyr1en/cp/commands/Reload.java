@@ -26,23 +26,27 @@ package com.cyr1en.cp.commands;
 
 
 import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.command.AbstractCommand;
-import com.google.common.collect.Lists;
+import com.cyr1en.kiso.mc.command.AbstractCommand;
+import com.cyr1en.kiso.mc.command.CommandMessenger;
 import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class Reload extends AbstractCommand {
 
-  public Reload(CommandPrompter plugin) {
-    super(plugin);
-    this.name = "reload";
-    this.alias = Lists.newArrayList("rload", "r");
+  private final CommandPrompter commandPrompter;
+
+  public Reload(JavaPlugin plugin, CommandMessenger messenger) {
+    super(plugin, messenger);
+    commandPrompter = (CommandPrompter) plugin;
+    this.commandName = "reload";
+    this.alias = new String[]{"rload", "r"};
     this.permission = "commandprompter.reload";
   }
 
   @Override
   public void doCommand(CommandSender sender, String[] args) {
-    getPlugin().reload(true);
-    String message = getPlugin().getI18N().getProperty("CommandReloadSuccess");
-    sendMessage(sender, message);
+    commandPrompter.reload(true);
+    String message = commandPrompter.getI18N().getProperty("CommandReloadSuccess");
+    this.messenger.sendMessage(sender, message);
   }
 }

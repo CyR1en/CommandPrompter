@@ -24,6 +24,7 @@
 
 package com.cyr1en.cp.api;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -53,5 +54,16 @@ public class Dispatcher {
         sender.chat(checked);
       }
     }.runTask(plugin);
+  }
+
+  /**
+   * Dispatch the command as op
+   *
+   * @param plugin Instance of plugin.
+   * @param sender command sender (in menu's, then the item clicker)
+   * @param command command that would be dispatched.
+   */
+  public static void dispathcOP(Plugin plugin, Player sender, String command){
+    Bukkit.dispatchCommand(sender, command);
   }
 }

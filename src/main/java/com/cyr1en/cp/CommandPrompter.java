@@ -24,16 +24,16 @@
 
 package com.cyr1en.cp;
 
-import com.cyr1en.cp.command.CommandManager;
-import com.cyr1en.cp.command.CommandTabCompleter;
 import com.cyr1en.cp.command.CommodoreRegistry;
 import com.cyr1en.cp.commands.Reload;
 import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
-import com.cyr1en.cp.util.I18N;
 import com.cyr1en.cp.util.SRegex;
-import com.cyr1en.cp.util.UpdateChecker;
+import com.cyr1en.kiso.mc.I18N;
+import com.cyr1en.kiso.mc.UpdateChecker;
+import com.cyr1en.kiso.mc.command.CommandManager;
+import com.cyr1en.kiso.mc.command.CommandMessenger;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
@@ -113,12 +113,30 @@ public class CommandPrompter extends JavaPlugin {
   }
 
   private void setupCommands() {
-    commandManager = new CommandManager(this);
-    commandManager.registerCommand(new Reload(this));
+    setupCommandManager();
+    commandManager.registerCommand(Reload.class);
     PluginCommand command = getCommand("commandprompter");
     Objects.requireNonNull(command).setExecutor(commandManager);
-    commandManager.registerTabCompleter(new CommandTabCompleter(this));
+    commandManager.registerTabCompleter(command);
     CommodoreRegistry.register(this, command);
+  }
+
+  private void setupCommandManager() {
+    CommandManager.Builder cmgBuilder = new CommandManager.Builder();
+    cmgBuilder.plugin(this);
+    cmgBuilder.setPrefix(getConfig().getString("Prompt-Prefix"));
+    cmgBuilder.setPlayerOnlyMessage(getI18N().getProperty("CommandPlayerOnly"));
+    cmgBuilder.setCommandInvalidMessage(getI18N().getProperty("CommandInvalid"));
+    cmgBuilder.setNoPermMessage(getI18N().getFormattedProperty("CommandNoPerm"));
+    cmgBuilder.setFallBack(context -> {
+      getCommandManager().getMessenger().sendMessage(context.getSender(),
+              getI18N().getFormattedProperty("PluginVersion", getDescription().getVersion()));
+      UpdateChecker uC = getUpdateChecker();
+      if (!uC.isDisabled() && uC.newVersionAvailable())
+        uC.sendUpdateAvailableMessage(context.getSender());
+      return false;
+    });
+    commandManager = cmgBuilder.build();
   }
 
   private void setupUpdater() {
@@ -126,7 +144,7 @@ public class CommandPrompter extends JavaPlugin {
     if(updateChecker.isDisabled()) return;
     Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
       if (updateChecker.newVersionAvailable())
-        logger.info(SRegex.ANSI_GREEN + "A new update is available! (" + updateChecker.getCurrVersion() + ")" + SRegex.ANSI_RESET);
+        logger.info(SRegex.ANSI_GREEN + "A new update is available! (" + updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
       else
         logger.info("No update was found.");
     });
@@ -144,6 +162,7 @@ public class CommandPrompter extends JavaPlugin {
   public void reload(boolean clean) {
     config.reloadConfig();
     i18n = new I18N(this, "CommandPrompter");
+    commandManager.getMessenger().setPrefix(config.getString("Prompt-Prefix"));
     setupUpdater();
     if (clean)
       PromptRegistry.clean();

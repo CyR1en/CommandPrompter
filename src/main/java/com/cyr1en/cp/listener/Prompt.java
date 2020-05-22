@@ -78,6 +78,11 @@ public class Prompt implements Listener {
             .replaceAll("[^\\w\\s]", "\\\\$0");
     String prompt = prompts.get(0).replaceAll("[" + parsedEscapedRegex + "]", "");
 
+    boolean op = false;
+    if (prompt.contains("-op ")) {
+      prompt = prompt.replaceAll("-op ", "").trim();
+      op = true;
+    }
     if (prompt.contains("-a ")) {
       prompt = prompt.replaceAll("-a ", "").trim();
       List<String> parts = Arrays.stream(prompt.split("\\{br}")).map(s ->

@@ -36,7 +36,7 @@ targetCompatibility = 1.8
 
 project.ext.majorVersion = '0'
 project.ext.minorVersion = '1'
-project.ext.patchVersion = '18'
+project.ext.patchVersion = '19'
 project.ext.fullVersion = project.ext.majorVersion + '.' + project.ext.minorVersion + '.' + project.ext.patchVersion
 
 repositories {
@@ -55,11 +55,12 @@ repositories {
 }
 
 dependencies {
-    compile group: 'org.jsoup', name: 'jsoup', version: '1.11.3'
     compile group: 'commons-io', name: 'commons-io', version: '2.5'
+    compile 'com.github.cyr1en.kiso:kiso-mc:d674db0889'
+    compile 'com.github.cyr1en.kiso:kiso-utils:d674db0889'
     compile 'org.bstats:bstats-bukkit:1.5'
     compile 'com.github.CyR1en:AnvilGUI:ca30eea111'
-    compile 'me.lucko:commodore:1.5'
+    compile 'me.lucko:commodore:1.8'
     compileOnly 'com.mojang:brigadier:1.0.15'
     compileOnly 'org.spigotmc:spigot-api:1.15.1-R0.1-SNAPSHOT'
 }

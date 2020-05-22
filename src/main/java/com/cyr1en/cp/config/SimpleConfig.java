@@ -29,10 +29,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
 
@@ -151,14 +150,18 @@ public class SimpleConfig {
   }
 
   public void reloadConfig() {
-    Reader reader = new InputStreamReader(manager.getConfigContent(file));
+    Reader reader = null;
+    try {
+      reader = new InputStreamReader(Files.newInputStream(file.toPath()), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
     this.config = YamlConfiguration.loadConfiguration(reader);
   }
 
   public void saveConfig() {
     String config = this.config.saveToString();
     manager.saveConfig(config, this.file);
-
   }
 
   public Set<String> getKeys() {
