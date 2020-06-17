@@ -35,27 +35,21 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 project.ext.majorVersion = '0'
-project.ext.minorVersion = '1'
-project.ext.patchVersion = '19'
+project.ext.minorVersion = '2'
+project.ext.patchVersion = '0'
 project.ext.fullVersion = project.ext.majorVersion + '.' + project.ext.minorVersion + '.' + project.ext.patchVersion
 
 repositories {
     mavenCentral()
     jcenter()
     mavenLocal()
-    maven { url = "https://repo.aikar.co/content/groups/aikar/" }
     maven { url 'https://jitpack.io' }
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
-    maven { url 'https://nexus.wesjd.net/repository/thirdparty/' }
     maven { url 'https://repo.lucko.me/' }
     maven { url 'https://libraries.minecraft.net'}
-    maven { url "http://repo.dmulloy2.net/nexus/repository/public/" }
-    maven { url 'https://repo.codemc.org/repository/maven-public'}
-    flatDir { dirs 'libs' }
 }
 
 dependencies {
-    compile group: 'commons-io', name: 'commons-io', version: '2.5'
     compile 'com.github.cyr1en.kiso:kiso-mc:d674db0889'
     compile 'com.github.cyr1en.kiso:kiso-utils:d674db0889'
     compile 'org.bstats:bstats-bukkit:1.5'

@@ -26,7 +26,7 @@ package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
 import com.cyr1en.cp.PromptRegistry;
-import com.cyr1en.cp.util.SRegex;
+import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
