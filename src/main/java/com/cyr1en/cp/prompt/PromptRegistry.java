@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp;
+package com.cyr1en.cp.prompt;
 
 import com.cyr1en.cp.listener.Prompt;
 import org.bukkit.Bukkit;

@@ -25,7 +25,7 @@
 package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.PromptRegistry;
+import com.cyr1en.cp.prompt.PromptRegistry;
 import com.cyr1en.cp.api.Dispatcher;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.Bukkit;

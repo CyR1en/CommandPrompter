@@ -29,6 +29,7 @@ import com.cyr1en.cp.commands.Reload;
 import com.cyr1en.cp.config.SimpleConfig;
 import com.cyr1en.cp.config.SimpleConfigManager;
 import com.cyr1en.cp.listener.CommandListener;
+import com.cyr1en.cp.prompt.PromptRegistry;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;

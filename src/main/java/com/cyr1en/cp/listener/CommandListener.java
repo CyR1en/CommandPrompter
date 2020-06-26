@@ -25,7 +25,8 @@
 package com.cyr1en.cp.listener;
 
 import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.PromptRegistry;
+import com.cyr1en.cp.prompt.PromptManager;
+import com.cyr1en.cp.prompt.PromptRegistry;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -42,9 +43,11 @@ import java.util.regex.Pattern;
 public class CommandListener implements Listener {
 
     private CommandPrompter plugin;
+    private PromptManager promptManager;
 
     public CommandListener(CommandPrompter plugin) {
         this.plugin = plugin;
+        this.promptManager = new PromptManager.Builder(plugin).build();
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
