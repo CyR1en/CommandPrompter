@@ -24,40 +24,30 @@
 
 package com.cyr1en.cp.prompt;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import com.cyr1en.cp.api.prompt.Prompt;
+import sun.awt.image.ImageWatched;
 
+import java.util.LinkedList;
 
-public class PromptContext {
-  private final Cancellable callable;
-  private final CommandSender sender;
-  private final String content;
+public class PromptQueue extends LinkedList<Prompt> {
 
-  public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
+  private PromptContext context;
+  private StringBuilder commandStrBuilder;
+
+  private PromptQueue(PromptContext context) {
+    this.context = context;
+    this.commandStrBuilder = new StringBuilder();
   }
 
-  public CommandSender getSender() {
-    return sender;
+  public void next() {
+    if(this.size() > 0)
+      this.pollLast().sendPrompt();
   }
 
-  public Cancellable getCallable() {
-    return callable;
-  }
+  public static class Builder {
 
-  public String getContent() {
-    return content;
-  }
+    private PromptContext context;
 
-  @Override
-  public String toString() {
-    return "PromptContext{" +
-            "callable=" + callable +
-            ", sender=" + sender +
-            ", content='" + content + '\'' +
-            '}';
+    private
   }
 }

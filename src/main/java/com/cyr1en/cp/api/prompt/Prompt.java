@@ -22,42 +22,54 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.cp.api.prompt;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.prompt.PromptContext;
+import com.cyr1en.cp.prompt.PromptQueue;
+
+public interface Prompt {
+
+  /**
+   * Method that sends the prompt.
+   */
+  void sendPrompt();
+
+  /**
+   * Accessor for the {@link PromptContext}.
+   *
+   * <p>{@link PromptContext} contains all the information that you need for
+   * the {@link Prompt}.</p>
+   *
+   * @see PromptContext
+   * @return context for the prompt.
+   */
+  PromptContext getContext();
+
+  /**
+   * Get the instance of the queue where this prompt exists.
+   *
+   * @return Get the instance of the queue where this prompt exists.
+   */
+  PromptQueue getPromptQueue();
+
+  /**
+   * Get instance of the plugin.
+   *
+   * <p>The instance is a sub-class {@link org.bukkit.plugin.java.JavaPlugin}.</p>
+   *
+   * @return Instance of a plugin.
+   */
+  CommandPrompter getPlugin();
+
+  /**
+   * Get the identifier for the prompt.
+   *
+   * An identifier is a {@link String} that signifies the type of a prompt.
+   *
+   * @return Returns the identifier for the prompt.
+   */
+  String getTrigger();
 
 
-public class PromptContext {
-  private final Cancellable callable;
-  private final CommandSender sender;
-  private final String content;
-
-  public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
-  }
-
-  public CommandSender getSender() {
-    return sender;
-  }
-
-  public Cancellable getCallable() {
-    return callable;
-  }
-
-  public String getContent() {
-    return content;
-  }
-
-  @Override
-  public String toString() {
-    return "PromptContext{" +
-            "callable=" + callable +
-            ", sender=" + sender +
-            ", content='" + content + '\'' +
-            '}';
-  }
 }

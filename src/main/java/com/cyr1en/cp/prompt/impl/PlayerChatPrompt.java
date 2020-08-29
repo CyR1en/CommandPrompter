@@ -22,42 +22,31 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.cp.prompt.impl;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import com.cyr1en.cp.CommandPrompter;
+import com.cyr1en.cp.api.prompt.ChatPrompt;
+import com.cyr1en.cp.prompt.PromptContext;
+import com.cyr1en.cp.prompt.PromptQueue;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
+import java.util.Arrays;
+import java.util.List;
 
-public class PromptContext {
-  private final Cancellable callable;
-  private final CommandSender sender;
-  private final String content;
+public class PlayerChatPrompt extends ChatPrompt {
 
-  public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
-  }
-
-  public CommandSender getSender() {
-    return sender;
-  }
-
-  public Cancellable getCallable() {
-    return callable;
-  }
-
-  public String getContent() {
-    return content;
+  public PlayerChatPrompt(CommandPrompter plugin, PromptContext context, PromptQueue queue) {
+    super(plugin, "", context, queue);
   }
 
   @Override
-  public String toString() {
-    return "PromptContext{" +
-            "callable=" + callable +
-            ", sender=" + sender +
-            ", content='" + content + '\'' +
-            '}';
+  public void process(Player player, String message) {
+
+  }
+
+  @Override
+  public void onEventComplete(AsyncPlayerChatEvent event) {
+
   }
 }

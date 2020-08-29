@@ -22,42 +22,16 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.cp.api.prompt;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerEvent;
 
+public interface EventBasedPrompt<T extends PlayerEvent> extends Prompt {
 
-public class PromptContext {
-  private final Cancellable callable;
-  private final CommandSender sender;
-  private final String content;
-
-  public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
-  }
-
-  public CommandSender getSender() {
-    return sender;
-  }
-
-  public Cancellable getCallable() {
-    return callable;
-  }
-
-  public String getContent() {
-    return content;
-  }
-
-  @Override
-  public String toString() {
-    return "PromptContext{" +
-            "callable=" + callable +
-            ", sender=" + sender +
-            ", content='" + content + '\'' +
-            '}';
-  }
+  /**
+   * Method to invoke when an generic {@link PlayerEvent} happens.
+   *
+   * @param event Generic {@link PlayerEvent}
+   */
+  void onEventComplete(T event);
 }
