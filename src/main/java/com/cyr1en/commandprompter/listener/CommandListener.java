@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.listener;
+package com.cyr1en.commandprompter.listener;
 
-import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.prompt.PromptManager;
-import com.cyr1en.cp.prompt.PromptRegistry;
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptManager;
+import com.cyr1en.commandprompter.prompt.PromptRegistry;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -42,7 +42,7 @@ import java.util.regex.Pattern;
 
 public class CommandListener implements Listener {
 
-    private CommandPrompter plugin;
+    protected CommandPrompter plugin;
     private PromptManager promptManager;
 
     public CommandListener(CommandPrompter plugin) {
@@ -50,12 +50,7 @@ public class CommandListener implements Listener {
         this.promptManager = new PromptManager.Builder(plugin).build();
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onCommand(PlayerCommandPreprocessEvent event) {
-        process(event.getPlayer(), event, event.getMessage());
-    }
-
-    private void process(Player player, Cancellable cancellable, String command) {
+    protected void process(Player player, Cancellable cancellable, String command) {
         if (plugin.getConfiguration().getBoolean("Enable-Permission") && !player.hasPermission("commandprompter.use")) {
             return;
         }
@@ -73,10 +68,11 @@ public class CommandListener implements Listener {
             List<String> prompts = simpleRegex.getResultsList();
             if (prompts.size() > 0) {
                 cancellable.setCancelled(true);
-                PromptRegistry.registerPrompt(new Prompt(plugin, player, new LinkedList<>(prompts), command));
+               // PromptRegistry.registerPrompt(new Prompt(plugin, player, new LinkedList<>(prompts), command));
             }
         }
     }
+
 
 
 }

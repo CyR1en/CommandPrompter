@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.api.prompt;
+package com.cyr1en.commandprompter.api.prompt;
 
-import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.prompt.PromptContext;
-import com.cyr1en.cp.prompt.PromptQueue;
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptQueue;
 
 public interface Prompt {
 

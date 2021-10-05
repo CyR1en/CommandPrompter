@@ -22,32 +22,28 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.commandprompter.prompt.impl;
 
-import com.cyr1en.cp.api.prompt.Prompt;
-import sun.awt.image.ImageWatched;
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.prompt.ChatPrompt;
+import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptQueue;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 
-import java.util.LinkedList;
+public class PlayerChatPrompt extends ChatPrompt {
 
-public class PromptQueue extends LinkedList<Prompt> {
-
-  private PromptContext context;
-  private StringBuilder commandStrBuilder;
-
-  private PromptQueue(PromptContext context) {
-    this.context = context;
-    this.commandStrBuilder = new StringBuilder();
+  public PlayerChatPrompt(CommandPrompter plugin, PromptContext context, PromptQueue queue) {
+    super(plugin, "", context, queue);
   }
 
-  public void next() {
-    if(this.size() > 0)
-      this.pollLast().sendPrompt();
+  @Override
+  public void process(Player player, String message) {
+
   }
 
-  public static class Builder {
+  @Override
+  public void onEventComplete(AsyncPlayerChatEvent event) {
 
-    private PromptContext context;
-
-    private
   }
 }

@@ -22,31 +22,42 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.commands;
+package com.cyr1en.commandprompter.prompt;
 
-
-import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.kiso.mc.command.AbstractCommand;
-import com.cyr1en.kiso.mc.command.CommandMessenger;
 import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.event.Cancellable;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
-public class Reload extends AbstractCommand {
 
-  private final CommandPrompter commandPrompter;
+public class PromptContext {
+  private final Cancellable callable;
+  private final CommandSender sender;
+  private final String content;
 
-  public Reload(JavaPlugin plugin, CommandMessenger messenger) {
-    super(plugin, messenger);
-    commandPrompter = (CommandPrompter) plugin;
-    this.commandName = "reload";
-    this.alias = new String[]{"rload", "r"};
-    this.permission = "commandprompter.reload";
+  public PromptContext(PlayerCommandPreprocessEvent e) {
+    this.callable = e;
+    this.sender = e.getPlayer();
+    this.content = e.getMessage();
+  }
+
+  public CommandSender getSender() {
+    return sender;
+  }
+
+  public Cancellable getCallable() {
+    return callable;
+  }
+
+  public String getContent() {
+    return content;
   }
 
   @Override
-  public void doCommand(CommandSender sender, String[] args) {
-    commandPrompter.reload(true);
-    String message = commandPrompter.getI18N().getProperty("CommandReloadSuccess");
-    this.messenger.sendMessage(sender, message);
+  public String toString() {
+    return "PromptContext{" +
+            "callable=" + callable +
+            ", sender=" + sender +
+            ", content='" + content + '\'' +
+            '}';
   }
 }

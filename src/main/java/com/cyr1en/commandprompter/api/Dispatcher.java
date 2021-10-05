@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.api;
+package com.cyr1en.commandprompter.api;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;

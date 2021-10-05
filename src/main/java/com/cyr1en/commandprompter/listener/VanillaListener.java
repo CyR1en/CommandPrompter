@@ -22,30 +22,22 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.command;
+package com.cyr1en.commandprompter.listener;
 
-import com.cyr1en.cp.CommandPrompter;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-import me.lucko.commodore.Commodore;
-import me.lucko.commodore.CommodoreProvider;
-import me.lucko.commodore.file.CommodoreFileFormat;
-import org.bukkit.command.Command;
+import com.cyr1en.commandprompter.CommandPrompter;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
-import java.io.IOException;
-import java.util.Objects;
+public class VanillaListener extends CommandListener{
 
-public class CommodoreRegistry {
-
-  public static void register(CommandPrompter plugin, Command cmd) {
-    if (CommodoreProvider.isSupported()) {
-      try {
-        Commodore commodore = CommodoreProvider.getCommodore(plugin);
-        LiteralCommandNode<?> cpCommand = CommodoreFileFormat.parse(Objects.requireNonNull(plugin.getResource("CommandPrompter.commodore")));
-        commodore.register(cmd, cpCommand);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+    public VanillaListener(CommandPrompter plugin) {
+        super(plugin);
     }
-  }
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onCommand(PlayerCommandPreprocessEvent event) {
+        plugin.getLogger().info("This is vanilla listener");
+        //process(event.getPlayer(), event, event.getMessage());
+    }
 }

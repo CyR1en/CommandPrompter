@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.commandprompter.prompt;
 
-import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.api.prompt.Prompt;
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.kiso.utils.SRegex;
 import com.google.common.collect.ImmutableList;
 
@@ -56,7 +56,7 @@ public class PromptManager {
     for (String strPrompt : prompts)
       parsePrompt(strPrompt).ifPresent(imBuilder::add);
 
-    return new PromptQueue();
+    return new PromptQueue(context);
   }
 
   private Optional<Prompt> parsePrompt(String stringPrompt) {

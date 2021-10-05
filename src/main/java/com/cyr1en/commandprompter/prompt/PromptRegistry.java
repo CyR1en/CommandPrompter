@@ -21,21 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.cyr1en.cp.prompt;
+package com.cyr1en.commandprompter.prompt;
 
-import com.cyr1en.cp.api.prompt.Prompt;
+import com.cyr1en.commandprompter.api.prompt.Prompt;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.HandlerList;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 public class PromptRegistry {
 
-  private static Map<PromptQueue> registeredPrompts;
+  private static final ArrayList<PromptQueue> registeredPrompts;
 
   static {
     registeredPrompts = new ArrayList<>();
@@ -54,24 +55,18 @@ public class PromptRegistry {
   }
 
   public static void registerPrompt(Prompt prompt, boolean eventBased) {
-    registeredPrompts.add(prompt);
-    if (eventBased)
-      Bukkit.getPluginManager().registerEvents(prompt, prompt.getPlugin());
   }
 
   public static void deregisterPrompt(Prompt prompt, boolean eventBased) {
-    registeredPrompts.remove(prompt);
-    if (eventBased)
-      HandlerList.unregisterAll(prompt);
   }
 
   public static void clean() {
-    if (Objects.nonNull(registeredPrompts))
-      PromptRegistry.forEach(PromptRegistry::deregisterPrompt);
+
   }
 
   public static boolean inCommandProcess(CommandSender sender) {
-    return registeredPrompts.stream().anyMatch(prompt -> prompt.getContext().getSender() == sender);
+    //return registeredPrompts.stream().anyMatch(prompt -> prompt.getContext().getSender() == sender);
+    return false;
   }
 
 }

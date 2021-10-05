@@ -22,42 +22,37 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt;
+package com.cyr1en.commandprompter.prompt;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import com.cyr1en.commandprompter.api.prompt.Prompt;
 
+import java.util.LinkedList;
+import java.util.concurrent.Callable;
 
-public class PromptContext {
-  private final Cancellable callable;
-  private final CommandSender sender;
-  private final String content;
+public class PromptQueue extends LinkedList<Prompt> implements Callable<Void> {
 
-  public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
+  private PromptContext context;
+  private StringBuilder commandStrBuilder;
+
+  public PromptQueue(PromptContext context) {
+    this.context = context;
+    this.commandStrBuilder = new StringBuilder();
   }
 
-  public CommandSender getSender() {
-    return sender;
-  }
-
-  public Cancellable getCallable() {
-    return callable;
-  }
-
-  public String getContent() {
-    return content;
+  public void next() {
+    if(this.size() > 0)
+      this.pollLast().sendPrompt();
   }
 
   @Override
-  public String toString() {
-    return "PromptContext{" +
-            "callable=" + callable +
-            ", sender=" + sender +
-            ", content='" + content + '\'' +
-            '}';
+  public Void call() throws Exception {
+    next();
+    return null;
+  }
+
+  public static class Builder {
+
+    private PromptContext context;
+
   }
 }

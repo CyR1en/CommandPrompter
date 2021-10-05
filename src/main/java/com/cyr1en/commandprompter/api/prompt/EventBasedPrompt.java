@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.api.prompt;
+package com.cyr1en.commandprompter.api.prompt;
 
 import org.bukkit.event.player.PlayerEvent;
 

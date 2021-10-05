@@ -22,31 +22,31 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.cp.prompt.impl;
+package com.cyr1en.commandprompter.commands;
 
-import com.cyr1en.cp.CommandPrompter;
-import com.cyr1en.cp.api.prompt.ChatPrompt;
-import com.cyr1en.cp.prompt.PromptContext;
-import com.cyr1en.cp.prompt.PromptQueue;
-import org.bukkit.entity.Player;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 
-import java.util.Arrays;
-import java.util.List;
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.kiso.mc.command.AbstractCommand;
+import com.cyr1en.kiso.mc.command.CommandMessenger;
+import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.java.JavaPlugin;
 
-public class PlayerChatPrompt extends ChatPrompt {
+public class Reload extends AbstractCommand {
 
-  public PlayerChatPrompt(CommandPrompter plugin, PromptContext context, PromptQueue queue) {
-    super(plugin, "", context, queue);
+  private final CommandPrompter commandPrompter;
+
+  public Reload(JavaPlugin plugin, CommandMessenger messenger) {
+    super(plugin, messenger);
+    commandPrompter = (CommandPrompter) plugin;
+    this.commandName = "reload";
+    this.alias = new String[]{"rload", "r"};
+    this.permission = "commandprompter.reload";
   }
 
   @Override
-  public void process(Player player, String message) {
-
-  }
-
-  @Override
-  public void onEventComplete(AsyncPlayerChatEvent event) {
-
+  public void doCommand(CommandSender sender, String[] args) {
+    commandPrompter.reload(true);
+    String message = commandPrompter.getI18N().getProperty("CommandReloadSuccess");
+    this.messenger.sendMessage(sender, message);
   }
 }
