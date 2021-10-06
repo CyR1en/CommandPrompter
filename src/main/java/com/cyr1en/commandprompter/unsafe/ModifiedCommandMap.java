@@ -2,27 +2,33 @@ package com.cyr1en.commandprompter.unsafe;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import org.bukkit.Bukkit;
-import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandException;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.SimpleCommandMap;
 
-import java.util.Arrays;
 import java.util.Map;
 
 public class ModifiedCommandMap extends SimpleCommandMap {
 
-    private final Server server;
+    private final Object mapEncapsulator;
     private final CommandPrompter plugin;
 
-    public ModifiedCommandMap(Server server, CommandPrompter plugin) {
-        super(server);
-        this.server = server;
+    public ModifiedCommandMap(Object mapEncapsulator, CommandPrompter plugin) {
+        super(plugin.getServer());
+        this.mapEncapsulator = mapEncapsulator;
         this.plugin = plugin;
         rebuildKnownCommands();
     }
 
+    /**
+     * Function to rebuild knownCommands from the old map.
+     *
+     * <p>
+     * To minimize the effects of replacing the old map with this new map.
+     * We have to make sure that we retain all commands that have been registered in
+     * the old map.
+     */
     private void rebuildKnownCommands() {
         try {
             var commandMap = grabCommandMap();
@@ -42,9 +48,9 @@ public class ModifiedCommandMap extends SimpleCommandMap {
     }
 
     private SimpleCommandMap grabCommandMap() throws NoSuchFieldException, IllegalAccessException {
-        var commandMapField = server.getClass().getDeclaredField("commandMap");
+        var commandMapField = mapEncapsulator.getClass().getDeclaredField("commandMap");
         commandMapField.setAccessible(true);
-        return (SimpleCommandMap) commandMapField.get(server);
+        return (SimpleCommandMap) commandMapField.get(mapEncapsulator);
     }
 
     @Override

@@ -30,22 +30,23 @@ import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptRegistry;
+import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
+import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 import com.cyr1en.kiso.mc.configuration.base.ConfigManager;
 import com.cyr1en.kiso.utils.SRegex;
-// import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.lang.reflect.Field;
 import java.util.Objects;
 import java.util.logging.Logger;
+
+// import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
 
@@ -64,14 +65,22 @@ public class CommandPrompter extends JavaPlugin {
         logger = getLogger();
         this.manager = new ConfigManager(this);
         setupConfig();
-        var useUnsafe = config.getBoolean("Unsafe-Command-Listener");
-        commandListener = useUnsafe ? new ModifiedListener(this) : new VanillaListener(this);
-
         try {
-            var commandMapField = getServer().getClass().getDeclaredField("commandMap");
-            commandMapField.setAccessible(true);
-            var sMap = (SimpleCommandMap) commandMapField.get(getServer());
-            logger.info(sMap.getCommands().toString());
+            var useUnsafe = config.getBoolean("Unsafe-Command-Listener");
+            if (!useUnsafe) {
+                commandListener = new VanillaListener(this);
+                return;
+            }
+            var mapHacker = new CommandMapHacker(this);
+            mapHacker.hackCommandMapIn(getServer());
+            mapHacker.hackCommandMapIn(getServer().getPluginManager());
+
+            commandListener = new ModifiedListener(this);
+
+            var mutator = new PvtFieldMutator();
+            var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
+            var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
+            logger.warning("sHash: " + sHash + " | pHash: " + pHash);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
         }

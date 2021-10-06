@@ -107,6 +107,13 @@ public class PvtFieldMutator {
         return ob.getClass().getCanonicalName();
     }
 
+    public int getHashCode() throws NoSuchFieldException, IllegalAccessException {
+        assertTargetNotNull();
+        var targetField = targetInstance.getClass().getDeclaredField(targetName);
+        targetField.setAccessible(true);
+        var ob = targetField.get(targetInstance);
+        return ob.hashCode();
+    }
 
     /**
      * Asserts that both target field name and target instance is not null.

@@ -26,46 +26,14 @@ package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.unsafe.CommandDispatchEvent;
-import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
-import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 
-/**
- * Class that would listen to the customized event placed on the modified command map's
- * dispatch function.
- */
 public class ModifiedListener extends CommandListener {
 
-    /**
-     * Default constructor
-     *
-     * <p>
-     * This constructor would also execute the replacement of the field 'commandMap' in the
-     * server class. This has to be done before any plugin is enabled to allow command registration
-     * on the modified field.
-     *
-     * @param plugin Instance of the {@link CommandPrompter}
-     */
     public ModifiedListener(CommandPrompter plugin) {
         super(plugin);
-        try {
-            logWarning();
-            var mutator = new PvtFieldMutator();
-            var newMap = new ModifiedCommandMap(plugin.getServer(), plugin);
-            mutator.forField("commandMap").in(plugin.getServer()).replaceWith(newMap);
-            plugin.getLogger().warning("Current command map: " +
-                    mutator.forField("commandMap").in(plugin.getServer()).getClassName());
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void logWarning() {
-        plugin.getLogger().warning("Warning! CommandPrompter is now going to use the modified command map.");
-        plugin.getLogger().warning("Changing the value of a private final variable can make your program unstable.");
-        plugin.getLogger().warning("If you experience any problem, please disable this feature immediately!");
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
