@@ -1,8 +1,10 @@
 package com.cyr1en.commandprompter.unsafe;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommandYamlParser;
 import org.bukkit.command.SimpleCommandMap;
+import org.bukkit.plugin.Plugin;
 
 public class CommandMapHacker {
 
@@ -15,28 +17,10 @@ public class CommandMapHacker {
         logWarning();
     }
 
-    public void hackCommandMapIn(Object object) throws NoSuchFieldException, IllegalAccessException {
-        var newMap = new ModifiedCommandMap(object, plugin);
-        registerPluginCommands(newMap);
+    public void hackCommandMapIn(Object object, SimpleCommandMap newMap) throws NoSuchFieldException, IllegalAccessException {
         mutator.forField("commandMap").in(object).replaceWith(newMap);
         plugin.getLogger().warning("Changed command map in '" + object.getClass().getSimpleName() + "' " +
                 "to '" + newMap.getClass().getSimpleName() + "'");
-    }
-
-    /**
-     * Helper function that would register CommandPrompter's commands to the new map.
-     *
-     * <p>
-     * It seems like CommandPrompter's plugin description file commands are not loaded when changing the command
-     * map on the onLoad() function of this plugin. Therefore, we have to register all commands to the modified
-     * command map manually before setting it as the new command map of the encapsulating object.
-     *
-     * @param map the modified map.
-     */
-    private void registerPluginCommands(SimpleCommandMap map) {
-        var pluginCommands = PluginCommandYamlParser.parse(plugin);
-        if(!pluginCommands.isEmpty())
-            map.registerAll(plugin.getDescription().getName(), pluginCommands);
     }
 
     private void logWarning() {

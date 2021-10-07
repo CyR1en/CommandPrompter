@@ -34,6 +34,7 @@ public class ModifiedCommandMap extends SimpleCommandMap {
             var commandMap = grabCommandMap();
             var originalKnownCommands = grabKnownCommandsFromMap(commandMap);
             this.knownCommands.putAll(originalKnownCommands);
+            plugin.getLogger().warning("Finished rebuilding known commands.");
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
         }

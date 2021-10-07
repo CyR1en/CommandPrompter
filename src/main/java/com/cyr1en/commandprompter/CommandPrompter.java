@@ -31,6 +31,7 @@ import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptRegistry;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
+import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
@@ -60,40 +61,18 @@ public class CommandPrompter extends JavaPlugin {
     private I18N i18n;
     private UpdateChecker updateChecker;
 
-    @Override
-    public void onLoad() {
-        logger = getLogger();
-        this.manager = new ConfigManager(this);
-        setupConfig();
-        try {
-            var useUnsafe = config.getBoolean("Unsafe-Command-Listener");
-            if (!useUnsafe) {
-                commandListener = new VanillaListener(this);
-                return;
-            }
-            var mapHacker = new CommandMapHacker(this);
-            mapHacker.hackCommandMapIn(getServer());
-            mapHacker.hackCommandMapIn(getServer().getPluginManager());
-
-            commandListener = new ModifiedListener(this);
-
-            var mutator = new PvtFieldMutator();
-            var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
-            var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
-            logger.warning("sHash: " + sHash + " | pHash: " + pHash);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
 
     @Override
     public void onEnable() {
         // new Metrics(this);
         logger = getLogger();
-        Bukkit.getPluginManager().registerEvents(commandListener, this);
+        this.manager = new ConfigManager(this);
+        setupConfig();
+        logger = getLogger();
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
+        initCommandListener();
     }
 
     @Override
@@ -101,6 +80,33 @@ public class CommandPrompter extends JavaPlugin {
         PromptRegistry.clean();
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
+    }
+
+    private void initCommandListener() {
+        var useUnsafe = config.getBoolean("Unsafe-Command-Listener");
+        if (!useUnsafe) {
+            commandListener = new VanillaListener(this);
+            return;
+        }
+        var delay = (long) config.getInt("CommandMap-Modification-Delay");
+        Bukkit.getScheduler().runTaskLater(this, ()-> {
+            try {
+                var mapHacker = new CommandMapHacker(this);
+
+                var newCommandMap = new ModifiedCommandMap(getServer(), this);
+                mapHacker.hackCommandMapIn(getServer(), newCommandMap);
+                mapHacker.hackCommandMapIn(getServer().getPluginManager(), newCommandMap);
+
+                commandListener = new ModifiedListener(this);
+
+                var mutator = new PvtFieldMutator();
+                var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
+                var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
+                logger.warning("sHash: " + sHash + " | pHash: " + pHash);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }, delay);
     }
 
     private void setupConfig() {
@@ -139,6 +145,13 @@ public class CommandPrompter extends JavaPlugin {
         if (config.get("Unsafe-Command-Listener") == null) {
             config.set("Unsafe-Command-Listener", false, new String[]{"Use command prompters custom command map",
                     "to allow event catching for dispatched", "commands. WARNING! Use at your own risk."});
+            config.saveConfig();
+        }
+        if (config.get("CommandMap-Modification-Delay") == null) {
+            config.set("CommandMap-Modification-Delay", 1, new String[]{"If Unsafe-Command-Listener is true",
+                    "this delay (in ticks) will be used to allow all", "plugins to register all of their commands",
+                    "before CommandPrompter modifies the command map", "to the custom one. If you experience commands",
+                    "being missing, set this value higher.", "Note that there is 20 ticks in a second"});
             config.saveConfig();
         }
     }
