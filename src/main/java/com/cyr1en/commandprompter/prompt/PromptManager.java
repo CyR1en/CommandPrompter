@@ -45,7 +45,7 @@ public class PromptManager {
 
   public PromptQueue parseCommand(PromptContext context) {
     SRegex simpleRegex = new SRegex(context.getContent());
-    String regex = plugin.getConfiguration().getString("Argument-Regex").trim();
+    String regex = plugin.getConfiguration().argumentRegex().trim();
     String parsedEscapedRegex = (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
             (regex.substring(1, regex.length() - 1)) +
             (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");

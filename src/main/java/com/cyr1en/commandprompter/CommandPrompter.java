@@ -26,6 +26,8 @@ package com.cyr1en.commandprompter;
 
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
+import com.cyr1en.commandprompter.config.CommandPrompterConfig;
+import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
@@ -36,8 +38,6 @@ import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
-import com.cyr1en.kiso.mc.configuration.base.Config;
-import com.cyr1en.kiso.mc.configuration.base.ConfigManager;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
@@ -53,8 +53,9 @@ public class CommandPrompter extends JavaPlugin {
 
     private final String[] CONFIG_HEADER = new String[]{"Command Prompter", "Configuration"};
 
-    private ConfigManager manager;
-    private Config config;
+    private ConfigurationManager configManager;
+    private CommandPrompterConfig config;
+
     private Logger logger;
     private CommandManager commandManager;
     private CommandListener commandListener;
@@ -66,7 +67,6 @@ public class CommandPrompter extends JavaPlugin {
     public void onEnable() {
         // new Metrics(this);
         logger = getLogger();
-        this.manager = new ConfigManager(this);
         setupConfig();
         logger = getLogger();
         i18n = new I18N(this, "CommandPrompter");
@@ -83,12 +83,12 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void initCommandListener() {
-        var useUnsafe = config.getBoolean("Unsafe-Command-Listener");
+        var useUnsafe = config.enableUnsafe();
         if (!useUnsafe) {
             commandListener = new VanillaListener(this);
             return;
         }
-        var delay = (long) config.getInt("CommandMap-Modification-Delay");
+        var delay = (long) config.modificationDelay();
         Bukkit.getScheduler().runTaskLater(this, ()-> {
             try {
                 var mapHacker = new CommandMapHacker(this);
@@ -110,57 +110,15 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupConfig() {
-        config = manager.getNewConfig("config.yml", CONFIG_HEADER);
-        if (config.get("Prompt-Prefix") == null) {
-            config.set("Prompt-Prefix", "[&3Prompter&r] ", "Set the prompter's prefix");
-            config.saveConfig();
-        }
-        if (config.get("Prompt-Timeout") == null) {
-            config.set("Prompt-Timeout", 300, new String[]{"After how many seconds", "until CommandPrompter cancels", "a prompt"});
-            config.saveConfig();
-        }
-        if (config.get("Cancel-Keyword") == null) {
-            config.set("Cancel-Keyword", "cancel", new String[]{"Word that cancels command", "prompting."});
-            config.saveConfig();
-        }
-        if (config.get("Enable-Permission") == null) {
-            config.set("Enable-Permission", false, new String[]{"Enable permission check", "before a player can use", "the prompting feature",
-                    "", "Checking for commandprompter.use"});
-            config.saveConfig();
-        }
-        if (config.get("Update-Checker") == null) {
-            config.set("Update-Checker", true, new String[]{"Allow CommandPrompter to", "check if it's up to date."});
-            config.saveConfig();
-        }
-        if (config.get("Argument-Regex") == null) {
-            config.set("Argument-Regex", " <.*?> ",
-                    new String[]{"This will determine if",
-                            "a part of a command is",
-                            "a prompt.",
-                            "",
-                            "ONLY CHANGE THE FIRST AND LAST",
-                            "I.E (.*?), {.*?}, or [.*?]"});
-            config.saveConfig();
-        }
-        if (config.get("Unsafe-Command-Listener") == null) {
-            config.set("Unsafe-Command-Listener", false, new String[]{"Use command prompters custom command map",
-                    "to allow event catching for dispatched", "commands. WARNING! Use at your own risk."});
-            config.saveConfig();
-        }
-        if (config.get("CommandMap-Modification-Delay") == null) {
-            config.set("CommandMap-Modification-Delay", 1, new String[]{"If Unsafe-Command-Listener is true",
-                    "this delay (in ticks) will be used to allow all", "plugins to register all of their commands",
-                    "before CommandPrompter modifies the command map", "to the custom one. If you experience commands",
-                    "being missing, set this value higher.", "Note that there is 20 ticks in a second"});
-            config.saveConfig();
-        }
+        configManager = new ConfigurationManager(this);
+        config = configManager.getConfig(CommandPrompterConfig.class);
     }
 
     private void setupCommands() {
         setupCommandManager();
         commandManager.registerCommand(Reload.class);
         PluginCommand command = getCommand("commandprompter");
-        command.setExecutor(commandManager);
+        Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
         CommodoreRegistry.register(this, command);
     }
@@ -188,7 +146,8 @@ public class CommandPrompter extends JavaPlugin {
         if (updateChecker.isDisabled()) return;
         Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (updateChecker.newVersionAvailable())
-                logger.info(SRegex.ANSI_GREEN + "A new update is available! (" + updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
+                logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
+                        updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
             else
                 logger.info("No update was found.");
         });
@@ -204,15 +163,15 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     public void reload(boolean clean) {
-        config.reloadConfig();
+        config = configManager.reload(CommandPrompterConfig.class);
         i18n = new I18N(this, "CommandPrompter");
-        commandManager.getMessenger().setPrefix(config.getString("Prompt-Prefix"));
+        commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();
         if (clean)
             PromptRegistry.clean();
     }
 
-    public Config getConfiguration() {
+    public CommandPrompterConfig getConfiguration() {
         return config;
     }
 

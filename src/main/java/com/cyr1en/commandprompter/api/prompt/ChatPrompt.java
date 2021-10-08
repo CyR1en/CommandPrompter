@@ -54,7 +54,7 @@ public abstract class ChatPrompt implements EventBasedPrompt<AsyncPlayerChatEven
   @Override
   public void sendPrompt() {
     List<String> parts = Arrays.asList(context.getContent().split("\\{br}"));
-    String prefix = getPlugin().getConfiguration().getString("Prompt-Prefix");
+    String prefix = getPlugin().getConfiguration().promptPrefix();
     parts.forEach(part -> context.getSender().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + part)));
   }
 
