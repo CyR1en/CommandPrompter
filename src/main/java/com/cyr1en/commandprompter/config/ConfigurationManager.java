@@ -47,7 +47,6 @@ public class ConfigurationManager {
         }
         try {
             // Records only have 1 constructor so just access index 0
-            // For now, the order of the config node matters.
             var recordConfig = configClass.getDeclaredConstructors()[0].newInstance(configValues.toArray());
             @SuppressWarnings("unchecked") var out = (T) recordConfig;
             return out;
