@@ -27,7 +27,6 @@ public class ConfigurationManager {
     }
 
     public <T> T getConfig(Class<T> configClass) {
-        plugin.getLogger().info(" - " + configClass.getAnnotation(Configuration.class));
         if (configClass.getAnnotation(Configuration.class) == null)
             return null;
 
@@ -40,7 +39,6 @@ public class ConfigurationManager {
             if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
 
             var nameAnnotation = declaredField.getAnnotation(NodeName.class);
-            plugin.getLogger().info(" - " + nameAnnotation.value());
             if (declaredField.getType().equals(int.class))
                 configValues.add(config.getInt(nameAnnotation.value()));
             else if (declaredField.getType().equals(boolean.class))
@@ -50,8 +48,6 @@ public class ConfigurationManager {
         try {
             // Records only have 1 constructor so just access index 0
             // For now, the order of the config node matters.
-            plugin.getLogger().info(" - " + configClass.getDeclaredConstructors()[0]);
-            plugin.getLogger().info(" - " + Arrays.toString(configValues.toArray()));
             var recordConfig = configClass.getDeclaredConstructors()[0].newInstance(configValues.toArray());
             @SuppressWarnings("unchecked") var out = (T) recordConfig;
             return out;
@@ -72,7 +68,6 @@ public class ConfigurationManager {
     }
 
     private Config initConfigFile(Class<?> configClass) {
-        plugin.getLogger().info(" - Initializing config file.");
         var pathAnnotation = configClass.getAnnotation(ConfigPath.class);
         var filePath = pathAnnotation == null ? configClass.getSimpleName() : pathAnnotation.value();
 
