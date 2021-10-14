@@ -15,6 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class ConfigurationManager {
 
@@ -43,6 +44,10 @@ public class ConfigurationManager {
                 configValues.add(config.getInt(nameAnnotation.value()));
             else if (declaredField.getType().equals(boolean.class))
                 configValues.add(config.getBoolean(nameAnnotation.value()));
+            else if (declaredField.getType().equals(double.class))
+                configValues.add(config.getDouble(nameAnnotation.value()));
+            else if (declaredField.getType().equals(List.class))
+                configValues.add(config.getList(nameAnnotation.value()));
             else configValues.add(config.getString(nameAnnotation.value()));
         }
         try {
@@ -95,12 +100,15 @@ public class ConfigurationManager {
 
     private Object constructDefaultField(Field f) {
         try {
-            // add more primitives in the future
             if (f.getType().isPrimitive()) {
                 if (f.getType().equals(int.class))
                     return 0;
                 if (f.getType().equals(boolean.class))
                     return false;
+                if (f.getType().equals(double.class))
+                    return 0.0;
+                if (f.getType().equals(List.class))
+                    return new ArrayList<>();
             }
             return f.getType().getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException | InvocationTargetException |
@@ -111,12 +119,15 @@ public class ConfigurationManager {
     }
 
     private Object parseDefault(Field field) {
-        // add more primitives in the future
         var defaultAnnotation = field.getAnnotation(NodeDefault.class);
         if (field.getType().equals(int.class))
             return Integer.valueOf(defaultAnnotation.value());
         if (field.getType().equals(boolean.class))
             return Boolean.valueOf(defaultAnnotation.value());
+        if (field.getType().equals(double.class))
+            return Double.valueOf(defaultAnnotation.value());
+        if (field.getType().equals(List.class))
+            return Arrays.stream(defaultAnnotation.value().split(",\\s+")).toList();
         return defaultAnnotation.value();
     }
 }
