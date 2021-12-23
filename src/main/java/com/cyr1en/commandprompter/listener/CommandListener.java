@@ -43,36 +43,9 @@ import java.util.regex.Pattern;
 public class CommandListener implements Listener {
 
     protected CommandPrompter plugin;
-    private PromptManager promptManager;
+    protected PromptManager promptManager;
 
-    public CommandListener(CommandPrompter plugin) {
-        this.plugin = plugin;
-        this.promptManager = new PromptManager.Builder(plugin).build();
+    public CommandListener(PromptManager promptManager) {
+        this.promptManager = promptManager;
     }
-
-    protected void process(Player player, Cancellable cancellable, String command) {
-        if (plugin.getConfiguration().enablePermission() && !player.hasPermission("commandprompter.use")) {
-            return;
-        }
-        if (PromptRegistry.inCommandProcess(player.getPlayer())) {
-            String prefix = plugin.getConfiguration().promptPrefix();
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + plugin.getI18N().getProperty("PromptInProgress")));
-            cancellable.setCancelled(true);
-        } else {
-            SRegex simpleRegex = new SRegex(command);
-            String regex = plugin.getConfiguration().argumentRegex().trim();
-            String parsedEscapedRegex = (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
-                    (regex.substring(1, regex.length() - 1)) +
-                    (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");
-            simpleRegex.find(Pattern.compile(parsedEscapedRegex));
-            List<String> prompts = simpleRegex.getResultsList();
-            if (prompts.size() > 0) {
-                cancellable.setCancelled(true);
-               // PromptRegistry.registerPrompt(new Prompt(plugin, player, new LinkedList<>(prompts), command));
-            }
-        }
-    }
-
-
-
 }

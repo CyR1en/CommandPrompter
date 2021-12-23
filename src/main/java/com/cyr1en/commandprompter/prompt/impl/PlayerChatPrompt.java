@@ -27,14 +27,13 @@ package com.cyr1en.commandprompter.prompt.impl;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import com.cyr1en.commandprompter.prompt.PromptQueue;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public class PlayerChatPrompt extends ChatPrompt {
 
-  public PlayerChatPrompt(CommandPrompter plugin, PromptContext context, PromptQueue queue) {
-    super(plugin, "", context, queue);
+  public PlayerChatPrompt(CommandPrompter plugin, PromptContext context) {
+    super(plugin, "", context);
   }
 
   @Override
@@ -46,4 +45,5 @@ public class PlayerChatPrompt extends ChatPrompt {
   public void onEventComplete(AsyncPlayerChatEvent event) {
 
   }
+
 }

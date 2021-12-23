@@ -34,11 +34,11 @@ java {
 }
 
 PluginManifest manifest = [
-        name: 'CommandPrompter',
-        version: new Version(major: 0, minor: 2, patch: 0, fix: 0, classifier: 'DEV'),
-        author: 'CyR1en',
+        name       : 'CommandPrompter',
+        version    : new Version(major: 0, minor: 2, patch: 0, fix: 0, classifier: 'DEV'),
+        author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
-        entry: 'com.cyr1en.commandprompter.CommandPrompter'
+        entry      : 'com.cyr1en.commandprompter.CommandPrompter'
 ]
 
 group = 'com.cyr1en'
@@ -48,13 +48,13 @@ repositories {
     mavenCentral()
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
     maven { url 'https://libraries.minecraft.net/' }
-    maven { url 'https://jitpack.io' }
+    maven { url 'https://repo.cyr1en.com/snapshots' }
 }
 
 dependencies {
     implementation 'me.lucko:commodore:1.10'
-    implementation'com.github.cyr1en.kiso:kiso-mc:1.0.1'
-    implementation'com.github.cyr1en.kiso:kiso-utils:1.0.1'
+    implementation "com.cyr1en:kiso-utils:1.1-SNAPSHOT"
+    implementation "com.cyr1en:kiso-mc:1.0-SNAPSHOT"
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
 }
 

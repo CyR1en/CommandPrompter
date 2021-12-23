@@ -23,6 +23,7 @@
  */
 package com.cyr1en.commandprompter.prompt;
 
+import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -34,39 +35,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public class PromptRegistry {
+public class PromptRegistry extends HashMap<CommandSender, Prompt> {
 
-  private static final ArrayList<PromptQueue> registeredPrompts;
+    private CommandPrompter pluginInstance;
 
-  static {
-    registeredPrompts = new ArrayList<>();
-  }
+    public PromptRegistry(CommandPrompter pluginInstance) {
+        this.pluginInstance = pluginInstance;
+    }
 
-  public static void forEach(Consumer<? super PromptQueue> consumer) {
-    registeredPrompts.forEach(consumer);
-  }
-
-  public static void registerPrompt(Prompt prompt) {
-    PromptRegistry.registerPrompt(prompt, false);
-  }
-
-  public static void deregisterPrompt(Prompt prompt) {
-    PromptRegistry.deregisterPrompt(prompt, false);
-  }
-
-  public static void registerPrompt(Prompt prompt, boolean eventBased) {
-  }
-
-  public static void deregisterPrompt(Prompt prompt, boolean eventBased) {
-  }
-
-  public static void clean() {
-
-  }
-
-  public static boolean inCommandProcess(CommandSender sender) {
-    //return registeredPrompts.stream().anyMatch(prompt -> prompt.getContext().getSender() == sender);
-    return false;
-  }
+    public boolean inCommandProcess(CommandSender sender) {
+        return containsKey(sender);
+    }
 
 }

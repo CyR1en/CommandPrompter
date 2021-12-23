@@ -29,67 +29,46 @@ import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.kiso.utils.SRegex;
 import com.google.common.collect.ImmutableList;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 
-public class PromptManager {
+/**
+ * Class that would manage all prompts.
+ *
+ * We need to register a new prompt into this map. And we simply do that by appending a new
+ * Prompt class with its optional argument key.
+ *
+ * i.e: For chat prompt, the key would just be an empty string, and for an anvil prompt the key
+ * would be 'a'.
+ */
+public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
-  private List<Prompt> registeredPrompts;
-  private CommandPrompter plugin;
+    private final CommandPrompter plugin;
+    private PromptRegistry promptRegistry;
+    private PromptParser promptParser;
+    private Map<String, Class<? extends Prompt>> registeredPrompt;
 
-  private PromptManager(List<Prompt> registeredPrompts) {
-    this.registeredPrompts = registeredPrompts;
-  }
-
-  public PromptQueue parseCommand(PromptContext context) {
-    SRegex simpleRegex = new SRegex(context.getContent());
-    String regex = plugin.getConfiguration().argumentRegex().trim();
-    String parsedEscapedRegex = (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
-            (regex.substring(1, regex.length() - 1)) +
-            (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");
-    simpleRegex.find(Pattern.compile(parsedEscapedRegex));
-
-    List<String> prompts = simpleRegex.getResultsList();
-    ImmutableList.Builder<Prompt> imBuilder = ImmutableList.builder();
-    for (String strPrompt : prompts)
-      parsePrompt(strPrompt).ifPresent(imBuilder::add);
-
-    return new PromptQueue(context);
-  }
-
-  private Optional<Prompt> parsePrompt(String stringPrompt) {
-    SRegex simpleRegex = new SRegex(stringPrompt);
-    simpleRegex.find(Pattern.compile("-\\s"));
-    //TODO: Finish implementation 6/26/20
-    return Optional.empty();
-  }
-
-  public void processPrompt(PromptContext context) {
-
-  }
-
-  private void getArguments(String promptSegment) {
-
-  }
-
-  public static class Builder {
-    private List<Prompt> registeredPrompt;
-    private CommandPrompter plugin;
-
-    public Builder(CommandPrompter plugin) {
-      this.plugin = plugin;
-      registeredPrompt = new LinkedList<>();
+    public PromptManager(CommandPrompter commandPrompter) {
+        this.plugin = commandPrompter;
+        this.promptRegistry = new PromptRegistry(plugin);
+        this.promptParser = new PromptParser(this);
     }
 
-    public Builder addPrompt(Prompt prompt) {
-      registeredPrompt.add(prompt);
-      return this;
+    public void processPrompt(PromptContext context) {
+
     }
 
-    public PromptManager build() {
-      return new PromptManager(this.registeredPrompt);
+    public PromptRegistry getPromptRegistry() {
+        return promptRegistry;
     }
-  }
+
+    public Pattern getArgumentPattern() {
+        String pattern = "-(%s) ";
+        String arguments = String.join("|", this.keySet());
+        return Pattern.compile(pattern.formatted(arguments));
+    }
+
+    public CommandPrompter getPlugin() {
+        return plugin;
+    }
 }

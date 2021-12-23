@@ -26,7 +26,6 @@ package com.cyr1en.commandprompter.api.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import com.cyr1en.commandprompter.prompt.PromptQueue;
 
 public interface Prompt {
 
@@ -45,13 +44,6 @@ public interface Prompt {
    * @return context for the prompt.
    */
   PromptContext getContext();
-
-  /**
-   * Get the instance of the queue where this prompt exists.
-   *
-   * @return Get the instance of the queue where this prompt exists.
-   */
-  PromptQueue getPromptQueue();
 
   /**
    * Get instance of the plugin.

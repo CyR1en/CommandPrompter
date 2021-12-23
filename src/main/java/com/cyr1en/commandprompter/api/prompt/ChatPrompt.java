@@ -26,7 +26,6 @@ package com.cyr1en.commandprompter.api.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import com.cyr1en.commandprompter.prompt.PromptQueue;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -41,17 +40,16 @@ public abstract class ChatPrompt implements EventBasedPrompt<AsyncPlayerChatEven
 
   private final CommandPrompter plugin;
   private final PromptContext context;
-  private final PromptQueue queue;
+
   private final String trigger;
 
-  public ChatPrompt(CommandPrompter plugin, String trigger, PromptContext context, PromptQueue queue) {
+  public ChatPrompt(CommandPrompter plugin, String trigger, PromptContext context) {
     this.plugin = plugin;
     this.context = context;
-    this.queue = queue;
     this.trigger = trigger;
   }
 
-  @Override
+    @Override
   public void sendPrompt() {
     List<String> parts = Arrays.asList(context.getContent().split("\\{br}"));
     String prefix = getPlugin().getConfiguration().promptPrefix();
@@ -71,11 +69,6 @@ public abstract class ChatPrompt implements EventBasedPrompt<AsyncPlayerChatEven
   @Override
   public CommandPrompter getPlugin() {
     return this.plugin;
-  }
-
-  @Override
-  public PromptQueue getPromptQueue(){
-    return this.queue;
   }
 
   @Override

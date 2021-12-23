@@ -24,6 +24,7 @@
 
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
@@ -61,11 +62,13 @@ public class CommandPrompter extends JavaPlugin {
     private CommandListener commandListener;
     private I18N i18n;
     private UpdateChecker updateChecker;
+    private PromptRegistry promptRegistry;
 
 
     @Override
     public void onEnable() {
         // new Metrics(this);
+        promptRegistry = new PromptRegistry(this);
         logger = getLogger();
         setupConfig();
         logger = getLogger();
@@ -77,7 +80,7 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        PromptRegistry.clean();
+        promptRegistry.clear();
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
@@ -162,13 +165,17 @@ public class CommandPrompter extends JavaPlugin {
         return commandManager;
     }
 
+    public PromptRegistry getPromptRegistry() {
+        return promptRegistry;
+    }
+
     public void reload(boolean clean) {
         config = configManager.reload(CommandPrompterConfig.class);
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();
         if (clean)
-            PromptRegistry.clean();
+            promptRegistry.clear();
     }
 
     public CommandPrompterConfig getConfiguration() {
