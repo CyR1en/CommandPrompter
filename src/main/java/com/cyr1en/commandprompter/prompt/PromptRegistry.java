@@ -25,22 +25,33 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import org.bukkit.Bukkit;
+import com.cyr1en.kiso.utils.Pair;
 import org.bukkit.command.CommandSender;
-import org.bukkit.event.HandlerList;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.*;
 
-public class PromptRegistry extends HashMap<CommandSender, Prompt> {
+/**
+ * Class that will hold all ongoing prompts.
+ * <p>
+ * The data structure of this class is a hash table. The key of this data struct is the command
+ * sender itself and the value is a {@link PromptQueue}
+ */
+public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
 
-    private CommandPrompter pluginInstance;
+    private final CommandPrompter pluginInstance;
 
     public PromptRegistry(CommandPrompter pluginInstance) {
         this.pluginInstance = pluginInstance;
+    }
+
+    public void initRegistryFor(CommandSender sender, String command) {
+        if (containsKey(sender)) return;
+        put(sender, new PromptQueue(command));
+    }
+
+    public void addPrompt(CommandSender sender, Prompt p) {
+        if (!containsKey(sender)) return;
+        get(sender).add(p);
     }
 
     public boolean inCommandProcess(CommandSender sender) {

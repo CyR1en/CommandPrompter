@@ -36,44 +36,26 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import java.util.Arrays;
 import java.util.List;
 
-public abstract class ChatPrompt implements EventBasedPrompt<AsyncPlayerChatEvent> {
+public class ChatPrompt implements Prompt{
 
   private final CommandPrompter plugin;
   private final PromptContext context;
 
-  private final String trigger;
-
-  public ChatPrompt(CommandPrompter plugin, String trigger, PromptContext context) {
+  public ChatPrompt(CommandPrompter plugin, PromptContext context) {
     this.plugin = plugin;
     this.context = context;
-    this.trigger = trigger;
   }
 
-    @Override
   public void sendPrompt() {
     List<String> parts = Arrays.asList(context.getContent().split("\\{br}"));
     String prefix = getPlugin().getConfiguration().promptPrefix();
-    parts.forEach(part -> context.getSender().sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + part)));
+    parts.forEach(part -> context.getSender().sendMessage(
+            ChatColor.translateAlternateColorCodes('&', prefix + part)));
   }
-
-  @EventHandler(priority = EventPriority.LOWEST)
-  public void onChat(AsyncPlayerChatEvent event) {
-    if (!event.getPlayer().equals(context.getSender()))
-      return;
-    Bukkit.getScheduler().runTask(getPlugin(), () -> process(event.getPlayer(), event.getMessage()));
-    event.setCancelled(true);
-  }
-
-  public abstract void process(Player player, String message);
 
   @Override
   public CommandPrompter getPlugin() {
     return this.plugin;
-  }
-
-  @Override
-  public String getTrigger() {
-    return this.trigger;
   }
 
   @Override

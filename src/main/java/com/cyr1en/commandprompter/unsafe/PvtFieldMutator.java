@@ -5,9 +5,9 @@ import sun.misc.Unsafe;
 
 /**
  * A utility class that allows you to easily change the value of private final fields.
- *
+ * <p>
  * WARNING: Use this class with caution. Only use it for cases that justifies unsafe operations.
- *          First, check if there's another way to accomplish
+ * First, check if there's another way to accomplish
  *
  * <p>
  * This class uses Sun's {@link Unsafe Unsafe} class to put a new {@link Object object}
@@ -85,7 +85,7 @@ public class PvtFieldMutator {
         // Assert that we actually have it done correctly.
         targetField.setAccessible(true);
         var newFieldObject = targetField.get(targetInstance);
-        if(!newFieldObject.getClass().getCanonicalName().equals(newObject.getClass().getCanonicalName()))
+        if (!newFieldObject.getClass().getCanonicalName().equals(newObject.getClass().getCanonicalName()))
             throw new PvtFieldMutationException(newObject.getClass());
     }
 

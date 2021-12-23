@@ -25,6 +25,7 @@
 package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptRegistry;
 import com.cyr1en.kiso.utils.SRegex;
@@ -47,5 +48,10 @@ public class CommandListener implements Listener {
 
     public CommandListener(PromptManager promptManager) {
         this.promptManager = promptManager;
+    }
+
+    protected void process(PromptContext ctx) {
+        promptManager.parse(ctx);
+        promptManager.sendPrompt(ctx.getSender());
     }
 }

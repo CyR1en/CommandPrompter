@@ -25,22 +25,27 @@
 package com.cyr1en.commandprompter.prompt;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
 
 public class PromptContext {
   private final Cancellable callable;
-  private final CommandSender sender;
+  private final Player sender;
   private final String content;
 
   public PromptContext(PlayerCommandPreprocessEvent e) {
-    this.callable = e;
-    this.sender = e.getPlayer();
-    this.content = e.getMessage();
+    this(e, e.getPlayer(), e.getMessage());
   }
 
-  public CommandSender getSender() {
+  public PromptContext(Cancellable callable, Player sender, String content) {
+    this.callable = callable;
+    this.sender = sender;
+    this.content = content;
+  }
+
+  public Player getSender() {
     return sender;
   }
 

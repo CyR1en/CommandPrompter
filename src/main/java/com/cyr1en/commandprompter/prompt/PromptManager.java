@@ -25,28 +25,27 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import com.cyr1en.kiso.utils.SRegex;
-import com.google.common.collect.ImmutableList;
+import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
 /**
  * Class that would manage all prompts.
- *
+ * <p>
  * We need to register a new prompt into this map. And we simply do that by appending a new
  * Prompt class with its optional argument key.
- *
+ * <p>
  * i.e: For chat prompt, the key would just be an empty string, and for an anvil prompt the key
  * would be 'a'.
  */
 public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private final CommandPrompter plugin;
-    private PromptRegistry promptRegistry;
-    private PromptParser promptParser;
-    private Map<String, Class<? extends Prompt>> registeredPrompt;
+    private final PromptRegistry promptRegistry;
+    private final PromptParser promptParser;
 
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
@@ -54,8 +53,30 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.promptParser = new PromptParser(this);
     }
 
-    public void processPrompt(PromptContext context) {
+    public void parse(PromptContext context) {
+        var command = context.getContent().substring(0, context.getContent().indexOf(' '));
+        promptRegistry.initRegistryFor(context.getSender(), command);
+        promptParser.parsePrompts(context);
+    }
 
+    public void sendPrompt(Player sender) {
+        if(!promptRegistry.containsKey(sender)) return;
+        if(promptRegistry.get(sender).isEmpty()) return;
+        Objects.requireNonNull(promptRegistry.get(sender).peek()).sendPrompt();
+    }
+
+    public void processPrompt(PromptContext context) {
+        var sender = context.getSender();
+        if (!getPromptRegistry().containsKey(sender))
+            return;
+        if (promptRegistry.get(sender).isEmpty())
+            return;
+        getPromptRegistry().get(sender).poll();
+        getPromptRegistry().get(sender).addCompleted(context.getContent());
+        if (promptRegistry.get(sender).isEmpty())
+            Dispatcher.dispatchCommand(plugin, sender, promptRegistry.get(sender).getCompleteCommand());
+        else
+            sendPrompt(sender);
     }
 
     public PromptRegistry getPromptRegistry() {
@@ -63,9 +84,13 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public Pattern getArgumentPattern() {
-        String pattern = "-(%s) ";
-        String arguments = String.join("|", this.keySet());
+        var pattern = "-(%s) ";
+        var arguments = String.join("|", this.keySet());
         return Pattern.compile(pattern.formatted(arguments));
+    }
+
+    public void clearPromptRegistry() {
+        promptRegistry.clear();
     }
 
     public CommandPrompter getPlugin() {

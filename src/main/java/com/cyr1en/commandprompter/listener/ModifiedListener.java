@@ -25,6 +25,8 @@
 package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.unsafe.CommandDispatchEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -32,16 +34,17 @@ import org.bukkit.event.EventPriority;
 
 public class ModifiedListener extends CommandListener {
 
-    public ModifiedListener(CommandPrompter plugin) {
-        super(plugin);
+    public ModifiedListener(PromptManager manager) {
+        super(manager);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(CommandDispatchEvent event) {
-        if (!(event.getSender() instanceof Player))
+        if (!(event.getSender() instanceof Player sender))
             return;
         plugin.getLogger().info("This is modified listener");
-        //process((Player) event.getSender(), event, event.getCommandLine());
+        PromptContext context = new PromptContext(event, sender, event.getCommandLine());
+        this.process(context);
     }
 
 }

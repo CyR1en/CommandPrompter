@@ -25,19 +25,23 @@
 package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
-public class VanillaListener extends CommandListener{
+public class VanillaListener extends CommandListener {
 
-    public VanillaListener(CommandPrompter plugin) {
-        super(plugin);
+    public VanillaListener(PromptManager manager) {
+        super(manager);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         plugin.getLogger().info("This is vanilla listener");
-        //process(event.getPlayer(), event, event.getMessage());
+        PromptContext context = new PromptContext(event, event.getPlayer(),
+                event.getMessage().replaceAll("/", ""));
+        this.process(context);
     }
 }

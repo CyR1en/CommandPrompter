@@ -24,7 +24,7 @@
 
 package com.cyr1en.commandprompter;
 
-import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.api.prompt.ChatPrompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
@@ -32,7 +32,7 @@ import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
-import com.cyr1en.commandprompter.prompt.PromptRegistry;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
@@ -62,54 +62,69 @@ public class CommandPrompter extends JavaPlugin {
     private CommandListener commandListener;
     private I18N i18n;
     private UpdateChecker updateChecker;
-    private PromptRegistry promptRegistry;
-
+    private PromptManager promptManager;
 
     @Override
     public void onEnable() {
         // new Metrics(this);
-        promptRegistry = new PromptRegistry(this);
         logger = getLogger();
         setupConfig();
         logger = getLogger();
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
-        initCommandListener();
+        initPromptSystem();
     }
 
     @Override
     public void onDisable() {
-        promptRegistry.clear();
+        promptManager.clearPromptRegistry();
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
 
+    private void initPromptSystem() {
+        promptManager = new PromptManager(this);
+        promptManager.put("", ChatPrompt.class);
+        initCommandListener();
+        Bukkit.getPluginManager().registerEvents(commandListener, this);
+    }
+
+    /**
+     * Function to initialize the command listener that this plugin will use
+     * <p>
+     * If unsafe is enabled in the config, this plugin will use the modified
+     * command map. Otherwise, it will just use the vanilla listener.
+     */
     private void initCommandListener() {
         var useUnsafe = config.enableUnsafe();
         if (!useUnsafe) {
-            commandListener = new VanillaListener(this);
+            commandListener = new VanillaListener(promptManager);
+            Bukkit.getPluginManager().registerEvents(commandListener, this);
             return;
         }
         var delay = (long) config.modificationDelay();
-        Bukkit.getScheduler().runTaskLater(this, ()-> {
-            try {
-                var mapHacker = new CommandMapHacker(this);
+        Bukkit.getScheduler().runTaskLater(this, this::hackMap, delay);
+    }
 
-                var newCommandMap = new ModifiedCommandMap(getServer(), this);
-                mapHacker.hackCommandMapIn(getServer(), newCommandMap);
-                mapHacker.hackCommandMapIn(getServer().getPluginManager(), newCommandMap);
+    private void hackMap() {
+        try {
+            var mapHacker = new CommandMapHacker(this);
 
-                commandListener = new ModifiedListener(this);
+            var newCommandMap = new ModifiedCommandMap(getServer(), this);
+            mapHacker.hackCommandMapIn(getServer(), newCommandMap);
+            mapHacker.hackCommandMapIn(getServer().getPluginManager(), newCommandMap);
 
-                var mutator = new PvtFieldMutator();
-                var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
-                var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
-                logger.warning("sHash: " + sHash + " | pHash: " + pHash);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                e.printStackTrace();
-            }
-        }, delay);
+            commandListener = new ModifiedListener(promptManager);
+
+            var mutator = new PvtFieldMutator();
+            var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
+            var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
+            logger.warning("sHash: " + sHash + " | pHash: " + pHash);
+            Bukkit.getPluginManager().registerEvents(commandListener, this);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
     }
 
     private void setupConfig() {
@@ -165,8 +180,8 @@ public class CommandPrompter extends JavaPlugin {
         return commandManager;
     }
 
-    public PromptRegistry getPromptRegistry() {
-        return promptRegistry;
+    public PromptManager getPromptManager() {
+        return promptManager;
     }
 
     public void reload(boolean clean) {
@@ -175,7 +190,7 @@ public class CommandPrompter extends JavaPlugin {
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();
         if (clean)
-            promptRegistry.clear();
+            promptManager.clearPromptRegistry();
     }
 
     public CommandPrompterConfig getConfiguration() {

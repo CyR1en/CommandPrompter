@@ -17,6 +17,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Class that manages your plugin's configuration(s)
+ *
+ * <p>
+ * This class will turn a configuration record into a YAML configuration file.
+ * For this class to work, a record must be:
+ * - Annotated with {@link Configuration}.
+ * - Fields of the record must be annotated with {@link ConfigNode}
+ *
+ * <p>
+ * Reflection is heavily used in this class to grab the types of each field in a
+ * record and initializes the defaults for the config file. It then uses reflection
+ * again to query those default values in the config file to instantiate the actual
+ * record with its respective data.
+ */
 public class ConfigurationManager {
 
     private final ConfigManager configManager;

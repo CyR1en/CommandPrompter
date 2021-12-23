@@ -26,20 +26,19 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import com.cyr1en.commandprompter.prompt.impl.PlayerChatPrompt;
 import com.cyr1en.kiso.utils.SRegex;
-import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 
-import java.util.LinkedList;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.regex.Pattern;
 
 public class PromptParser {
 
-    private CommandPrompter plugin;
-    private SRegex sRegex;
-    private String escapedRegex;
-    private PromptManager manager;
+    private final CommandPrompter plugin;
+    private final SRegex sRegex;
+    private final String escapedRegex;
+    private final PromptManager manager;
 
     public PromptParser(PromptManager promptManager) {
         this.plugin = promptManager.getPlugin();
@@ -49,7 +48,7 @@ public class PromptParser {
     }
 
     private String getEscapedRegex() {
-        String regex = plugin.getConfiguration().argumentRegex();
+        var regex = plugin.getConfiguration().argumentRegex();
         regex = regex.trim();
         return (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
                 (regex.substring(1, regex.length() - 1)) +
@@ -57,17 +56,25 @@ public class PromptParser {
     }
 
     public void parsePrompts(PromptContext promptContext) {
-        List<String> prompts = getPrompts(promptContext);
+        var prompts = getPrompts(promptContext);
         for (String prompt : prompts) {
             sRegex.find(manager.getArgumentPattern(), prompt);
-            if (sRegex.getResultsList().isEmpty()) {
-                manager.getPromptRegistry()
-                        .put(promptContext.getSender(), new PlayerChatPrompt(plugin, promptContext));
-                continue;
+            var arg = sRegex.getResultsList().isEmpty() ? "" : getCleanArg(sRegex.getResultsList().get(0));
+            Class<? extends Prompt> pClass = manager.get(arg);
+            try {
+                var sender = promptContext.getSender();
+                var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class)
+                        .newInstance(plugin, promptContext);
+                manager.getPromptRegistry().addPrompt(sender, p);
+            } catch (NoSuchMethodException | InvocationTargetException
+                    | InstantiationException | IllegalAccessException e) {
+                e.printStackTrace();
             }
-            String argument = sRegex.getResultsList().get(0);
-            Class<? extends Prompt> pClass= manager.get(argument.replaceAll("\\W", ""));
         }
+    }
+
+    private String getCleanArg(String arg) {
+        return arg.replaceAll("\\W", "");
     }
 
     private List<String> getPrompts(PromptContext promptContext) {
