@@ -36,16 +36,17 @@ import java.util.Objects;
 
 public class CommodoreRegistry {
 
-  public static void register(CommandPrompter plugin, Command cmd) {
-    if (CommodoreProvider.isSupported()) {
-      try {
-        Commodore commodore = CommodoreProvider.getCommodore(plugin);
-        LiteralCommandNode<?> cpCommand = CommodoreFileFormat.parse(Objects.requireNonNull(plugin.getResource("CommandPrompter.commodore")));
-        commodore.register(cmd, cpCommand);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+    public static void register(CommandPrompter plugin, Command cmd) {
+        if (CommodoreProvider.isSupported()) {
+            try {
+                Commodore commodore = CommodoreProvider.getCommodore(plugin);
+                LiteralCommandNode<?> cpCommand = CommodoreFileFormat.parse(
+                        Objects.requireNonNull(plugin.getResource("CommandPrompter.commodore")));
+                commodore.register(cmd, cpCommand);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
-  }
 
 }

@@ -33,20 +33,20 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class Reload extends AbstractCommand {
 
-  private final CommandPrompter commandPrompter;
+    private final CommandPrompter commandPrompter;
 
-  public Reload(JavaPlugin plugin, CommandMessenger messenger) {
-    super(plugin, messenger);
-    commandPrompter = (CommandPrompter) plugin;
-    this.commandName = "reload";
-    this.alias = new String[]{"rload", "r"};
-    this.permission = "commandprompter.reload";
-  }
+    public Reload(JavaPlugin plugin, CommandMessenger messenger) {
+        super(plugin, messenger);
+        commandPrompter = (CommandPrompter) plugin;
+        this.commandName = "reload";
+        this.alias = new String[]{"rload", "r"};
+        this.permission = "commandprompter.reload";
+    }
 
-  @Override
-  public void doCommand(CommandSender sender, String[] args) {
-    commandPrompter.reload(true);
-    String message = commandPrompter.getI18N().getProperty("CommandReloadSuccess");
-    this.messenger.sendMessage(sender, message);
-  }
+    @Override
+    public void doCommand(CommandSender sender, String[] args) {
+        commandPrompter.reload(true);
+        String message = commandPrompter.getI18N().getProperty("CommandReloadSuccess");
+        this.messenger.sendMessage(sender, message);
+    }
 }

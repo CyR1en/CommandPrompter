@@ -29,39 +29,29 @@ import com.cyr1en.commandprompter.prompt.PromptContext;
 
 public interface Prompt {
 
-  /**
-   * Method that sends the prompt.
-   */
-  void sendPrompt();
+    /**
+     * Method that sends the prompt.
+     */
+    void sendPrompt();
 
-  /**
-   * Accessor for the {@link PromptContext}.
-   *
-   * <p>{@link PromptContext} contains all the information that you need for
-   * the {@link Prompt}.</p>
-   *
-   * @see PromptContext
-   * @return context for the prompt.
-   */
-  PromptContext getContext();
+    /**
+     * Accessor for the {@link PromptContext}.
+     *
+     * <p>{@link PromptContext} contains all the information that you need for
+     * the {@link Prompt}.</p>
+     *
+     * @return context for the prompt.
+     * @see PromptContext
+     */
+    PromptContext getContext();
 
-  /**
-   * Get instance of the plugin.
-   *
-   * <p>The instance is a sub-class {@link org.bukkit.plugin.java.JavaPlugin}.</p>
-   *
-   * @return Instance of a plugin.
-   */
-  CommandPrompter getPlugin();
-
-  /**
-   * Get the identifier for the prompt.
-   *
-   * An identifier is a {@link String} that signifies the type of a prompt.
-   *
-   * @return Returns the identifier for the prompt.
-   */
-  String getTrigger();
-
+    /**
+     * Get instance of the plugin.
+     *
+     * <p>The instance is a sub-class {@link org.bukkit.plugin.java.JavaPlugin}.</p>
+     *
+     * @return Instance of a plugin.
+     */
+    CommandPrompter getPlugin();
 
 }

@@ -39,31 +39,31 @@ import org.bukkit.scheduler.BukkitRunnable;
  */
 public class Dispatcher {
 
-  /**
-   * Dispatches command by forcing a player to chat the command.
-   * This will allow plugins to support CommandPrompter.
-   *
-   * @param plugin Instance of plugin.
-   * @param sender command sender (in menu's, then the item clicker)
-   * @param command command that would be dispatched.
-   */
-  public static void dispatchCommand(Plugin plugin, Player sender, String command) {
-    final String checked = command.codePointAt(0) == 0x2F ? command : "/" + command;
-    new BukkitRunnable() {
-      public void run() {
-        sender.chat(checked);
-      }
-    }.runTask(plugin);
-  }
+    /**
+     * Dispatches command by forcing a player to chat the command.
+     * This will allow plugins to support CommandPrompter.
+     *
+     * @param plugin  Instance of plugin.
+     * @param sender  command sender (in menu's, then the item clicker)
+     * @param command command that would be dispatched.
+     */
+    public static void dispatchCommand(Plugin plugin, Player sender, String command) {
+        final String checked = command.codePointAt(0) == 0x2F ? command : "/" + command;
+        new BukkitRunnable() {
+            public void run() {
+                sender.chat(checked);
+            }
+        }.runTask(plugin);
+    }
 
-  /**
-   * Dispatch the command as op
-   *
-   * @param plugin Instance of plugin.
-   * @param sender command sender (in menu's, then the item clicker)
-   * @param command command that would be dispatched.
-   */
-  public static void dispathcOP(Plugin plugin, Player sender, String command){
-    Bukkit.dispatchCommand(sender, command);
-  }
+    /**
+     * Dispatch the command as op
+     *
+     * @param plugin  Instance of plugin.
+     * @param sender  command sender (in menu's, then the item clicker)
+     * @param command command that would be dispatched.
+     */
+    public static void dispathcOP(Plugin plugin, Player sender, String command) {
+        Bukkit.dispatchCommand(sender, command);
+    }
 }
