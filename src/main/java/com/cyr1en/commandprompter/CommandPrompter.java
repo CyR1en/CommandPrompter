@@ -24,7 +24,8 @@
 
 package com.cyr1en.commandprompter;
 
-import com.cyr1en.commandprompter.api.prompt.ChatPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
@@ -33,6 +34,12 @@ import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
+import com.cyr1en.commandprompter.prompt.PromptResponseListener;
+import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
+import com.cyr1en.commandprompter.prompt.ui.listener.InventoryClickListener;
+import com.cyr1en.commandprompter.prompt.ui.listener.InventoryCloseListener;
+import com.cyr1en.commandprompter.prompt.ui.listener.PlayerLoginListener;
+import com.cyr1en.commandprompter.prompt.ui.listener.PlayerQuitListener;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
@@ -86,8 +93,14 @@ public class CommandPrompter extends JavaPlugin {
     private void initPromptSystem() {
         promptManager = new PromptManager(this);
         promptManager.put("", ChatPrompt.class);
+        promptManager.put("a", AnvilPrompt.class);
+        promptManager.put("p", PlayerUIPrompt.class);
         initCommandListener();
-        Bukkit.getPluginManager().registerEvents(commandListener, this);
+        Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
+        Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new InventoryCloseListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
     }
 
     /**

@@ -27,9 +27,14 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -46,22 +51,26 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     private final CommandPrompter plugin;
     private final PromptRegistry promptRegistry;
     private final PromptParser promptParser;
+    private final ScheduledExecutorService scheduler;
 
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
     public void parse(PromptContext context) {
         var command = context.getContent().substring(0, context.getContent().indexOf(' '));
         promptRegistry.initRegistryFor(context.getSender(), command);
         promptParser.parsePrompts(context);
+        var timeout = plugin.getConfiguration().promptTimeout();
+        scheduler.schedule(() -> cancel(context.getSender()), timeout, TimeUnit.SECONDS);
     }
 
     public void sendPrompt(Player sender) {
-        if(!promptRegistry.containsKey(sender)) return;
-        if(promptRegistry.get(sender).isEmpty()) return;
+        if (!promptRegistry.containsKey(sender)) return;
+        if (promptRegistry.get(sender).isEmpty()) return;
         Objects.requireNonNull(promptRegistry.get(sender).peek()).sendPrompt();
     }
 
@@ -73,14 +82,27 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             return;
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
-        if (promptRegistry.get(sender).isEmpty())
+        if (promptRegistry.get(sender).isEmpty()) {
             Dispatcher.dispatchCommand(plugin, sender, promptRegistry.get(sender).getCompleteCommand());
-        else
+            promptRegistry.unregister(sender);
+        } else
             sendPrompt(sender);
     }
 
     public PromptRegistry getPromptRegistry() {
         return promptRegistry;
+    }
+
+    public PromptParser getParser() {
+        return promptParser;
+    }
+
+    public void cancel(Player sender) {
+        if(!promptRegistry.containsKey(sender)) return;
+        promptRegistry.unregister(sender);
+        var prefix = plugin.getConfiguration().promptPrefix();
+        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix +
+                plugin.getI18N().getProperty("PromptCancel")));
     }
 
     public Pattern getArgumentPattern() {

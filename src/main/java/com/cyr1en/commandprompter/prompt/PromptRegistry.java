@@ -54,6 +54,11 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
         get(sender).add(p);
     }
 
+    public void unregister(CommandSender sender) {
+        if(!containsKey(sender)) return;
+        remove(sender);
+    }
+
     public boolean inCommandProcess(CommandSender sender) {
         return containsKey(sender);
     }

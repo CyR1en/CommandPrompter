@@ -55,6 +55,11 @@ public class PromptParser {
                 (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");
     }
 
+    public boolean isParsable(PromptContext promptContext) {
+        var prompts = getPrompts(promptContext);
+        return !prompts.isEmpty();
+    }
+
     public void parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
         for (String prompt : prompts) {
@@ -63,14 +68,19 @@ public class PromptParser {
             Class<? extends Prompt> pClass = manager.get(arg);
             try {
                 var sender = promptContext.getSender();
-                var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class)
-                        .newInstance(plugin, promptContext);
+                var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class, String.class)
+                        .newInstance(plugin, promptContext, cleanPrompt(prompt));
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
                     | InstantiationException | IllegalAccessException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private String cleanPrompt(String prompt) {
+        return prompt.substring(1, prompt.length() - 1)
+                .replaceAll(manager.getArgumentPattern().toString(), "");
     }
 
     private String getCleanArg(String arg) {

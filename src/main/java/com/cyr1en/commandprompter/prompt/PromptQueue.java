@@ -5,7 +5,7 @@ import com.cyr1en.commandprompter.api.prompt.Prompt;
 import java.util.LinkedList;
 import java.util.PriorityQueue;
 
-public class PromptQueue extends PriorityQueue<Prompt> {
+public class PromptQueue extends LinkedList<Prompt> {
 
     private final String command;
     private final LinkedList<String> completed;

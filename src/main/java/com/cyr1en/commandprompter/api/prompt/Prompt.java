@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter.api.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 
 public interface Prompt {
 
@@ -53,5 +54,15 @@ public interface Prompt {
      * @return Instance of a plugin.
      */
     CommandPrompter getPlugin();
+
+    /**
+     * Get the actual prompt to send
+     */
+    String getPrompt();
+
+    /**
+     * Get prompt manager
+     */
+    PromptManager getPromptManager();
 
 }
