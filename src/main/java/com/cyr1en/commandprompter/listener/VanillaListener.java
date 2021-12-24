@@ -39,7 +39,6 @@ public class VanillaListener extends CommandListener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
-        plugin.getLogger().info("This is vanilla listener");
         PromptContext context = new PromptContext(event, event.getPlayer(),
                 event.getMessage().replaceAll("/", ""));
         this.process(context);

@@ -42,7 +42,6 @@ public class ModifiedListener extends CommandListener {
     public void onCommand(CommandDispatchEvent event) {
         if (!(event.getSender() instanceof Player sender))
             return;
-        plugin.getLogger().info("This is modified listener");
         PromptContext context = new PromptContext(event, sender, event.getCommandLine());
         this.process(context);
     }

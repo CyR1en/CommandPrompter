@@ -48,10 +48,13 @@ public class CommandListener implements Listener {
 
     public CommandListener(PromptManager promptManager) {
         this.promptManager = promptManager;
+        this.plugin = promptManager.getPlugin();
     }
 
-    protected void process(PromptContext ctx) {
-        promptManager.parse(ctx);
-        promptManager.sendPrompt(ctx.getSender());
+    protected void process(PromptContext context) {
+        if(!promptManager.getParser().isParsable(context)) return;
+        context.getCallable().setCancelled(true);
+        promptManager.parse(context);
+        promptManager.sendPrompt(context.getSender());
     }
 }
