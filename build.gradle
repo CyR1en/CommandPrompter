@@ -49,12 +49,14 @@ repositories {
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
     maven { url 'https://libraries.minecraft.net/' }
     maven { url 'https://repo.cyr1en.com/snapshots' }
+    maven { url 'https://repo.codemc.io/repository/maven-snapshots/'}
 }
 
 dependencies {
-    implementation 'me.lucko:commodore:1.10'
-    implementation "com.cyr1en:kiso-utils:1.1-SNAPSHOT"
-    implementation "com.cyr1en:kiso-mc:1.0-SNAPSHOT"
+    implementation 'me.lucko:commodore:1.11'
+    implementation 'com.cyr1en:kiso-utils:1.1-SNAPSHOT'
+    implementation 'com.cyr1en:kiso-mc:1.0-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
 }
 
