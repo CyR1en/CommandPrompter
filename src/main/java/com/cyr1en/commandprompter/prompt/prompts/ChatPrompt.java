@@ -22,44 +22,26 @@
  * SOFTWARE.
  */
 
-package com.cyr1en.commandprompter.api.prompt;
+package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class ChatPrompt implements Prompt{
+public class ChatPrompt extends AbstractPrompt {
 
-  private final CommandPrompter plugin;
-  private final PromptContext context;
+    public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
+        super(plugin, context, prompt);
+    }
 
-  public ChatPrompt(CommandPrompter plugin, PromptContext context) {
-    this.plugin = plugin;
-    this.context = context;
-  }
-
-  public void sendPrompt() {
-    List<String> parts = Arrays.asList(context.getContent().split("\\{br}"));
-    String prefix = getPlugin().getConfiguration().promptPrefix();
-    parts.forEach(part -> context.getSender().sendMessage(
-            ChatColor.translateAlternateColorCodes('&', prefix + part)));
-  }
-
-  @Override
-  public CommandPrompter getPlugin() {
-    return this.plugin;
-  }
-
-  @Override
-  public PromptContext getContext() {
-    return this.context;
-  }
+    public void sendPrompt() {
+        List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
+        String prefix = getPlugin().getConfiguration().promptPrefix();
+        parts.forEach(part -> getContext().getSender().sendMessage(
+                ChatColor.translateAlternateColorCodes('&', prefix + part)));
+    }
 }
