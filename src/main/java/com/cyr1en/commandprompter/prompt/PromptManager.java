@@ -27,8 +27,8 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -61,14 +61,12 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void parse(PromptContext context) {
-        var command = context.getContent().substring(0, context.getContent().indexOf(' '));
-        promptRegistry.initRegistryFor(context.getSender(), command);
         promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
         scheduler.schedule(() -> cancel(context.getSender()), timeout, TimeUnit.SECONDS);
     }
 
-    public void sendPrompt(Player sender) {
+    public void sendPrompt(CommandSender sender) {
         if (!promptRegistry.containsKey(sender)) return;
         if (promptRegistry.get(sender).isEmpty()) return;
         Objects.requireNonNull(promptRegistry.get(sender).peek()).sendPrompt();
@@ -83,10 +81,12 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
         if (promptRegistry.get(sender).isEmpty()) {
-            Dispatcher.dispatchCommand(plugin, sender, promptRegistry.get(sender).getCompleteCommand());
+            var queue = promptRegistry.get(sender);
+            Dispatcher.dispatchNative(sender, queue.getCompleteCommand());
             promptRegistry.unregister(sender);
         } else
-            sendPrompt(sender);
+            if(sender instanceof Player player)
+            sendPrompt(player);
     }
 
     public PromptRegistry getPromptRegistry() {
@@ -97,7 +97,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         return promptParser;
     }
 
-    public void cancel(Player sender) {
+    public void cancel(CommandSender sender) {
         if(!promptRegistry.containsKey(sender)) return;
         promptRegistry.unregister(sender);
         var prefix = plugin.getConfiguration().promptPrefix();

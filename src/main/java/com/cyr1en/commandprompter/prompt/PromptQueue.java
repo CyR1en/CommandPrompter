@@ -3,7 +3,6 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 
 import java.util.LinkedList;
-import java.util.PriorityQueue;
 
 public class PromptQueue extends LinkedList<Prompt> {
 

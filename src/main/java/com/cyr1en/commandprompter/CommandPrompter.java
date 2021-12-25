@@ -55,7 +55,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-// import org.bstats.bukkit.Metrics;
+import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
 
@@ -73,7 +73,7 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // new Metrics(this);
+        new Metrics(this,47772);
         logger = getLogger();
         setupConfig();
         logger = getLogger();

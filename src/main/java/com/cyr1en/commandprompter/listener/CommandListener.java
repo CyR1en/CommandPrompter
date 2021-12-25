@@ -27,19 +27,9 @@ package com.cyr1en.commandprompter.listener;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
-import com.cyr1en.commandprompter.prompt.PromptRegistry;
-import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-
-import java.util.LinkedList;
-import java.util.List;
-import java.util.regex.Pattern;
 
 public class CommandListener implements Listener {
 
@@ -52,8 +42,14 @@ public class CommandListener implements Listener {
     }
 
     protected void process(PromptContext context) {
-        if(!promptManager.getParser().isParsable(context)) return;
-        context.getCallable().setCancelled(true);
+        if (!promptManager.getParser().isParsable(context)) return;
+        if (!(context.getSender() instanceof Player)) {
+            var prefix = plugin.getConfiguration().promptPrefix();
+            context.getSender().sendMessage(ChatColor.translateAlternateColorCodes('&',
+                    prefix + "CommandPrompter can only be used by a player."));
+            return;
+        }
+        context.getCancellable().setCancelled(true);
         promptManager.parse(context);
         promptManager.sendPrompt(context.getSender());
     }

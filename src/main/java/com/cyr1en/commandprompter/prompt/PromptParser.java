@@ -62,6 +62,8 @@ public class PromptParser {
 
     public void parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
+        var command = promptContext.getContent().substring(0, promptContext.getContent().indexOf(' '));
+        manager.getPromptRegistry().initRegistryFor(promptContext.getSender(), command);
         for (String prompt : prompts) {
             sRegex.find(manager.getArgumentPattern(), prompt);
             var arg = sRegex.getResultsList().isEmpty() ? "" : getCleanArg(sRegex.getResultsList().get(0));

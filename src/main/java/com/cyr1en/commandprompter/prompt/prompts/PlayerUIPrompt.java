@@ -27,6 +27,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.ui.PlayerList;
+import org.bukkit.entity.Player;
 
 import java.util.Arrays;
 import java.util.List;
@@ -40,7 +41,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
     @Override
     public void sendPrompt() {
         List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
-        new PlayerList(getPlugin(), getContext().getSender(), parts.get(0))
+        new PlayerList(getPlugin(), (Player) getContext().getSender(), parts.get(0))
                 .onClose(getPromptManager()::cancel)
                 .onComplete((player, s) -> {
                     var ctx = new PromptContext(null, player, s);

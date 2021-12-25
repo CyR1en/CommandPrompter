@@ -56,14 +56,18 @@ public class Dispatcher {
         }.runTask(plugin);
     }
 
+    public static void dispatchNative(CommandSender sender, String command) {
+        final String checked = command.codePointAt(0) == 0x2F ?
+                command.replace("/", "") : command;
+        Bukkit.dispatchCommand(sender, checked);
+    }
+
     /**
      * Dispatch the command as op
      *
-     * @param plugin  Instance of plugin.
-     * @param sender  command sender (in menu's, then the item clicker)
      * @param command command that would be dispatched.
      */
-    public static void dispathcOP(Plugin plugin, Player sender, String command) {
-        Bukkit.dispatchCommand(sender, command);
+    public static void dispathcOP(String command) {
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 }
