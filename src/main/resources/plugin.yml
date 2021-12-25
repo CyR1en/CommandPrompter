@@ -1,18 +1,14 @@
-name: CommandPrompter
-version: ${pluginVersion}
-author: CyRien
-description: Perfect plugin companion for DeluxeMenus and ChestCommands
+name: ${projectName}
+version: ${projectVersion}
+author: ${projectAuthor}
+description: ${projectDescription}
 
-main: com.cyr1en.cp.CommandPrompter
+main: ${projectEntry}
 api-version: 1.13
 
 commands:
   commandprompter:
-    aliases:
-      - cp
-      - cmdprompter
-      - cmdprmptr
-      - cmdp
+    aliases: [cp, cmdprompter, cmdprmptr, cmdp]
     description: General CommandPrompter commands
 
 permissions:
