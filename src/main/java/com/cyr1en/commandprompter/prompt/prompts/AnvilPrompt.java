@@ -58,9 +58,7 @@ public class AnvilPrompt extends AbstractPrompt {
         item.setItemMeta(meta);
 
         new AnvilGUI.Builder().plugin(getPlugin())
-                .onClose(p -> {
-                    getPromptManager().sendPrompt(p);
-                })
+                .onClose(p -> getPromptManager().sendPrompt(p))
                 .onComplete((p, text) -> {
                     var message = ChatColor.stripColor(
                             ChatColor.translateAlternateColorCodes('&', text));
