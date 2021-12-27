@@ -42,6 +42,11 @@ public class CommandListener implements Listener {
     }
 
     protected void process(PromptContext context) {
+        if (promptManager.getPromptRegistry().inCommandProcess(context.getSender())) {
+            plugin.getMessenger().sendMessage(context.getSender(),
+                    plugin.getI18N().getProperty("PromptInProgress"));
+            return;
+        }
         if (!promptManager.getParser().isParsable(context)) return;
         if (!(context.getSender() instanceof Player)) {
             var prefix = plugin.getConfiguration().promptPrefix();
