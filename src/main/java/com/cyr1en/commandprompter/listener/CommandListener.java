@@ -27,7 +27,6 @@ package com.cyr1en.commandprompter.listener;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
@@ -49,9 +48,8 @@ public class CommandListener implements Listener {
         }
         if (!promptManager.getParser().isParsable(context)) return;
         if (!(context.getSender() instanceof Player)) {
-            var prefix = plugin.getConfiguration().promptPrefix();
-            context.getSender().sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    prefix + "CommandPrompter can only be used by a player."));
+            plugin.getMessenger().sendMessage(context.getSender(),
+                    plugin.getI18N().getProperty("PromptPlayerOnly"));
             return;
         }
         context.getCancellable().setCancelled(true);

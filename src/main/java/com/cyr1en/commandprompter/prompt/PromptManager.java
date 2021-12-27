@@ -84,8 +84,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             var queue = promptRegistry.get(sender);
             Dispatcher.dispatchNative(sender, queue.getCompleteCommand());
             promptRegistry.unregister(sender);
-        } else
-            if(sender instanceof Player player)
+        } else if (sender instanceof Player player)
             sendPrompt(player);
     }
 
@@ -98,11 +97,9 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void cancel(CommandSender sender) {
-        if(!promptRegistry.containsKey(sender)) return;
+        if (!promptRegistry.containsKey(sender)) return;
         promptRegistry.unregister(sender);
-        var prefix = plugin.getConfiguration().promptPrefix();
-        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix +
-                plugin.getI18N().getProperty("PromptCancel")));
+        plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
     }
 
     public Pattern getArgumentPattern() {

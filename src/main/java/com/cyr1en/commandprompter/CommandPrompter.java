@@ -70,10 +70,11 @@ public class CommandPrompter extends JavaPlugin {
     private I18N i18n;
     private UpdateChecker updateChecker;
     private PromptManager promptManager;
+    private PluginMessenger messenger;
 
     @Override
     public void onEnable() {
-        new Metrics(this,5359);
+        new Metrics(this, 5359);
         logger = getLogger();
         setupConfig();
         logger = getLogger();
@@ -81,6 +82,7 @@ public class CommandPrompter extends JavaPlugin {
         setupUpdater();
         setupCommands();
         initPromptSystem();
+        messenger = new PluginMessenger(config.promptPrefix());
     }
 
     @Override
@@ -193,12 +195,17 @@ public class CommandPrompter extends JavaPlugin {
         return commandManager;
     }
 
+    public PluginMessenger getMessenger() {
+        return messenger;
+    }
+
     public PromptManager getPromptManager() {
         return promptManager;
     }
 
     public void reload(boolean clean) {
         config = configManager.reload(CommandPrompterConfig.class);
+        messenger.setPrefix(config.promptPrefix());
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();
