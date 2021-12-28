@@ -70,7 +70,9 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void sendPrompt(CommandSender sender) {
         if (!promptRegistry.containsKey(sender)) return;
         if (promptRegistry.get(sender).isEmpty()) return;
-        Objects.requireNonNull(promptRegistry.get(sender).peek()).sendPrompt();
+        var prompt = Objects.requireNonNull(promptRegistry.get(sender).peek());
+        prompt.sendPrompt();
+        plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
     }
 
     public void processPrompt(PromptContext context) {
@@ -85,16 +87,26 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             var queue = promptRegistry.get(sender);
 
             var isCurrentOp = sender.isOp();
-            if (queue.isOp()) sender.setOp(true);
+            plugin.getPluginLogger().debug("Is Currently OP?: " + isCurrentOp);
+            plugin.getPluginLogger().debug("PromptQueue OP: " + queue.isOp());
+            if (queue.isOp() && !isCurrentOp) {
+                sender.setOp(true);
+                plugin.getPluginLogger().debug("Gave OP status temporarily");
+            }
+            plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
             Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
             if (!isCurrentOp) {
                 sender.setOp(false);
+                plugin.getPluginLogger().debug("Remove OP status");
                 // Redundancy for de-op
-                Bukkit.getScheduler().runTaskLater(plugin, () -> sender.setOp(false), 1);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    plugin.getPluginLogger().debug("Remove OP status (redundancy)");
+                }, 1);
             }
             promptRegistry.unregister(sender);
         } else if (sender instanceof Player player)
             sendPrompt(player);
+
     }
 
     public PromptRegistry getPromptRegistry() {
@@ -109,12 +121,17 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (!promptRegistry.containsKey(sender)) return;
         promptRegistry.unregister(sender);
         plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
+        plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
     }
 
     public Pattern getArgumentPattern() {
         var pattern = "-(%s) ";
-        var arguments = String.join("|", this.keySet());
-        return Pattern.compile(pattern.formatted(arguments));
+        var keySet = new HashSet<>(Set.copyOf(this.keySet()));
+        keySet.remove("");
+        var arguments = String.join("|", keySet);
+        var compiled = Pattern.compile(pattern.formatted(arguments));
+        plugin.getPluginLogger().debug("ArgumentPattern: " + compiled);
+        return compiled;
     }
 
     public void clearPromptRegistry() {

@@ -64,7 +64,7 @@ public class CommandPrompter extends JavaPlugin {
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
 
-    private Logger logger;
+    private PluginLogger logger;
     private CommandManager commandManager;
     private CommandListener commandListener;
     private I18N i18n;
@@ -75,9 +75,9 @@ public class CommandPrompter extends JavaPlugin {
     @Override
     public void onEnable() {
         new Metrics(this, 5359);
-        logger = getLogger();
         setupConfig();
-        logger = getLogger();
+        logger = new PluginLogger(this, "CommandPrompter");
+        logger.setDebugMode(config.debugMode());
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
@@ -135,7 +135,7 @@ public class CommandPrompter extends JavaPlugin {
             var mutator = new PvtFieldMutator();
             var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
             var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
-            logger.warning("sHash: " + sHash + " | pHash: " + pHash);
+            logger.warn("sHash: " + sHash + " | pHash: " + pHash);
             Bukkit.getPluginManager().registerEvents(commandListener, this);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
@@ -203,9 +203,14 @@ public class CommandPrompter extends JavaPlugin {
         return promptManager;
     }
 
+    public PluginLogger getPluginLogger() {
+        return logger;
+    }
+
     public void reload(boolean clean) {
         config = configManager.reload(CommandPrompterConfig.class);
         messenger.setPrefix(config.promptPrefix());
+        logger.setDebugMode(config.debugMode());
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();

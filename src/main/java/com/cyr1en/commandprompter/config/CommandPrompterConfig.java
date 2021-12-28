@@ -60,6 +60,14 @@ public record CommandPrompterConfig(
         String argumentRegex,
 
         @ConfigNode
+        @NodeName("Debug-Mode")
+        @NodeDefault("false")
+        @NodeComment({
+                "Enable debug mode for CommandPrompter."
+        })
+        boolean debugMode,
+
+        @ConfigNode
         @NodeName("Unsafe.Enable")
         @NodeDefault("false")
         @NodeComment({
