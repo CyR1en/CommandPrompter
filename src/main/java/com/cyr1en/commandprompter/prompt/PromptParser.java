@@ -27,7 +27,6 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.kiso.utils.SRegex;
-import org.bukkit.command.CommandSender;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;

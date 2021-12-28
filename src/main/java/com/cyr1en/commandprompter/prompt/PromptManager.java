@@ -27,6 +27,7 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -74,15 +75,23 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     public void processPrompt(PromptContext context) {
         var sender = context.getSender();
-        if (!getPromptRegistry().containsKey(sender))
-            return;
-        if (promptRegistry.get(sender).isEmpty())
-            return;
+
+        if (!getPromptRegistry().containsKey(sender)) return;
+        if (promptRegistry.get(sender).isEmpty()) return;
+
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
         if (promptRegistry.get(sender).isEmpty()) {
             var queue = promptRegistry.get(sender);
-            Dispatcher.dispatchNative(sender, queue.getCompleteCommand());
+
+            var isCurrentOp = sender.isOp();
+            if (queue.isOp()) sender.setOp(true);
+            Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
+            if (!isCurrentOp) {
+                sender.setOp(false);
+                // Redundancy for de-op
+                Bukkit.getScheduler().runTaskLater(plugin, () -> sender.setOp(false), 1);
+            }
             promptRegistry.unregister(sender);
         } else if (sender instanceof Player player)
             sendPrompt(player);

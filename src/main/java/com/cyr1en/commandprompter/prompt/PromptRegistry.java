@@ -46,7 +46,7 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
 
     public void initRegistryFor(CommandSender sender, String command) {
         if (containsKey(sender)) return;
-        put(sender, new PromptQueue(command));
+        put(sender, new PromptQueue(command, sender.isOp()));
     }
 
     public void addPrompt(CommandSender sender, Prompt p) {

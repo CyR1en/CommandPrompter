@@ -67,7 +67,7 @@ public class Dispatcher {
      *
      * @param command command that would be dispatched.
      */
-    public static void dispathcOP(String command) {
+    public static void dispatchOP(String command) {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 }
