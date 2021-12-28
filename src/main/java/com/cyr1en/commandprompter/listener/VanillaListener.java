@@ -40,7 +40,7 @@ public class VanillaListener extends CommandListener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         PromptContext context = new PromptContext(event, event.getPlayer(),
-                event.getMessage().replaceAll("/", ""));
+                event.getMessage().replaceFirst("/", ""));
         this.process(context);
     }
 }
