@@ -41,6 +41,13 @@ public class CommandListener implements Listener {
     }
 
     protected void process(PromptContext context) {
+        // Sanity Checks
+        if (!context.getSender().hasPermission("commandprompter.use") &&
+                plugin.getConfiguration().enablePermission()) {
+            plugin.getMessenger().sendMessage(context.getSender(),
+                    plugin.getI18N().getProperty("PromptNoPerm"));
+            return;
+        }
         if (promptManager.getPromptRegistry().inCommandProcess(context.getSender())) {
             plugin.getMessenger().sendMessage(context.getSender(),
                     plugin.getI18N().getProperty("PromptInProgress"));
