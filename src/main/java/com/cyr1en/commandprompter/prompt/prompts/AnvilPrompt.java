@@ -66,8 +66,6 @@ public class AnvilPrompt extends AbstractPrompt {
                     if (cancelKeyword.equalsIgnoreCase(message)) {
                         var prefix = getPlugin().getConfiguration().promptPrefix();
                         getPromptManager().cancel(p);
-                        p.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix +
-                                getPlugin().getI18N().getProperty("PromptCancel")));
                     }
                     var ctx = new PromptContext(null, p, message);
                     getPromptManager().processPrompt(ctx);
