@@ -60,7 +60,15 @@ public record CommandPrompterConfig(
         String argumentRegex,
 
         @ConfigNode
-        @NodeName("Unsafe.Enable")
+        @NodeName("Debug-Mode")
+        @NodeDefault("false")
+        @NodeComment({
+                "Enable debug mode for CommandPrompter."
+        })
+        boolean debugMode,
+
+        @ConfigNode
+        @NodeName("Enable-Unsafe")
         @NodeDefault("false")
         @NodeComment({
                 "Enable unsafe features for",
@@ -72,7 +80,7 @@ public record CommandPrompterConfig(
         boolean enableUnsafe,
 
         @ConfigNode
-        @NodeName("Unsafe.Modification-Delay")
+        @NodeName("Modification-Delay")
         @NodeDefault("1")
         @NodeComment({
                 "If Enable-Unsafe is set to",

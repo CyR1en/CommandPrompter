@@ -42,6 +42,7 @@ public class CommandListener implements Listener {
 
     protected void process(PromptContext context) {
         // Sanity Checks
+        plugin.getPluginLogger().debug("Command Caught using: %s", this.getClass().getSimpleName());
         if (!context.getSender().hasPermission("commandprompter.use") &&
                 plugin.getConfiguration().enablePermission()) {
             plugin.getMessenger().sendMessage(context.getSender(),
@@ -60,6 +61,7 @@ public class CommandListener implements Listener {
             return;
         }
         context.getCancellable().setCancelled(true);
+        plugin.getPluginLogger().debug("Ctx Before Parse: " + context);
         promptManager.parse(context);
         promptManager.sendPrompt(context.getSender());
     }

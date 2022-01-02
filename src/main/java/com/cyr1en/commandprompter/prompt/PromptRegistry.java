@@ -52,11 +52,14 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
     public void addPrompt(CommandSender sender, Prompt p) {
         if (!containsKey(sender)) return;
         get(sender).add(p);
+        pluginInstance.getPluginLogger().debug("Registered: (%s : %s)",
+                sender.getName(), p.getClass().getSimpleName());
     }
 
     public void unregister(CommandSender sender) {
-        if(!containsKey(sender)) return;
+        if (!containsKey(sender)) return;
         remove(sender);
+        pluginInstance.getPluginLogger().debug("Un-Registered: %s", sender.getName());
     }
 
     public boolean inCommandProcess(CommandSender sender) {
