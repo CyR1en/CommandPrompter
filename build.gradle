@@ -35,7 +35,7 @@ java {
 
 PluginManifest manifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 0, minor: 1, patch: 21, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 0, minor: 1, patch: 22, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -49,7 +49,8 @@ repositories {
     maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
     maven { url 'https://libraries.minecraft.net/' }
     maven { url 'https://repo.cyr1en.com/snapshots' }
-    maven { url 'https://repo.codemc.io/repository/maven-snapshots/'}
+    maven { url 'https://repo.dmulloy2.net/repository/public/' }
+    maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
 }
 
 dependencies {
@@ -59,6 +60,12 @@ dependencies {
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:2.2.1'
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
+    compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
+}
+
+configurations.implementation {
+    exclude group: 'joda-time', module: 'joda-time'
+    exclude group: 'org.atteo.classinde', module: 'classindex'
 }
 
 shadowJar {

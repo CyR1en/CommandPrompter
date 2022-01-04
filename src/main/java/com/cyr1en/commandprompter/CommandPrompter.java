@@ -36,6 +36,7 @@ import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptResponseListener;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.prompt.ui.listener.InventoryClickListener;
 import com.cyr1en.commandprompter.prompt.ui.listener.InventoryCloseListener;
 import com.cyr1en.commandprompter.prompt.ui.listener.PlayerLoginListener;
@@ -97,6 +98,10 @@ public class CommandPrompter extends JavaPlugin {
         promptManager.put("", ChatPrompt.class);
         promptManager.put("a", AnvilPrompt.class);
         promptManager.put("p", PlayerUIPrompt.class);
+        if(getServer().getPluginManager().getPlugin("ProtocolLib") != null)
+            promptManager.put("s", SignPrompt.class);
+        else
+            getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);

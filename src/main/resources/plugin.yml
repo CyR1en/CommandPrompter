@@ -2,6 +2,7 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
+softdepend: [ProtocolLib]
 
 main: ${projectEntry}
 api-version: 1.13

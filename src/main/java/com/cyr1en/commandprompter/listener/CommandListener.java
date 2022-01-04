@@ -51,7 +51,9 @@ public class CommandListener implements Listener {
         }
         if (promptManager.getPromptRegistry().inCommandProcess(context.getSender())) {
             plugin.getMessenger().sendMessage(context.getSender(),
-                    plugin.getI18N().getProperty("PromptInProgress"));
+                    plugin.getI18N().getFormattedProperty("PromptInProgress",
+                            plugin.getConfiguration().cancelKeyword()));
+            context.getCancellable().setCancelled(true);
             return;
         }
         if (!promptManager.getParser().isParsable(context)) return;

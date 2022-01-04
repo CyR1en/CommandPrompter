@@ -70,6 +70,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void sendPrompt(CommandSender sender) {
         if (!promptRegistry.containsKey(sender)) return;
         if (promptRegistry.get(sender).isEmpty()) return;
+        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         var prompt = Objects.requireNonNull(promptRegistry.get(sender).peek());
         prompt.sendPrompt();
         plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
@@ -83,6 +84,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
+        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             var queue = promptRegistry.get(sender);
 

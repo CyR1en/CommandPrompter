@@ -29,4 +29,5 @@ public class PromptQueue extends LinkedList<Prompt> {
         var s = "/%s %s";
         return s.formatted(command, String.join(" ", completed));
     }
+
 }
