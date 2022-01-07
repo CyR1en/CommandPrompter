@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -50,7 +51,8 @@ public class PlayerList {
         ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta skullMeta = (SkullMeta) skull.getItemMeta();
         skullMeta.setOwningPlayer(player);
-        skullMeta.setDisplayName(player.getName());
+        var name = String.format(format, player.getName());
+        skullMeta.setDisplayName(Util.color(name));
         skull.setItemMeta(skullMeta);
         skulls.add(skull);
     }

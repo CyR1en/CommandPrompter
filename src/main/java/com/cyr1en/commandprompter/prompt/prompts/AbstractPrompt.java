@@ -28,7 +28,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
-import org.bukkit.ChatColor;
+import com.cyr1en.commandprompter.util.Util;
 
 public abstract class AbstractPrompt implements Prompt {
 
@@ -45,11 +45,11 @@ public abstract class AbstractPrompt implements Prompt {
     }
 
     protected String stripColor(String msg) {
-        return ChatColor.stripColor(color(msg));
+        return Util.stripColor(msg);
     }
 
     protected String color(String msg) {
-        return ChatColor.translateAlternateColorCodes('&', msg);
+        return Util.color(msg);
     }
 
     @Override
