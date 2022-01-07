@@ -59,7 +59,13 @@ public class PromptParser {
         return !prompts.isEmpty();
     }
 
-    public void parsePrompts(PromptContext promptContext) {
+    /**
+     * Parses a contents of {@link PromptContext}
+     *
+     * @param promptContext Context to parse
+     * @return hashCode of the {@link PromptQueue} that was created.
+     */
+    public int parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
         plugin.getPluginLogger().debug("Prompts: " + prompts);
         var command = promptContext.getContent().substring(0, promptContext.getContent().indexOf(' '));
