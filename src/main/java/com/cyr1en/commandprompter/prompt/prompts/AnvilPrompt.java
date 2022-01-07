@@ -26,10 +26,13 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.util.Util;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -46,36 +49,53 @@ public class AnvilPrompt extends AbstractPrompt {
     @Override
     public void sendPrompt() {
         List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
-        ItemStack item = new ItemStack(Material.PAPER);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(color(parts.get(0)));
+        var item = makeItem(parts);
+        makeAnvil(parts, item).open((Player) getContext().getSender());
+    }
+
+    private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item) {
+        var isComplete = new AtomicBoolean(false);
+        var builder = new AnvilGUI.Builder();
+        builder.onComplete((p, text) -> {
+            var message = ChatColor.stripColor(
+                    ChatColor.translateAlternateColorCodes('&', text));
+            var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
+            if (cancelKeyword.equalsIgnoreCase(message)) {
+                getPromptManager().cancel(p);
+                return AnvilGUI.Response.close();
+            }
+            isComplete.getAndSet(true);
+            var ctx = new PromptContext(null, p, message);
+            getPromptManager().processPrompt(ctx);
+            return AnvilGUI.Response.close();
+        });
+        builder.onClose(p -> {
+            if (isComplete.get())
+                return;
+            getPromptManager().cancel(p);
+        });
+        builder.text(color(parts.get(0)));
+        if (getPlugin().getPromptConfig().enableTitle())
+            builder.title(color(parts.get(0)));
+        builder.itemLeft(item);
+        builder.plugin(getPlugin());
+        return builder;
+    }
+
+    private ItemStack makeItem(List<String> parts) {
+        var item = new ItemStack(Util.getCheckedMaterial(getPlugin().getPromptConfig().anvilItem(), Material.PAPER));
+        var meta = item.getItemMeta();
+        getPlugin().getPluginLogger().debug("ItemMeta: " + meta);
+        if (getPlugin().getPromptConfig().anvilEnchanted()) {
+            meta.addEnchant(Enchantment.LURE, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        meta.setDisplayName(parts.get(0));
+
         if (parts.size() > 1)
             meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
         item.setItemMeta(meta);
-
-        AtomicBoolean isComplete = new AtomicBoolean(false);
-        new AnvilGUI.Builder().plugin(getPlugin())
-                .onComplete((p, text) -> {
-                    var message = ChatColor.stripColor(
-                            ChatColor.translateAlternateColorCodes('&', text));
-                    var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
-                    if (cancelKeyword.equalsIgnoreCase(message)) {
-                        getPromptManager().cancel(p);
-                        return AnvilGUI.Response.close();
-                    }
-                    var ctx = new PromptContext(null, p, message);
-                    getPromptManager().processPrompt(ctx);
-                    isComplete.set(true);
-                    return AnvilGUI.Response.close();
-                })
-                .onClose(p -> {
-                    if(!isComplete.get())
-                        getPromptManager().cancel(p);
-                })
-                .onLeftInputClick(player -> isComplete.set(false))
-                .text(stripColor(parts.get(0)))
-                .itemLeft(item)
-                .plugin(getPlugin())
-                .open((Player) getContext().getSender());
+        return item;
     }
 }
