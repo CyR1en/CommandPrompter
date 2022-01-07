@@ -64,6 +64,7 @@ public class CommandPrompter extends JavaPlugin {
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
+    private PromptConfig promptConfig;
 
     private PluginLogger logger;
     private CommandManager commandManager;
@@ -150,6 +151,7 @@ public class CommandPrompter extends JavaPlugin {
     private void setupConfig() {
         configManager = new ConfigurationManager(this);
         config = configManager.getConfig(CommandPrompterConfig.class);
+        promptConfig = configManager.getConfig(PromptConfig.class);
     }
 
     private void setupCommands() {
@@ -214,6 +216,7 @@ public class CommandPrompter extends JavaPlugin {
 
     public void reload(boolean clean) {
         config = configManager.reload(CommandPrompterConfig.class);
+        promptConfig = configManager.reload(PromptConfig.class);
         messenger.setPrefix(config.promptPrefix());
         logger.setDebugMode(config.debugMode());
         i18n = new I18N(this, "CommandPrompter");
@@ -227,6 +230,9 @@ public class CommandPrompter extends JavaPlugin {
         return config;
     }
 
+    public PromptConfig getPromptConfig() {
+        return promptConfig;
+    }
 
     public UpdateChecker getUpdateChecker() {
         return updateChecker;

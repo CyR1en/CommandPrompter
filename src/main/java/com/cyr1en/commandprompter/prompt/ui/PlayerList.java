@@ -43,7 +43,8 @@ public class PlayerList {
     public PlayerList(CommandPrompter plugin, Player player, String title) {
         this.plugin = plugin;
         this.player = player;
-        this.inventory = Bukkit.createInventory(player, 54, title);
+        this.inventory = Bukkit.createInventory(player, 54, Util.color(title));
+        PlayerList.setFormat(plugin.getPromptConfig().skullNameFormat());
     }
 
     public static void cachePlayer(Player player) {
@@ -55,6 +56,10 @@ public class PlayerList {
         skullMeta.setDisplayName(Util.color(name));
         skull.setItemMeta(skullMeta);
         skulls.add(skull);
+    }
+
+    public static void setFormat(String format) {
+        PlayerList.format = format;
     }
 
     public static void uncachePlayer(String player) {
@@ -108,24 +113,34 @@ public class PlayerList {
             end = skulls.size();
         //calc rows
 
+        if (plugin.getPromptConfig().sorted())
+            skulls.sort((s1, s2) -> {
+                var n1 = Util.stripColor(s1.getItemMeta().getDisplayName());
+                var n2 = Util.stripColor(s2.getItemMeta().getDisplayName());
+                return n1.compareTo(n2);
+            });
+
         for (int i = 0; i < end; i++, begin++) {
             inventory.setItem(i, skulls.get(begin));
         }
 
         //prev page button
-        ItemStack prev = new ItemStack(Material.FEATHER);
+        var prevString = plugin.getPromptConfig().previousItem();
+        ItemStack prev = new ItemStack(Util.getCheckedMaterial(prevString, Material.FEATHER));
         ItemMeta prevMeta = prev.getItemMeta();
-        prevMeta.setDisplayName("<=");
+        prevMeta.setDisplayName(Util.color(plugin.getPromptConfig().previousText()));
         prev.setItemMeta(prevMeta);
         inventory.setItem(9 * 5 + 2, prev);
 
         //next page button
-        ItemStack next = new ItemStack(Material.FEATHER);
+        var nextString = plugin.getPromptConfig().nextItem();
+        ItemStack next = new ItemStack(Util.getCheckedMaterial(nextString, Material.FEATHER));
         ItemMeta nextMeta = next.getItemMeta();
-        nextMeta.setDisplayName("=>");
+        nextMeta.setDisplayName(Util.color(plugin.getPromptConfig().nextText()));
         next.setItemMeta(nextMeta);
         inventory.setItem(9 * 5 + 6, next);
     }
+
 
     public void open() {
         freshPage(0);
