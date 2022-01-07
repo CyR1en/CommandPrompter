@@ -28,14 +28,11 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -52,19 +49,19 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     private final CommandPrompter plugin;
     private final PromptRegistry promptRegistry;
     private final PromptParser promptParser;
-    private final ScheduledExecutorService scheduler;
+    private final BukkitScheduler scheduler;
 
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
-        this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.scheduler = Bukkit.getScheduler();
     }
 
     public void parse(PromptContext context) {
         promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.schedule(() -> cancel(context.getSender()), timeout, TimeUnit.SECONDS);
+        scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
