@@ -65,7 +65,7 @@ dependencies {
 
 configurations.implementation {
     exclude group: 'joda-time', module: 'joda-time'
-    exclude group: 'org.atteo.classinde', module: 'classindex'
+    exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
 shadowJar {
