@@ -59,7 +59,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void parse(PromptContext context) {
-        promptParser.parsePrompts(context);
+        var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
         scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
     }
@@ -118,11 +118,18 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         return promptParser;
     }
 
-    public void cancel(CommandSender sender) {
+    public void cancel(CommandSender sender, int queueHash) {
         if (!promptRegistry.containsKey(sender)) return;
+        plugin.getPluginLogger().debug("queueHash: " + queueHash);
+        plugin.getPluginLogger().debug("registryQueueHash: " + promptRegistry.get(sender).hashCode());
+        if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode()) return;
         promptRegistry.unregister(sender);
         plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
+    }
+
+    public void cancel(CommandSender sender) {
+        cancel(sender, -1);
     }
 
     public Pattern getArgumentPattern() {
