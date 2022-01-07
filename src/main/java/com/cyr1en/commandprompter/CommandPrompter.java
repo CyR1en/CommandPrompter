@@ -55,13 +55,10 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
-import java.util.logging.Logger;
 
 import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
-
-    private final String[] CONFIG_HEADER = new String[]{"Command Prompter", "Configuration"};
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
@@ -100,7 +97,7 @@ public class CommandPrompter extends JavaPlugin {
         promptManager.put("", ChatPrompt.class);
         promptManager.put("a", AnvilPrompt.class);
         promptManager.put("p", PlayerUIPrompt.class);
-        if(getServer().getPluginManager().getPlugin("ProtocolLib") != null)
+        if (getServer().getPluginManager().getPlugin("ProtocolLib") != null)
             promptManager.put("s", SignPrompt.class);
         else
             getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");

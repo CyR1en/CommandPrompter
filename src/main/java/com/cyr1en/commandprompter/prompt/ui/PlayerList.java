@@ -11,8 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -20,6 +19,8 @@ public class PlayerList {
     // All player list inventory in using stored here.
     private static List<PlayerList> playerlists;
     private static List<ItemStack> skulls;
+    private static String format;
+
     int page = 0;
 
     private Inventory inventory;
@@ -32,12 +33,12 @@ public class PlayerList {
 
     private Consumer<Player> closeListener;
     private BiConsumer<Player, String> completeListener;
-    CommandPrompter plugin;
+    private CommandPrompter plugin;
 
     static {
         skulls = new ArrayList<>();
         playerlists = new ArrayList<>();
-
+        format = "%s";
     }
 
     public PlayerList(CommandPrompter plugin, Player player, String title) {
@@ -69,7 +70,6 @@ public class PlayerList {
                 skulls.remove(item);
                 return;
             }
-
         }
     }
 
