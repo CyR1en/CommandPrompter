@@ -81,6 +81,7 @@ public class PromptParser {
                 e.printStackTrace();
             }
         }
+        return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
     }
 
     private String cleanPrompt(String prompt) {
