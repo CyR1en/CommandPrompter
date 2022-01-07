@@ -24,6 +24,7 @@
 
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
