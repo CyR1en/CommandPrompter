@@ -100,9 +100,8 @@ public record CommandPrompterConfig(
         @NodeDefault("true")
         @NodeComment({
                 "Should CommandPrompter send",
-                "the completed command that is",
-                "going to be executed to the",
-                "player?"
+                "the completed command to the",
+                "player before dispatching it?"
         })
         boolean showCompleted
 
