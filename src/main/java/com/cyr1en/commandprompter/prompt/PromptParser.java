@@ -68,13 +68,18 @@ public class PromptParser {
     public int parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
         plugin.getPluginLogger().debug("Prompts: " + prompts);
-        var command = promptContext.getContent().substring(0, promptContext.getContent().indexOf(' '));
+
+        var command = promptContext.getContent()
+                .replaceAll(plugin.getConfiguration().argumentRegex(), "").trim();
         manager.getPromptRegistry().initRegistryFor(promptContext.getSender(), command);
+
         for (String prompt : prompts) {
             plugin.getPluginLogger().debug("Parsing: " + prompt);
+
             sRegex.find(manager.getArgumentPattern(), prompt);
             var arg = sRegex.getResultsList().isEmpty() ? "" : getCleanArg(sRegex.getResultsList().get(0));
             plugin.getPluginLogger().debug("Argument in prompt: " + arg);
+
             Class<? extends Prompt> pClass = manager.get(arg);
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
@@ -92,7 +97,8 @@ public class PromptParser {
 
     private String cleanPrompt(String prompt) {
         var clean = prompt.substring(1, prompt.length() - 1)
-                .replaceAll(manager.getArgumentPattern().toString(), "");;
+                .replaceAll(manager.getArgumentPattern().toString(), "");
+        ;
         plugin.getPluginLogger().debug("Cleaned prompt: " + clean);
         return clean;
     }
