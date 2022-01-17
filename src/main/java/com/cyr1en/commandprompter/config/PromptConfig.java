@@ -15,8 +15,19 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("PlayerUI.Skull-Name-Format")
         @NodeDefault("&6%s")
-        @NodeComment({"PlayerUI formatting"})
+        @NodeComment({
+                "PlayerUI formatting", "",
+                "Skull-Name-Format - The display name format",
+                "                    for the player heads", "",
+                "Size - the size of the UI (multiple of 9, between 18-54)", "",
+                "Sorted - Should the player heads be sorted?"
+        })
         String skullNameFormat,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Size")
+        @NodeDefault("54")
+        int playerUISize,
 
         @ConfigNode
         @NodeName("PlayerUI.Previous.Item")
@@ -24,8 +35,13 @@ public record PromptConfig(
         String previousItem,
 
         @ConfigNode
+        @NodeName("PlayerUI.Previous.Column")
+        @NodeDefault("3")
+        int previousColumn,
+
+        @ConfigNode
         @NodeName("PlayerUI.Previous.Text")
-        @NodeDefault("&6<")
+        @NodeDefault("&7<==")
         String previousText,
 
         @ConfigNode
@@ -34,8 +50,13 @@ public record PromptConfig(
         String nextItem,
 
         @ConfigNode
+        @NodeName("PlayerUI.Next.Column")
+        @NodeDefault("7")
+        int nextColumn,
+
+        @ConfigNode
         @NodeName("PlayerUI.Next.Text")
-        @NodeDefault("&6>")
+        @NodeDefault("&7==>")
         String nextText,
 
         @ConfigNode
