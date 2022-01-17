@@ -60,6 +60,8 @@ import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
 
+    private static CommandPrompter instance;
+
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
     private PromptConfig promptConfig;
@@ -83,6 +85,7 @@ public class CommandPrompter extends JavaPlugin {
         setupCommands();
         initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
+        instance = this;
     }
 
     @Override
@@ -222,6 +225,10 @@ public class CommandPrompter extends JavaPlugin {
         setupUpdater();
         if (clean)
             promptManager.clearPromptRegistry();
+    }
+
+    public static CommandPrompter getInstance() {
+        return instance;
     }
 
     public CommandPrompterConfig getConfiguration() {
