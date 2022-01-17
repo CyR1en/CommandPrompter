@@ -104,11 +104,12 @@ public class CommandPrompter extends JavaPlugin {
             promptManager.put("s", SignPrompt.class);
         else
             getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
+
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryCloseListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(this), this);
         Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
     }
 
