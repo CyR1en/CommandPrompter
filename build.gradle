@@ -35,7 +35,7 @@ java {
 
 PluginManifest manifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 0, minor: 1, patch: 23, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 0, minor: 1, patch: 24, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -55,10 +55,11 @@ repositories {
 
 dependencies {
     implementation 'me.lucko:commodore:1.11'
-    implementation 'com.cyr1en:kiso-utils:1.2-SNAPSHOT'
-    implementation 'com.cyr1en:kiso-mc:1.2-SNAPSHOT'
+    implementation 'com.cyr1en:kiso-utils:1.5-SNAPSHOT'
+    implementation 'com.cyr1en:kiso-mc:1.5-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:2.2.1'
+
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
 }
