@@ -24,6 +24,7 @@
 
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.commands.Cancel;
 import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
@@ -159,6 +160,8 @@ public class CommandPrompter extends JavaPlugin {
     private void setupCommands() {
         setupCommandManager();
         commandManager.registerCommand(Reload.class);
+        commandManager.registerCommand(Cancel.class);
+        getPluginLogger().debug("Commands: " + commandManager.getCommands());
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
