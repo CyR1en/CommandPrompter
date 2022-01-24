@@ -39,10 +39,7 @@ import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptResponseListener;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
-import com.cyr1en.commandprompter.prompt.ui.listener.InventoryClickListener;
-import com.cyr1en.commandprompter.prompt.ui.listener.InventoryCloseListener;
-import com.cyr1en.commandprompter.prompt.ui.listener.PlayerLoginListener;
-import com.cyr1en.commandprompter.prompt.ui.listener.PlayerQuitListener;
+import com.cyr1en.commandprompter.prompt.ui.SkullCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
@@ -108,10 +105,7 @@ public class CommandPrompter extends JavaPlugin {
 
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
-        Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new InventoryCloseListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
+        Bukkit.getPluginManager().registerEvents(new SkullCache(this), this);
     }
 
     /**

@@ -26,12 +26,23 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import com.cyr1en.commandprompter.prompt.ui.PlayerList;
+import com.cyr1en.commandprompter.prompt.ui.SkullCache;
 import com.cyr1en.commandprompter.util.Util;
+import com.github.stefvanschie.inventoryframework.gui.GuiItem;
+import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
+import com.github.stefvanschie.inventoryframework.pane.PaginatedPane;
+import com.github.stefvanschie.inventoryframework.pane.StaticPane;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 public class PlayerUIPrompt extends AbstractPrompt {
 
@@ -41,14 +52,111 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     @Override
     public void sendPrompt() {
+        Bukkit.getScheduler().runTaskLater(getPlugin(), this::send, 2L);
+    }
+
+    private void send() {
         List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
         var size = getPlugin().getPromptConfig().playerUISize();
-        new PlayerList(getPlugin(), (Player) getContext().getSender(), parts.get(0), size)
-                .onClose(getPromptManager()::cancel)
-                .onComplete((player, s) -> {
-                    var ctx = new PromptContext(null, player, Util.stripColor(s));
-                    getPromptManager().processPrompt(ctx);
-                })
-                .open();
+        size = (size - (size % 9)) / 9;
+        size = size < 2 ? 2 : size;
+        var gui = new ChestGui(size, color(parts.get(0)));
+        gui.setOnClose(e -> getPromptManager().cancel(getContext().getSender()));
+        var skullPane = new PaginatedPane(0, 0, 9, size - 1);
+        skullPane.populateWithItemStacks(SkullCache.getSkulls());
+        skullPane.setOnClick(e -> {
+            e.setCancelled(true);
+            var name = Objects.requireNonNull(Objects.requireNonNull
+                    (e.getCurrentItem()).getItemMeta()).getDisplayName();
+            name = Util.stripColor(name);
+            var ctx = new PromptContext(null, (Player) getContext().getSender(), name);
+            getPlugin().getPromptManager().processPrompt(ctx);
+            gui.setOnClose(null);
+            ((Player) getContext().getSender()).closeInventory();
+        });
+        var controlPane = new ControlPane(getPlugin(), skullPane, gui, getContext(), size);
+        gui.addPane(skullPane);
+        gui.addPane(controlPane);
+
+        gui.show((HumanEntity) getContext().getSender());
+    }
+
+
+    private static class ControlPane extends StaticPane {
+
+        private static final int DEFAULT_PREV_LOC = 2;
+        private static final int DEFAULT_NEXT_LOC = 6;
+        private static final int DEFAULT_CANCEL_LOC = 4;
+
+        private final CommandPrompter plugin;
+        private final PaginatedPane paginatedPane;
+        private final ChestGui gui;
+        private final PromptContext ctx;
+
+        private int prevLoc;
+        private int nextLoc;
+        private int cancelLoc;
+
+        private ControlPane(CommandPrompter plugin, PaginatedPane pane, ChestGui gui, PromptContext ctx, int numCols) {
+            super(0, numCols - 1, 9, 1);
+            this.plugin = plugin;
+            prevLoc = plugin.getPromptConfig().previousColumn() - 1;
+            nextLoc = plugin.getPromptConfig().nextColumn() - 1;
+            cancelLoc = plugin.getPromptConfig().cancelColumn() - 1;
+            this.paginatedPane = pane;
+            this.ctx = ctx;
+            this.gui = gui;
+            verifyLocs();
+            setupButtons();
+        }
+
+        private void verifyLocs() {
+            if (prevLoc == nextLoc || prevLoc == cancelLoc || nextLoc == cancelLoc) {
+                this.prevLoc = DEFAULT_PREV_LOC;
+                this.nextLoc = DEFAULT_NEXT_LOC;
+                this.cancelLoc = DEFAULT_CANCEL_LOC;
+            }
+        }
+
+        private void setupButtons() {
+            var pages = paginatedPane.getPages() - 1;
+
+            var prevMatString = plugin.getPromptConfig().previousItem();
+            var prevIS = new ItemStack(Util.getCheckedMaterial(prevMatString, Material.FEATHER));
+            addItem(plugin.getPromptConfig().previousText(), prevIS, prevLoc,
+                    c -> {
+                        c.setCancelled(true);
+                        var next = Math.max((paginatedPane.getPage() - 1), 0);
+                        paginatedPane.setPage(next);
+                        gui.update();
+                    });
+
+            var nextMatString = plugin.getPromptConfig().nextItem();
+            var nextIS = new ItemStack(Util.getCheckedMaterial(nextMatString, Material.FEATHER));
+            addItem(plugin.getPromptConfig().nextText(), nextIS, nextLoc,
+                    c -> {
+                        c.setCancelled(true);
+                        var next = Math.min((paginatedPane.getPage() + 1), pages);
+                        paginatedPane.setPage(next);
+                        gui.update();
+                    });
+
+            var cancelMatString = plugin.getPromptConfig().cancelItem();
+            var cancelIS = new ItemStack(Util.getCheckedMaterial(cancelMatString, Material.FEATHER));
+            addItem(plugin.getPromptConfig().cancelText(), cancelIS, cancelLoc,
+                    c -> {
+                        c.setCancelled(true);
+                        plugin.getPromptManager().cancel(ctx.getSender());
+                        ((Player) ctx.getSender()).closeInventory();
+                    });
+        }
+
+        private void addItem(String name, ItemStack itemStack, int x, Consumer<InventoryClickEvent> consumer) {
+            var itemMeta = itemStack.getItemMeta();
+            Objects.requireNonNull(itemMeta).setDisplayName(Util.color(name));
+            itemStack.setItemMeta(itemMeta);
+            addItem(new GuiItem(itemStack, consumer), x, 0);
+        }
+
     }
 }
