@@ -93,8 +93,9 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                 plugin.getPluginLogger().debug("Gave OP status temporarily");
             }
             plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
-            plugin.getMessenger().sendMessage(sender, plugin.getI18N()
-                    .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
+            if (plugin.getConfiguration().showCompleted())
+                plugin.getMessenger().sendMessage(sender, plugin.getI18N()
+                        .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
             Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
             if (!isCurrentOp) {
                 sender.setOp(false);
