@@ -28,14 +28,11 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -52,24 +49,25 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     private final CommandPrompter plugin;
     private final PromptRegistry promptRegistry;
     private final PromptParser promptParser;
-    private final ScheduledExecutorService scheduler;
+    private final BukkitScheduler scheduler;
 
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
-        this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.scheduler = Bukkit.getScheduler();
     }
 
     public void parse(PromptContext context) {
-        promptParser.parsePrompts(context);
+        var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.schedule(() -> cancel(context.getSender()), timeout, TimeUnit.SECONDS);
+        scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
         if (!promptRegistry.containsKey(sender)) return;
         if (promptRegistry.get(sender).isEmpty()) return;
+        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         var prompt = Objects.requireNonNull(promptRegistry.get(sender).peek());
         prompt.sendPrompt();
         plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
@@ -83,6 +81,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
+        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             var queue = promptRegistry.get(sender);
 
@@ -94,14 +93,16 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                 plugin.getPluginLogger().debug("Gave OP status temporarily");
             }
             plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
+            if (plugin.getConfiguration().showCompleted())
+                plugin.getMessenger().sendMessage(sender, plugin.getI18N()
+                        .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
             Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
             if (!isCurrentOp) {
                 sender.setOp(false);
                 plugin.getPluginLogger().debug("Remove OP status");
                 // Redundancy for de-op
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    plugin.getPluginLogger().debug("Remove OP status (redundancy)");
-                }, 1);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPluginLogger()
+                        .debug("Remove OP status (redundancy)"), 1);
             }
             promptRegistry.unregister(sender);
         } else if (sender instanceof Player player)
@@ -117,11 +118,18 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         return promptParser;
     }
 
-    public void cancel(CommandSender sender) {
+    public void cancel(CommandSender sender, int queueHash) {
         if (!promptRegistry.containsKey(sender)) return;
+        plugin.getPluginLogger().debug("queueHash: " + queueHash);
+        plugin.getPluginLogger().debug("registryQueueHash: " + promptRegistry.get(sender).hashCode());
+        if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode()) return;
         promptRegistry.unregister(sender);
         plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
+    }
+
+    public void cancel(CommandSender sender) {
+        cancel(sender, -1);
     }
 
     public Pattern getArgumentPattern() {

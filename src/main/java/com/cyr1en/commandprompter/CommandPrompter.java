@@ -24,6 +24,8 @@
 
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
@@ -36,6 +38,7 @@ import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptResponseListener;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.prompt.ui.listener.InventoryClickListener;
 import com.cyr1en.commandprompter.prompt.ui.listener.InventoryCloseListener;
 import com.cyr1en.commandprompter.prompt.ui.listener.PlayerLoginListener;
@@ -53,16 +56,16 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
-import java.util.logging.Logger;
 
 import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
 
-    private final String[] CONFIG_HEADER = new String[]{"Command Prompter", "Configuration"};
+    private static CommandPrompter instance;
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
+    private PromptConfig promptConfig;
 
     private PluginLogger logger;
     private CommandManager commandManager;
@@ -83,6 +86,7 @@ public class CommandPrompter extends JavaPlugin {
         setupCommands();
         initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
+        instance = this;
     }
 
     @Override
@@ -97,11 +101,16 @@ public class CommandPrompter extends JavaPlugin {
         promptManager.put("", ChatPrompt.class);
         promptManager.put("a", AnvilPrompt.class);
         promptManager.put("p", PlayerUIPrompt.class);
+        if (getServer().getPluginManager().getPlugin("ProtocolLib") != null)
+            promptManager.put("s", SignPrompt.class);
+        else
+            getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
+
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryClickListener(this), this);
         Bukkit.getPluginManager().registerEvents(new InventoryCloseListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerLoginListener(this), this);
         Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(), this);
     }
 
@@ -145,11 +154,14 @@ public class CommandPrompter extends JavaPlugin {
     private void setupConfig() {
         configManager = new ConfigurationManager(this);
         config = configManager.getConfig(CommandPrompterConfig.class);
+        promptConfig = configManager.getConfig(PromptConfig.class);
     }
 
     private void setupCommands() {
         setupCommandManager();
         commandManager.registerCommand(Reload.class);
+        commandManager.registerCommand(Cancel.class);
+        getPluginLogger().debug("Commands: " + commandManager.getCommands());
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
@@ -209,6 +221,7 @@ public class CommandPrompter extends JavaPlugin {
 
     public void reload(boolean clean) {
         config = configManager.reload(CommandPrompterConfig.class);
+        promptConfig = configManager.reload(PromptConfig.class);
         messenger.setPrefix(config.promptPrefix());
         logger.setDebugMode(config.debugMode());
         i18n = new I18N(this, "CommandPrompter");
@@ -218,10 +231,17 @@ public class CommandPrompter extends JavaPlugin {
             promptManager.clearPromptRegistry();
     }
 
+    public static CommandPrompter getInstance() {
+        return instance;
+    }
+
     public CommandPrompterConfig getConfiguration() {
         return config;
     }
 
+    public PromptConfig getPromptConfig() {
+        return promptConfig;
+    }
 
     public UpdateChecker getUpdateChecker() {
         return updateChecker;

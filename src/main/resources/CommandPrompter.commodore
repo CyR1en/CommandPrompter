@@ -1,3 +1,4 @@
 commandprompter {
     reload;
+    cancel;
 }

@@ -2,6 +2,7 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
+softdepend: [ProtocolLib]
 
 main: ${projectEntry}
 api-version: 1.13
@@ -16,3 +17,5 @@ permissions:
     description: Allow sender to reload plugin.
   commandprompter.use:
     description: Allow sender to use CommandPrompter argument feature.
+  commandprompter.cancel:
+    description: Allow sender to cancel their own command completion.

@@ -27,6 +27,8 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     public String getCompleteCommand() {
         var s = "/%s %s";
-        return s.formatted(command, String.join(" ", completed));
+        return s.formatted(command, String.join(" ", completed)
+                .replaceAll("\\s+", " ").trim());
     }
+
 }

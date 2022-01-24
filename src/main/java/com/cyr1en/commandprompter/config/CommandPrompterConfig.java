@@ -93,6 +93,17 @@ public record CommandPrompterConfig(
                 "increase the value of this delay.",
                 "Note that 20 ticks is 1 second."
         })
-        int modificationDelay
+        int modificationDelay,
+
+        @ConfigNode
+        @NodeName("Show-Complete-Command")
+        @NodeDefault("true")
+        @NodeComment({
+                "Should CommandPrompter send",
+                "the completed command to the",
+                "player before dispatching it?"
+        })
+        boolean showCompleted
+
 ) {
 }

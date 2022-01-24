@@ -39,9 +39,8 @@ public class ChatPrompt extends AbstractPrompt {
     }
 
     public void sendPrompt() {
-        List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
+        List<String> parts = Arrays.stream(getPrompt().split("\\{br}")).map(String::trim).toList();
         String prefix = getPlugin().getConfiguration().promptPrefix();
-        parts.forEach(part -> getContext().getSender().sendMessage(
-                ChatColor.translateAlternateColorCodes('&', prefix + part)));
+        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
     }
 }

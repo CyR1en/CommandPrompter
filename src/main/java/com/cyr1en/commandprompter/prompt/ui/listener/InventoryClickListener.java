@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter.prompt.ui.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.ui.PlayerList;
+import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,19 +35,14 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 import java.util.List;
+import java.util.Objects;
 
-public class InventoryClickListener implements Listener {
-
-    private CommandPrompter plugin;
-
-    public InventoryClickListener(CommandPrompter plugin) {
-        this.plugin = plugin;
-    }
+public record InventoryClickListener(CommandPrompter plugin) implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
 
-        List<PlayerList> playerLists = PlayerList.getPlayerlists();
+        List<PlayerList> playerLists = PlayerList.getPlayerList();
 
         for (PlayerList playerList : playerLists) {
             if (!event.getInventory().equals(playerList.getInventory()))
@@ -55,19 +51,21 @@ public class InventoryClickListener implements Listener {
             if (event.getClick() == ClickType.LEFT) {
                 if (event.getCurrentItem() != null) {
                     if (event.getCurrentItem().getType() == Material.PLAYER_HEAD) {
-                        String name = event.getCurrentItem().getItemMeta().getDisplayName();
+                        String name = Objects.requireNonNull(event.getCurrentItem().getItemMeta()).getDisplayName();
                         playerList.drop();
                         playerList.complete(name);
                         p.closeInventory();
                         return;
                     }
-                    if (event.getCurrentItem().getType() == Material.FEATHER) {
-                        String name = event.getCurrentItem().getItemMeta().getDisplayName();
-                        if (name.equals("=>"))
+                    var promptConfig = plugin.getPromptConfig();
+                    var prevMat = Util.getCheckedMaterial(promptConfig.previousItem(), Material.FEATHER);
+                    var nextMat = Util.getCheckedMaterial(promptConfig.nextItem(), Material.FEATHER);
+                    if (event.getCurrentItem().getType() == prevMat || event.getCurrentItem().getType() == nextMat) {
+                        String name = Objects.requireNonNull(event.getCurrentItem().getItemMeta()).getDisplayName();
+                        if (name.equals(promptConfig.nextText()))
                             playerList.nextPage();
-                        else if (name.equals("<="))
+                        else if (name.equals(promptConfig.previousText()))
                             playerList.prevPage();
-
                         event.setCancelled(true);
                         p.updateInventory();
                         return;
@@ -76,8 +74,6 @@ public class InventoryClickListener implements Listener {
             }
             event.setCancelled(true);
             p.updateInventory();
-
         }
-
     }
 }

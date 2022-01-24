@@ -24,14 +24,17 @@
 
 package com.cyr1en.commandprompter.prompt.ui.listener;
 
+import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.ui.PlayerList;
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
-public class PlayerLoginListener implements Listener {
+public record PlayerLoginListener(CommandPrompter plugin) implements Listener {
+
     @EventHandler
     public void onPlayerLogin(PlayerLoginEvent e) {
-        PlayerList.cachePlayer(e.getPlayer());
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> PlayerList.cachePlayer(e.getPlayer()));
     }
 }

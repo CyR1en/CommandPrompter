@@ -32,18 +32,12 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 
 import java.util.List;
 
-public class InventoryCloseListener implements Listener {
-
-    private CommandPrompter plugin;
-
-    public InventoryCloseListener(CommandPrompter plugin) {
-        this.plugin = plugin;
-    }
+public record InventoryCloseListener(CommandPrompter plugin) implements Listener {
 
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
 
-        List<PlayerList> playerLists = PlayerList.getPlayerlists();
+        List<PlayerList> playerLists = PlayerList.getPlayerList();
         for (PlayerList playerList : playerLists) {
             if (!e.getInventory().equals(playerList.getInventory()))
                 return;

@@ -25,6 +25,7 @@
 package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.commands.Cancel;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import org.bukkit.entity.Player;
@@ -42,7 +43,13 @@ public class CommandListener implements Listener {
 
     protected void process(PromptContext context) {
         // Sanity Checks
+        plugin.getPluginLogger().debug("Command: " + context.getContent());
         plugin.getPluginLogger().debug("Command Caught using: %s", this.getClass().getSimpleName());
+
+        // Check if the command is CommandPrompter's cancel command
+        if(context.getContent().matches(Cancel.commandPattern.toString()))
+            return;
+
         if (!context.getSender().hasPermission("commandprompter.use") &&
                 plugin.getConfiguration().enablePermission()) {
             plugin.getMessenger().sendMessage(context.getSender(),
@@ -51,7 +58,9 @@ public class CommandListener implements Listener {
         }
         if (promptManager.getPromptRegistry().inCommandProcess(context.getSender())) {
             plugin.getMessenger().sendMessage(context.getSender(),
-                    plugin.getI18N().getProperty("PromptInProgress"));
+                    plugin.getI18N().getFormattedProperty("PromptInProgress",
+                            plugin.getConfiguration().cancelKeyword()));
+            context.getCancellable().setCancelled(true);
             return;
         }
         if (!promptManager.getParser().isParsable(context)) return;
