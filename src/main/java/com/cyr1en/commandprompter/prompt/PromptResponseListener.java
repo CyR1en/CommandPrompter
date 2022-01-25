@@ -8,7 +8,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
-
+@SuppressWarnings("unused")
 public record PromptResponseListener(PromptManager manager, CommandPrompter plugin) implements Listener {
 
     public PromptManager getManager() {

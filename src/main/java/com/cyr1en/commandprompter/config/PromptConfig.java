@@ -60,6 +60,21 @@ public record PromptConfig(
         String nextText,
 
         @ConfigNode
+        @NodeName("PlayerUI.Cancel.Item")
+        @NodeDefault("Barrier")
+        String cancelItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Cancel.Column")
+        @NodeDefault("5")
+        int cancelColumn,
+
+        @ConfigNode
+        @NodeName("PlayerUI.cancel.Text")
+        @NodeDefault("&7Cancel")
+        String cancelText,
+
+        @ConfigNode
         @NodeName("PlayerUI.Sorted")
         @NodeDefault("false")
         boolean sorted,

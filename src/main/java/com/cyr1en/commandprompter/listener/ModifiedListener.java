@@ -24,7 +24,6 @@
 
 package com.cyr1en.commandprompter.listener;
 
-import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.unsafe.CommandDispatchEvent;
@@ -38,6 +37,7 @@ public class ModifiedListener extends CommandListener {
         super(manager);
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(CommandDispatchEvent event) {
         if (!(event.getSender() instanceof Player sender))

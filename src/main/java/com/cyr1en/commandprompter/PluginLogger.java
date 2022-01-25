@@ -12,12 +12,17 @@ public class PluginLogger {
     public static final String ANSI_GOLD_FOREGROUND = "\u001b[0;33m";
     public static final String ANSI_RED_FOREGROUND = "\u001b[0;31m";
 
-    private String prefix = "";
-    private String plainPrefix = "";
+    private String prefix;
+    private String plainPrefix;
     private boolean debugMode = false;
     private JavaPlugin plugin;
 
     public PluginLogger(JavaPlugin plugin, String prefix){
+        this.plainPrefix = prefix;
+        this.prefix = String.format("[%s] ", prefix);
+    }
+
+    public void setPrefix(String prefix) {
         this.plainPrefix = prefix;
         this.prefix = String.format("[%s] ", prefix);
     }

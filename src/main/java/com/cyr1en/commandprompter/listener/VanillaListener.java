@@ -24,7 +24,6 @@
 
 package com.cyr1en.commandprompter.listener;
 
-import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import org.bukkit.event.EventHandler;
@@ -37,6 +36,7 @@ public class VanillaListener extends CommandListener {
         super(manager);
     }
 
+    @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
         PromptContext context = new PromptContext(event, event.getPlayer(),

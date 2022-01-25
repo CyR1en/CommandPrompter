@@ -25,10 +25,9 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import com.cyr1en.kiso.utils.Pair;
 import org.bukkit.command.CommandSender;
 
-import java.util.*;
+import java.util.HashMap;
 
 /**
  * Class that will hold all ongoing prompts.

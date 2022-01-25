@@ -59,6 +59,7 @@ dependencies {
     implementation 'com.cyr1en:kiso-mc:1.6-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:2.2.1'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.4'
 
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
@@ -78,6 +79,7 @@ shadowJar {
     archiveClassifier.set(manifest.version.classifier)
     archiveVersion.set(manifest.version.getFullVersion())
 
+    relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
     relocate 'org.bstats', 'com.cyr1en.bstats'
 }

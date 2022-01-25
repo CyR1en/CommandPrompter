@@ -35,10 +35,8 @@ import java.util.List;
 public class ConfigurationManager {
 
     private final ConfigManager configManager;
-    private final CommandPrompter plugin;
 
     public ConfigurationManager(CommandPrompter plugin) {
-        this.plugin = plugin;
         this.configManager = new ConfigManager(plugin);
     }
 

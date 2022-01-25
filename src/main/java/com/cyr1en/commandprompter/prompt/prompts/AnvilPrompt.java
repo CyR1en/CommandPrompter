@@ -34,10 +34,10 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AnvilPrompt extends AbstractPrompt {
@@ -87,10 +87,10 @@ public class AnvilPrompt extends AbstractPrompt {
         var meta = item.getItemMeta();
         getPlugin().getPluginLogger().debug("ItemMeta: " + meta);
         if (getPlugin().getPromptConfig().anvilEnchanted()) {
-            meta.addEnchant(Enchantment.LURE, 1, true);
+            Objects.requireNonNull(meta).addEnchant(Enchantment.LURE, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        Objects.requireNonNull(meta).addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         meta.setDisplayName(parts.get(0));
 
         if (parts.size() > 1)
