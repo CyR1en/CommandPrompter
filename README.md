@@ -20,8 +20,6 @@ So on your Chest Command. Just configure an item to have a command that have arg
 ### Installation
 Just drag and drop the jar file to your plugins folder. No need to configure anything, no permissions, and no commands. But there is a config file if you do want to configure it. Should work like a charm.
 
-### Attribution
-[KujouMolean](https://github.com/KujouMolean): Player GUI implementation.
 #### Disclaimer:
 The idea for this plugin came from the user named Tommiek on Bukkit forums. Someone already wrote a similar plugin according to the thread, but the project page for that plugin can no longer be found. So I tried to recreate the plugin. The link for that thread is here.
 
