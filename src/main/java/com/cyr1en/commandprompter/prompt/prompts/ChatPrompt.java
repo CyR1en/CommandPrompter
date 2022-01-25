@@ -25,9 +25,7 @@
 package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import org.bukkit.ChatColor;
 
 import java.util.Arrays;
 import java.util.List;

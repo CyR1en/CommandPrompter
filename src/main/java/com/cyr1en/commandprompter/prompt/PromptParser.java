@@ -98,7 +98,6 @@ public class PromptParser {
     private String cleanPrompt(String prompt) {
         var clean = prompt.substring(1, prompt.length() - 1)
                 .replaceAll(manager.getArgumentPattern().toString(), "");
-        ;
         plugin.getPluginLogger().debug("Cleaned prompt: " + clean);
         return clean;
     }
