@@ -18,7 +18,7 @@ import java.util.*;
 
 public record SkullCache(CommandPrompter plugin) implements Listener {
     // All player list inventory in using stored here.
-    private static final List<ItemStack> skulls;
+    private static final ArrayList<ItemStack> skulls;
     private static String format;
 
     static {
@@ -54,16 +54,29 @@ public record SkullCache(CommandPrompter plugin) implements Listener {
                 Util.stripColor(Objects.requireNonNull(i.getItemMeta()).getDisplayName()).equals(player)).toList());
     }
 
+    public static List<ItemStack> getSkullsSorted() {
+        @SuppressWarnings("unchecked")
+        var copy = (ArrayList<ItemStack>) skulls.clone();
+        copy.sort((s1, s2) -> {
+            var n1 = Util.stripColor(Objects.requireNonNull(s1.getItemMeta()).getDisplayName());
+            var n2 = Util.stripColor(Objects.requireNonNull(s2.getItemMeta()).getDisplayName());
+            return n1.compareToIgnoreCase(n2);
+        });
+        return copy;
+    }
+
     public static List<ItemStack> getSkulls() {
         return skulls;
     }
 
     @EventHandler
+    @SuppressWarnings("unused")
     public void onPlayerLogin(PlayerLoginEvent e) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> SkullCache.cachePlayer(e.getPlayer()));
     }
 
     @EventHandler
+    @SuppressWarnings("unused")
     public void onPlayerQuit(PlayerQuitEvent e) {
         SkullCache.unCachePlayer(e.getPlayer().getName());
     }
