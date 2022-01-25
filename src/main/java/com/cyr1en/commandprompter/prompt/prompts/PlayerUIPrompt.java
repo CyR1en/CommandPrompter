@@ -40,14 +40,20 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 public class PlayerUIPrompt extends AbstractPrompt {
 
+    private final int size;
+    private final ChestGui gui;
+
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
         super(plugin, context, prompt);
+        var cfgSize = getPlugin().getPromptConfig().playerUISize();
+        var parts = Arrays.asList(getPrompt().split("\\{br}"));
+        size = Math.max((cfgSize - (cfgSize % 9)) / 9, 2);
+        gui = new ChestGui(size, color(parts.get(0)));
     }
 
     @Override
@@ -56,29 +62,30 @@ public class PlayerUIPrompt extends AbstractPrompt {
     }
 
     private void send() {
-        List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
-        var size = getPlugin().getPromptConfig().playerUISize();
-        size = (size - (size % 9)) / 9;
-        size = size < 2 ? 2 : size;
-        var gui = new ChestGui(size, color(parts.get(0)));
         gui.setOnClose(e -> getPromptManager().cancel(getContext().getSender()));
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
-        skullPane.populateWithItemStacks(SkullCache.getSkulls());
-        skullPane.setOnClick(e -> {
-            e.setCancelled(true);
-            var name = Objects.requireNonNull(Objects.requireNonNull
-                    (e.getCurrentItem()).getItemMeta()).getDisplayName();
-            name = Util.stripColor(name);
-            var ctx = new PromptContext(null, (Player) getContext().getSender(), name);
-            getPlugin().getPromptManager().processPrompt(ctx);
-            gui.setOnClose(null);
-            ((Player) getContext().getSender()).closeInventory();
-        });
-        var controlPane = new ControlPane(getPlugin(), skullPane, gui, getContext(), size);
+
+        var isSorted = getPlugin().getPromptConfig().sorted();
+        var skulls = isSorted ? SkullCache.getSkullsSorted() : SkullCache.getSkulls();
+        
+        skullPane.populateWithItemStacks(skulls);
+        skullPane.setOnClick(this::processClick);
+
         gui.addPane(skullPane);
-        gui.addPane(controlPane);
+        gui.addPane(new ControlPane(getPlugin(), skullPane, gui, getContext(), size));
 
         gui.show((HumanEntity) getContext().getSender());
+    }
+
+    private void processClick(InventoryClickEvent e) {
+        e.setCancelled(true);
+        var name = Objects.requireNonNull(Objects.requireNonNull
+                (e.getCurrentItem()).getItemMeta()).getDisplayName();
+        name = Util.stripColor(name);
+        var ctx = new PromptContext(null, (Player) getContext().getSender(), name);
+        getPlugin().getPromptManager().processPrompt(ctx);
+        gui.setOnClose(null);
+        ((Player) getContext().getSender()).closeInventory();
     }
 
 
