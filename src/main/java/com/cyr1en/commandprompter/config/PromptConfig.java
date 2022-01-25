@@ -66,7 +66,7 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("PlayerUI.Cancel.Column")
-        @NodeDefault("3")
+        @NodeDefault("5")
         int cancelColumn,
 
         @ConfigNode
