@@ -3,33 +3,55 @@ package com.cyr1en.commandprompter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.fusesource.jansi.Ansi;
+import org.fusesource.jansi.AnsiConsole;
 
+import java.awt.*;
 import java.util.logging.Level;
 
 public class PluginLogger {
 
-    public static final String ANSI_RESET = "\u001b[m";
-    public static final String ANSI_GOLD_FOREGROUND = "\u001b[0;33m";
-    public static final String ANSI_RED_FOREGROUND = "\u001b[0;31m";
-
     private String prefix;
     private String plainPrefix;
+    private String debugPrefix;
+
+    private final ColorGradient normalGrad;
+    private final ColorGradient debugGrad;
+
     private boolean debugMode = false;
     private JavaPlugin plugin;
 
-    public PluginLogger(JavaPlugin plugin, String prefix){
-        this.plainPrefix = prefix;
-        this.prefix = String.format("[%s] ", prefix);
+    public PluginLogger(JavaPlugin plugin, String prefix) {
+        normalGrad = new ColorGradient(new Color(67, 205, 162), new Color(25, 92, 157));
+        debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
+        AnsiConsole.systemInstall();
+        setPrefix(prefix);
+    }
+
+    public void ansiUninstall() {
+        if (AnsiConsole.isInstalled())
+            AnsiConsole.systemUninstall();
     }
 
     public void setPrefix(String prefix) {
         this.plainPrefix = prefix;
-        this.prefix = String.format("[%s] ", prefix);
+        var sep = new Ansi().fgRgb(153, 214, 90).a(">>").reset().toString();
+        this.prefix = String.format("%s %s ", makeGradient(prefix, normalGrad), sep);
+        this.debugPrefix = String.format("%s %s ", makeGradient(prefix + "-" + "Debug", debugGrad), sep);
+    }
+
+    private String makeGradient(String prefix, ColorGradient grad) {
+        var colorGrad = grad.getGradient(prefix.length());
+        var a = new Ansi();
+        for (int i = 0; i < colorGrad.length; i++)
+            a.fgRgb(colorGrad[i].getRGB()).a(prefix.charAt(i));
+
+        return a.reset().toString();
     }
 
     public void log(String prefix, Level level, String msg, Object... args) {
         String pre = prefix == null ? getPrefix() : prefix;
-        if(msg.contains("%s"))
+        if (msg.contains("%s"))
             msg = String.format(msg, args);
         Bukkit.getLogger().log(level, pre + msg);
     }
@@ -43,17 +65,19 @@ public class PluginLogger {
     }
 
     public void warn(String msg, Object... args) {
-        log(Level.WARNING, ANSI_GOLD_FOREGROUND + msg + ANSI_RESET, args);
+        var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
+        log(Level.WARNING, str, args);
     }
 
     public void err(String msg, Object... args) {
-        log(Level.SEVERE, ANSI_RED_FOREGROUND + msg + ANSI_RESET, args);
+        var str = new Ansi().fgRgb(255, 50, 21).a(msg).reset().toString();
+        log(Level.SEVERE, str, args);
     }
 
     public void debug(String msg, Object... args) {
         if (debugMode) {
-            String pre = String.format("[%s-debug] ", plainPrefix);
-            log(pre, Level.INFO, ANSI_GOLD_FOREGROUND + msg + ANSI_RESET, args);
+            var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
+            log(debugPrefix, Level.INFO, str, args);
         }
     }
 
@@ -67,5 +91,34 @@ public class PluginLogger {
 
     private String getPrefix() {
         return prefix;
+    }
+
+    public record ColorGradient(Color c1, Color c2) {
+
+        public Color[] getGradient(int segmentCount) {
+            var colors = new Color[segmentCount];
+            var seg = 1.0F / segmentCount;
+            var currSeg = 0.0F;
+            for (int i = 0; i < segmentCount; i++) {
+                colors[i] = getPercentGradient(currSeg);
+                currSeg += seg;
+            }
+            return colors;
+        }
+
+        public Color getPercentGradient(float percent) {
+            if (percent < 0 || percent > 1)
+                return Color.WHITE;
+            return new Color(
+                    linInterpolate(c1.getRed(), c2.getRed(), percent),
+                    linInterpolate(c1.getGreen(), c2.getGreen(), percent),
+                    linInterpolate(c1.getBlue(), c2.getBlue(), percent));
+        }
+
+        private int linInterpolate(int f1, int f2, float percent) {
+            var res = f1 + percent * (f2 - f1);
+            return Math.round(res);
+        }
+
     }
 }

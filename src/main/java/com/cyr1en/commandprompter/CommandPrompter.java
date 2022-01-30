@@ -89,6 +89,7 @@ public class CommandPrompter extends JavaPlugin {
     @Override
     public void onDisable() {
         promptManager.clearPromptRegistry();
+        getPluginLogger().ansiUninstall();
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
@@ -155,7 +156,6 @@ public class CommandPrompter extends JavaPlugin {
         setupCommandManager();
         commandManager.registerCommand(Reload.class);
         commandManager.registerCommand(Cancel.class);
-        getPluginLogger().debug("Commands: " + commandManager.getCommands());
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
