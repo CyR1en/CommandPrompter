@@ -155,7 +155,6 @@ public class CommandPrompter extends JavaPlugin {
         setupCommandManager();
         commandManager.registerCommand(Reload.class);
         commandManager.registerCommand(Cancel.class);
-        getPluginLogger().debug("Commands: " + commandManager.getCommands());
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
