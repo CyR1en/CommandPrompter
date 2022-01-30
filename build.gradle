@@ -63,9 +63,11 @@ dependencies {
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:2.2.1'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.4'
+    implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
+    compileOnly 'org.jetbrains:annotations:23.0.0'
 }
 
 configurations.implementation {
