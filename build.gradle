@@ -27,6 +27,9 @@ plugins {
     id 'java'
 }
 
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(16)
