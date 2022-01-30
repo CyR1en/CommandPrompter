@@ -41,7 +41,7 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("PlayerUI.Previous.Text")
-        @NodeDefault("&7<==")
+        @NodeDefault("&7◀◀ Previous")
         String previousText,
 
         @ConfigNode
@@ -56,7 +56,7 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("PlayerUI.Next.Text")
-        @NodeDefault("&7==>")
+        @NodeDefault("Next ▶▶")
         String nextText,
 
         @ConfigNode
