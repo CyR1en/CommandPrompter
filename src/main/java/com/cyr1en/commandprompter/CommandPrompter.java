@@ -89,6 +89,7 @@ public class CommandPrompter extends JavaPlugin {
     @Override
     public void onDisable() {
         promptManager.clearPromptRegistry();
+        getPluginLogger().ansiUninstall();
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
