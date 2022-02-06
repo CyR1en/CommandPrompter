@@ -70,6 +70,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     private void processClick(InventoryClickEvent e) {
         e.setCancelled(true);
+        if (Objects.isNull(e.getCurrentItem())) return;
         var name = Objects.requireNonNull(Objects.requireNonNull
                 (e.getCurrentItem()).getItemMeta()).getDisplayName();
         name = Util.stripColor(name);
