@@ -74,7 +74,7 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("PlayerUI.cancel.Text")
-        @NodeDefault("&7Cancel")
+        @NodeDefault("&7Cancel ✘")
         String cancelText,
 
         @ConfigNode
