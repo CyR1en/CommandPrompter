@@ -19,12 +19,18 @@ public class PluginLogger {
     private final ColorGradient debugGrad;
 
     private boolean debugMode = false;
-    private JavaPlugin plugin;
+    private boolean isFancy = true;
+    private CommandPrompter plugin;
 
-    public PluginLogger(JavaPlugin plugin, String prefix) {
+    public PluginLogger(CommandPrompter plugin, String prefix) {
+        this.plugin = plugin;
+        this.isFancy = plugin.getConfiguration().fancyLogger();
+        this.debugMode = plugin.getConfiguration().debugMode();
+        AnsiConsole.systemInstall();
+
         normalGrad = new ColorGradient(new Color(67, 205, 162), new Color(25, 92, 157));
         debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
-        AnsiConsole.systemInstall();
+
         setPrefix(prefix);
     }
 
@@ -35,9 +41,11 @@ public class PluginLogger {
 
     public void setPrefix(String prefix) {
         this.plainPrefix = prefix;
-        var sep = new Ansi().fgRgb(153, 214, 90).a(">>").reset().toString();
-        this.prefix = String.format("%s %s ", makeGradient(prefix, normalGrad), sep);
-        this.debugPrefix = String.format("%s %s ", makeGradient(prefix + "-" + "Debug", debugGrad), sep);
+        var sep = isFancy ? new Ansi().fgRgb(153, 214, 90).a(">>").reset().toString() : ">>";
+        var normal = isFancy ? makeGradient(prefix, normalGrad) : prefix;
+        var debug = isFancy ? makeGradient(prefix + "-" + "Debug", debugGrad) : prefix + "-" + "Debug";
+        this.prefix = String.format("%s %s ", normal, sep);
+        this.debugPrefix = String.format("%s %s ", debug, sep);
     }
 
     private String makeGradient(String prefix, ColorGradient grad) {

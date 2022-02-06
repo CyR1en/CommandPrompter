@@ -217,7 +217,7 @@ public class CommandPrompter extends JavaPlugin {
         config = configManager.reload(CommandPrompterConfig.class);
         promptConfig = configManager.reload(PromptConfig.class);
         messenger.setPrefix(config.promptPrefix());
-        logger.setDebugMode(config.debugMode());
+        logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         setupUpdater();

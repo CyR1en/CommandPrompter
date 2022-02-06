@@ -106,7 +106,12 @@ public record CommandPrompterConfig(
                 "the completed command to the",
                 "player before dispatching it?"
         })
-        boolean showCompleted
+        boolean showCompleted,
 
+        @ConfigNode
+        @NodeName("Fancy-Logger")
+        @NodeDefault("true")
+        @NodeComment({"Enable fancy logger"})
+        boolean fancyLogger
 ) {
 }
