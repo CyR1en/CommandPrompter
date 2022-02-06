@@ -49,6 +49,8 @@ public class ConfigurationManager {
         initializeConfig(configClass, config);
 
         var configValues = new ArrayList<>();
+        configValues.add(config);
+
         for (Field declaredField : configClass.getDeclaredFields()) {
             if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
 

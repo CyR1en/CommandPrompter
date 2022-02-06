@@ -2,11 +2,14 @@ package com.cyr1en.commandprompter.config;
 
 import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.*;
+import com.cyr1en.kiso.mc.configuration.base.Config;
 
 @Configuration
 @ConfigPath("config.yml")
 @ConfigHeader({"Command Prompter", "Configuration"})
 public record CommandPrompterConfig(
+        Config rawConfig,
+
         @ConfigNode
         @NodeName("Prompt-Prefix")
         @NodeDefault("[&3Prompter&r] ")

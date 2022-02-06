@@ -7,11 +7,14 @@ import com.cyr1en.commandprompter.config.annotations.field.NodeName;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
+import com.cyr1en.kiso.mc.configuration.base.Config;
 
 @Configuration
 @ConfigPath("prompt-config.yml")
 @ConfigHeader({"Prompts", "Configuration"})
 public record PromptConfig(
+        Config rawConfig,
+
         @ConfigNode
         @NodeName("PlayerUI.Skull-Name-Format")
         @NodeDefault("&6%s")
