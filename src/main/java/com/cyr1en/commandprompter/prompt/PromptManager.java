@@ -69,7 +69,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (promptRegistry.get(sender).isEmpty()) return;
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         var prompt = Objects.requireNonNull(promptRegistry.get(sender).peek());
-        prompt.sendPrompt();
+        Bukkit.getScheduler().runTaskLater(plugin, prompt::sendPrompt, 2L);
         plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
     }
 
