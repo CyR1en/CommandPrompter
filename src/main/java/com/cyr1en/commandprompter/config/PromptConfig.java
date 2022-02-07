@@ -105,7 +105,23 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.Enchanted")
         @NodeDefault("false")
-        boolean anvilEnchanted
+        boolean anvilEnchanted,
 
+
+        @ConfigNode
+        @NodeName("TextPrompt.Clickable-Cancel")
+        @NodeDefault("true")
+        @NodeComment({"Text Prompt Config"})
+        boolean sendCancelText,
+
+        @ConfigNode
+        @NodeName("TextPrompt.Cancel-Message")
+        @NodeDefault("&7&l[Cancel]")
+        String textCancelMessage,
+
+        @ConfigNode
+        @NodeName("TextPrompt.Cancel-Hover-Message")
+        @NodeDefault("&7Click here to cancel command completion")
+        String textCancelHoverMessage
 ) {
 }
