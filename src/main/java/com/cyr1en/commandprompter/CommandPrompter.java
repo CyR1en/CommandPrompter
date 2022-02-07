@@ -96,14 +96,6 @@ public class CommandPrompter extends JavaPlugin {
 
     private void initPromptSystem() {
         promptManager = new PromptManager(this);
-        promptManager.put("", ChatPrompt.class);
-        promptManager.put("a", AnvilPrompt.class);
-        promptManager.put("p", PlayerUIPrompt.class);
-        if (getServer().getPluginManager().getPlugin("ProtocolLib") != null)
-            promptManager.put("s", SignPrompt.class);
-        else
-            getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
-
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
         Bukkit.getPluginManager().registerEvents(new SkullCache(this), this);

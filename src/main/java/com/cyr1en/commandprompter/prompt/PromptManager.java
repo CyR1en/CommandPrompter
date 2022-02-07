@@ -27,10 +27,15 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
+import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
+import org.fusesource.jansi.Ansi;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -56,6 +61,25 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
         this.scheduler = Bukkit.getScheduler();
+        registerPrompts();
+    }
+
+    private void registerPrompts() {
+        this.put("", ChatPrompt.class);
+        this.put("a", AnvilPrompt.class);
+        this.put("p", PlayerUIPrompt.class);
+        if (plugin.getServer().getPluginManager().getPlugin("ProtocolLib") != null)
+            this.put("s", SignPrompt.class);
+        else
+            plugin.getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
+    }
+
+    @Override
+    public Class<? extends Prompt> put(String key, Class<? extends Prompt> value) {
+        var ret = super.put(key, value);
+        plugin.getPluginLogger().info("Registered " +
+                new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()));
+        return ret;
     }
 
     public void parse(PromptContext context) {
