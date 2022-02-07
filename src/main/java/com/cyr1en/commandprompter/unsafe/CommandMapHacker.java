@@ -19,13 +19,13 @@ public class CommandMapHacker {
 
     public void hackCommandMapIn(Object object, SimpleCommandMap newMap) throws NoSuchFieldException, IllegalAccessException {
         mutator.forField("commandMap").in(object).replaceWith(newMap);
-        plugin.getLogger().warning("Changed command map in '" + object.getClass().getSimpleName() + "' " +
+        plugin.getPluginLogger().warn("Changed command map in '" + object.getClass().getSimpleName() + "' " +
                 "to '" + newMap.getClass().getSimpleName() + "'");
     }
 
     private void logWarning() {
-        plugin.getLogger().warning("Warning! CommandPrompter is now going to use the modified command map.");
-        plugin.getLogger().warning("Changing the value of a private final variable can make your program unstable.");
-        plugin.getLogger().warning("If you experience any problem, please disable this feature immediately!");
+        plugin.getPluginLogger().warn("Warning! CommandPrompter is now going to use the modified command map.");
+        plugin.getPluginLogger().warn("Changing the value of a private final variable can make your program unstable.");
+        plugin.getPluginLogger().warn("If you experience any problem, please disable this feature immediately!");
     }
 }
