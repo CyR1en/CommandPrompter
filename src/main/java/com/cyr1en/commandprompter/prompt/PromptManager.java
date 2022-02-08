@@ -125,8 +125,10 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                 sender.setOp(false);
                 plugin.getPluginLogger().debug("Remove OP status");
                 // Redundancy for de-op
-                Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPluginLogger()
-                        .debug("Remove OP status (redundancy)"), 1);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    plugin.getPluginLogger().debug("Remove OP status (redundancy)");
+                    sender.setOp(false);
+                }, 2L);
             }
             promptRegistry.unregister(sender);
         } else if (sender instanceof Player player)
