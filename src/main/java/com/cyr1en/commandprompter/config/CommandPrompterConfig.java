@@ -111,7 +111,11 @@ public record CommandPrompterConfig(
         @ConfigNode
         @NodeName("Fancy-Logger")
         @NodeDefault("true")
-        @NodeComment({"Enable fancy logger"})
+        @NodeComment({
+                "Enable fancy logger",
+                "Do /commandprompter reload to",
+                "apply the change"
+        })
         boolean fancyLogger
 ) {
 }
