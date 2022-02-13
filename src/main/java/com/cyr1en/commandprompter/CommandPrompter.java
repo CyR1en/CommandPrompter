@@ -26,8 +26,6 @@ package com.cyr1en.commandprompter;
 
 import com.cyr1en.commandprompter.commands.Cancel;
 import com.cyr1en.commandprompter.config.PromptConfig;
-import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
-import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
@@ -37,8 +35,6 @@ import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptResponseListener;
-import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
-import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.prompt.ui.SkullCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
