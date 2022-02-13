@@ -116,7 +116,7 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("TextPrompt.Cancel-Message")
-        @NodeDefault("&7&l[Cancel]")
+        @NodeDefault("&7[&c&l✘&7]")
         String textCancelMessage,
 
         @ConfigNode
