@@ -75,8 +75,11 @@ public class AnvilPrompt extends AbstractPrompt {
             getPromptManager().cancel(p);
         });
         builder.text(color(parts.get(0)));
-        if (getPlugin().getPromptConfig().enableTitle())
-            builder.title(color(parts.get(0)));
+        if (getPlugin().getPromptConfig().enableTitle()){
+            var title = getPlugin().getPromptConfig().customTitle();
+            title = title.isEmpty()?color(parts.get(0)) : color(title);
+            builder.title(title);
+        }
         builder.itemLeft(item);
         builder.plugin(getPlugin());
         return builder;
