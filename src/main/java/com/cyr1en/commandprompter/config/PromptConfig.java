@@ -98,6 +98,15 @@ public record PromptConfig(
         boolean enableTitle,
 
         @ConfigNode
+        @NodeName("AnvilGUI.Custom-Title")
+        @NodeDefault("")
+        @NodeComment({
+                "Set a custom title",
+                "For the AnvilGUI"
+        })
+        String customTitle,
+
+        @ConfigNode
         @NodeName("AnvilGUI.Item")
         @NodeDefault("Paper")
         String anvilItem,
