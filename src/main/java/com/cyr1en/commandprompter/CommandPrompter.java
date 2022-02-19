@@ -75,7 +75,6 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-        logger.setDebugMode(config.debugMode());
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
