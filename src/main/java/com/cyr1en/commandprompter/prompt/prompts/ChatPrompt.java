@@ -58,7 +58,7 @@ public class ChatPrompt extends AbstractPrompt {
             var hoverMessage = getPlugin().getPromptConfig().textCancelHoverMessage();
             String prefix = getPlugin().getConfiguration().promptPrefix();
             var component = new ComponentBuilder(color(prefix + cancelMessage))
-                    .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/cp cancel"))
+                    .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/commandprompter cancel"))
                     .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(color(hoverMessage))))
                     .create();
             getContext().getSender().spigot().sendMessage(component);
