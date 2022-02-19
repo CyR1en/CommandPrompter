@@ -40,8 +40,10 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
         plugin.getPluginLogger().debug("Hook target plugin name: " + targetPluginName);
         var targetEnabled = Bukkit.getPluginManager().isPluginEnabled(targetPluginName);
         plugin.getPluginLogger().debug("Target enabled: " + targetEnabled);
-        if (!targetEnabled)
+        if (!targetEnabled) {
             plugin.getPluginLogger().debug(targetPluginName + " is not enabled. Could not hook.");
+            return Hook.empty();
+        }
 
         try {
             var constructor = pluginHook.getDeclaredConstructor(CommandPrompter.class);
