@@ -1,11 +1,9 @@
 package com.cyr1en.commandprompter.hook;
 
-import com.cyr1en.commandprompter.CommandPrompter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 public final class Hook<T> {
@@ -32,9 +30,8 @@ public final class Hook<T> {
     }
 
     private T get() {
-        if (value == null) {
+        if (value == null)
             throw new NoSuchElementException("No value present");
-        }
         return value;
     }
 
@@ -46,7 +43,6 @@ public final class Hook<T> {
     public boolean isHooked() {
         return Objects.nonNull(value);
     }
-
 
     public void ifHooked(@NotNull Consumer<T> consumer) {
         if (isHooked())
