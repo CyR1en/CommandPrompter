@@ -93,7 +93,10 @@ public record PromptConfig(
                 "",
                 "Item - The item to place on the Anvil GUI",
                 "",
-                "Enchanted - Do you want the item enchanted?"
+                "Enchanted - Do you want the item enchanted?",
+                "",
+                "Custom-Title - If title is enabled, and if custom",
+                "title is not empty, CommandPrompter will use this instead"
         })
         boolean enableTitle,
 
