@@ -43,9 +43,9 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
         this.pluginInstance = pluginInstance;
     }
 
-    public void initRegistryFor(CommandSender sender, String command) {
+    public void initRegistryFor(CommandSender sender, String command, String escapedRegex) {
         if (containsKey(sender)) return;
-        var queue = new PromptQueue(command, sender.isOp());
+        var queue = new PromptQueue(command, sender.isOp(), escapedRegex);
         put(sender, queue);
     }
 

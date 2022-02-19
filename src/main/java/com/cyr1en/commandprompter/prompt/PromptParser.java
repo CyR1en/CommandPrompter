@@ -41,17 +41,21 @@ public class PromptParser {
 
     public PromptParser(PromptManager promptManager) {
         this.plugin = promptManager.getPlugin();
-        this.escapedRegex = getEscapedRegex();
+        this.escapedRegex = escapeRegex();
         this.manager = promptManager;
         this.sRegex = new SRegex();
     }
 
-    private String getEscapedRegex() {
+    private String escapeRegex() {
         var regex = plugin.getConfiguration().argumentRegex();
         regex = regex.trim();
         return (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
                 (regex.substring(1, regex.length() - 1)) +
                 (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");
+    }
+
+    public String getEscapedRegex() {
+        return escapedRegex;
     }
 
     public boolean isParsable(PromptContext promptContext) {
@@ -69,9 +73,9 @@ public class PromptParser {
         var prompts = getPrompts(promptContext);
         plugin.getPluginLogger().debug("Prompts: " + prompts);
 
-        var command = promptContext.getContent()
-                .replaceAll(plugin.getConfiguration().argumentRegex(), "").trim();
-        manager.getPromptRegistry().initRegistryFor(promptContext.getSender(), command);
+        var command = promptContext.getContent().trim();
+        plugin.getPluginLogger().debug("Command: " + command);
+        manager.getPromptRegistry().initRegistryFor(promptContext.getSender(), command, getEscapedRegex());
 
         for (String prompt : prompts) {
             plugin.getPluginLogger().debug("Parsing: " + prompt);

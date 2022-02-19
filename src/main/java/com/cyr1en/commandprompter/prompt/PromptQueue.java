@@ -6,13 +6,15 @@ import java.util.LinkedList;
 
 public class PromptQueue extends LinkedList<Prompt> {
 
-    private final String command;
+    private String command;
     private final LinkedList<String> completed;
+    private final String escapedRegex;
     private final boolean isOp;
 
-    public PromptQueue(String command, boolean isOp) {
+    public PromptQueue(String command, boolean isOp, String escapedRegex) {
         super();
         this.command = command;
+        this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
     }
@@ -26,9 +28,10 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public String getCompleteCommand() {
-        var s = "/%s %s";
-        return s.formatted(command, String.join(" ", completed)
-                .replaceAll("\\s+", " ").trim());
+        command = command.formatted(completed);
+        while (!completed.isEmpty())
+            command = command.replaceFirst(escapedRegex, completed.pollFirst());
+        return "/" + command;
     }
 
 }
