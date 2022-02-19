@@ -26,10 +26,13 @@ package com.cyr1en.commandprompter.listener;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CommandListener implements Listener {
 
@@ -46,8 +49,13 @@ public class CommandListener implements Listener {
         plugin.getPluginLogger().debug("Command: " + context.getContent());
         plugin.getPluginLogger().debug("Command Caught using: %s", this.getClass().getSimpleName());
 
+        if (isIgnored(context)) {
+            plugin.getPluginLogger().debug("Caught command is ignored.");
+            return;
+        }
+
         // Check if the command is CommandPrompter's cancel command
-        if(context.getContent().matches(Cancel.commandPattern.toString()))
+        if (context.getContent().matches(Cancel.commandPattern.toString()))
             return;
 
         if (!context.getSender().hasPermission("commandprompter.use") &&
@@ -73,5 +81,21 @@ public class CommandListener implements Listener {
         plugin.getPluginLogger().debug("Ctx Before Parse: " + context);
         promptManager.parse(context);
         promptManager.sendPrompt(context.getSender());
+    }
+
+    private boolean isIgnored(PromptContext context) {
+        var end = context.getContent().indexOf(" ");
+        end = end == -1 ? context.getContent().length() : end;
+        var cmd = context.getContent().substring(0, end);
+        return plugin.getConfiguration().ignoredCommands().contains(cmd) || isCmdChatChannel(cmd);
+    }
+
+    private boolean isCmdChatChannel(String cmd) {
+        var out = new AtomicBoolean(false);
+        var vcHook = plugin.getHookContainer().getHook(VentureChatHook.class);
+        plugin.getPluginLogger().debug("VentureChat hooked: " + vcHook.isHooked());
+        vcHook.ifHooked(hook -> out.set(hook.isChatChannel(cmd)));
+        plugin.getPluginLogger().debug("is VentureChat channel: " + out.get());
+        return out.get();
     }
 }

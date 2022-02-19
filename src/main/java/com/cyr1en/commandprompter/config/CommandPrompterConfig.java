@@ -4,6 +4,8 @@ import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.*;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 
+import java.util.List;
+
 @Configuration
 @ConfigPath("config.yml")
 @ConfigHeader({"Command Prompter", "Configuration"})
@@ -116,6 +118,22 @@ public record CommandPrompterConfig(
                 "Do /commandprompter reload to",
                 "apply the change"
         })
-        boolean fancyLogger
+        boolean fancyLogger,
+
+        @ConfigNode
+        @NodeName("Ignored-Commands")
+        @NodeDefault("sampleCommand, sampleCommand2")
+        @NodeComment({
+                "What commands should CommandPrompter ignore",
+                "",
+                "When a command is ignored, CommandPrompter",
+                "will not proceed to check if the command",
+                "contains a prompt.",
+                "",
+                "Do not include the /",
+                "",
+                "VentureChat channels are automatically ignored."
+        })
+        List<String> ignoredCommands
 ) {
 }
