@@ -30,6 +30,7 @@ import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
+import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
@@ -59,6 +60,7 @@ public class CommandPrompter extends JavaPlugin {
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
     private PromptConfig promptConfig;
+    private HookContainer hookContainer;
 
     private PluginLogger logger;
     private CommandManager commandManager;
@@ -80,6 +82,7 @@ public class CommandPrompter extends JavaPlugin {
         initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
         instance = this;
+        hookContainer = new HookContainer(this);
     }
 
     @Override
@@ -187,6 +190,10 @@ public class CommandPrompter extends JavaPlugin {
 
     public CommandManager getCommandManager() {
         return commandManager;
+    }
+
+    public HookContainer getHookContainer() {
+        return this.hookContainer;
     }
 
     public PluginMessenger getMessenger() {
