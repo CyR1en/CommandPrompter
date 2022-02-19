@@ -73,7 +73,7 @@ public record PromptConfig(
         int cancelColumn,
 
         @ConfigNode
-        @NodeName("PlayerUI.cancel.Text")
+        @NodeName("PlayerUI.Cancel.Text")
         @NodeDefault("&7Cancel ✘")
         String cancelText,
 
@@ -103,10 +103,6 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.Custom-Title")
         @NodeDefault("")
-        @NodeComment({
-                "Set a custom title",
-                "For the AnvilGUI"
-        })
         String customTitle,
 
         @ConfigNode
@@ -118,7 +114,6 @@ public record PromptConfig(
         @NodeName("AnvilGUI.Enchanted")
         @NodeDefault("false")
         boolean anvilEnchanted,
-
 
         @ConfigNode
         @NodeName("TextPrompt.Clickable-Cancel")
