@@ -88,6 +88,7 @@ shadowJar {
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
+    relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
 }
 
