@@ -23,7 +23,8 @@ public record PromptConfig(
                 "Skull-Name-Format - The display name format",
                 "                    for the player heads", "",
                 "Size - the size of the UI (multiple of 9, between 18-54)", "",
-                "Sorted - Should the player heads be sorted?"
+                "Sorted - Should the player heads be sorted?",
+                "Per-World - Only show player in the current world?"
         })
         String skullNameFormat,
 
@@ -81,6 +82,11 @@ public record PromptConfig(
         @NodeName("PlayerUI.Sorted")
         @NodeDefault("false")
         boolean sorted,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Per-World")
+        @NodeDefault("false")
+        boolean isPerWorld,
 
         @ConfigNode
         @NodeName("AnvilGUI.Enable-Title")

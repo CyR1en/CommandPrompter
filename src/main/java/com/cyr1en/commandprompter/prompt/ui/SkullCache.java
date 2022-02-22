@@ -54,15 +54,35 @@ public record SkullCache(CommandPrompter plugin) implements Listener {
                 Util.stripColor(Objects.requireNonNull(i.getItemMeta()).getDisplayName()).equals(player)).toList());
     }
 
-    public static List<ItemStack> getSkullsSorted() {
+    private static List<ItemStack> getSortedSkulls(ArrayList<ItemStack> skullList) {
         @SuppressWarnings("unchecked")
-        var copy = (ArrayList<ItemStack>) skulls.clone();
+        var copy = (ArrayList<ItemStack>) skullList.clone();
         copy.sort((s1, s2) -> {
             var n1 = Util.stripColor(Objects.requireNonNull(s1.getItemMeta()).getDisplayName());
             var n2 = Util.stripColor(Objects.requireNonNull(s2.getItemMeta()).getDisplayName());
             return n1.compareToIgnoreCase(n2);
         });
         return copy;
+    }
+
+    public static List<ItemStack> getSkullsSorted() {
+        return getSortedSkulls(skulls);
+    }
+
+    public static List<ItemStack> getSkullsFor(List<Player> players) {
+        var result = new ArrayList<ItemStack>();
+        for (Player player : players) {
+            CommandPrompter.getInstance().getPluginLogger().debug("Player: " + player);
+            var is = skulls.stream()
+                    .filter(i -> Util.stripColor(i.getItemMeta().getDisplayName()).equals(player.getName()))
+                    .findFirst();
+            is.ifPresent(result::add);
+        }
+        return result;
+    }
+
+    public static List<ItemStack> getSkullsSortedFor(List<Player> players) {
+        return getSortedSkulls((ArrayList<ItemStack>) getSkullsFor(players));
     }
 
     public static List<ItemStack> getSkulls() {

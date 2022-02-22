@@ -54,10 +54,19 @@ public class PlayerUIPrompt extends AbstractPrompt {
     @Override
     public void sendPrompt() {
         gui.setOnClose(e -> getPromptManager().cancel(getContext().getSender()));
+        var p = (Player) getContext().getSender();
+
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
 
         var isSorted = getPlugin().getPromptConfig().sorted();
-        var skulls = isSorted ? SkullCache.getSkullsSorted() : SkullCache.getSkulls();
+        var isPerWorld = getPlugin().getPromptConfig().isPerWorld();
+        var skulls = isPerWorld ?
+                (isSorted ?
+                        SkullCache.getSkullsSortedFor(p.getWorld().getPlayers()) :
+                        SkullCache.getSkullsFor(p.getWorld().getPlayers())) :
+                (isSorted ?
+                        SkullCache.getSkullsSorted() :
+                        SkullCache.getSkulls());
 
         skullPane.populateWithItemStacks(skulls);
         skullPane.setOnClick(this::processClick);
