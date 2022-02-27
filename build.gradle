@@ -65,8 +65,9 @@ dependencies {
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.4'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
+    implementation fileTree(dir: 'libs', include: '*.jar')
 
-    compileOnly fileTree(dir: 'libs', include: '*.jar')
+    compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'org.jetbrains:annotations:23.0.0'
