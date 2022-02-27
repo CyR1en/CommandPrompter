@@ -60,7 +60,7 @@ repositories {
 dependencies {
     implementation 'me.lucko:commodore:1.11'
     implementation 'com.cyr1en:kiso-utils:1.6-SNAPSHOT'
-    implementation 'com.cyr1en:kiso-mc:1.6-SNAPSHOT'
+    implementation 'com.cyr1en:kiso-mc:1.7-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.4'
