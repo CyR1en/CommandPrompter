@@ -37,7 +37,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.fusesource.jansi.Ansi;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**

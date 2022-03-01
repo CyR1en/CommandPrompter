@@ -1,7 +1,12 @@
 package com.cyr1en.commandprompter.config;
 
-import com.cyr1en.commandprompter.config.annotations.field.*;
-import com.cyr1en.commandprompter.config.annotations.type.*;
+import com.cyr1en.commandprompter.config.annotations.field.ConfigNode;
+import com.cyr1en.commandprompter.config.annotations.field.NodeComment;
+import com.cyr1en.commandprompter.config.annotations.field.NodeDefault;
+import com.cyr1en.commandprompter.config.annotations.field.NodeName;
+import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
+import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
+import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 
 import java.util.List;

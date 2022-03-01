@@ -1,6 +1,5 @@
 package com.cyr1en.commandprompter.unsafe;
 
-import org.bukkit.Bukkit;
 import sun.misc.Unsafe;
 
 /**

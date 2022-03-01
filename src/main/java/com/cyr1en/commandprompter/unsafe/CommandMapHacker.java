@@ -1,10 +1,7 @@
 package com.cyr1en.commandprompter.unsafe;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import org.bukkit.Bukkit;
-import org.bukkit.command.PluginCommandYamlParser;
 import org.bukkit.command.SimpleCommandMap;
-import org.bukkit.plugin.Plugin;
 
 public class CommandMapHacker {
 

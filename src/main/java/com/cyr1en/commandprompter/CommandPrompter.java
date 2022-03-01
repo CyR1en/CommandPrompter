@@ -24,12 +24,12 @@
 
 package com.cyr1en.commandprompter;
 
-import com.cyr1en.commandprompter.commands.Cancel;
-import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
+import com.cyr1en.commandprompter.commands.Cancel;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
+import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
@@ -44,14 +44,13 @@ import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
 import com.cyr1en.kiso.utils.SRegex;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
-
-import org.bstats.bukkit.Metrics;
 
 public class CommandPrompter extends JavaPlugin {
 
