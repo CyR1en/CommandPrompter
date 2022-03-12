@@ -27,7 +27,9 @@ public class PluginLogger {
         this.debugMode = plugin.getConfiguration().debugMode();
         AnsiConsole.systemInstall();
 
-        normalGrad = new ColorGradient(new Color(67, 205, 162), new Color(25, 92, 157));
+        // Spread love not war <3
+        normalGrad = new ColorGradient(new Color(1, 88, 181), new Color(246, 206, 0));
+
         debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
 
         setPrefix(prefix);
