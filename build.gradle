@@ -54,6 +54,7 @@ repositories {
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
     maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
+    maven { url 'https://jitpack.io'}
     flatDir { dirs 'libs' }
 }
 
@@ -69,6 +70,7 @@ dependencies {
 
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
     compileOnly "org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT"
+    compileOnly 'com.github.LeonMangler:SuperVanish:6.2.6-4'
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'org.jetbrains:annotations:23.0.0'
 }

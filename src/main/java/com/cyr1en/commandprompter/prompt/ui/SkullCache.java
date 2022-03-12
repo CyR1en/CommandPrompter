@@ -3,6 +3,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -17,6 +18,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public record SkullCache(CommandPrompter plugin) implements Listener {
     // All player list inventory in using stored here.
@@ -94,6 +96,17 @@ public record SkullCache(CommandPrompter plugin) implements Listener {
     @EventHandler
     @SuppressWarnings("unused")
     public void onPlayerLogin(PlayerLoginEvent e) {
+        var isInv = new AtomicBoolean(false);
+        var svHook = plugin.getHookContainer().getHook(SuperVanishHook.class);
+        plugin.getPluginLogger().debug("SV Hooked: " + svHook.isHooked());
+        svHook.ifHooked(hook -> {
+            if(hook.isInvisible(e.getPlayer()))
+                isInv.set(true);
+        });
+        if(isInv.get()) {
+            plugin.getPluginLogger().debug("Player is vanished (SuperVanish) skipping skull cache");
+            return;
+        }
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> SkullCache.cachePlayer(e.getPlayer()));
     }
 

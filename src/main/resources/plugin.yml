@@ -2,7 +2,7 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
-softdepend: [ProtocolLib, VentureChat]
+softdepend: [ProtocolLib, VentureChat, SuperVanish]
 
 main: ${projectEntry}
 api-version: 1.13
