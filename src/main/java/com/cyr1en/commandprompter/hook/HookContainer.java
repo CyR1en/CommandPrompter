@@ -4,6 +4,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import org.bukkit.Bukkit;
+import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
@@ -23,7 +24,9 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
     @Override
     public Hook<?> put(Class<?> key, Hook<?> value) {
-        plugin.getPluginLogger().info(key.getSimpleName() + " contained.");
+        var prefix = value.isHooked() ? new Ansi().fgRgb(153, 214, 90).a("✓").reset() :
+                new Ansi().fgRgb(255, 96, 109).a("-").reset();
+        plugin.getPluginLogger().info(prefix + " " + key.getSimpleName() + " contained");
         return super.put(key, value);
     }
 
