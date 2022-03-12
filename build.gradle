@@ -88,6 +88,7 @@ shadowJar {
     archiveVersion.set(manifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
+    relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
