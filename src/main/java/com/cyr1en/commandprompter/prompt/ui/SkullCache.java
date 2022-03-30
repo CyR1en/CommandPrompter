@@ -54,8 +54,7 @@ public record SkullCache(CommandPrompter plugin) implements Listener {
     }
 
     public static void unCachePlayer(String player) {
-        skulls.removeAll(skulls.stream().filter(i ->
-                Util.stripColor(Objects.requireNonNull(i.getItemMeta()).getDisplayName()).equals(player)).toList());
+        skulls.removeAll(skulls.stream().filter(i -> checkNameFromItemStack(i, player)).toList());
     }
 
     private static List<ItemStack> getSortedSkulls(ArrayList<ItemStack> skullList) {
@@ -78,11 +77,16 @@ public record SkullCache(CommandPrompter plugin) implements Listener {
         for (Player player : players) {
             CommandPrompter.getInstance().getPluginLogger().debug("Player: " + player);
             var is = skulls.stream()
-                    .filter(i -> Util.stripColor(i.getItemMeta().getDisplayName()).equals(player.getName()))
+                    .filter(i -> checkNameFromItemStack(i, player.getName()))
                     .findFirst();
             is.ifPresent(result::add);
         }
         return result;
+    }
+
+    private static boolean checkNameFromItemStack(ItemStack is, String pName){
+        if(Objects.isNull(is) || Objects.isNull(is.getItemMeta())) return false;
+        return Util.stripColor(is.getItemMeta().getDisplayName()).equals(pName);
     }
 
     public static List<ItemStack> getSkullsSortedFor(List<Player> players) {
