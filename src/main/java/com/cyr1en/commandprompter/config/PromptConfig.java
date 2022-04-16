@@ -135,6 +135,31 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("TextPrompt.Cancel-Hover-Message")
         @NodeDefault("&7Click here to cancel command completion")
-        String textCancelHoverMessage
+        String textCancelHoverMessage,
+
+        @ConfigNode
+        @NodeName("SignUI.Input-Field-Location")
+        @NodeDefault("bottom")
+        @NodeComment({
+                "Sign UI Settings",
+                "",
+                "Input-Field-Location: Which line should the answer be ",
+                "                      read from.",
+                "",
+                "Valid Input Field Locations",
+                "top: line 1 of the sign will be considered as the field.",
+                "top-aggregate: the prompt will be placed at the lowest",
+                "               possible line and the input would be",
+                "               the remaining lines on top.",
+                "bottom: line 4 of the sign will be considered as the",
+                "        field.",
+                "bottom-aggregate: the prompt will be placed at line",
+                "                  1 and the input would be the",
+                "                  remaining lines at the bottom",
+                "",
+                "Check wiki for Sign UI:",
+                "https://github.com/CyR1en/CommandPrompter/wiki/Prompts"
+        })
+        String inputFieldLocation
 ) {
 }
