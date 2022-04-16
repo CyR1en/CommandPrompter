@@ -64,7 +64,7 @@ dependencies {
     implementation 'com.cyr1en:kiso-mc:1.7-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.5.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.4'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.5'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
     implementation fileTree(dir: 'libs', include: '*.jar')
 
