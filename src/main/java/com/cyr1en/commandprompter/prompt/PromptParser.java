@@ -75,7 +75,7 @@ public class PromptParser {
 
         var command = promptContext.getContent().trim();
         plugin.getPluginLogger().debug("Command: " + command);
-        manager.getPromptRegistry().initRegistryFor(promptContext.getSender(), command, getEscapedRegex());
+        manager.getPromptRegistry().initRegistryFor(promptContext, command, getEscapedRegex());
 
         for (String prompt : prompts) {
             plugin.getPluginLogger().debug("Parsing: " + prompt);

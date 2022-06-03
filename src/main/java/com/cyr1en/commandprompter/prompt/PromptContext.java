@@ -33,7 +33,9 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 public class PromptContext {
   private final Cancellable cancellable;
   private final CommandSender sender;
-  private final String content;
+  private String content;
+
+  private boolean setPermissionAttachment;
 
   public PromptContext(PlayerCommandPreprocessEvent e) {
     this(e, e.getPlayer(), e.getMessage());
@@ -43,6 +45,7 @@ public class PromptContext {
     this.cancellable = callable;
     this.sender = sender;
     this.content = content;
+    this.setPermissionAttachment = false;
   }
 
   public CommandSender getSender() {
@@ -55,6 +58,18 @@ public class PromptContext {
 
   public String getContent() {
     return content;
+  }
+
+  public void setContent(String content) {
+    this.content = content;
+  }
+
+  public void setSetPermissionAttachment(boolean b) {
+    this.setPermissionAttachment = b;
+  }
+
+  public boolean isSetPermissionAttachment() {
+    return this.setPermissionAttachment;
   }
 
   @Override

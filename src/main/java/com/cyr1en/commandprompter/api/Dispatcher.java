@@ -24,11 +24,13 @@
 
 package com.cyr1en.commandprompter.api;
 
+import com.cyr1en.commandprompter.CommandPrompter;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Player command dispatcher for Support with CommandPrompter.
@@ -63,11 +65,43 @@ public class Dispatcher {
     }
 
     /**
-     * Dispatch the command as op
+     * Dispatch the command as Console.
      *
      * @param command command that would be dispatched.
      */
     public static void dispatchOP(String command) {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
+
+
+    /**
+     * Dispatch a command for a player with a PermissionAttachment that contains
+     * all the whitelisted commands.
+     *
+     * @param plugin  Instance of plugin.
+     * @param sender  command sender (in menu's, then the item clicker)
+     * @param command command that would be dispatched.
+     * @param ticks Number of ticks before the attachment expires
+     * @param perms Permissions to set to the PermissionAttachment
+     */
+    public static void dispatchWithAttachment
+            (Plugin plugin, Player sender, String command, int ticks, @NotNull String[] perms) {
+        var commandPrompter = (CommandPrompter) plugin;
+        var logger = commandPrompter.getPluginLogger();
+
+        logger.debug("Dispatching command with permission attachment");
+        var attachment = sender.addAttachment(plugin, ticks);
+        if (attachment == null) {
+            logger.err("Unable to create PermissionAttachment for " + sender.getName());
+            return;
+        }
+        logger.debug("Added PermissionAttachment");
+        for (String perm : perms)
+            attachment.setPermission(perm, true);
+        attachment.getPermissible().recalculatePermissions();
+        dispatchCommand(plugin, (Player) attachment.getPermissible(), command);
+    }
+
+
+
 }

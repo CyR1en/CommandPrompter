@@ -123,7 +123,14 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             if (plugin.getConfiguration().showCompleted())
                 plugin.getMessenger().sendMessage(sender, plugin.getI18N()
                         .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
-            Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
+
+            if(queue.isSetPermissionAttachment())
+                Dispatcher.dispatchWithAttachment(plugin, (Player) sender, queue.getCompleteCommand(),
+                        plugin.getConfiguration().permissionAttachmentTicks(),
+                        plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
+            else
+                Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
+
             if (!isCurrentOp) {
                 sender.setOp(false);
                 plugin.getPluginLogger().debug("Remove OP status");

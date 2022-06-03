@@ -11,12 +11,15 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final String escapedRegex;
     private final boolean isOp;
 
-    public PromptQueue(String command, boolean isOp, String escapedRegex) {
+    private final boolean isSetPermissionAttachment;
+
+    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
+        this.isSetPermissionAttachment = isSetPermissionAttachment;
     }
 
     public void addCompleted(String s) {
@@ -25,6 +28,10 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     public boolean isOp() {
         return isOp;
+    }
+
+    public boolean isSetPermissionAttachment() {
+        return isSetPermissionAttachment;
     }
 
     public String getCompleteCommand() {

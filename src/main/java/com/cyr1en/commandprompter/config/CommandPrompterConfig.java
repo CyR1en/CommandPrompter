@@ -139,6 +139,28 @@ public record CommandPrompterConfig(
                 "",
                 "VentureChat channels are automatically ignored."
         })
-        List<String> ignoredCommands
+        List<String> ignoredCommands,
+
+        @ConfigNode
+        @NodeName("Permission-Attachment.ticks")
+        @NodeDefault("1")
+        @NodeComment({
+                "Permission Attachment Config",
+                "",
+                "Permission attachments allow players",
+                "to have temporary permissions.",
+                "",
+                "ticks - Set how long (in ticks) should the",
+                "        permission attachment persist.",
+                "",
+                "permissions - permissions to temporarily",
+                "              attach to the players."
+        })
+        int permissionAttachmentTicks,
+
+        @ConfigNode
+        @NodeName("Permission-Attachment.permissions")
+        @NodeDefault("sample.permission, sample.permission2")
+        List<String> attachmentPermissions
 ) {
 }

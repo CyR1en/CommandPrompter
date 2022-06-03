@@ -33,9 +33,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 public class CommandListener implements Listener {
-
+    private static final Pattern permissionAttachmentPattern = Pattern.compile("-pa ");
     protected CommandPrompter plugin;
     protected PromptManager promptManager;
 
@@ -71,6 +72,8 @@ public class CommandListener implements Listener {
             context.getCancellable().setCancelled(true);
             return;
         }
+
+        parsePermissionAttachment(context);
         if (!promptManager.getParser().isParsable(context)) return;
         if (!(context.getSender() instanceof Player)) {
             plugin.getMessenger().sendMessage(context.getSender(),
@@ -97,5 +100,14 @@ public class CommandListener implements Listener {
         vcHook.ifHooked(hook -> out.set(hook.isChatChannel(cmd)));
         plugin.getPluginLogger().debug("is VentureChat channel: " + out.get());
         return out.get();
+    }
+
+    private void parsePermissionAttachment(PromptContext context) {
+        var matcher = permissionAttachmentPattern.matcher(context.getContent());
+        if(matcher.find()) {
+            context.setContent(matcher.replaceAll(""));
+            context.setSetPermissionAttachment(true);
+            plugin.getPluginLogger().debug("Using PermissionAttachment for command dispatch");
+        }
     }
 }
