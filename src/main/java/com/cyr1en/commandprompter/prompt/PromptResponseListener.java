@@ -111,7 +111,7 @@ public class PromptResponseListener implements Listener {
         for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList().getRegisteredListeners()) {
             logger.debug("  - '%s'", registeredListener.getListener().getClass().getSimpleName());
             logger.debug("      Priority: " + registeredListener.getPriority());
-            logger.degub("      Plugin: " + registeredListener.getPlugin().getName());
+            logger.debug("      Plugin: " + registeredListener.getPlugin().getName());
         }
     }
 
