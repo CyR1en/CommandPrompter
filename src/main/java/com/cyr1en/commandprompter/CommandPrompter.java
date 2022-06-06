@@ -95,6 +95,7 @@ public class CommandPrompter extends JavaPlugin {
         promptManager = new PromptManager(this);
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
+        PromptResponseListener.setPriority(this);
         Bukkit.getPluginManager().registerEvents(new SkullCache(this), this);
     }
 
@@ -213,6 +214,7 @@ public class CommandPrompter extends JavaPlugin {
         logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
+        PromptResponseListener.setPriority(this);
         setupUpdater();
         if (clean)
             promptManager.clearPromptRegistry();

@@ -124,7 +124,22 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("TextPrompt.Clickable-Cancel")
         @NodeDefault("true")
-        @NodeComment({"Text Prompt Config"})
+        @NodeComment({
+                "Text Prompt Config",
+                "",
+                "Clickable-Cancel - Enable clickable cancel",
+                "",
+                "Cancel-Message - Clickable text message",
+                "",
+                "Cancel-Hover-Message - Message to show when",
+                "                       a player hovers over",
+                "                       the clickable cancel message.",
+                "",
+                "Response-Listener-Priority - Change the priority of",
+                "                             the response listener",
+                "Available Priority - DEFAULT, LOW, LOWEST, NORMAL, HIGH",
+                "                     HIGHEST"
+        })
         boolean sendCancelText,
 
         @ConfigNode
@@ -136,6 +151,11 @@ public record PromptConfig(
         @NodeName("TextPrompt.Cancel-Hover-Message")
         @NodeDefault("&7Click here to cancel command completion")
         String textCancelHoverMessage,
+
+        @ConfigNode
+        @NodeName("TextPrompt.Response-Listener-Priority")
+        @NodeDefault("DEFAULT")
+        String responseListenerPriority,
 
         @ConfigNode
         @NodeName("SignUI.Input-Field-Location")
