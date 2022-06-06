@@ -2,6 +2,8 @@ package com.cyr1en.commandprompter.unsafe;
 
 import sun.misc.Unsafe;
 
+import java.util.Objects;
+
 /**
  * A utility class that allows you to easily change the value of private final fields.
  * <p>
@@ -84,6 +86,13 @@ public class PvtFieldMutator {
         // Assert that we actually have it done correctly.
         targetField.setAccessible(true);
         var newFieldObject = targetField.get(targetInstance);
+
+        if(Objects.isNull(newObject)) {
+            if(!Objects.isNull(newFieldObject))
+                throw new PvtFieldMutationException("null");
+            return;
+        }
+
         if (!newFieldObject.getClass().getCanonicalName().equals(newObject.getClass().getCanonicalName()))
             throw new PvtFieldMutationException(newObject.getClass());
     }
