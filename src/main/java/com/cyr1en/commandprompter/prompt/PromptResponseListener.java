@@ -1,9 +1,13 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.hook.hooks.PuerkasChatHook;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
+import es.capitanpuerka.puerkaschat.manager.PuerkasFormat;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -18,10 +22,12 @@ public class PromptResponseListener implements Listener {
 
     private final PromptManager manager;
     private final CommandPrompter plugin;
+    private final ResponseHandler handler;
 
     public PromptResponseListener(PromptManager manager, CommandPrompter plugin) {
         this.manager = manager;
         this.plugin = plugin;
+        this.handler = new ResponseHandler(plugin);
     }
 
     public PromptManager getManager() {
@@ -30,17 +36,36 @@ public class PromptResponseListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncPlayerChatEvent event) {
-        if (!manager.getPromptRegistry().inCommandProcess(event.getPlayer()))
-            return;
-        event.setCancelled(true);
-        var message = ChatColor.stripColor(
-                ChatColor.translateAlternateColorCodes('&', event.getMessage()));
-        var cancelKeyword = plugin.getConfiguration().cancelKeyword();
+        var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
+        if (!isPuerkasChatHooked) {
+            handler.onResponse(event.getPlayer(), event.getMessage(), event);
+        } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
+            handler.onResponse(event.getPlayer(), event.getMessage(), event);
+    }
 
-        if (cancelKeyword.equalsIgnoreCase(message))
-            manager.cancel(event.getPlayer());
-        var ctx = new PromptContext(event, event.getPlayer(), message);
-        Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
+    public static class ResponseHandler {
+        private final CommandPrompter plugin;
+        private final PromptManager manager;
+
+        public ResponseHandler(CommandPrompter plugin) {
+            this.plugin = plugin;
+            this.manager = plugin.getPromptManager();
+        }
+
+        public void onResponse(Player player, String msg, Cancellable event) {
+            plugin.getPluginLogger().debug("Cancellable event: " + event.getClass().getSimpleName());
+            if (!manager.getPromptRegistry().inCommandProcess(player))
+                return;
+            event.setCancelled(true);
+            var message = ChatColor.stripColor(
+                    ChatColor.translateAlternateColorCodes('&', msg));
+            var cancelKeyword = plugin.getConfiguration().cancelKeyword();
+
+            if (cancelKeyword.equalsIgnoreCase(message))
+                manager.cancel(player);
+            var ctx = new PromptContext(event, player, message);
+            Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
+        }
     }
 
     public static void setPriority(CommandPrompter plugin) {

@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.hook;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
+import com.cyr1en.commandprompter.hook.hooks.PuerkasChatHook;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import org.bukkit.Bukkit;
@@ -25,6 +26,7 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
     private void initHooks() {
         hook(VentureChatHook.class);
         hook(SuperVanishHook.class);
+        hook(PuerkasChatHook.class);
     }
 
     @Override
