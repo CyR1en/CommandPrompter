@@ -80,7 +80,7 @@ public class CommandPrompter extends JavaPlugin {
         initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
         instance = this;
-        hookContainer = new HookContainer(this);
+        Bukkit.getPluginManager().registerEvents(hookContainer = new HookContainer(this), this);
     }
 
     @Override
