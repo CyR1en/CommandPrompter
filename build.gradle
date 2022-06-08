@@ -25,6 +25,7 @@
 plugins {
     id "com.github.johnrengelman.shadow" version "7.0.0"
     id 'java'
+    id 'maven-publish'
 }
 
 compileJava.options.encoding = "UTF-8"
@@ -112,6 +113,24 @@ processResources {
 
 artifacts {
     archives shadowJar
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "Kakuno"
+            url = uri("https://repo.cyr1en.com/snapshots")
+            credentials {
+                username = System.getenv("KAKUNO_USER")
+                password = System.getenv("KAKUNO_TOKEN")
+            }
+        }
+    }
+    publications {
+        gpr(MavenPublication) {
+            from(components.java)
+        }
+    }
 }
 
 class PluginManifest {
