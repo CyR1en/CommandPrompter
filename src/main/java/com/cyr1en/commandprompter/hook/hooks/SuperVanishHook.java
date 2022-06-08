@@ -16,9 +16,8 @@ import java.util.Objects;
 @TargetPlugin(pluginName = "SuperVanish")
 public class SuperVanishHook extends BaseHook implements Listener {
 
-    public SuperVanishHook(CommandPrompter plugin) {
+    private SuperVanishHook(CommandPrompter plugin) {
         super(plugin);
-        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public boolean isInvisible(Player p) {

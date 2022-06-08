@@ -20,7 +20,6 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
 
     public HookContainer(CommandPrompter plugin) {
         this.plugin = plugin;
-        initHooks();
     }
 
     private void initHooks() {
@@ -59,10 +58,13 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
             constructor.setAccessible(true);
             plugin.getPluginLogger().debug("Hook construct: " + constructor.getName());
             var instance = constructor.newInstance(plugin);
+            if(instance instanceof Listener)
+                plugin.getServer().getPluginManager().registerEvents((Listener) instance, plugin);
             plugin.getPluginLogger().debug("Hook instance: " + instance.getClass());
             return Hook.of(instance);
-        } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException | InstantiationException e) {
-            plugin.getPluginLogger().debug(e.getMessage());
+        } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException | InstantiationException |
+                IllegalPluginAccessException e) {
+            plugin.getPluginLogger().debug(e.toString());
         }
         return Hook.empty();
     }
