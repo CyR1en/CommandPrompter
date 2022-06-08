@@ -5,12 +5,16 @@ import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.ServerLoadEvent;
+import org.bukkit.plugin.IllegalPluginAccessException;
 import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 
-public class HookContainer extends HashMap<Class<?>, Hook<?>> {
+public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listener {
 
     private final CommandPrompter plugin;
 
@@ -66,5 +70,10 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
     public <T> Hook<T> getHook(Class<T> hookClass) {
         @SuppressWarnings("unchecked") var t = (Hook<T>) get(hookClass);
         return t;
+    }
+
+    @EventHandler
+    public void onServerLoad(ServerLoadEvent event) {
+        initHooks();
     }
 }
