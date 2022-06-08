@@ -17,6 +17,9 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew clean build
     - name: Publish to Kakuno
+      env:
+        KAKUNO_USER: ${{ secrets.KAKUNO_USER }}
+        KAKUNO_TOKEN: ${{ secrets.KAKUNO_TOKEN }}
       run: ./gradlew publish
     - name: Upload artifact
       uses: actions/upload-artifact@v2.3.1
