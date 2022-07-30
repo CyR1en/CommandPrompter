@@ -22,13 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public record SkullCache(CommandPrompter plugin) implements Listener {
     // All player list inventory in using stored here.
-    private static final ArrayList<ItemStack> skulls;
-    private static String format;
-
-    static {
-        skulls = new ArrayList<>();
-        format = "%s";
-    }
+    private static final ArrayList<ItemStack> skulls = new ArrayList<>();
+    private static String format = "%s";
 
     public static void cachePlayer(Player player) {
         unCachePlayer(player.getName());
