@@ -28,7 +28,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import me.lucko.commodore.Commodore;
 import me.lucko.commodore.CommodoreProvider;
-import me.lucko.commodore.file.CommodoreFileFormat;
+import me.lucko.commodore.file.CommodoreFileReader;
 import org.bukkit.command.Command;
 
 import java.io.IOException;
@@ -40,7 +40,7 @@ public class CommodoreRegistry {
         if (CommodoreProvider.isSupported()) {
             try {
                 Commodore commodore = CommodoreProvider.getCommodore(plugin);
-                LiteralCommandNode<?> cpCommand = CommodoreFileFormat.parse(
+                LiteralCommandNode<?> cpCommand = CommodoreFileReader.INSTANCE.parse(
                         Objects.requireNonNull(plugin.getResource("CommandPrompter.commodore")));
                 commodore.register(cmd, cpCommand);
             } catch (IOException e) {
