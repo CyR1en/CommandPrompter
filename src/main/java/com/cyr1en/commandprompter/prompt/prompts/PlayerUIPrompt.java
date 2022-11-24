@@ -26,7 +26,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
-import com.cyr1en.commandprompter.prompt.ui.SkullCache;
+import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.prompt.ui.inventory.ControlPane;
 import com.cyr1en.commandprompter.util.Util;
 import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
@@ -42,6 +42,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     private final int size;
     private final ChestGui gui;
+    private final HeadCache headCache;
 
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
         super(plugin, context, prompt);
@@ -49,6 +50,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         var parts = Arrays.asList(getPrompt().split("\\{br}"));
         size = Math.max((cfgSize - (cfgSize % 9)) / 9, 2);
         gui = new ChestGui(size, color(parts.get(0)));
+        this.headCache = plugin.getHeadCache();
     }
 
     @Override
@@ -62,11 +64,11 @@ public class PlayerUIPrompt extends AbstractPrompt {
         var isPerWorld = getPlugin().getPromptConfig().isPerWorld();
         var skulls = isPerWorld ?
                 (isSorted ?
-                        SkullCache.getSkullsSortedFor(p.getWorld().getPlayers()) :
-                        SkullCache.getSkullsFor(p.getWorld().getPlayers())) :
+                        headCache.getHeadsSortedFor(p.getWorld().getPlayers()) :
+                        headCache.getHeadsFor(p.getWorld().getPlayers())) :
                 (isSorted ?
-                        SkullCache.getSkullsSorted() :
-                        SkullCache.getSkulls());
+                        headCache.getHeadsSorted() :
+                        headCache.getHeads());
 
         skullPane.populateWithItemStacks(skulls);
         skullPane.setOnClick(this::processClick);
