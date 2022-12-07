@@ -219,6 +219,7 @@ public class CommandPrompter extends JavaPlugin {
         logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
+        promptManager.getParser().initRegex();
         PromptResponseListener.setPriority(this);
         setupUpdater();
         if (clean)

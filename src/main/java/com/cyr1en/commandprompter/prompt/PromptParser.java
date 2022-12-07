@@ -34,24 +34,33 @@ import java.util.regex.Pattern;
 
 public class PromptParser {
 
+    private static final String DEFAULT_REGEX = "<.*?>";
+
     private final CommandPrompter plugin;
     private final SRegex sRegex;
-    private final String escapedRegex;
     private final PromptManager manager;
+    private String escapedRegex;
 
     public PromptParser(PromptManager promptManager) {
         this.plugin = promptManager.getPlugin();
-        this.escapedRegex = escapeRegex();
+        this.escapedRegex = DEFAULT_REGEX;
         this.manager = promptManager;
         this.sRegex = new SRegex();
+        initRegex();
     }
 
-    private String escapeRegex() {
+    public void initRegex() {
         var regex = plugin.getConfiguration().argumentRegex();
         regex = regex.trim();
-        return (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
+        this.escapedRegex = escapeRegex(regex);
+    }
+
+    private String escapeRegex(String regex) {
+        var escapedRegex = (String.valueOf(regex.charAt(0))).replaceAll("[^\\w\\s]", "\\\\$0") +
                 (regex.substring(1, regex.length() - 1)) +
                 (String.valueOf(regex.charAt(regex.length() - 1))).replaceAll("[^\\w\\s]", "\\\\$0");
+        plugin.getPluginLogger().debug("Regex: " + regex);
+        return escapedRegex;
     }
 
     public String getEscapedRegex() {
@@ -92,7 +101,7 @@ public class PromptParser {
                         .newInstance(plugin, promptContext, cleanPrompt(prompt));
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
-                    | InstantiationException | IllegalAccessException e) {
+                     | InstantiationException | IllegalAccessException e) {
                 e.printStackTrace();
             }
         }
