@@ -34,6 +34,11 @@ public record PromptConfig(
         int playerUISize,
 
         @ConfigNode
+        @NodeName("PlayerUI.Cache-Size")
+        @NodeDefault("256")
+        int cacheSize,
+
+        @ConfigNode
         @NodeName("PlayerUI.Previous.Item")
         @NodeDefault("Feather")
         String previousItem,

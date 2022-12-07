@@ -36,7 +36,7 @@ import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptResponseListener;
-import com.cyr1en.commandprompter.prompt.ui.SkullCache;
+import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
@@ -68,6 +68,7 @@ public class CommandPrompter extends JavaPlugin {
     private UpdateChecker updateChecker;
     private PromptManager promptManager;
     private PluginMessenger messenger;
+    private HeadCache headCache;
 
     @Override
     public void onEnable() {
@@ -96,7 +97,7 @@ public class CommandPrompter extends JavaPlugin {
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
         PromptResponseListener.setPriority(this);
-        Bukkit.getPluginManager().registerEvents(new SkullCache(this), this);
+        Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
     /**
@@ -205,6 +206,10 @@ public class CommandPrompter extends JavaPlugin {
 
     public PluginLogger getPluginLogger() {
         return logger;
+    }
+
+    public HeadCache getHeadCache() {
+        return headCache;
     }
 
     public void reload(boolean clean) {

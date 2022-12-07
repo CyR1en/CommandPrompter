@@ -2,7 +2,7 @@ package com.cyr1en.commandprompter.hook.hooks;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
-import com.cyr1en.commandprompter.prompt.ui.SkullCache;
+import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import de.myzelyam.api.vanish.PlayerVanishStateChangeEvent;
 import de.myzelyam.api.vanish.VanishAPI;
 import org.bukkit.Bukkit;
@@ -16,8 +16,11 @@ import java.util.Objects;
 @TargetPlugin(pluginName = "SuperVanish")
 public class SuperVanishHook extends BaseHook implements Listener {
 
+    private final HeadCache headCache;
+
     private SuperVanishHook(CommandPrompter plugin) {
         super(plugin);
+        this.headCache = plugin.getHeadCache();
     }
 
     public boolean isInvisible(Player p) {
@@ -26,13 +29,13 @@ public class SuperVanishHook extends BaseHook implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onVisibilityStateChange(PlayerVanishStateChangeEvent e) {
-        getPlugin().getPluginLogger().debug("Pre Vanish State Change: " + SkullCache.getSkulls().stream().map(i ->
+        getPlugin().getPluginLogger().debug("Pre Vanish State Change: " + headCache.getHeads().stream().map(i ->
                 Objects.requireNonNull(i.getItemMeta()).getDisplayName()).toList());
         if (e.isVanishing())
-            SkullCache.unCachePlayer(e.getName());
+            headCache.invalidate(Bukkit.getPlayer(e.getUUID()));
         else
-            SkullCache.cachePlayer(Objects.requireNonNull(Bukkit.getPlayer(e.getUUID())));
-        getPlugin().getPluginLogger().debug("Post Vanish State Change: " + SkullCache.getSkulls().stream().map(i ->
+            headCache.getHeadFor(Objects.requireNonNull(Bukkit.getPlayer(e.getUUID())));
+        getPlugin().getPluginLogger().debug("Post Vanish State Change: " + headCache.getHeads().stream().map(i ->
                 Objects.requireNonNull(i.getItemMeta()).getDisplayName()).toList());
     }
 }
