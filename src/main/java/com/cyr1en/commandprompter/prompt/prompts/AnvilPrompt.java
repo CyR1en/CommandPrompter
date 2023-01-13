@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.ChatColor;
@@ -36,14 +37,16 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AnvilPrompt extends AbstractPrompt {
 
-    public AnvilPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
-        super(plugin, context, prompt);
+    public AnvilPrompt(CommandPrompter plugin, PromptContext context,
+                       String prompt, List<PromptParser.PromptArgument> args) {
+        super(plugin, context, prompt, args);
     }
 
     @Override
@@ -56,18 +59,22 @@ public class AnvilPrompt extends AbstractPrompt {
     private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item) {
         var isComplete = new AtomicBoolean(false);
         var builder = new AnvilGUI.Builder();
-        builder.onComplete((p, text) -> {
+        builder.onComplete(completion -> {
             var message = ChatColor.stripColor(
-                    ChatColor.translateAlternateColorCodes('&', text));
+                    ChatColor.translateAlternateColorCodes('&', completion.getText()));
             var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
             if (cancelKeyword.equalsIgnoreCase(message)) {
-                getPromptManager().cancel(p);
-                return AnvilGUI.Response.close();
+                getPromptManager().cancel(completion.getPlayer());
+                return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
+
+            message = getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
+                    completion.getText() : message;
+
             isComplete.getAndSet(true);
-            var ctx = new PromptContext(null, p, message);
+            var ctx = new PromptContext(null, completion.getPlayer(), message);
             getPromptManager().processPrompt(ctx);
-            return AnvilGUI.Response.close();
+            return Collections.singletonList(AnvilGUI.ResponseAction.close());
         });
         builder.onClose(p -> {
             if (isComplete.get())
@@ -75,9 +82,9 @@ public class AnvilPrompt extends AbstractPrompt {
             getPromptManager().cancel(p);
         });
         builder.text(color(parts.get(0)));
-        if (getPlugin().getPromptConfig().enableTitle()){
+        if (getPlugin().getPromptConfig().enableTitle()) {
             var title = getPlugin().getPromptConfig().customTitle();
-            title = title.isEmpty()?color(parts.get(0)) : color(title);
+            title = title.isEmpty() ? color(parts.get(0)) : color(title);
             builder.title(title);
         }
         builder.itemLeft(item);
