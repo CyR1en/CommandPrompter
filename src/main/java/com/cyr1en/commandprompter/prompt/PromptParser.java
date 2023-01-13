@@ -29,8 +29,10 @@ import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.kiso.utils.SRegex;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class PromptParser {
 
@@ -97,8 +99,10 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
                 var sender = promptContext.getSender();
-                var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class, String.class)
-                        .newInstance(plugin, promptContext, cleanPrompt(prompt));
+                var promptArgs = PromptArgument.findPattern(cleanPrompt(prompt));
+                var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class,
+                                String.class, List.class)
+                        .newInstance(plugin, promptContext, PromptArgument.stripArgs(cleanPrompt(prompt)), promptArgs);
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
                      | InstantiationException | IllegalAccessException e) {
@@ -121,5 +125,40 @@ public class PromptParser {
 
     private List<String> getPrompts(PromptContext promptContext) {
         return sRegex.find(Pattern.compile(escapedRegex), promptContext.getContent()).getResultsList();
+    }
+
+    public enum PromptArgument {
+        DISABLE_SANITATION("-ds"),
+        INTEGER("-int"),
+        STRING("-str");
+
+        private final String key;
+
+        PromptArgument(String key) {
+            this.key = key.endsWith(" ") ? key : key + " ";
+        }
+
+        public String getKey() {
+            return this.key;
+        }
+
+        /**
+         * Function that takes in a cleaned (without prompts identifier) and finds every
+         * prompt argument that is on the prompt.
+         *
+         * @param prompt String prompt to process
+         * @return List of all argument found
+         */
+        public static List<PromptArgument> findPattern(String prompt) {
+            return Arrays.stream(PromptArgument.values())
+                    .filter(arg -> Pattern.compile(arg.getKey()).matcher(prompt).find()).collect(Collectors.toList());
+        }
+
+        public static String stripArgs(String prompt) {
+            var str = prompt;
+            for (PromptArgument value : PromptArgument.values())
+                str = str.replaceAll(value.getKey(), "");
+            return str;
+        }
     }
 }

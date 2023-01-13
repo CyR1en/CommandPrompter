@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.prompt.ui.inventory.ControlPane;
 import com.cyr1en.commandprompter.util.Util;
@@ -36,6 +37,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class PlayerUIPrompt extends AbstractPrompt {
@@ -44,8 +46,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private final ChestGui gui;
     private final HeadCache headCache;
 
-    public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
-        super(plugin, context, prompt);
+    public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+        super(plugin, context, prompt, args);
         var cfgSize = getPlugin().getPromptConfig().playerUISize();
         var parts = Arrays.asList(getPrompt().split("\\{br}"));
         size = Math.max((cfgSize - (cfgSize % 9)) / 9, 2);

@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.prompt.ui.SignMenuFactory;
 import com.cyr1en.kiso.utils.FastStrings;
 import org.bukkit.Bukkit;
@@ -18,8 +19,8 @@ public class SignPrompt extends AbstractPrompt {
     private final SignMenuFactory signMenuFactory;
     private boolean isMultiArg;
 
-    public SignPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
-        super(plugin, context, prompt);
+    public SignPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+        super(plugin, context, prompt, args);
         this.signMenuFactory = new SignMenuFactory(plugin);
         isMultiArg = false;
     }

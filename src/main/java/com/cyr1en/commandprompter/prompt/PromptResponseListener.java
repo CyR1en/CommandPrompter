@@ -63,6 +63,10 @@ public class PromptResponseListener implements Listener {
 
             if (cancelKeyword.equalsIgnoreCase(message))
                 manager.cancel(player);
+            var prompt = manager.getPromptRegistry().get(player).peek();
+            if (Objects.nonNull(prompt))
+                message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
+                        msg : message;
             var ctx = new PromptContext(event, player, message);
             Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
         }

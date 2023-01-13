@@ -28,7 +28,10 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
+
+import java.util.List;
 
 public abstract class AbstractPrompt implements Prompt {
 
@@ -37,11 +40,15 @@ public abstract class AbstractPrompt implements Prompt {
     private final String prompt;
     private final PromptManager promptManager;
 
-    public AbstractPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
+    private final List<PromptParser.PromptArgument> args;
+
+    public AbstractPrompt(CommandPrompter plugin, PromptContext context,
+                          String prompt, List<PromptParser.PromptArgument> args) {
         this.plugin = plugin;
         this.context = context;
         this.prompt = prompt;
         this.promptManager = plugin.getPromptManager();
+        this.args = args;
     }
 
     protected String stripColor(String msg) {
@@ -73,5 +80,10 @@ public abstract class AbstractPrompt implements Prompt {
     @Override
     public PromptManager getPromptManager() {
         return promptManager;
+    }
+
+    @Override
+    public List<PromptParser.PromptArgument> getArgs() {
+        return args;
     }
 }

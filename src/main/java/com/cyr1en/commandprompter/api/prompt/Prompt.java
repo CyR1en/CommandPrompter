@@ -27,6 +27,9 @@ package com.cyr1en.commandprompter.api.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
+import com.cyr1en.commandprompter.prompt.PromptParser;
+
+import java.util.List;
 
 public interface Prompt {
 
@@ -64,5 +67,7 @@ public interface Prompt {
      * Get prompt manager
      */
     PromptManager getPromptManager();
+
+    List<PromptParser.PromptArgument> getArgs();
 
 }

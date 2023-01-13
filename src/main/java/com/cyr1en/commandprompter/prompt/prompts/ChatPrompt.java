@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -36,8 +37,8 @@ import java.util.List;
 
 public class ChatPrompt extends AbstractPrompt {
 
-    public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt) {
-        super(plugin, context, prompt);
+    public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+        super(plugin, context, prompt, args);
     }
 
     public void sendPrompt() {
