@@ -1,10 +1,7 @@
 package com.cyr1en.commandprompter.config;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.config.annotations.field.ConfigNode;
-import com.cyr1en.commandprompter.config.annotations.field.NodeComment;
-import com.cyr1en.commandprompter.config.annotations.field.NodeDefault;
-import com.cyr1en.commandprompter.config.annotations.field.NodeName;
+import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
@@ -55,9 +52,13 @@ public class ConfigurationManager {
             if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
 
             var nameAnnotation = declaredField.getAnnotation(NodeName.class);
-            if (declaredField.getType().equals(int.class))
-                configValues.add(config.getInt(nameAnnotation.value()));
-            else if (declaredField.getType().equals(boolean.class))
+            if (declaredField.getType().equals(int.class)) {
+                var val = config.getInt(nameAnnotation.value());
+                var constraint = declaredField.getAnnotation(IntegerConstraint.class);
+                if (constraint != null)
+                    val = val > constraint.max() ? constraint.max() : Math.max(val, constraint.min());
+                configValues.add(val);
+            } else if (declaredField.getType().equals(boolean.class))
                 configValues.add(config.getBoolean(nameAnnotation.value()));
             else if (declaredField.getType().equals(double.class))
                 configValues.add(config.getDouble(nameAnnotation.value()));
@@ -127,7 +128,7 @@ public class ConfigurationManager {
             }
             return f.getType().getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException | InvocationTargetException |
-                InstantiationException | IllegalAccessException e) {
+                 InstantiationException | IllegalAccessException e) {
             e.printStackTrace();
         }
         return null;
