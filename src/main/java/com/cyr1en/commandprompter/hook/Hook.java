@@ -1,5 +1,6 @@
 package com.cyr1en.commandprompter.hook;
 
+import com.cyr1en.commandprompter.util.Util.ConsumerFallback;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.NoSuchElementException;
@@ -44,8 +45,7 @@ public final class Hook<T> {
         return Objects.nonNull(value);
     }
 
-    public void ifHooked(@NotNull Consumer<T> consumer) {
-        if (isHooked())
-            consumer.accept(value);
+    public ConsumerFallback<T> ifHooked(@NotNull Consumer<T> consumer) {
+        return new ConsumerFallback<>(value, consumer, this::isHooked);
     }
 }

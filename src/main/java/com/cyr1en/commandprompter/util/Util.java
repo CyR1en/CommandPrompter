@@ -5,6 +5,8 @@ import org.bukkit.Material;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class Util {
     public static String stripColor(String msg) {
@@ -19,5 +21,27 @@ public class Util {
         materialString = materialString.toUpperCase(Locale.ROOT);
         var mat = Material.getMaterial(materialString);
         return Objects.isNull(mat) ? defaultMaterial : mat;
+    }
+
+    public static class ConsumerFallback<T> {
+
+        private final T val;
+        private final Consumer<T> consumer;
+        private final Supplier<Boolean> test;
+
+        public ConsumerFallback(T val, Consumer<T> consumer, Supplier<Boolean> test) {
+            this.val = val;
+            this.consumer = consumer;
+            this.test = test;
+        }
+
+        public void complete() {
+            if (test.get()) consumer.accept(val);
+        }
+
+        public void orElse(Runnable runnable) {
+            complete();
+            runnable.run();
+        }
     }
 }
