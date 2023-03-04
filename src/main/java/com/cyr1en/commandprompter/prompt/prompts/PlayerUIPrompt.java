@@ -72,6 +72,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
                         headCache.getHeadsSorted() :
                         headCache.getHeads());
 
+        var headCacheStr = headCache.toString();
+        getPlugin().getPluginLogger().debug("Head Cache: " + headCacheStr.substring(headCacheStr.indexOf('@')));
+        getPlugin().getPluginLogger().debug("|-- Size: " + headCache.getHeads().size());
+
         skullPane.populateWithItemStacks(skulls);
         skullPane.setOnClick(this::processClick);
 

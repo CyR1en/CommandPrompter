@@ -2,6 +2,8 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.hook.HookContainer;
+import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
@@ -22,23 +24,31 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HeadCache implements Listener {
 
     private final LoadingCache<Player, Optional<ItemStack>> HEAD_CACHE;
 
     private final CommandPrompter plugin;
+    private final PluginLogger logger;
+
     private final String format;
 
     public HeadCache(CommandPrompter plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getPluginLogger();
         this.format = plugin.getPromptConfig().skullNameFormat();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
                     public @NotNull Optional<ItemStack> load(@NotNull Player key) {
-                        if (!Bukkit.getOnlinePlayers().contains(key))
+                        logger.debug("Loading head for %s", key.getName());
+                        if (!Bukkit.getOnlinePlayers().contains(key)) {
+                            logger.debug("Player is not in online players");
                             return Optional.empty();
+                        }
+                        logger.debug("Constructing ItemStack ...");
                         ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
                         var skullMeta = makeSkullMeta(key, plugin.getPluginLogger());
                         skull.setItemMeta(skullMeta);
@@ -77,7 +87,7 @@ public class HeadCache implements Listener {
     public List<ItemStack> getHeadsFor(List<Player> players) {
         var result = new ArrayList<ItemStack>();
         for (Player player : players) {
-            CommandPrompter.getInstance().getPluginLogger().debug("Player: " + player);
+            logger.debug("Player: " + player);
             getHeadFor(player).ifPresent(result::add);
         }
         return result;
@@ -123,18 +133,24 @@ public class HeadCache implements Listener {
     @EventHandler
     @SuppressWarnings("unused")
     public void onPlayerLogin(PlayerLoginEvent e) {
+        logger.debug("Caching %s", e.getPlayer());
+        logger.debug("Caching Delay: %s", plugin.getPromptConfig().cacheDelay());
         var isInv = new AtomicBoolean(false);
         var svHook = plugin.getHookContainer().getHook(SuperVanishHook.class);
-        plugin.getPluginLogger().debug("SV Hooked: " + svHook.isHooked());
+        logger.debug("SV Hooked: " + svHook.isHooked());
+
         svHook.ifHooked(hook -> {
             if (hook.isInvisible(e.getPlayer()))
                 isInv.set(true);
-        });
+        }).complete();
         if (isInv.get()) {
             plugin.getPluginLogger().debug("Player is vanished (SuperVanish) skipping skull cache");
             return;
         }
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> HEAD_CACHE.getUnchecked(e.getPlayer()));
+        Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
+            HEAD_CACHE.getUnchecked(e.getPlayer());
+            logger.debug("Cache status for %s: %s", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
+        }, 20L);
     }
 
     @EventHandler

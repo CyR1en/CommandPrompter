@@ -1,9 +1,6 @@
 package com.cyr1en.commandprompter.config;
 
-import com.cyr1en.commandprompter.config.annotations.field.ConfigNode;
-import com.cyr1en.commandprompter.config.annotations.field.NodeComment;
-import com.cyr1en.commandprompter.config.annotations.field.NodeDefault;
-import com.cyr1en.commandprompter.config.annotations.field.NodeName;
+import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
@@ -23,6 +20,9 @@ public record PromptConfig(
                 "Skull-Name-Format - The display name format",
                 "                    for the player heads", "",
                 "Size - the size of the UI (multiple of 9, between 18-54)", "",
+                "Cache-Size - Size for the head cache", "",
+                "Cache-Delay - Delay in ticks after the player", "",
+                "              joins before their head gets cached", "",
                 "Sorted - Should the player heads be sorted?",
                 "Per-World - Only show player in the current world?"
         })
@@ -37,6 +37,12 @@ public record PromptConfig(
         @NodeName("PlayerUI.Cache-Size")
         @NodeDefault("256")
         int cacheSize,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Cache-Delay")
+        @NodeDefault("1")
+        @IntegerConstraint(min = 0, max = 2400)
+        int cacheDelay,
 
         @ConfigNode
         @NodeName("PlayerUI.Previous.Item")
