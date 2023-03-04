@@ -109,8 +109,13 @@ public class HeadCache implements Listener {
     private SkullMeta makeSkullMeta(Player owningPlayer, PluginLogger logger) {
         var skullMeta = (SkullMeta) Bukkit.getItemFactory().getItemMeta(Material.PLAYER_HEAD);
         Objects.requireNonNull(skullMeta).setOwningPlayer(owningPlayer);
-        var name = String.format(format, owningPlayer.getName());
-        skullMeta.setDisplayName(Util.color(name));
+
+        var papi = plugin.getHookContainer().getHook(PapiHook.class);
+        var nameRef = new AtomicReference<String>();
+        var skullFormat = plugin.getPromptConfig().skullNameFormat();
+        papi.ifHooked(p -> nameRef.set(p.setPlaceholder(owningPlayer, skullFormat)))
+                .orElse(() -> nameRef.set(String.format(skullFormat, owningPlayer.getName())));
+        skullMeta.setDisplayName(Util.color(nameRef.get()));
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
     }

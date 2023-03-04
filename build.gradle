@@ -55,7 +55,8 @@ repositories {
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
     maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
-    maven { url 'https://jitpack.io'}
+    maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
+    maven { url 'https://jitpack.io' }
     flatDir { dirs 'libs' }
 }
 
@@ -70,6 +71,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: '*.jar')
 
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
+    compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "org.spigotmc:spigot-api:1.19.3-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.6-4'
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
