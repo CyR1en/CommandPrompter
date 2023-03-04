@@ -6,6 +6,7 @@ import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 
 import java.awt.*;
+import java.util.Objects;
 import java.util.logging.Level;
 
 public class PluginLogger {
@@ -83,8 +84,17 @@ public class PluginLogger {
         log(Level.SEVERE, str, args);
     }
 
+    private Class<?> lastDebugClass;
+
     public void debug(String msg, Object... args) {
+        var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
+        var callerAvailable = Objects.nonNull(caller) && !caller.getSimpleName().isBlank();
+        if (callerAvailable)
+            lastDebugClass = caller;
+
         if (debugMode) {
+            msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg) :
+                    Objects.isNull(lastDebugClass) ? msg : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
             var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
             log(debugPrefix, Level.INFO, str, args);
         }
