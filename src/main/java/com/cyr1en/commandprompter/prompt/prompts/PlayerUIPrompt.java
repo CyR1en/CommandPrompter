@@ -35,6 +35,7 @@ import com.github.stefvanschie.inventoryframework.pane.PaginatedPane;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.Arrays;
 import java.util.List;
@@ -88,8 +89,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private void processClick(InventoryClickEvent e) {
         e.setCancelled(true);
         if (Objects.isNull(e.getCurrentItem())) return;
-        var name = Objects.requireNonNull(Objects.requireNonNull
-                (e.getCurrentItem()).getItemMeta()).getDisplayName();
+        var name = Objects.requireNonNull(Objects.requireNonNull(Objects.requireNonNull
+                ((SkullMeta) (e.getCurrentItem()).getItemMeta())).getOwningPlayer()).getName();
         name = Util.stripColor(name);
         var ctx = new PromptContext(null, (Player) getContext().getSender(), name);
         getPlugin().getPromptManager().processPrompt(ctx);
