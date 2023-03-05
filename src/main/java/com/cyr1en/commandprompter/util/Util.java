@@ -28,20 +28,24 @@ public class Util {
         private final T val;
         private final Consumer<T> consumer;
         private final Supplier<Boolean> test;
+        private Runnable runnable;
 
         public ConsumerFallback(T val, Consumer<T> consumer, Supplier<Boolean> test) {
             this.val = val;
             this.consumer = consumer;
             this.test = test;
+            this.runnable = () -> {
+            };
         }
 
         public void complete() {
             if (test.get()) consumer.accept(val);
+            else runnable.run();
         }
 
-        public void orElse(Runnable runnable) {
-            complete();
-            runnable.run();
+        public ConsumerFallback<T> orElse(Runnable runnable) {
+            this.runnable = runnable;
+            return this;
         }
     }
 }

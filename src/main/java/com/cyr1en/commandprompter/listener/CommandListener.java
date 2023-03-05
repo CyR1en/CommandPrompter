@@ -97,7 +97,7 @@ public class CommandListener implements Listener {
         var out = new AtomicBoolean(false);
         var vcHook = plugin.getHookContainer().getHook(VentureChatHook.class);
         plugin.getPluginLogger().debug("VentureChat hooked: " + vcHook.isHooked());
-        vcHook.ifHooked(hook -> out.set(hook.isChatChannel(cmd)));
+        vcHook.ifHooked(hook -> out.set(hook.isChatChannel(cmd))).complete();
         plugin.getPluginLogger().debug("is VentureChat channel: " + out.get());
         return out.get();
     }
