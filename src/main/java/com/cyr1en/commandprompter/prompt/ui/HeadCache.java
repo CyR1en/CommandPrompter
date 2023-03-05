@@ -123,8 +123,14 @@ public class HeadCache implements Listener {
         var papi = plugin.getHookContainer().getHook(PapiHook.class);
         var nameRef = new AtomicReference<String>();
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
-        papi.ifHooked(p -> nameRef.set(p.setPlaceholder(owningPlayer, skullFormat)))
-                .orElse(() -> nameRef.set(String.format(skullFormat, owningPlayer.getName())));
+        papi.ifHooked(p -> {
+                    logger.debug("Setting Placeholder with PAPI");
+                    nameRef.set(p.setPlaceholder(owningPlayer, skullFormat));
+                })
+                .orElse(() -> {
+                    logger.debug("Setting Placeholder with formatter");
+                    nameRef.set(String.format(skullFormat, owningPlayer.getName()));
+                }).complete();
         skullMeta.setDisplayName(Util.color(nameRef.get()));
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
@@ -137,12 +143,13 @@ public class HeadCache implements Listener {
         logger.debug("Caching Delay: %s", plugin.getPromptConfig().cacheDelay());
         var isInv = new AtomicBoolean(false);
         var svHook = plugin.getHookContainer().getHook(SuperVanishHook.class);
-        logger.debug("SV Hooked: " + svHook.isHooked());
 
+        logger.debug("SV Hooked: " + svHook.isHooked());
         svHook.ifHooked(hook -> {
             if (hook.isInvisible(e.getPlayer()))
                 isInv.set(true);
         }).complete();
+
         if (isInv.get()) {
             plugin.getPluginLogger().debug("Player is vanished (SuperVanish) skipping skull cache");
             return;
