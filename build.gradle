@@ -39,7 +39,7 @@ java {
 
 PluginManifest manifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 0, patch: 1, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 0, patch: 2, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -66,13 +66,13 @@ dependencies {
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.6.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.7'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.8'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
     implementation fileTree(dir: 'libs', include: '*.jar')
 
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
     compileOnly 'me.clip:placeholderapi:2.11.2'
-    compileOnly "org.spigotmc:spigot-api:1.19.3-R0.1-SNAPSHOT"
+    compileOnly "org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.6-4'
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'org.jetbrains:annotations:23.0.0'
