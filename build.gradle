@@ -39,7 +39,7 @@ java {
 
 PluginManifest manifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 0, patch: 2, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 0, patch: 3, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
