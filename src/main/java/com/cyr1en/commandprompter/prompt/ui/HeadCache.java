@@ -124,13 +124,13 @@ public class HeadCache implements Listener {
         var nameRef = new AtomicReference<String>();
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
         papi.ifHooked(p -> {
-                    logger.debug("Setting Placeholder with PAPI");
-                    nameRef.set(p.setPlaceholder(owningPlayer, skullFormat));
-                })
-                .orElse(() -> {
-                    logger.debug("Setting Placeholder with formatter");
-                    nameRef.set(String.format(skullFormat, owningPlayer.getName()));
-                }).complete();
+            logger.debug("Setting PAPI placeholders");
+            if (!p.papiPlaceholders(skullFormat)) return;
+            nameRef.set(p.setPlaceholder(owningPlayer, skullFormat));
+        }).complete();
+
+        logger.debug("Setting default CommandPrompter placeholders");
+        nameRef.set(nameRef.get().replaceAll("%s", owningPlayer.getName()));
         skullMeta.setDisplayName(Util.color(nameRef.get()));
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;

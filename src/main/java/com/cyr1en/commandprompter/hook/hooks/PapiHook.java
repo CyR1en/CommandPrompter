@@ -16,4 +16,8 @@ public class PapiHook extends BaseHook {
         return PlaceholderAPI.setPlaceholders(player, txt);
     }
 
+    public boolean papiPlaceholders(String str) {
+        return PlaceholderAPI.containsPlaceholders(str);
+    }
+
 }
