@@ -2,7 +2,6 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
-import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.util.Util;
@@ -120,17 +119,18 @@ public class HeadCache implements Listener {
         var skullMeta = (SkullMeta) Bukkit.getItemFactory().getItemMeta(Material.PLAYER_HEAD);
         Objects.requireNonNull(skullMeta).setOwningPlayer(owningPlayer);
 
-        var papi = plugin.getHookContainer().getHook(PapiHook.class);
-        var nameRef = new AtomicReference<String>();
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
+        var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
+
+        var papi = plugin.getHookContainer().getHook(PapiHook.class);
+        var nameRef = new AtomicReference<>(skullName);
+
         papi.ifHooked(p -> {
             logger.debug("Setting PAPI placeholders");
             if (!p.papiPlaceholders(skullFormat)) return;
             nameRef.set(p.setPlaceholder(owningPlayer, skullFormat));
         }).complete();
 
-        logger.debug("Setting default CommandPrompter placeholders");
-        nameRef.set(nameRef.get().replaceAll("%s", owningPlayer.getName()));
         skullMeta.setDisplayName(Util.color(nameRef.get()));
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
