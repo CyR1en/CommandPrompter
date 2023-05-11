@@ -63,7 +63,11 @@ public class PromptResponseListener implements Listener {
 
             if (cancelKeyword.equalsIgnoreCase(message))
                 manager.cancel(player);
-            var prompt = manager.getPromptRegistry().get(player).peek();
+
+            var queue = manager.getPromptRegistry().get(player);
+            if (Objects.isNull(queue)) return;
+
+            var prompt = queue.peek();
             if (Objects.nonNull(prompt))
                 message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
                         msg : message;
