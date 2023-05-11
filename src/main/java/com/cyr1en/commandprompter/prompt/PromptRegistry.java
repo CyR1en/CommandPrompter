@@ -28,6 +28,7 @@ import com.cyr1en.commandprompter.api.prompt.Prompt;
 import org.bukkit.command.CommandSender;
 
 import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * Class that will hold all ongoing prompts.
@@ -63,7 +64,12 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
     }
 
     public boolean inCommandProcess(CommandSender sender) {
-        return containsKey(sender);
+        if (!containsKey(sender)) return false;
+        if (Objects.isNull(get(sender))) {
+            remove(sender);
+            return false;
+        }
+        return true;
     }
 
 }
