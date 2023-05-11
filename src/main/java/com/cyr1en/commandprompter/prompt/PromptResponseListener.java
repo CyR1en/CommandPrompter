@@ -36,11 +36,13 @@ public class PromptResponseListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncPlayerChatEvent event) {
-        var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
-        if (!isPuerkasChatHooked) {
-            handler.onResponse(event.getPlayer(), event.getMessage(), event);
-        } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
-            handler.onResponse(event.getPlayer(), event.getMessage(), event);
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
+            if (!isPuerkasChatHooked) {
+                handler.onResponse(event.getPlayer(), event.getMessage(), event);
+            } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
+                handler.onResponse(event.getPlayer(), event.getMessage(), event);
+        });
     }
 
     public static class ResponseHandler {
