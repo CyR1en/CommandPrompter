@@ -2,10 +2,7 @@ package com.cyr1en.commandprompter.hook;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
-import com.cyr1en.commandprompter.hook.hooks.PapiHook;
-import com.cyr1en.commandprompter.hook.hooks.PuerkasChatHook;
-import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
-import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
+import com.cyr1en.commandprompter.hook.hooks.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.event.EventHandler;
@@ -94,5 +91,6 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
     @EventHandler
     public void onServerLoad(ServerLoadEvent event) {
         initHooks();
+        onServerLoadConsumer.accept(event);
     }
 }
