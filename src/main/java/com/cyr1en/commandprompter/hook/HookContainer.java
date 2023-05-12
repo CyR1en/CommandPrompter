@@ -30,6 +30,7 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
         hook(VentureChatHook.class);
         hook(SuperVanishHook.class);
         hook(PuerkasChatHook.class);
+        hook(CarbonChatHook.class);
         hook(PapiHook.class);
     }
 

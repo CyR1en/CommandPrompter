@@ -2,7 +2,7 @@ package com.cyr1en.commandprompter.hook.hooks;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
-import com.cyr1en.commandprompter.prompt.PromptResponseListener;
+import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import es.capitanpuerka.puerkaschat.events.PuerkasChatEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -19,7 +19,7 @@ public class PuerkasChatHook implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onChat(PuerkasChatEvent event) {
         plugin.getPluginLogger().debug("PuerkasChatEvent Listener Invoked");
-        var responseHandler = new PromptResponseListener.ResponseHandler(this.plugin);
+        var responseHandler = new ChatPrompt.ResponseHandler(this.plugin);
         responseHandler.onResponse(event.getPlayer(), event.getChatMessage(), event);
     }
 }

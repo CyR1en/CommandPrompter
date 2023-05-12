@@ -35,7 +35,7 @@ import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
-import com.cyr1en.commandprompter.prompt.PromptResponseListener;
+import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
@@ -82,6 +82,7 @@ public class CommandPrompter extends JavaPlugin {
         messenger = new PluginMessenger(config.promptPrefix());
         instance = this;
         Bukkit.getPluginManager().registerEvents(hookContainer = new HookContainer(this), this);
+        hookContainer.setOnServerLoadConsumer(e -> ChatPrompt.resolveListener(this));
     }
 
     @Override
@@ -95,8 +96,8 @@ public class CommandPrompter extends JavaPlugin {
     private void initPromptSystem() {
         promptManager = new PromptManager(this);
         initCommandListener();
-        Bukkit.getPluginManager().registerEvents(new PromptResponseListener(promptManager, this), this);
-        PromptResponseListener.setPriority(this);
+        Bukkit.getPluginManager().registerEvents(new ChatPrompt.DefaultListener(promptManager, this), this);
+        ChatPrompt.DefaultListener.setPriority(this);
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
@@ -220,7 +221,7 @@ public class CommandPrompter extends JavaPlugin {
         i18n = new I18N(this, "CommandPrompter");
         commandManager.getMessenger().setPrefix(config.promptPrefix());
         promptManager.getParser().initRegex();
-        PromptResponseListener.setPriority(this);
+        ChatPrompt.DefaultListener.setPriority(this);
         setupUpdater();
         if (clean)
             promptManager.clearPromptRegistry();
