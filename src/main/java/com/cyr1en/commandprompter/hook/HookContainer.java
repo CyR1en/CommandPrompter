@@ -7,6 +7,7 @@ import com.cyr1en.commandprompter.hook.hooks.PuerkasChatHook;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import org.bukkit.Bukkit;
+import org.bukkit.Server;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServerLoadEvent;
@@ -15,13 +16,17 @@ import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.function.Consumer;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listener {
 
     private final CommandPrompter plugin;
+    private Consumer<ServerLoadEvent> onServerLoadConsumer;
 
     public HookContainer(CommandPrompter plugin) {
         this.plugin = plugin;
+        this.onServerLoadConsumer = e -> {
+        };
     }
 
     private void initHooks() {
@@ -76,6 +81,14 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
     public <T> Hook<T> getHook(Class<T> hookClass) {
         @SuppressWarnings("unchecked") var t = (Hook<T>) get(hookClass);
         return t;
+    }
+
+    public boolean isHooked(Class<?> hookClass) {
+        return getHook(hookClass).isHooked();
+    }
+
+    public void setOnServerLoadConsumer(Consumer<ServerLoadEvent> onServerLoadConsumer) {
+        this.onServerLoadConsumer = onServerLoadConsumer;
     }
 
     @EventHandler
