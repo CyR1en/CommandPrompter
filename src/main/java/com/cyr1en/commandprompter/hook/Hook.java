@@ -31,7 +31,7 @@ public final class Hook<T> {
         return t;
     }
 
-    private T get() {
+    public T get() {
         if (value == null)
             throw new NoSuchElementException("No value present");
         return value;
