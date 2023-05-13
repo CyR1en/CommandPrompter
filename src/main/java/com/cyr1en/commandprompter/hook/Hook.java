@@ -12,6 +12,7 @@ public final class Hook<T> {
     private static final Hook<?> EMPTY = new Hook<>();
 
     private final T value;
+    private String targetPlugin = "";
 
     private Hook() {
         this.value = null;
@@ -36,6 +37,14 @@ public final class Hook<T> {
         return value;
     }
 
+    public void setTargetPlugin(String targetPlugin) {
+        this.targetPlugin = targetPlugin;
+    }
+
+    public String getTargetPluginName() {
+        return targetPlugin;
+    }
+
     /**
      * Accessor to check if the plugin is hooked.
      *
@@ -47,5 +56,12 @@ public final class Hook<T> {
 
     public ConsumerFallback<T> ifHooked(@NotNull Consumer<T> consumer) {
         return new ConsumerFallback<>(value, consumer, this::isHooked);
+    }
+
+    @Override
+    public String toString() {
+        return "Hook{" +
+                "targetPlugin='" + targetPlugin + '\'' +
+                '}';
     }
 }
