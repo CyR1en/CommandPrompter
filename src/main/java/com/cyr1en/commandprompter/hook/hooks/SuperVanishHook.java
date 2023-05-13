@@ -14,13 +14,10 @@ import org.bukkit.event.Listener;
 import java.util.Objects;
 
 @TargetPlugin(pluginName = "SuperVanish")
-public class SuperVanishHook extends BaseHook implements Listener {
-
-    private final HeadCache headCache;
+public class SuperVanishHook extends VanishHook implements Listener {
 
     private SuperVanishHook(CommandPrompter plugin) {
         super(plugin);
-        this.headCache = plugin.getHeadCache();
     }
 
     public boolean isInvisible(Player p) {
@@ -29,13 +26,6 @@ public class SuperVanishHook extends BaseHook implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onVisibilityStateChange(PlayerVanishStateChangeEvent e) {
-        getPlugin().getPluginLogger().debug("Pre Vanish State Change: " + headCache.getHeads().stream().map(i ->
-                Objects.requireNonNull(i.getItemMeta()).getDisplayName()).toList());
-        if (e.isVanishing())
-            headCache.invalidate(Bukkit.getPlayer(e.getUUID()));
-        else
-            headCache.getHeadFor(Objects.requireNonNull(Bukkit.getPlayer(e.getUUID())));
-        getPlugin().getPluginLogger().debug("Post Vanish State Change: " + headCache.getHeads().stream().map(i ->
-                Objects.requireNonNull(i.getItemMeta()).getDisplayName()).toList());
+        onStateChange(Bukkit.getPlayer(e.getUUID()), e::isVanishing);
     }
 }

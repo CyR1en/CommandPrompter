@@ -13,6 +13,7 @@ import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listener {
@@ -31,6 +32,7 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
         hook(SuperVanishHook.class);
         hook(PuerkasChatHook.class);
         hook(CarbonChatHook.class);
+        hook(VanishNoPacketHook.class);
         hook(PapiHook.class);
     }
 
@@ -65,15 +67,25 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
             constructor.setAccessible(true);
             plugin.getPluginLogger().debug("Hook construct: " + constructor.getName());
             var instance = constructor.newInstance(plugin);
-            if(instance instanceof Listener)
+            if (instance instanceof Listener)
                 plugin.getServer().getPluginManager().registerEvents((Listener) instance, plugin);
             plugin.getPluginLogger().debug("Hook instance: " + instance.getClass());
-            return Hook.of(instance);
+
+            var hook = Hook.of(instance);
+            hook.setTargetPlugin(targetPluginName);
+            return hook;
         } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException | InstantiationException |
-                IllegalPluginAccessException e) {
+                 IllegalPluginAccessException e) {
             plugin.getPluginLogger().debug(e.toString());
         }
         return Hook.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Hook<VanishHook>> getVanishHooks() {
+        return values().stream()
+                .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishHook))
+                .map(hook -> (Hook<VanishHook>) hook).toList();
     }
 
     public <T> Hook<T> getHook(Class<T> hookClass) {

@@ -2,8 +2,10 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.hook.Hook;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
+import com.cyr1en.commandprompter.hook.hooks.VanishHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -141,23 +143,26 @@ public class HeadCache implements Listener {
     public void onPlayerLogin(PlayerLoginEvent e) {
         logger.debug("Caching %s", e.getPlayer());
         logger.debug("Caching Delay: %s", plugin.getPromptConfig().cacheDelay());
-        var isInv = new AtomicBoolean(false);
-        var svHook = plugin.getHookContainer().getHook(SuperVanishHook.class);
 
-        logger.debug("SV Hooked: " + svHook.isHooked());
-        svHook.ifHooked(hook -> {
-            if (hook.isInvisible(e.getPlayer()))
-                isInv.set(true);
-        }).complete();
-
-        if (isInv.get()) {
-            plugin.getPluginLogger().debug("Player is vanished (SuperVanish) skipping skull cache");
+        if (isVanished(e.getPlayer()))
             return;
-        }
+
         Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
             HEAD_CACHE.getUnchecked(e.getPlayer());
             logger.debug("Cache status for %s: %s", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
         }, 20L);
+    }
+
+    public boolean isVanished(Player player) {
+        var vanishHooks = plugin.getHookContainer().getVanishHooks();
+        logger.debug("Acquired VanishHooks: %s", vanishHooks);
+        for (Hook<VanishHook> vanishHook : plugin.getHookContainer().getVanishHooks())
+            if (vanishHook.isHooked() && vanishHook.get().isInvisible(player)) {
+                logger.info("Player %s is vanished using %s", player.getName(), vanishHook.getTargetPluginName());
+                return true;
+            }
+
+        return false;
     }
 
     @EventHandler
