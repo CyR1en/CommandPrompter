@@ -124,10 +124,9 @@ public class ChatPrompt extends AbstractPrompt {
                     ChatColor.translateAlternateColorCodes('&', msg));
             var cancelKeyword = plugin.getConfiguration().cancelKeyword();
 
-            if (cancelKeyword.equalsIgnoreCase(message)) {
+            if (cancelKeyword.equalsIgnoreCase(message))
                 manager.cancel(player);
-                return;
-            }
+
 
             var queue = manager.getPromptRegistry().get(player);
             if (Objects.isNull(queue)) return;
@@ -160,14 +159,12 @@ public class ChatPrompt extends AbstractPrompt {
 
         @EventHandler(priority = EventPriority.LOWEST)
         public void onChat(AsyncPlayerChatEvent event) {
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                var plain = event.getMessage();
-                var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
-                if (!isPuerkasChatHooked) {
-                    handler.onResponse(event.getPlayer(), plain, event);
-                } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
-                    handler.onResponse(event.getPlayer(), plain, event);
-            });
+            var plain = event.getMessage();
+            var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
+            if (!isPuerkasChatHooked) {
+                handler.onResponse(event.getPlayer(), plain, event);
+            } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
+                handler.onResponse(event.getPlayer(), plain, event);
         }
 
         public static void setPriority(CommandPrompter plugin) {

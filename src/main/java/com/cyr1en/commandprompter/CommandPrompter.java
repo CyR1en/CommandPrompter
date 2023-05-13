@@ -96,8 +96,6 @@ public class CommandPrompter extends JavaPlugin {
     private void initPromptSystem() {
         promptManager = new PromptManager(this);
         initCommandListener();
-        Bukkit.getPluginManager().registerEvents(new ChatPrompt.DefaultListener(promptManager, this), this);
-        ChatPrompt.DefaultListener.setPriority(this);
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
