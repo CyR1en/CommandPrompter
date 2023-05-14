@@ -2,10 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
-import com.cyr1en.commandprompter.hook.Hook;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
-import com.cyr1en.commandprompter.hook.hooks.SuperVanishHook;
-import com.cyr1en.commandprompter.hook.hooks.VanishHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -24,7 +21,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class HeadCache implements Listener {
@@ -138,31 +134,34 @@ public class HeadCache implements Listener {
         return skullMeta;
     }
 
+    public boolean isEmpty() {
+        return HEAD_CACHE.size() == 0;
+    }
+
     @EventHandler
     @SuppressWarnings("unused")
     public void onPlayerLogin(PlayerLoginEvent e) {
         logger.debug("Caching %s", e.getPlayer());
-        logger.debug("Caching Delay: %s", plugin.getPromptConfig().cacheDelay());
 
-        if (isVanished(e.getPlayer()))
-            return;
+        var cacheDelay = plugin.getPromptConfig().cacheDelay();
+        logger.debug("Caching Delay: %s", cacheDelay);
 
         Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
-            HEAD_CACHE.getUnchecked(e.getPlayer());
-            logger.debug("Cache status for %s: %s", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
-        }, 20L);
-    }
-
-    public boolean isVanished(Player player) {
-        var vanishHooks = plugin.getHookContainer().getVanishHooks();
-        logger.debug("Acquired VanishHooks: %s", vanishHooks);
-        for (Hook<VanishHook> vanishHook : plugin.getHookContainer().getVanishHooks())
-            if (vanishHook.isHooked() && vanishHook.get().isInvisible(player)) {
-                logger.info("Player %s is vanished using %s", player.getName(), vanishHook.getTargetPluginName());
-                return true;
+            if (isVanished(e.getPlayer())) {
+                logger.debug("Player is vanished");
+                return;
             }
 
-        return false;
+            HEAD_CACHE.getUnchecked(e.getPlayer());
+            logger.debug("Cache status for %s: %s", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
+        }, cacheDelay);
+    }
+
+    private boolean isVanished(Player player) {
+        var vanishHook = plugin.getHookContainer().getVanishHook();
+        logger.debug("Acquired VanishHook: %s", vanishHook);
+        if (!vanishHook.isHooked()) return false;
+        return vanishHook.get().isInvisible(player);
     }
 
     @EventHandler

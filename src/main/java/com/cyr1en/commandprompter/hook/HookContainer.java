@@ -4,7 +4,6 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.hook.hooks.*;
 import org.bukkit.Bukkit;
-import org.bukkit.Server;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServerLoadEvent;
@@ -13,7 +12,6 @@ import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.function.Consumer;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listener {
@@ -82,10 +80,10 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
     }
 
     @SuppressWarnings("unchecked")
-    public List<Hook<VanishHook>> getVanishHooks() {
+    public Hook<VanishHook> getVanishHook() {
         return values().stream()
                 .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishHook))
-                .map(hook -> (Hook<VanishHook>) hook).toList();
+                .map(hook -> (Hook<VanishHook>) hook).findFirst().orElse(Hook.empty());
     }
 
     public <T> Hook<T> getHook(Class<T> hookClass) {

@@ -2,14 +2,12 @@ package com.cyr1en.commandprompter.hook.hooks;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
-import com.cyr1en.commandprompter.prompt.ui.HeadCache;
-import de.myzelyam.api.vanish.PlayerVanishStateChangeEvent;
-import de.myzelyam.api.vanish.VanishAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
@@ -28,7 +26,9 @@ public class VanishNoPacketHook extends VanishHook implements Listener {
     }
 
     public boolean isInvisible(Player p) {
-        if(vanishPlugin == null) return false;
+        if (vanishPlugin == null) return false;
+        if (p.hasPermission("vanish.hooks.dynmap.alwayshidden") || VanishPerms.joinVanished(p))
+            return true;
         return vanishPlugin.getManager().isVanished(p);
     }
 
