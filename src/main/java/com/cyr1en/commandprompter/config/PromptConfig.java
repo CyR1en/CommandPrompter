@@ -24,7 +24,9 @@ public record PromptConfig(
                 "Cache-Delay - Delay in ticks after the player", "",
                 "              joins before their head gets cached", "",
                 "Sorted - Should the player heads be sorted?",
-                "Per-World - Only show player in the current world?"
+                "Per-World - Only show player in the current world?", "",
+                "Empty-Message - Message to be displayed when the", "",
+                "                head cache is empty", "",
         })
         String skullNameFormat,
 
@@ -98,6 +100,11 @@ public record PromptConfig(
         @NodeName("PlayerUI.Per-World")
         @NodeDefault("false")
         boolean isPerWorld,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Empty-Message")
+        @NodeDefault("&cNo players found!")
+        String emptyMessage,
 
         @ConfigNode
         @NodeName("AnvilGUI.Enable-Title")

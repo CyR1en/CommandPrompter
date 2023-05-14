@@ -58,8 +58,14 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     @Override
     public void sendPrompt() {
-        gui.setOnClose(e -> getPromptManager().cancel(getContext().getSender()));
         var p = (Player) getContext().getSender();
+        if (headCache.isEmpty()) {
+            getPlugin().getMessenger().sendMessage(p, getPlugin().getPromptConfig().emptyMessage());
+            getPromptManager().cancel(p);
+            return;
+        }
+
+        gui.setOnClose(e -> getPromptManager().cancel(p));
 
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
 
