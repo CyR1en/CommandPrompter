@@ -59,27 +59,30 @@ public class AnvilPrompt extends AbstractPrompt {
     private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item) {
         var isComplete = new AtomicBoolean(false);
         var builder = new AnvilGUI.Builder();
-        builder.onComplete(completion -> {
+        builder.onClick((slot, stateSnapshot) -> {
+            if (slot != AnvilGUI.Slot.OUTPUT)
+                return Collections.emptyList();
+
             var message = ChatColor.stripColor(
-                    ChatColor.translateAlternateColorCodes('&', completion.getText()));
+                    ChatColor.translateAlternateColorCodes('&', stateSnapshot.getText()));
             var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
             if (cancelKeyword.equalsIgnoreCase(message)) {
-                getPromptManager().cancel(completion.getPlayer());
+                getPromptManager().cancel(stateSnapshot.getPlayer());
                 return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
 
             message = getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
-                    completion.getText() : message;
+                    stateSnapshot.getText() : message;
 
             isComplete.getAndSet(true);
-            var ctx = new PromptContext(null, completion.getPlayer(), message);
+            var ctx = new PromptContext(null, stateSnapshot.getPlayer(), message);
             getPromptManager().processPrompt(ctx);
             return Collections.singletonList(AnvilGUI.ResponseAction.close());
         });
         builder.onClose(p -> {
             if (isComplete.get())
                 return;
-            getPromptManager().cancel(p);
+            getPromptManager().cancel(p.getPlayer());
         });
         builder.text(color(parts.get(0)));
         if (getPlugin().getPromptConfig().enableTitle()) {
