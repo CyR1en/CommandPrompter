@@ -120,7 +120,10 @@ public record PromptConfig(
                 "Enchanted - Do you want the item enchanted?",
                 "",
                 "Custom-Title - If title is enabled, and if custom",
-                "title is not empty, CommandPrompter will use this instead"
+                "title is not empty, CommandPrompter will use this instead",
+                "",
+                "Prompt-Message - The message to be displayed on the",
+                "Anvil GUI"
         })
         boolean enableTitle,
 
@@ -128,6 +131,11 @@ public record PromptConfig(
         @NodeName("AnvilGUI.Custom-Title")
         @NodeDefault("")
         String customTitle,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.Prompt-Message")
+        @NodeDefault("")
+        String promptMessage,
 
         @ConfigNode
         @NodeName("AnvilGUI.Item")
