@@ -168,11 +168,14 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         cancel(sender, -1);
     }
 
-    public Pattern getArgumentPattern() {
+    public Pattern getArgumentPattern(String ... additionalKeys) {
         var pattern = "-(%s) ";
         var keySet = new HashSet<>(Set.copyOf(this.keySet()));
         keySet.remove("");
+
         var arguments = String.join("|", keySet);
+        arguments += "|" + String.join("|", additionalKeys);
+
         var compiled = Pattern.compile(pattern.formatted(arguments));
         plugin.getPluginLogger().debug("ArgumentPattern: " + compiled);
         return compiled;
