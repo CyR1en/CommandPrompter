@@ -124,12 +124,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                 plugin.getMessenger().sendMessage(sender, plugin.getI18N()
                         .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
 
-            if(queue.isSetPermissionAttachment())
-                Dispatcher.dispatchWithAttachment(plugin, (Player) sender, queue.getCompleteCommand(),
-                        plugin.getConfiguration().permissionAttachmentTicks(),
-                        plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
-            else
-                Dispatcher.dispatchCommand(plugin, (Player) sender, queue.getCompleteCommand());
+           queue.dispatch(plugin, (Player) sender);
 
             if (!isCurrentOp) {
                 sender.setOp(false);
