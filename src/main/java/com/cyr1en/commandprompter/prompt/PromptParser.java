@@ -99,7 +99,7 @@ public class PromptParser {
             if (pcmKey.equals(arg)) {
                 var pcm = parsePCM(prompt);
                 var promptQueue = manager.getPromptRegistry().get(promptContext.getSender());
-                promptQueue.setPCM(pcm);
+                promptQueue.addPCM(pcm);
                 // remove the <-exa some command>
                 promptQueue.setCommand(promptQueue.getCommand().replaceFirst(prompt, ""));
                 continue;

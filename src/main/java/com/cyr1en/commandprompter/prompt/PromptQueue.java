@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -20,7 +21,7 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     private final boolean isSetPermissionAttachment;
 
-    private PostCommandMeta postCommandMeta;
+    private final List<PostCommandMeta> postCommandMetas;
 
     private final PluginLogger logger;
 
@@ -31,6 +32,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         this.completed = new LinkedList<>();
         this.isOp = isOp;
         this.isSetPermissionAttachment = isSetPermissionAttachment;
+        this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
     }
 
@@ -54,8 +56,8 @@ public class PromptQueue extends LinkedList<Prompt> {
         return "/" + command;
     }
 
-    public void setPCM(PostCommandMeta pcm) {
-        this.postCommandMeta = pcm;
+    public void addPCM(PostCommandMeta pcm) {
+        postCommandMetas.add(pcm);
     }
 
     public String getCommand() {
@@ -74,28 +76,13 @@ public class PromptQueue extends LinkedList<Prompt> {
         else
             Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
 
-        if (Objects.nonNull(postCommandMeta))
-            execPCM((Player) sender);
+        if (!postCommandMetas.isEmpty())
+            postCommandMetas.forEach(pcm -> execPCM(pcm, sender));
     }
 
-    private void execPCM(Player sender) {
+    private void execPCM(PostCommandMeta postCommandMeta, Player sender) {
         logger.debug("Executing PCM: " + postCommandMeta.command());
 
-        var command = postCommandMeta.command();
-        var promptIndex = postCommandMeta.promptIndex();
-
-        logger.debug("Completed: " + completed);
-        logger.debug("Replacing placeholders...");
-        for (int i = 0; i < promptIndex.length; i++) {
-            var index = promptIndex[i];
-            if (index >= completed.size()) {
-                CommandPrompter.getInstance().getMessenger().sendMessage(sender, "&6" + index + "&c is out of bounds!");
-                sender.sendMessage();
-                return;
-            }
-            command = command.replaceFirst("p:" + i, completed.get(index));
-        }
-        logger.debug("Dispatching Post Command: " + command);
         var completedClone = new LinkedList<>(completed);
         var i18N = CommandPrompter.getInstance().getI18N();
         var command = postCommandMeta.makeAsCommand(completedClone, index -> {
