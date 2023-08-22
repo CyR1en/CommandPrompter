@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class PromptQueue extends LinkedList<Prompt> {
 
@@ -95,6 +96,11 @@ public class PromptQueue extends LinkedList<Prompt> {
             command = command.replaceFirst("p:" + i, completed.get(index));
         }
         logger.debug("Dispatching Post Command: " + command);
+        var completedClone = new LinkedList<>(completed);
+        var i18N = CommandPrompter.getInstance().getI18N();
+        var command = postCommandMeta.makeAsCommand(completedClone, index -> {
+        });
+        logger.debug("After parse: " + command);
         Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
     }
 
@@ -108,6 +114,26 @@ public class PromptQueue extends LinkedList<Prompt> {
                     "command='" + command + '\'' +
                     ", promptIndex=" + Arrays.toString(promptIndex) +
                     '}';
+        }
+
+        public String makeAsCommand(LinkedList<String> promptAnswers) {
+            return makeAsCommand(promptAnswers, index -> {
+            });
+        }
+
+        public String makeAsCommand(LinkedList<String> promptAnswers, Consumer<String> onOutOfBounds) {
+            if (promptAnswers == null || promptAnswers.isEmpty())
+                return command;
+            var command = this.command;
+            var promptIndex = this.promptIndex;
+            for (int index : promptIndex) {
+                if (index >= promptAnswers.size() || index < 0) {
+                    onOutOfBounds.accept(String.valueOf(index));
+                    continue;
+                }
+                command = command.replaceFirst("p:" + index, promptAnswers.get(index));
+            }
+            return command;
         }
     }
 
