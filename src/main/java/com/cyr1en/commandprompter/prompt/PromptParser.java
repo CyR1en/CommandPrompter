@@ -94,8 +94,9 @@ public class PromptParser {
             var arg = resolveArg(prompt);
             plugin.getPluginLogger().debug("Argument in prompt: " + arg);
 
-            plugin.getPluginLogger().debug("Checking equality: '" + arg + "' == '-exa'");
-            if (arg.equals("-exa ")) {
+            var pcmKey = PromptQueueArgument.POST_COMMAND.getKey();
+            plugin.getPluginLogger().debug("Checking equality: '" + arg + "' == '" + pcmKey + "'");
+            if (pcmKey.equals(arg)) {
                 var pcm = parsePCM(prompt);
                 var promptQueue = manager.getPromptRegistry().get(promptContext.getSender());
                 promptQueue.setPCM(pcm);
