@@ -9,7 +9,6 @@ import org.bukkit.entity.Player;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 public class PromptQueue extends LinkedList<Prompt> {
