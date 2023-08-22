@@ -99,6 +99,8 @@ public class PromptQueue extends LinkedList<Prompt> {
         var completedClone = new LinkedList<>(completed);
         var i18N = CommandPrompter.getInstance().getI18N();
         var command = postCommandMeta.makeAsCommand(completedClone, index -> {
+            var message = i18N.getFormattedProperty("PCMOutOfBounds", index);
+            CommandPrompter.getInstance().getMessenger().sendMessage(sender, message);
         });
         logger.debug("After parse: " + command);
         Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
