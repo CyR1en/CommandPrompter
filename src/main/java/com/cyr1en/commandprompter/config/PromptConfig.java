@@ -12,6 +12,7 @@ import com.cyr1en.kiso.mc.configuration.base.Config;
 public record PromptConfig(
         Config rawConfig,
 
+        // ============================== Player UI ==============================
         @ConfigNode
         @NodeName("PlayerUI.Skull-Name-Format")
         @NodeDefault("&6%s")
@@ -106,6 +107,7 @@ public record PromptConfig(
         @NodeDefault("&cNo players found!")
         String emptyMessage,
 
+        // ============================== Anvil UI ==============================
         @ConfigNode
         @NodeName("AnvilGUI.Enable-Title")
         @NodeDefault("true")
@@ -147,6 +149,7 @@ public record PromptConfig(
         @NodeDefault("false")
         boolean anvilEnchanted,
 
+        // ============================== Text Prompt ==============================
         @ConfigNode
         @NodeName("TextPrompt.Clickable-Cancel")
         @NodeDefault("true")
@@ -183,6 +186,7 @@ public record PromptConfig(
         @NodeDefault("DEFAULT")
         String responseListenerPriority,
 
+        // ============================== Sign UI ==============================
         @ConfigNode
         @NodeName("SignUI.Input-Field-Location")
         @NodeDefault("bottom")
