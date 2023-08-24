@@ -112,6 +112,12 @@ public class AnvilPrompt extends AbstractPrompt {
 
         if (parts.size() > 1)
             meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
+
+        //set custom model data
+        var integerData = getPlugin().getPromptConfig().itemCustomModelData();
+        if (integerData != 0)
+            meta.setCustomModelData(integerData);
+
         item.setItemMeta(meta);
         return item;
     }

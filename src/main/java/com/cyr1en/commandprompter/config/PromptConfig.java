@@ -140,9 +140,14 @@ public record PromptConfig(
         String promptMessage,
 
         @ConfigNode
-        @NodeName("AnvilGUI.Item")
+        @NodeName("AnvilGUI.Item.Material")
         @NodeDefault("Paper")
         String anvilItem,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.Item.CustomModelData")
+        @NodeDefault("0")
+        int itemCustomModelData,
 
         @ConfigNode
         @NodeName("AnvilGUI.Enchanted")
