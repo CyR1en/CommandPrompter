@@ -32,6 +32,7 @@ import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
+import com.cyr1en.commandprompter.listener.CommandSendListener;
 import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
@@ -47,6 +48,7 @@ import com.cyr1en.kiso.utils.SRegex;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -82,6 +84,7 @@ public class CommandPrompter extends JavaPlugin {
         messenger = new PluginMessenger(config.promptPrefix());
         instance = this;
         Bukkit.getPluginManager().registerEvents(hookContainer = new HookContainer(this), this);
+        Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
         hookContainer.setOnServerLoadConsumer(e -> ChatPrompt.resolveListener(this));
     }
 
@@ -149,7 +152,7 @@ public class CommandPrompter extends JavaPlugin {
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
         commandManager.registerTabCompleter(command);
-        CommodoreRegistry.register(this, command);
+        //CommodoreRegistry.register(this, command);
     }
 
     private void setupCommandManager() {
@@ -223,6 +226,9 @@ public class CommandPrompter extends JavaPlugin {
         setupUpdater();
         if (clean)
             promptManager.clearPromptRegistry();
+
+        // Update commands just in case tab completer is changed
+        Bukkit.getOnlinePlayers().forEach(Player::updateCommands);
     }
 
     public static CommandPrompter getInstance() {

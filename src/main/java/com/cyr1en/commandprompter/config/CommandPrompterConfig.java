@@ -161,6 +161,15 @@ public record CommandPrompterConfig(
         @ConfigNode
         @NodeName("Permission-Attachment.permissions")
         @NodeDefault("sample.permission, sample.permission2")
-        List<String> attachmentPermissions
+        List<String> attachmentPermissions,
+
+        @ConfigNode
+        @NodeName("Command-Tab-Complete")
+        @NodeComment({
+                "Enable command tab complete",
+                "for CommandPrompter"
+        })
+        @NodeDefault("true")
+        boolean commandTabComplete
 ) {
 }
