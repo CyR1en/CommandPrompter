@@ -80,10 +80,10 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
     }
 
     @SuppressWarnings("unchecked")
-    public Hook<VanishHook> getVanishHook() {
+    public Hook<VanishFallBack> getVanishHook() {
         return values().stream()
-                .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishHook))
-                .map(hook -> (Hook<VanishHook>) hook).findFirst().orElse(Hook.empty());
+                .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishFallBack))
+                .map(hook -> (Hook<VanishFallBack>) hook).findFirst().orElse(Hook.of(new VanishFallBack(plugin)));
     }
 
     public <T> Hook<T> getHook(Class<T> hookClass) {

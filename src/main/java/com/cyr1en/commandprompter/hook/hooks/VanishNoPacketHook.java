@@ -12,7 +12,7 @@ import org.kitteh.vanish.VanishPlugin;
 import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
 @TargetPlugin(pluginName = "VanishNoPacket")
-public class VanishNoPacketHook extends VanishHook implements Listener {
+public class VanishNoPacketHook extends VanishFallBack implements Listener {
 
     private VanishPlugin vanishPlugin;
 
