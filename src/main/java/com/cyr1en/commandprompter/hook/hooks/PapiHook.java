@@ -13,6 +13,7 @@ public class PapiHook extends BaseHook {
     }
 
     public String setPlaceholder(@NotNull Player player, @NotNull String txt) {
+        if (!papiPlaceholders(txt)) return txt;
         return PlaceholderAPI.setPlaceholders(player, txt);
     }
 

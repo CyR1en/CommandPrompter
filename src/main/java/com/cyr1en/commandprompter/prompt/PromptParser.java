@@ -26,7 +26,9 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.kiso.utils.SRegex;
+import org.bukkit.entity.Player;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
@@ -110,9 +112,14 @@ public class PromptParser {
             try {
                 var sender = promptContext.getSender();
                 var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt(prompt));
+
+                // Set papi placeholders if exists
+                var promptTxt = ArgumentUtil.stripArgs(cleanPrompt(prompt));
+                promptTxt = resolvePapiPlaceholders((Player) sender, promptTxt);
+
                 var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class,
                                 String.class, List.class)
-                        .newInstance(plugin, promptContext, ArgumentUtil.stripArgs(cleanPrompt(prompt)), promptArgs);
+                        .newInstance(plugin, promptContext, promptTxt, promptArgs);
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
                      | InstantiationException | IllegalAccessException e) {
@@ -121,6 +128,12 @@ public class PromptParser {
             }
         }
         return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+    }
+
+    private String resolvePapiPlaceholders(Player sender, String prompt) {
+        if (plugin.getHookContainer().isHooked(PapiHook.class)) return prompt;
+        var papiHook = plugin.getHookContainer().getHook(PapiHook.class);
+        return papiHook.get().setPlaceholder(sender, prompt);
     }
 
     private String resolveArg(String prompt) {
@@ -150,7 +163,6 @@ public class PromptParser {
     private List<String> getPrompts(PromptContext promptContext) {
         return sRegex.find(Pattern.compile(escapedRegex), promptContext.getContent()).getResultsList();
     }
-
 
     private static final Pattern PCM_INDEX_PATTERN = Pattern.compile("p:\\d+");
 
