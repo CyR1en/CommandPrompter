@@ -54,8 +54,9 @@ public class ControlPane extends StaticPane {
         var pages = paginatedPane.getPages() - 1;
 
         var prevMatString = plugin.getPromptConfig().previousItem();
+        var prevCMD = plugin.getPromptConfig().previousCustomModelData();
         var prevIS = new ItemStack(Util.getCheckedMaterial(prevMatString, Material.FEATHER));
-        addItem(plugin.getPromptConfig().previousText(), prevIS, prevLoc,
+        addItem(plugin.getPromptConfig().previousText(), prevIS, prevLoc, prevCMD,
                 c -> {
                     c.setCancelled(true);
                     var next = Math.max((paginatedPane.getPage() - 1), 0);
@@ -64,8 +65,9 @@ public class ControlPane extends StaticPane {
                 });
 
         var nextMatString = plugin.getPromptConfig().nextItem();
+        var nextCMD = plugin.getPromptConfig().nextCustomModelData();
         var nextIS = new ItemStack(Util.getCheckedMaterial(nextMatString, Material.FEATHER));
-        addItem(plugin.getPromptConfig().nextText(), nextIS, nextLoc,
+        addItem(plugin.getPromptConfig().nextText(), nextIS, nextLoc, nextCMD,
                 c -> {
                     c.setCancelled(true);
                     var next = Math.min((paginatedPane.getPage() + 1), pages);
@@ -74,8 +76,9 @@ public class ControlPane extends StaticPane {
                 });
 
         var cancelMatString = plugin.getPromptConfig().cancelItem();
+        var cancelCMD = plugin.getPromptConfig().cancelCustomModelData();
         var cancelIS = new ItemStack(Util.getCheckedMaterial(cancelMatString, Material.FEATHER));
-        addItem(plugin.getPromptConfig().cancelText(), cancelIS, cancelLoc,
+        addItem(plugin.getPromptConfig().cancelText(), cancelIS, cancelLoc, cancelCMD,
                 c -> {
                     c.setCancelled(true);
                     plugin.getPromptManager().cancel(ctx.getSender());
@@ -83,9 +86,10 @@ public class ControlPane extends StaticPane {
                 });
     }
 
-    private void addItem(String name, ItemStack itemStack, int x, Consumer<InventoryClickEvent> consumer) {
+    private void addItem(String name, ItemStack itemStack, int x, int customModelData, Consumer<InventoryClickEvent> consumer) {
         var itemMeta = itemStack.getItemMeta();
         Objects.requireNonNull(itemMeta).setDisplayName(Util.color(name));
+        itemMeta.setCustomModelData(customModelData == 0 ? null : customModelData);
         itemStack.setItemMeta(itemMeta);
         addItem(new GuiItem(itemStack, consumer), x, 0);
     }

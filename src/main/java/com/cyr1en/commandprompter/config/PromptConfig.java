@@ -53,6 +53,11 @@ public record PromptConfig(
         String previousItem,
 
         @ConfigNode
+        @NodeName("PlayerUI.Previous.Custom-Model-Data")
+        @NodeDefault("0")
+        int previousCustomModelData,
+
+        @ConfigNode
         @NodeName("PlayerUI.Previous.Column")
         @NodeDefault("3")
         int previousColumn,
@@ -68,6 +73,11 @@ public record PromptConfig(
         String nextItem,
 
         @ConfigNode
+        @NodeName("PlayerUI.Next.Custom-Model-Data")
+        @NodeDefault("0")
+        int nextCustomModelData,
+
+        @ConfigNode
         @NodeName("PlayerUI.Next.Column")
         @NodeDefault("7")
         int nextColumn,
@@ -81,6 +91,11 @@ public record PromptConfig(
         @NodeName("PlayerUI.Cancel.Item")
         @NodeDefault("Barrier")
         String cancelItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Cancel.Custom-Model-Data")
+        @NodeDefault("0")
+        int cancelCustomModelData,
 
         @ConfigNode
         @NodeName("PlayerUI.Cancel.Column")
@@ -145,7 +160,7 @@ public record PromptConfig(
         String anvilItem,
 
         @ConfigNode
-        @NodeName("AnvilGUI.Item.CustomModelData")
+        @NodeName("AnvilGUI.Item.Custom-Model-Data")
         @NodeDefault("0")
         int itemCustomModelData,
 
