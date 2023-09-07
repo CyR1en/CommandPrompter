@@ -83,9 +83,13 @@ public class CommandPrompter extends JavaPlugin {
         initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
         instance = this;
-        Bukkit.getPluginManager().registerEvents(hookContainer = new HookContainer(this), this);
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
-        hookContainer.setOnServerLoadConsumer(e -> ChatPrompt.resolveListener(this));
+
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            hookContainer = new HookContainer(this);
+            hookContainer.initHooks();
+            ChatPrompt.resolveListener(this);
+        }, 1L);
     }
 
     @Override

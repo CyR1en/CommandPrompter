@@ -4,28 +4,23 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.hook.hooks.*;
 import org.bukkit.Bukkit;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.plugin.IllegalPluginAccessException;
 import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
-import java.util.function.Consumer;
+import java.util.Objects;
 
-public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listener {
+public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
     private final CommandPrompter plugin;
-    private Consumer<ServerLoadEvent> onServerLoadConsumer;
 
     public HookContainer(CommandPrompter plugin) {
         this.plugin = plugin;
-        this.onServerLoadConsumer = e -> {
-        };
     }
 
-    private void initHooks() {
+    public void initHooks() {
         hook(VentureChatHook.class);
         hook(SuperVanishHook.class);
         hook(PuerkasChatHook.class);
@@ -88,20 +83,11 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> implements Listene
 
     public <T> Hook<T> getHook(Class<T> hookClass) {
         @SuppressWarnings("unchecked") var t = (Hook<T>) get(hookClass);
+        if (t == null) return Hook.empty();
         return t;
     }
 
     public boolean isHooked(Class<?> hookClass) {
         return getHook(hookClass).isHooked();
-    }
-
-    public void setOnServerLoadConsumer(Consumer<ServerLoadEvent> onServerLoadConsumer) {
-        this.onServerLoadConsumer = onServerLoadConsumer;
-    }
-
-    @EventHandler
-    public void onServerLoad(ServerLoadEvent event) {
-        initHooks();
-        onServerLoadConsumer.accept(event);
     }
 }
