@@ -131,7 +131,7 @@ public class PromptParser {
     }
 
     private String resolvePapiPlaceholders(Player sender, String prompt) {
-        if (plugin.getHookContainer().isHooked(PapiHook.class)) return prompt;
+        if (!plugin.getHookContainer().isHooked(PapiHook.class)) return prompt;
         var papiHook = plugin.getHookContainer().getHook(PapiHook.class);
         return papiHook.get().setPlaceholder(sender, prompt);
     }
