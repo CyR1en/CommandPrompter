@@ -30,6 +30,7 @@ import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public interface Prompt {
 
@@ -70,4 +71,32 @@ public interface Prompt {
 
     List<PromptParser.PromptArgument> getArgs();
 
+    /**
+     * set the regex check
+     *
+     * @param regexCheck regular expression to check prompt input
+     */
+    void setRegexCheck(String regexCheck);
+
+    /**
+     * set the regex check using {@link Pattern}
+     *
+     * @param regexPattern regular expression to check prompt input
+     */
+    void setRegexCheck(Pattern regexPattern);
+
+    /**
+     * Get the regex check
+     *
+     * @return regular expression to check prompt input
+     */
+    Pattern getRegexCheck();
+
+    /**
+     * Check if the input is valid using {@link Prompt#getRegexCheck()}
+     *
+     * @param input input to check
+     * @return true if input is valid
+     */
+    boolean isValidInput(String input);
 }

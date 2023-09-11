@@ -5,6 +5,7 @@ import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.kiso.mc.configuration.base.Config;
+import org.bukkit.configuration.ConfigurationSection;
 
 @Configuration
 @ConfigPath("prompt-config.yml")
@@ -230,6 +231,95 @@ public record PromptConfig(
                 "Check wiki for Sign UI",
                 "https://github.com/CyR1en/CommandPrompter/wiki/Prompts"
         })
-        String inputFieldLocation
+        String inputFieldLocation,
+
+
+        // ============================== Input Validation ==============================
+        @ConfigNode
+        @NodeName("Input-Validation.Integer-Sample.Alias")
+        @NodeDefault("is")
+        @NodeComment({
+                "Input Validation",
+                "",
+                "Alias - The alias of the input validation",
+                "",
+                "Regex - Regex to use for the input validation"
+        })
+        String intSampleAlias,
+
+        @ConfigNode
+        @NodeName("Input-Validation.Integer-Sample.Regex")
+        @NodeDefault("^\\d+")
+        String intSampleRegex,
+
+        @ConfigNode
+        @NodeName("Input-Validation.Integer-Sample.Err-Message")
+        @NodeDefault("&cPlease enter a valid integer!")
+        String intSampleErrMessage,
+
+        @ConfigNode
+        @NodeName("Input-Validation.Alpha-Sample.Alias")
+        @NodeDefault("ss")
+        String strSampleAlias,
+
+        @ConfigNode
+        @NodeName("Input-Validation.Alpha-Sample.Regex")
+        @NodeDefault("[A-Za-z ]+")
+        String strSampleRegex,
+
+        @ConfigNode
+        @NodeName("Input-Validation.Alpha-Sample.Err-Message")
+        @NodeDefault("&cInput must only consist letters of the alphabet!")
+        String strSampleErrMessage
+
 ) {
+    public String findIVRegexCheckInConfig(String alias) {
+        return getInputValidationValue("Alias", alias, "Regex");
+    }
+
+    public String getIVErrMessage(String alias) {
+        return getInputValidationValue("Alias", alias, "Err-Message");
+    }
+
+    public String getIVErrMessageWithRegex(String regex) {
+        return getInputValidationValue("Regex", regex, "Err-Message");
+    }
+
+    /**
+     * Get a value of a key in a validation section using a different key value to check if we're in the right section.
+     *
+     * @param key    key to check
+     * @param keyVal value of the key to check
+     * @param query  key to get the value of
+     * @return value of the query key
+     */
+    private String getInputValidationValue(String key, String keyVal, String query) {
+        var raw = rawConfig();
+        var validations = raw.getConfigurationSection("Input-Validation");
+
+        for (var k : validations.getKeys(false)) {
+            var section = validations.getConfigurationSection(k);
+            var asserted = asserted(section, key, keyVal, query);
+            if (!asserted.isEmpty() && !asserted.isBlank()) return asserted;
+        }
+        return "";
+    }
+
+    private String asserted(ConfigurationSection section, String key, String keyVal, String query) {
+        if (section == null) return "";
+        // Still check for alias because we are anchoring each input validation with an alias.
+        // Therefore, the alias must always be present.
+        if (!section.getKeys(false).contains("Alias")) return "";
+
+        var cfgAlias = section.getString(key);
+        cfgAlias = cfgAlias != null ? cfgAlias : "";
+
+        if (cfgAlias.equals(keyVal)) {
+            var regex = section.getString(query);
+            return regex != null ? regex : "";
+        }
+        return "";
+    }
+
+
 }

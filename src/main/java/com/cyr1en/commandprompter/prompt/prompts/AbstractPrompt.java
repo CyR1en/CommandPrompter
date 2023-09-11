@@ -32,6 +32,7 @@ import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public abstract class AbstractPrompt implements Prompt {
 
@@ -42,6 +43,8 @@ public abstract class AbstractPrompt implements Prompt {
 
     private final List<PromptParser.PromptArgument> args;
 
+    private Pattern regexCheck;
+
     public AbstractPrompt(CommandPrompter plugin, PromptContext context,
                           String prompt, List<PromptParser.PromptArgument> args) {
         this.plugin = plugin;
@@ -49,6 +52,7 @@ public abstract class AbstractPrompt implements Prompt {
         this.prompt = prompt;
         this.promptManager = plugin.getPromptManager();
         this.args = args;
+        this.regexCheck = Pattern.compile("");
     }
 
     protected String stripColor(String msg) {
@@ -85,5 +89,34 @@ public abstract class AbstractPrompt implements Prompt {
     @Override
     public List<PromptParser.PromptArgument> getArgs() {
         return args;
+    }
+
+    /**
+     *
+     */
+    private void setRegexCheck() {
+        plugin.getPluginLogger().debug("Args: " + args);
+    }
+
+    @Override
+    public void setRegexCheck(String regexCheck) {
+        this.regexCheck = Pattern.compile(regexCheck);
+    }
+
+    @Override
+    public void setRegexCheck(Pattern regexCheck) {
+        this.regexCheck = regexCheck;
+    }
+
+    @Override
+    public Pattern getRegexCheck() {
+        return regexCheck;
+    }
+
+    @Override
+    public boolean isValidInput(String input) {
+        plugin.getPluginLogger().debug("Checking input with regex: " + regexCheck);
+        if (regexCheck.pattern().isBlank() || regexCheck.pattern().isEmpty()) return true;
+        return regexCheck.matcher(input).matches();
     }
 }

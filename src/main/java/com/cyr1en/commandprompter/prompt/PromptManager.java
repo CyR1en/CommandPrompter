@@ -106,6 +106,11 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (!getPromptRegistry().containsKey(sender)) return;
         if (promptRegistry.get(sender).isEmpty()) return;
 
+        var promptQueue = promptRegistry.get(sender);
+
+        if (!checkInput(promptQueue, context))
+            return;
+
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
@@ -124,7 +129,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                 plugin.getMessenger().sendMessage(sender, plugin.getI18N()
                         .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
 
-           queue.dispatch(plugin, (Player) sender);
+            queue.dispatch(plugin, (Player) sender);
 
             if (!isCurrentOp) {
                 sender.setOp(false);
@@ -139,6 +144,18 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         } else if (sender instanceof Player player)
             sendPrompt(player);
 
+    }
+
+    private boolean checkInput(PromptQueue promptQueue, PromptContext context) {
+        if (promptQueue.peek() == null) return true;
+
+        var prompt = promptQueue.peek();
+        if (prompt.isValidInput(context.getContent())) return true;
+
+        var errMsg = plugin.getPromptConfig().getIVErrMessageWithRegex(prompt.getRegexCheck().pattern());
+        plugin.getMessenger().sendMessage(context.getSender(), errMsg);
+        sendPrompt((Player) context.getSender());
+        return false;
     }
 
     public PromptRegistry getPromptRegistry() {
@@ -163,7 +180,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         cancel(sender, -1);
     }
 
-    public Pattern getArgumentPattern(String ... additionalKeys) {
+    public Pattern getArgumentPattern(String... additionalKeys) {
         var pattern = "-(%s) ";
         var keySet = new HashSet<>(Set.copyOf(this.keySet()));
         keySet.remove("");

@@ -110,16 +110,23 @@ public class PromptParser {
             Class<? extends Prompt> pClass = manager.get(arg);
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
+                var cleanPrompt = cleanPrompt(prompt);
                 var sender = promptContext.getSender();
-                var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt(prompt));
+                var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt);
+                plugin.getPluginLogger().debug("Prompt args: " + promptArgs);
+                var inputValidation = extractInputValidation(cleanPrompt);
 
                 // Set papi placeholders if exists
-                var promptTxt = ArgumentUtil.stripArgs(cleanPrompt(prompt));
+                var promptTxt = ArgumentUtil.stripArgs(cleanPrompt);
+                plugin.getPluginLogger().debug("Prompt stripped: " + promptTxt);
                 promptTxt = resolvePapiPlaceholders((Player) sender, promptTxt);
 
                 var p = pClass.getConstructor(CommandPrompter.class, PromptContext.class,
                                 String.class, List.class)
                         .newInstance(plugin, promptContext, promptTxt, promptArgs);
+
+                p.setRegexCheck(plugin.getPromptConfig().findIVRegexCheckInConfig(inputValidation));
+
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
                      | InstantiationException | IllegalAccessException e) {
@@ -128,6 +135,17 @@ public class PromptParser {
             }
         }
         return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+    }
+
+
+    private String extractInputValidation(String prompt) {
+        // iv is with pattern -iv:<alias>
+        // I want to get the <alias> part
+        var pattern = Pattern.compile(PromptArgument.INPUT_VALIDATION.getKey());
+        var matcher = pattern.matcher(prompt);
+        if (!matcher.find()) return "";
+        var found = matcher.group();
+        return found.split(":")[1];
     }
 
     private String resolvePapiPlaceholders(Player sender, String prompt) {
@@ -195,13 +213,18 @@ public class PromptParser {
 
     public enum PromptArgument implements Keyable {
         DISABLE_SANITATION("-ds"),
+        INPUT_VALIDATION("-iv:\\w+", false),
         INTEGER("-int"),
         STRING("-str");
 
         private final String key;
 
+        PromptArgument(String key, boolean appendSpace) {
+            this.key = appendSpace ? (key.endsWith(" ") ? key : key + " ") : key;
+        }
+
         PromptArgument(String key) {
-            this.key = key.endsWith(" ") ? key : key + " ";
+            this(key, true);
         }
 
         public String getKey() {
@@ -247,8 +270,10 @@ public class PromptParser {
 
         public static String stripArgs(String prompt) {
             var str = prompt;
-            for (PromptParser.PromptArgument value : PromptParser.PromptArgument.values())
-                str = str.replaceAll(value.getKey(), "");
+            for (PromptParser.PromptArgument value : PromptParser.PromptArgument.values()) {
+                var pattern = Pattern.compile(value.getKey());
+                str = pattern.matcher(str).replaceAll("").trim();
+            }
             return str;
         }
 
