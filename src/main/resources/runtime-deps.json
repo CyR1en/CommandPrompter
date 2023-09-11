@@ -1,0 +1,10 @@
+{
+  "IF": {
+    "url": "https://github.com/stefvanschie/IF/releases/download/v0.10.11/IF-0.10.11.jar",
+    "relocate": [
+      "com.github.stefvanschie.inventoryframework",
+      "com.cyr1en.inventoryframework"
+    ],
+    "sha256": "ef0bd52b0c47d0b37708e99db938f0224fd1e2db0332d0551a9edecc74da9f52"
+  }
+}
