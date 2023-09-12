@@ -77,10 +77,14 @@ public class DependencyLoader {
         plugin.getPluginLogger().debug("Loading dependencies...");
         var dependencies = readDependencies("runtime-deps.json");
         downloadDependencies(dependencies);
+        loadAll(dependencies);
+        plugin.getPluginLogger().info("Finished loading dependencies");
+    }
+
+    private void loadAll(ImmutableList<Dependency> dependencies) {
         for (Dependency dependency : dependencies) {
             var file = new File(libDir, dependency.filename());
             if (!file.exists()) continue;
-
             try {
                 var relocation = dependency.relocation();
                 plugin.getPluginLogger().debug("Relocation: " + Arrays.toString(relocation));
@@ -96,7 +100,6 @@ public class DependencyLoader {
                 access.addURL(file.toURI().toURL());
             } catch (IOException e) {
                 plugin.getPluginLogger().err("Failed to load " + dependency.filename() + "!");
-                continue;
             }
         }
     }
@@ -105,8 +108,6 @@ public class DependencyLoader {
         if (!relocatorAvailable) return false;
         plugin.getPluginLogger().debug("Relocating " + dependency.filename() + "...");
         try {
-            //check if downloaded jar is already relocated
-            // go inside the jar file and check package and see if it matches the relocation
             var original = new File(libDir, dependency.filename().replace(".jar", "") + "-original.jar");
             if (original.exists()) original.delete();
 
