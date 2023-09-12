@@ -74,7 +74,7 @@ public class DependencyLoader {
     }
 
     public void loadDependency() {
-        plugin.getPluginLogger().debug("Loading dependencies...");
+        plugin.getPluginLogger().info("Loading dependencies...");
         var dependencies = readDependencies("runtime-deps.json");
         downloadDependencies(dependencies);
         loadAll(dependencies);
