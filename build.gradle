@@ -61,17 +61,14 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.lucko:commodore:2.2'
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.6.6-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation 'me.lucko:jar-relocator:1.7'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation fileTree(dir: 'libs', include: '*.jar')
 
-    compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
-
+    compileOnly 'me.lucko:commodore:2.2'
+    compileOnly 'me.lucko:jar-relocator:1.7'
     compileOnly 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.13.1"
@@ -81,6 +78,10 @@ dependencies {
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
+
+    // Local
+    implementation fileTree(dir: 'libs', include: '*.jar')
+    compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
 }
 
 configurations.implementation {

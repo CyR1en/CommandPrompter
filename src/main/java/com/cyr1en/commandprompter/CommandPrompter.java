@@ -30,6 +30,7 @@ import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.config.PromptConfig;
+import com.cyr1en.commandprompter.dependencies.DependencyLoader;
 import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.CommandSendListener;
@@ -77,6 +78,7 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
+        new DependencyLoader(this).loadDependency();
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
@@ -155,8 +157,7 @@ public class CommandPrompter extends JavaPlugin {
         commandManager.registerCommand(Cancel.class);
         PluginCommand command = getCommand("commandprompter");
         Objects.requireNonNull(command).setExecutor(commandManager);
-        commandManager.registerTabCompleter(command);
-        //CommodoreRegistry.register(this, command);
+        CommodoreRegistry.register(this, command);
     }
 
     private void setupCommandManager() {

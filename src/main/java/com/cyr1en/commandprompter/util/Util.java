@@ -3,6 +3,11 @@ package com.cyr1en.commandprompter.util;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -21,6 +26,19 @@ public class Util {
         materialString = materialString.toUpperCase(Locale.ROOT);
         var mat = Material.getMaterial(materialString);
         return Objects.isNull(mat) ? defaultMaterial : mat;
+    }
+
+    public static boolean checkSHA1(File file, String checksum) {
+        try {
+            var data = Files.readAllBytes(file.toPath());
+            var hash = MessageDigest.getInstance("SHA-1").digest(data);
+            var sb = new StringBuilder();
+            for (byte b : hash)
+                sb.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
+            return sb.toString().equals(checksum);
+        } catch (NoSuchAlgorithmException | IOException e) {
+            return false;
+        }
     }
 
     public static class ConsumerFallback<T> {
