@@ -105,6 +105,11 @@ shadowJar {
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
+
+
+    manifest {
+        attributes "Bundled": true
+    }
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
