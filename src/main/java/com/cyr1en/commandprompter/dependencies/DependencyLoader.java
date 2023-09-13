@@ -61,8 +61,17 @@ public class DependencyLoader {
             return true;
         } catch (IOException e) {
             plugin.getPluginLogger().err("Failed to download relocator jar!");
+            plugin.getPluginLogger().err("Cannot load dependencies on run time!");
+            plugin.getPluginLogger().err("Please download it manually from " + RELOCATOR_JAR.url() + " and put it in the lib folder.");
+            sendBundledMessage();
             return false;
         }
+    }
+
+    private void sendBundledMessage() {
+        var version = plugin.getUpdateChecker().getCurrVersion().asString();
+        plugin.getPluginLogger().err("Alternatively, you can download the bundled version of CommandPrompter-" + version + " here:");
+        plugin.getPluginLogger().err("https://github.com/CyR1en/CommandPrompter/releases/tag/" + version);
     }
 
     public File initLibDirectory() {
