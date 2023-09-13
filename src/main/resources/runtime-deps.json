@@ -1,0 +1,29 @@
+{
+  "IF": {
+    "filename": "IF-0.10.11.jar",
+    "url": "https://github.com/stefvanschie/IF/releases/download/v0.10.11/IF-0.10.11.jar",
+    "relocation": [
+      "com.github.stefvanschie.inventoryframework",
+      "com.cyr1en.inventoryframework"
+    ],
+    "sha1": "26aaf95a5552972d6612febabbe31776b902ee75"
+  },
+  "Commodore": {
+    "filename": "commodore-2.2.jar",
+    "url": "https://repo1.maven.org/maven2/me/lucko/commodore/2.2/commodore-2.2.jar",
+    "relocation": [
+      "me.lucko.commodore",
+      "com.cyr1en.commodore"
+    ],
+    "sha1": "08d4cc5c4438fbc4ed6e6052b1fb7cc9aff5a3d8"
+  },
+  "Commodore-File": {
+    "filename": "commodore-file-1.0.jar",
+    "url": "https://repo1.maven.org/maven2/me/lucko/commodore-file/1.0/commodore-file-1.0.jar",
+    "relocation": [
+      "me.lucko.commodore",
+      "com.cyr1en.commodore"
+    ],
+    "sha1": "d0a8078c2fd05ae87f336950b9a583969d9087e2"
+  }
+}

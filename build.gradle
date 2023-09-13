@@ -37,7 +37,7 @@ java {
     }
 }
 
-PluginManifest manifest = [
+PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
         version    : new Version(major: 2, minor: 3, patch: 1, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
@@ -46,7 +46,7 @@ PluginManifest manifest = [
 ]
 
 group = 'com.cyr1en'
-version = manifest.version.toString()
+version = pluginManifest.version.toString()
 
 repositories {
     mavenCentral()
@@ -61,16 +61,16 @@ repositories {
 }
 
 dependencies {
-    implementation 'me.lucko:commodore:2.2'
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.6.6-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation fileTree(dir: 'libs', include: '*.jar')
 
-    compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
+    // Exclude these
+    implementation 'me.lucko:commodore:2.2'
+    implementation 'me.lucko:jar-relocator:1.7'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.13.1"
@@ -80,6 +80,10 @@ dependencies {
     compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
+
+    // Local
+    implementation fileTree(dir: 'libs', include: '*.jar')
+    compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
 }
 
 configurations.implementation {
@@ -93,9 +97,41 @@ shadowJar {
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set(manifest.version.classifier)
-    archiveVersion.set(manifest.version.getFullVersion())
+    archiveClassifier.set(pluginManifest.version.classifier + "-Bundled")
+    archiveVersion.set(pluginManifest.version.getFullVersion())
 
+    relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
+    relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
+    relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
+    relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
+    relocate 'org.bstats', 'com.cyr1en.bstats'
+
+
+    manifest {
+        attributes "Bundled": true
+    }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+
+tasks.register("lightJar", ShadowJar) {
+    archiveClassifier.set(pluginManifest.version.classifier)
+    from sourceSets.main.output
+    configurations = [project.configurations.runtimeClasspath]
+
+
+    dependencies {
+        exclude(dependency('com.mojang:brigadier'))
+        exclude(dependency('com.github.stefvanschie.inventoryframework:IF'))
+        exclude(dependency('me.lucko:jar-relocator'))
+        exclude(dependency('me.lucko:commodore'))
+        exclude(dependency('me.lucko:commodore-file'))
+        exclude(dependency('org.ow2.asm:asm'))
+        exclude(dependency('org.ow2.asm:asm-commons'))
+        exclude(dependency('org.ow2.asm:asm-tree'))
+        exclude(dependency('org.ow2.asm:asm-analysis'))
+    }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
@@ -107,11 +143,11 @@ processResources {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     from(sourceSets.main.resources.srcDirs) {
         expand(
-                'projectName': manifest.name,
+                'projectName': pluginManifest.name,
                 'projectVersion': version,
-                'projectAuthor': manifest.author,
-                'projectDescription': manifest.description,
-                'projectEntry': manifest.entry
+                'projectAuthor': pluginManifest.author,
+                'projectDescription': pluginManifest.description,
+                'projectEntry': pluginManifest.entry
         )
         include 'plugin.yml'
     }
@@ -119,6 +155,7 @@ processResources {
 
 artifacts {
     archives shadowJar
+    archives lightJar
 }
 
 publishing {
