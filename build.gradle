@@ -37,7 +37,7 @@ java {
     }
 }
 
-PluginManifest manifest = [
+PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
         version    : new Version(major: 2, minor: 3, patch: 1, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
@@ -46,7 +46,7 @@ PluginManifest manifest = [
 ]
 
 group = 'com.cyr1en'
-version = manifest.version.toString()
+version = pluginManifest.version.toString()
 
 repositories {
     mavenCentral()
@@ -91,15 +91,14 @@ configurations.implementation {
     exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
-
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set(manifest.version.classifier + "-Bundled")
-    archiveVersion.set(manifest.version.getFullVersion())
+    archiveClassifier.set(pluginManifest.version.classifier + "-Bundled")
+    archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
@@ -112,7 +111,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 
 tasks.register("lightJar", ShadowJar) {
-    archiveClassifier.set(manifest.version.classifier)
+    archiveClassifier.set(pluginManifest.version.classifier)
     from sourceSets.main.output
     configurations = [project.configurations.runtimeClasspath]
 
@@ -139,11 +138,11 @@ processResources {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     from(sourceSets.main.resources.srcDirs) {
         expand(
-                'projectName': manifest.name,
+                'projectName': pluginManifest.name,
                 'projectVersion': version,
-                'projectAuthor': manifest.author,
-                'projectDescription': manifest.description,
-                'projectEntry': manifest.entry
+                'projectAuthor': pluginManifest.author,
+                'projectDescription': pluginManifest.description,
+                'projectEntry': pluginManifest.entry
         )
         include 'plugin.yml'
     }
