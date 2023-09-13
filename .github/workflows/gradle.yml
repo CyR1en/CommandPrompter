@@ -42,6 +42,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - name: Publish to Kakuno
+        env:
+          KAKUNO_USER: ${{ secrets.KAKUNO_USER }}
+          KAKUNO_TOKEN: ${{ secrets.KAKUNO_TOKEN }}
+        run: ./gradlew clean build publish
       - name: Get Previous Tag
         id: previoustag
         uses: "WyriHaximus/github-action-get-previous-tag@v1"
@@ -52,9 +57,5 @@ jobs:
           GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         run:
           gh release upload ${{ steps.previoustag.outputs.tag }} build/libs/*.jar
-      - name: Publish to Kakuno
-        env:
-          KAKUNO_USER: ${{ secrets.KAKUNO_USER }}
-          KAKUNO_TOKEN: ${{ secrets.KAKUNO_TOKEN }}
-        run: ./gradlew publish
+
 
