@@ -1,10 +1,14 @@
 package com.cyr1en.commandprompter.util;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.CharStreams;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +41,17 @@ public class Util {
                 sb.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
             return sb.toString().equals(checksum);
         } catch (NoSuchAlgorithmException | IOException e) {
+            return false;
+        }
+    }
+
+    public static boolean isBundledVersion(Plugin plugin) {
+        var is = plugin.getResource("META-INF/MANIFEST.MF");
+        if (is == null) return false;
+        try {
+            var str = CharStreams.toString(new InputStreamReader(is, Charsets.UTF_8));
+            return str.contains("Bundled: true");
+        } catch (IOException e) {
             return false;
         }
     }

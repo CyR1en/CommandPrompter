@@ -42,6 +42,7 @@ import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
+import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
@@ -78,7 +79,7 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-        new DependencyLoader(this).loadDependency();
+        loadDeps();
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
@@ -106,6 +107,14 @@ public class CommandPrompter extends JavaPlugin {
         promptManager = new PromptManager(this);
         initCommandListener();
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
+    }
+
+    private void loadDeps() {
+        if (!Util.isBundledVersion(this)) {
+            new DependencyLoader(this).loadDependency();
+            return;
+        }
+        getPluginLogger().info("This is a bundled version! Skipping dependency loading");
     }
 
     /**
