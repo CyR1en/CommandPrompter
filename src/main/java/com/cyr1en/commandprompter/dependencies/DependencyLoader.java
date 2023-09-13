@@ -39,7 +39,7 @@ public class DependencyLoader {
         relocatorAvailable = initRelocator();
     }
 
-    public boolean initRelocator() {
+    private boolean initRelocator() {
         plugin.getPluginLogger().debug("Loading relocator jar...");
         try {
             var file = new File(libDir, RELOCATOR_JAR.filename());
