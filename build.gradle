@@ -67,9 +67,11 @@ dependencies {
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
-    compileOnly 'me.lucko:commodore:2.2'
-    compileOnly 'me.lucko:jar-relocator:1.7'
-    compileOnly 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
+    // Exclude these
+    implementation 'me.lucko:commodore:2.2'
+    implementation 'me.lucko:jar-relocator:1.7'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
+
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.13.1"
     compileOnly "net.kyori:adventure-text-serializer-plain:4.13.1"
@@ -89,15 +91,43 @@ configurations.implementation {
     exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
+
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set(manifest.version.classifier)
+    archiveClassifier.set(manifest.version.classifier + "-Bundled")
     archiveVersion.set(manifest.version.getFullVersion())
 
+    relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
+    relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
+    relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
+    relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
+    relocate 'org.bstats', 'com.cyr1en.bstats'
+}
+
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+
+tasks.register("lightJar", ShadowJar) {
+    archiveClassifier.set(manifest.version.classifier)
+    from sourceSets.main.output
+    configurations = [project.configurations.runtimeClasspath]
+
+
+    dependencies {
+        exclude(dependency('com.mojang:brigadier'))
+        exclude(dependency('com.github.stefvanschie.inventoryframework:IF'))
+        exclude(dependency('me.lucko:jar-relocator'))
+        exclude(dependency('me.lucko:commodore'))
+        exclude(dependency('me.lucko:commodore-file'))
+        exclude(dependency('org.ow2.asm:asm'))
+        exclude(dependency('org.ow2.asm:asm-commons'))
+        exclude(dependency('org.ow2.asm:asm-tree'))
+        exclude(dependency('org.ow2.asm:asm-analysis'))
+    }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
@@ -121,6 +151,7 @@ processResources {
 
 artifacts {
     archives shadowJar
+    archives lightJar
 }
 
 publishing {
