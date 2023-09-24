@@ -110,11 +110,20 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void loadDeps() {
-        if (!Util.isBundledVersion(this)) {
-            new DependencyLoader(this).loadDependency();
+        if (Util.isBundledVersion(this)) {
+            getPluginLogger().info("This is a bundled version! Skipping dependency loading");
             return;
         }
-        getPluginLogger().info("This is a bundled version! Skipping dependency loading");
+
+        var depLoader = new DependencyLoader(this);
+        if (depLoader.isRelocatorAvailable()) {
+            depLoader.loadDependency();
+            return;
+        }
+
+        getPluginLogger().err("Unable to load dependencies!");
+        depLoader.sendBundledMessage();
+        Bukkit.getPluginManager().disablePlugin(this);
     }
 
     /**
