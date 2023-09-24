@@ -26,6 +26,13 @@ public class DependencyLoader {
             "https://repo1.maven.org/maven2/me/lucko/jar-relocator/1.7/jar-relocator-1.7.jar",
             new String[]{"", ""},
             "1584ce507e0c165e219d32b33765d42988494891");
+
+    private static final Dependency ASM_COMMONS = new Dependency(
+            "asm-commons-9.5.jar",
+            "https://repo1.maven.org/maven2/org/ow2/asm/asm-commons/9.5/asm-commons-9.5.jar",
+            new String[]{"", ""},
+            "19ab5b5800a3910d30d3a3e64fdb00fd0cb42de0");
+
     private final URLClassLoaderAccess access;
     private final CommandPrompter plugin;
     private final File libDir;
@@ -39,23 +46,17 @@ public class DependencyLoader {
         relocatorAvailable = initRelocator();
     }
 
+    public boolean isRelocatorAvailable() {
+        return relocatorAvailable;
+    }
+
     private boolean initRelocator() {
+        initASM();
         plugin.getPluginLogger().debug("Loading relocator jar...");
         try {
+            if (!downloadCheckedDep(RELOCATOR_JAR)) return false;
+
             var file = new File(libDir, RELOCATOR_JAR.filename());
-            if (file.exists()) {
-                plugin.getPluginLogger().debug("Relocator jar already exists!");
-                access.addURL(file.toURI().toURL());
-                plugin.getPluginLogger().debug("Relocator jar loaded!");
-                return true;
-            }
-            var in = new URL(RELOCATOR_JAR.url()).openStream();
-            Files.copy(in, file.toPath());
-            plugin.getPluginLogger().debug("Relocator jar downloaded!");
-            if (!Util.checkSHA1(file, RELOCATOR_JAR.sha1())) {
-                plugin.getPluginLogger().warn("Relocator jar checksum does not match!");
-                return false;
-            }
             access.addURL(file.toURI().toURL());
             plugin.getPluginLogger().debug("Relocator jar loaded!");
             return true;
@@ -68,10 +69,56 @@ public class DependencyLoader {
         }
     }
 
-    private void sendBundledMessage() {
+    private void initASM() {
+        try {
+            plugin.getPluginLogger().debug("Checking ASM Remapper...");
+            var clz = Class.forName("org.objectweb.asm.commons.Remapper");
+            plugin.getPluginLogger().debug("ASM Remapper found!");
+        } catch (ClassNotFoundException e) {
+            plugin.getPluginLogger().debug("ASM Remapper not found!");
+            plugin.getPluginLogger().debug("Loading ASM...");
+            try {
+                if (!downloadCheckedDep(ASM_COMMONS)) return;
+                var file = new File(libDir, ASM_COMMONS.filename());
+                access.addURL(file.toURI().toURL());
+                plugin.getPluginLogger().debug("ASM loaded!");
+            } catch (IOException ex) {
+                plugin.getPluginLogger().err("Failed to download ASM!");
+                plugin.getPluginLogger().err("Cannot load dependencies on run time!");
+                plugin.getPluginLogger().err("Please download it manually from " + ASM_COMMONS.url() + " and put it in the lib folder.");
+                sendBundledMessage();
+            }
+        }
+    }
+
+    private boolean downloadCheckedDep(Dependency dependency) throws IOException {
+        var file = new File(libDir, dependency.filename());
+        if (file.exists()) {
+            plugin.getPluginLogger().debug(dependency.filename() + " already exists!");
+            return true;
+        }
+
+        var in = new URL(dependency.url()).openStream();
+        Files.copy(in, file.toPath());
+
+        var sha1 = dependency.sha1();
+        if (!sha1.isBlank() && !Util.checkSHA1(file, sha1)) {
+            plugin.getPluginLogger().warn(dependency.filename() + " checksum does not match!");
+            plugin.getPluginLogger().err("Please download it manually from " + dependency.url() + " and put it in the lib folder.");
+            file.delete();
+            return false;
+        }
+        return true;
+    }
+
+    public void sendBundledMessage() {
         var version = plugin.getUpdateChecker().getCurrVersion().asString();
         plugin.getPluginLogger().err("Alternatively, you can download the bundled version of CommandPrompter-" + version + " here:");
         plugin.getPluginLogger().err("https://github.com/CyR1en/CommandPrompter/releases/tag/" + version);
+    }
+
+    private void sendDownloadManually(Dependency dependency) {
+        plugin.getPluginLogger().err("Please download it manually from " + dependency.url() + " and put it in the lib folder.");
     }
 
     public File initLibDirectory() {
@@ -141,14 +188,9 @@ public class DependencyLoader {
             var file = new File(libDir, dependency.filename());
             if (file.exists()) continue;
             try (var in = new URL(dependency.url()).openStream()) {
-                Files.copy(in, file.toPath());
-                // check sha256
-                var sha1 = dependency.sha1();
-                if (!sha1.isBlank() && !Util.checkSHA1(file, sha1)) {
-                    plugin.getPluginLogger().err("The downloaded " + dependency.filename() + " does not match the checksum!");
-                    plugin.getPluginLogger().err("Please download it manually from " + dependency.url() + " and put it in the lib folder.");
-                    file.delete();
-                }
+                if (downloadCheckedDep(dependency))
+                    plugin.getPluginLogger().debug("Downloaded " + dependency.filename() + "!");
+                else throw new IOException();
             } catch (IOException e) {
                 plugin.getPluginLogger().err("Failed to download " + dependency.filename() + "!");
                 plugin.getPluginLogger().err("Please download it manually from " + dependency.url() + " and put it in the lib folder.");
