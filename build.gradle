@@ -63,14 +63,14 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.6.6-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.9.0-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
     // Exclude these
     implementation 'me.lucko:commodore:2.2'
     implementation 'me.lucko:jar-relocator:1.7'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.9'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.11'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.13.1"
