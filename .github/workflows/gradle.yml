@@ -47,13 +47,19 @@ jobs:
           KAKUNO_USER: ${{ secrets.KAKUNO_USER }}
           KAKUNO_TOKEN: ${{ secrets.KAKUNO_TOKEN }}
         run: ./gradlew clean build publish
-      - name: Get Previous Tag
-        id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+
+      - name: Export LATEST_TAG
+        run: |
+          echo "LATEST_TAG=$(curl -qsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/releases/latest" \
+          | jq -r .tag_name)" >> $GITHUB_ENV
       - name: Upload Release Artifact
         env:
           GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         run:
-          gh release upload ${{ steps.previoustag.outputs.tag }} build/libs/*.jar
+          gh release upload ${{ env.LATEST_TAG }} build/libs/*.jar
 
 
