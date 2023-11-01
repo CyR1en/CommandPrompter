@@ -73,6 +73,10 @@ $RECYCLE.BIN/
 *.iml
 out
 gen### Java template
+
+# Vscode
+.vscode
+
 # Compiled class file
 *.class
 
