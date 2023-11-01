@@ -116,7 +116,7 @@ public class CommandPrompter extends JavaPlugin {
         }
 
         var depLoader = new DependencyLoader(this);
-        if (depLoader.isRelocatorAvailable()) {
+        if (depLoader.relocatorAvailable()) {
             depLoader.loadDependency();
             return;
         }
