@@ -107,10 +107,10 @@ public class HeadCache implements Listener {
                 .map(Optional::get).toList();
     }
 
-    private boolean checkNameFromItemStack(ItemStack is, String pName) {
-        if (Objects.isNull(is) || Objects.isNull(is.getItemMeta())) return false;
-        return Util.stripColor(is.getItemMeta().getDisplayName()).equals(pName);
-    }
+    // private boolean checkNameFromItemStack(ItemStack is, String pName) {
+    //     if (Objects.isNull(is) || Objects.isNull(is.getItemMeta())) return false;
+    //     return Util.stripColor(is.getItemMeta().getDisplayName()).equals(pName);
+    // }
 
 
     private SkullMeta makeSkullMeta(Player owningPlayer, PluginLogger logger) {

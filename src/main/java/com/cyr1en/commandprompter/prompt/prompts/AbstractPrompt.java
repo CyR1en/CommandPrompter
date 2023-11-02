@@ -91,13 +91,6 @@ public abstract class AbstractPrompt implements Prompt {
         return args;
     }
 
-    /**
-     *
-     */
-    private void setRegexCheck() {
-        plugin.getPluginLogger().debug("Args: " + args);
-    }
-
     @Override
     public void setRegexCheck(String regexCheck) {
         this.regexCheck = Pattern.compile(regexCheck);

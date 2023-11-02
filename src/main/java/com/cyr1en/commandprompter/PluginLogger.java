@@ -12,7 +12,6 @@ import java.util.logging.Level;
 public class PluginLogger {
 
     private String prefix;
-    private String plainPrefix;
     private String debugPrefix;
 
     private final ColorGradient normalGrad;
@@ -20,10 +19,8 @@ public class PluginLogger {
 
     private boolean debugMode = false;
     private boolean isFancy = true;
-    private CommandPrompter plugin;
 
     public PluginLogger(CommandPrompter plugin, String prefix) {
-        this.plugin = plugin;
         this.isFancy = plugin.getConfiguration().fancyLogger();
         this.debugMode = plugin.getConfiguration().debugMode();
         AnsiConsole.systemInstall();
@@ -42,7 +39,6 @@ public class PluginLogger {
     }
 
     public void setPrefix(String prefix) {
-        this.plainPrefix = prefix;
         var sep = isFancy ? new Ansi().fgRgb(153, 214, 90).a(">>").reset().toString() : ">>";
         var normal = isFancy ? makeGradient(prefix, normalGrad) : prefix;
         var debug = isFancy ? makeGradient(prefix + "-" + "Debug", debugGrad) : prefix + "-" + "Debug";
@@ -93,8 +89,9 @@ public class PluginLogger {
             lastDebugClass = caller;
 
         if (debugMode) {
-            msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg) :
-                    Objects.isNull(lastDebugClass) ? msg : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
+            msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg)
+                    : Objects.isNull(lastDebugClass) ? msg
+                            : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
             var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
             log(debugPrefix, Level.INFO, str, args);
         }
