@@ -80,7 +80,11 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-        loadDeps();
+
+        var result = loadDeps();
+        if (!result)
+            return;
+
         i18n = new I18N(this, "CommandPrompter");
         setupUpdater();
         setupCommands();
@@ -98,8 +102,13 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        promptManager.clearPromptRegistry();
-        getPluginLogger().ansiUninstall();
+        if (promptManager != null)
+            promptManager.clearPromptRegistry();
+
+        PluginLogger logger;
+        if ((logger = getPluginLogger()) != null)
+            logger.ansiUninstall();
+
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
@@ -110,21 +119,27 @@ public class CommandPrompter extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
-    private void loadDeps() {
+    private boolean loadDeps() {
         if (Util.isBundledVersion(this)) {
             getPluginLogger().info("This is a bundled version! Skipping dependency loading");
-            return;
+            return true;
         }
 
+        getPluginLogger().info("Loading dependencies...");
+
         var depLoader = new DependencyLoader(this);
+        if (!depLoader.loadCoreDeps())
+            return false;
+
         if (depLoader.relocatorAvailable()) {
             depLoader.loadDependency();
-            return;
+            return true;
         }
 
         getPluginLogger().err("Unable to load dependencies!");
         depLoader.sendBundledMessage();
         Bukkit.getPluginManager().disablePlugin(this);
+        return false;
     }
 
     /**
@@ -201,7 +216,8 @@ public class CommandPrompter extends JavaPlugin {
 
     private void setupUpdater() {
         updateChecker = new UpdateChecker(this, 47772);
-        if (updateChecker.isDisabled()) return;
+        if (updateChecker.isDisabled())
+            return;
         Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (updateChecker.newVersionAvailable())
                 logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
@@ -273,4 +289,3 @@ public class CommandPrompter extends JavaPlugin {
         return updateChecker;
     }
 }
-

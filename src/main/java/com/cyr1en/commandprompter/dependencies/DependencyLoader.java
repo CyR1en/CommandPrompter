@@ -27,8 +27,6 @@ public class DependencyLoader {
         this.plugin = plugin;
         access = URLClassLoaderAccess.create((URLClassLoader) plugin.getClass().getClassLoader());
         libDir = initLibDirectory();
-        CoreDependency.initLogger(plugin.getPluginLogger());
-        CoreDependency.loadAll(access, libDir);
     }
 
     private boolean downloadCheckedDep(Dependency dependency) throws IOException {
@@ -47,10 +45,9 @@ public class DependencyLoader {
     }
 
     public void sendBundledMessage() {
-        var version = plugin.getUpdateChecker().getCurrVersion().asString();
         plugin.getPluginLogger()
-                .err("Alternatively, you can download the bundled version of CommandPrompter-" + version + " here:");
-        plugin.getPluginLogger().err("https://github.com/CyR1en/CommandPrompter/releases/tag/" + version);
+                .err("Alternatively, you can download the latest bundled version of CommandPrompter here:");
+        plugin.getPluginLogger().err("https://github.com/CyR1en/CommandPrompter/releases/latest");
     }
 
     public File initLibDirectory() {
@@ -62,11 +59,17 @@ public class DependencyLoader {
     }
 
     public void loadDependency() {
-        plugin.getPluginLogger().info("Loading dependencies...");
         var dependencies = readDependencies("runtime-deps.json");
         downloadDependencies(dependencies);
         loadAll(dependencies);
         plugin.getPluginLogger().info("Finished loading dependencies");
+    }
+
+    public boolean loadCoreDeps() {
+        CoreDependency.initLogger(plugin.getPluginLogger());
+        var result = CoreDependency.loadAll(access, libDir);
+        if (!result) sendBundledMessage();
+        return result;
     }
 
     private void loadAll(ImmutableList<Dependency> dependencies) {
@@ -86,7 +89,10 @@ public class DependencyLoader {
                         file = new File(libDir, dependency.getFileName());
                     }
                 }
-                access.addURL(file.toURI().toURL());
+                var url = file.toURI().toURL();
+                if (url == null)
+                    continue;
+                access.addURL(url);
             } catch (IOException e) {
                 plugin.getPluginLogger().err("Failed to load " + dependency.getFileName() + "!");
             }

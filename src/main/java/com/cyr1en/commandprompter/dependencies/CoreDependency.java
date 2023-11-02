@@ -55,41 +55,48 @@ public enum CoreDependency {
     public boolean inClassPath() {
         logger.debug("Checking if %s is loaded", fileName);
         try {
-            Class.forName(targetClass);
+            Class.forName(targetClass, false, CoreDependency.class.getClassLoader());
             logger.debug("%s found in classpath", fileName);
             return true;
         } catch (ClassNotFoundException e) {
             logger.debug("%s not found in classpath!", fileName);
-            logger.debug("attempting to load...");
             return false;
         }
     }
 
-    void load(URLClassLoaderAccess access, File libDir) {
+    boolean load(URLClassLoaderAccess access, File libDir) {
         if (!inClassPath()) {
             logger.debug("Loading %s...", fileName);
             try {
                 var file = new File(libDir, fileName);
-                access.addURL(file.toURI().toURL());
-                logger.debug("%s loaded!", fileName);
+                var url = file.toURI().toURL();
+                if (url != null) {
+                    access.addURL(url);
+                    logger.debug("%s loaded!", fileName);
+                } else {
+                    sendErrorMessage();
+                    return false;
+                }
             } catch (Exception e) {
                 sendErrorMessage();
-                System.exit(0);
+                return false;
             }
         }
+        return true;
     }
 
-    void download() {
+    boolean download() {
         try {
             var downloaded = asDependency().downloadChecked(new File("lib"));
             if (!downloaded) {
                 sendErrorMessage();
-                System.exit(0);
+                return false;
             }
         } catch (Exception e) {
             sendErrorMessage();
-            System.exit(0);
+            return false;
         }
+        return true;
     }
 
     void sendErrorMessage() {
@@ -99,13 +106,18 @@ public enum CoreDependency {
         System.exit(0);
     }
 
-    public static void loadAll(URLClassLoaderAccess access, File libDir) {
+    public static boolean loadAll(URLClassLoaderAccess access, File libDir) {
         logger.info("Loading core dependencies...");
         for (CoreDependency dependency : values()) {
-            dependency.download();
-            dependency.load(access, libDir);
+            var result = dependency.download();
+            if (!result)
+                return false;
+            result = dependency.load(access, libDir);
+            if (!result)
+                return false;
         }
         logger.info("Finished loading core dependencies!");
+        return true;
     }
 
     public static void initLogger(PluginLogger logger) {
