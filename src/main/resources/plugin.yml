@@ -11,6 +11,10 @@ commands:
   commandprompter:
     aliases: [cmdprompter, cmdp]
     description: General CommandPrompter commands
+  consoledelegate:
+    aliases: [cdelegate]
+    permission: commandprompter.consoledelegate
+    description: Delegate command to console
 
 permissions:
   commandprompter.reload:
@@ -19,3 +23,5 @@ permissions:
     description: Allow sender to use CommandPrompter argument feature.
   commandprompter.cancel:
     description: Allow sender to cancel their own command completion.
+  commandprompter.consoledelegate:
+    description: Allow sender to delegate command to console.

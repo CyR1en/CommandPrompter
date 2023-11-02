@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter;
 
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.commands.ConsoleDelegate;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
@@ -174,6 +175,8 @@ public class CommandPrompter extends JavaPlugin {
         commandManager.registerCommand(Reload.class);
         commandManager.registerCommand(Cancel.class);
         PluginCommand command = getCommand("commandprompter");
+        PluginCommand delegate = getCommand("consoledelegate");
+        delegate.setExecutor(new ConsoleDelegate(this));
         Objects.requireNonNull(command).setExecutor(commandManager);
         CommodoreRegistry.register(this, command);
     }

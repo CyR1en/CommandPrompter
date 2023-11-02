@@ -25,7 +25,6 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
