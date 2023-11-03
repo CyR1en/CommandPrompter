@@ -33,7 +33,8 @@ import java.util.Objects;
 /**
  * Class that will hold all ongoing prompts.
  * <p>
- * The data structure of this class is a hash table. The key of this data struct is the command
+ * The data structure of this class is a hash table. The key of this data struct
+ * is the command
  * sender itself and the value is a {@link PromptQueue}
  */
 public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
@@ -45,26 +46,37 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
     }
 
     public void initRegistryFor(PromptContext context, String command, String escapedRegex) {
-        if (containsKey(context.getSender())) return;
-        var queue = new PromptQueue(command, context.getSender().isOp(), context.isSetPermissionAttachment(), escapedRegex);
+        if (containsKey(context.getSender()))
+            return;
+
+        var queue = new PromptQueue(
+                command,
+                context.getSender().isOp(),
+                context.isSetPermissionAttachment(),
+                context.isConsoleDelegate(),
+                escapedRegex);
+
         put(context.getSender(), queue);
     }
 
     public void addPrompt(CommandSender sender, Prompt p) {
-        if (!containsKey(sender)) return;
+        if (!containsKey(sender))
+            return;
         get(sender).add(p);
         pluginInstance.getPluginLogger().debug("Registered: (%s : %s)",
                 sender.getName(), p.getClass().getSimpleName());
     }
 
     public void unregister(CommandSender sender) {
-        if (!containsKey(sender)) return;
+        if (!containsKey(sender))
+            return;
         remove(sender);
         pluginInstance.getPluginLogger().debug("Un-Registered: %s", sender.getName());
     }
 
     public boolean inCommandProcess(CommandSender sender) {
-        if (!containsKey(sender)) return false;
+        if (!containsKey(sender))
+            return false;
         if (Objects.isNull(get(sender))) {
             remove(sender);
             return false;

@@ -16,20 +16,22 @@ public class PromptQueue extends LinkedList<Prompt> {
     private String command;
     private final LinkedList<String> completed;
     private final String escapedRegex;
-    private final boolean isOp;
 
+    private final boolean isOp;
+    private final boolean isDelegate;
     private final boolean isSetPermissionAttachment;
 
     private final List<PostCommandMeta> postCommandMetas;
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, String escapedRegex) {
+    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate, String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
+        this.isDelegate = isDelegate;
         this.isSetPermissionAttachment = isSetPermissionAttachment;
         this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
@@ -45,6 +47,10 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     public boolean isSetPermissionAttachment() {
         return isSetPermissionAttachment;
+    }
+
+    public boolean isDelegate() {
+        return isDelegate;
     }
 
     public String getCompleteCommand() {
@@ -72,6 +78,10 @@ public class PromptQueue extends LinkedList<Prompt> {
             Dispatcher.dispatchWithAttachment(plugin, (Player) sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
                     plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
+        else if (isDelegate()) {
+            logger.debug("Dispatching as console");
+            Dispatcher.dispatchConsole(getCompleteCommand());
+        }
         else
             Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
 
