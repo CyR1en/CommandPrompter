@@ -89,10 +89,12 @@ public class CommandPrompter extends JavaPlugin {
             return;
 
         i18n = new I18N(this, "CommandPrompter");
-        setupUpdater();
-        setupCommands();
-        initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
+
+        setupUpdater();
+        initPromptSystem();
+        setupCommands();
+
         instance = this;
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
 
