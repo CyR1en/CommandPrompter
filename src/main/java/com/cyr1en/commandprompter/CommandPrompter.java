@@ -80,7 +80,9 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-
+        var serverType = ServerType.resolve();
+        logger.debug("Server Name: " + serverType.name());
+        logger.debug("Server Version: " + serverType.version());
         var result = loadDeps();
         if (!result)
             return;
