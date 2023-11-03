@@ -80,7 +80,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public Class<? extends Prompt> put(String key, Class<? extends Prompt> value) {
         var ret = super.put(key, value);
         plugin.getPluginLogger().info("Registered " +
-                new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()));
+                new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()).reset());
         return ret;
     }
 
