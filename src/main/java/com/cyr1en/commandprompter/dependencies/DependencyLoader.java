@@ -5,7 +5,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.gson.Gson;
-import com.google.gson.JsonParser;
+import com.google.gson.JsonObject;
 import me.lucko.jarrelocator.JarRelocator;
 import me.lucko.jarrelocator.Relocation;
 
@@ -156,7 +156,7 @@ public class DependencyLoader {
         } catch (IOException e) {
             return ImmutableList.of();
         }
-        var json = JsonParser.parseString(jsonStr).getAsJsonObject();
+        var json = new Gson().fromJson(jsonStr, JsonObject.class);
         for (var entry : json.entrySet()) {
             var obj = entry.getValue().getAsJsonObject();
             var dependency = new Gson().fromJson(obj, Dependency.class);
