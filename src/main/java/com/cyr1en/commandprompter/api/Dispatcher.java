@@ -69,7 +69,9 @@ public class Dispatcher {
      *
      * @param command command that would be dispatched.
      */
-    public static void dispatchOP(String command) {
+    public static void dispatchConsole(String command) {
+        if (command.codePointAt(0) == 0x2F)
+            command = command.replace("/", "");
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
     }
 
