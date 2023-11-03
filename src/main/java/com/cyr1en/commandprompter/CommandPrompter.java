@@ -133,15 +133,22 @@ public class CommandPrompter extends JavaPlugin {
         getPluginLogger().info("Loading dependencies...");
 
         var depLoader = new DependencyLoader(this);
+        if (!depLoader.isClassLoaderAccessSupported())
+            return depErrAndDisable("No access to URLClassloader, cannot load depedencies!", depLoader);
+
         if (!depLoader.loadCoreDeps())
-            return false;
+            return depErrAndDisable("Unable to load dependencies!", depLoader);
 
         if (depLoader.relocatorAvailable()) {
             depLoader.loadDependency();
             return true;
         }
 
-        getPluginLogger().err("Unable to load dependencies!");
+        return depErrAndDisable("Unable to load dependencies!", depLoader);
+    }
+
+    private boolean depErrAndDisable(String message, DependencyLoader depLoader) {
+        getPluginLogger().err(message);
         depLoader.sendBundledMessage();
         Bukkit.getPluginManager().disablePlugin(this);
         return false;

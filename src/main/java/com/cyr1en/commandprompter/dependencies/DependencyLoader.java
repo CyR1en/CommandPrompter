@@ -40,6 +40,10 @@ public class DependencyLoader {
         return downloaded;
     }
 
+    public boolean isClassLoaderAccessSupported() {
+        return !access.getClass().getSimpleName().equals("Noop");
+    }
+
     public boolean relocatorAvailable() {
         return CoreDependency.RELOCATOR.inClassPath();
     }
