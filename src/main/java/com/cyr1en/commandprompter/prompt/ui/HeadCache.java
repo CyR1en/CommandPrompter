@@ -30,12 +30,10 @@ public class HeadCache implements Listener {
     private final CommandPrompter plugin;
     private final PluginLogger logger;
 
-    private final String format;
 
     public HeadCache(CommandPrompter plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
-        this.format = plugin.getPromptConfig().skullNameFormat();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
