@@ -22,14 +22,16 @@ public class Dependency {
     }
 
     public boolean downloadChecked(File downloadDir) throws IOException {
-        var file = downloadDir;
-        if (file.exists())
-            return true;
+        if (!downloadDir.exists())
+            downloadDir.mkdir();
+
+        var file = new File(downloadDir, filename);
         
-
-        var in = new URL(getURL()).openStream();
-        Files.copy(in, file.toPath());
-
+        if (!file.exists()) {
+            var in = new URL(getURL()).openStream();
+            Files.copy(in, file.toPath());
+        }
+            
         var sha1 = getSHA1();
         if (!sha1.isBlank() && !Util.checkSHA1(file, sha1)) {
             file.delete();

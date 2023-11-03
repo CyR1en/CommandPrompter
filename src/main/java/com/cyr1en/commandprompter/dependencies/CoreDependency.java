@@ -55,7 +55,7 @@ public enum CoreDependency {
     public boolean inClassPath() {
         logger.debug("Checking if %s is loaded", fileName);
         try {
-            Class.forName(targetClass, false, CoreDependency.class.getClassLoader());
+            Class.forName(targetClass, false, logger.getClass().getClassLoader());
             logger.debug("%s found in classpath", fileName);
             return true;
         } catch (ClassNotFoundException e) {
@@ -85,9 +85,10 @@ public enum CoreDependency {
         return true;
     }
 
-    boolean download() {
+    boolean download(File libDir) {
+        logger.debug("Downloading %s", fileName);
         try {
-            var downloaded = asDependency().downloadChecked(new File("lib"));
+            var downloaded = asDependency().downloadChecked(libDir);
             if (!downloaded) {
                 sendErrorMessage();
                 return false;
@@ -102,14 +103,12 @@ public enum CoreDependency {
     void sendErrorMessage() {
         logger.err("Failed to download %s!", fileName);
         logger.err("Please download it manually from %s and put it in the lib folder.", url);
-        logger.err("Shutting down...");
-        System.exit(0);
     }
 
     public static boolean loadAll(URLClassLoaderAccess access, File libDir) {
         logger.info("Loading core dependencies...");
         for (CoreDependency dependency : values()) {
-            var result = dependency.download();
+            var result = dependency.download(libDir);
             if (!result)
                 return false;
             result = dependency.load(access, libDir);
