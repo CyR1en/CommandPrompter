@@ -25,7 +25,8 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate, String escapedRegex) {
+    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate,
+            String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
@@ -74,15 +75,14 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public void dispatch(CommandPrompter plugin, Player sender) {
-        if (isSetPermissionAttachment())
+        if (isDelegate()) {
+            logger.debug("Dispatching as console");
+            Dispatcher.dispatchConsole(getCompleteCommand());
+        } else if (isSetPermissionAttachment()) {
             Dispatcher.dispatchWithAttachment(plugin, (Player) sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
                     plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
-        else if (isDelegate()) {
-            logger.debug("Dispatching as console");
-            Dispatcher.dispatchConsole(getCompleteCommand());
-        }
-        else
+        } else
             Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
@@ -100,7 +100,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         });
         logger.debug("After parse: " + command);
 
-        if(isDelegate()) {
+        if (isDelegate()) {
             logger.debug("Dispatching PostCommand as console");
             Dispatcher.dispatchConsole(command);
             return;
@@ -108,11 +108,12 @@ public class PromptQueue extends LinkedList<Prompt> {
             logger.debug("Dispatching PostCommand as player");
             Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
         }
-        
+
     }
 
     /**
-     * @param promptIndex This will hold the index of the prompt answers to be injected in this post command.
+     * @param promptIndex This will hold the index of the prompt answers to be
+     *                    injected in this post command.
      */
     public record PostCommandMeta(String command, int[] promptIndex) {
         @Override
