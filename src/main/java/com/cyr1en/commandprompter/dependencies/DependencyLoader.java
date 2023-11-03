@@ -100,8 +100,6 @@ public class DependencyLoader {
     }
 
     private boolean relocateJar(Dependency dependency, File downloadedDep) {
-        if (!relocatorAvailable())
-            return false;
         plugin.getPluginLogger().debug("Relocating " + dependency.getFileName() + "...");
         try {
             var original = new File(libDir, dependency.getFileName().replace(".jar", "") + "-original.jar");
