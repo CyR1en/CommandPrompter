@@ -99,7 +99,16 @@ public class PromptQueue extends LinkedList<Prompt> {
             CommandPrompter.getInstance().getMessenger().sendMessage(sender, message);
         });
         logger.debug("After parse: " + command);
-        Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+
+        if(isDelegate()) {
+            logger.debug("Dispatching PostCommand as console");
+            Dispatcher.dispatchConsole(command);
+            return;
+        } else {
+            logger.debug("Dispatching PostCommand as player");
+            Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+        }
+        
     }
 
     /**
