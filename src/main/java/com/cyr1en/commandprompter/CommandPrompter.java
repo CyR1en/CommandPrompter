@@ -44,6 +44,7 @@ import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.commandprompter.util.Util;
+import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
