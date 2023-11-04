@@ -50,6 +50,16 @@ public class ControlPane extends StaticPane {
         }
     }
 
+    private void updatePage(InventoryClickEvent event, int nextPage) {
+        event.setCancelled(true);
+        try {
+            paginatedPane.setPage(nextPage);
+            gui.update();
+        } catch (IndexOutOfBoundsException ignore) {
+            plugin.getPluginLogger().debug("Could not update page.");
+        }
+    }
+
     private void setupButtons() {
         var pages = paginatedPane.getPages() - 1;
 
@@ -57,23 +67,13 @@ public class ControlPane extends StaticPane {
         var prevCMD = plugin.getPromptConfig().previousCustomModelData();
         var prevIS = new ItemStack(Util.getCheckedMaterial(prevMatString, Material.FEATHER));
         addItem(plugin.getPromptConfig().previousText(), prevIS, prevLoc, prevCMD,
-                c -> {
-                    c.setCancelled(true);
-                    var next = Math.max((paginatedPane.getPage() - 1), 0);
-                    paginatedPane.setPage(next);
-                    gui.update();
-                });
+                c -> updatePage(c, Math.max((paginatedPane.getPage() - 1), 0)));
 
         var nextMatString = plugin.getPromptConfig().nextItem();
         var nextCMD = plugin.getPromptConfig().nextCustomModelData();
         var nextIS = new ItemStack(Util.getCheckedMaterial(nextMatString, Material.FEATHER));
         addItem(plugin.getPromptConfig().nextText(), nextIS, nextLoc, nextCMD,
-                c -> {
-                    c.setCancelled(true);
-                    var next = Math.min((paginatedPane.getPage() + 1), pages);
-                    paginatedPane.setPage(next);
-                    gui.update();
-                });
+                c -> updatePage(c, Math.min((paginatedPane.getPage() + 1), pages)));
 
         var cancelMatString = plugin.getPromptConfig().cancelItem();
         var cancelCMD = plugin.getPromptConfig().cancelCustomModelData();
@@ -86,7 +86,8 @@ public class ControlPane extends StaticPane {
                 });
     }
 
-    private void addItem(String name, ItemStack itemStack, int x, int customModelData, Consumer<InventoryClickEvent> consumer) {
+    private void addItem(String name, ItemStack itemStack, int x, int customModelData,
+            Consumer<InventoryClickEvent> consumer) {
         var itemMeta = itemStack.getItemMeta();
         Objects.requireNonNull(itemMeta).setDisplayName(Util.color(name));
         itemMeta.setCustomModelData(customModelData == 0 ? null : customModelData);
