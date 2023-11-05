@@ -66,6 +66,10 @@ public class PromptQueue extends LinkedList<Prompt> {
         postCommandMetas.add(pcm);
     }
 
+    public boolean containsPCM() {
+        return postCommandMetas != null && !postCommandMetas.isEmpty();
+    }
+
     public String getCommand() {
         return command;
     }
@@ -86,7 +90,13 @@ public class PromptQueue extends LinkedList<Prompt> {
             Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
-            postCommandMetas.forEach(pcm -> execPCM(pcm, sender));
+            postCommandMetas.forEach(pcm -> {
+                if (pcm.delayTicks() > 0)
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> execPCM(pcm, sender),
+                            pcm.delayTicks());
+                else
+                    execPCM(pcm, sender);
+            });
     }
 
     private void execPCM(PostCommandMeta postCommandMeta, Player sender) {
@@ -115,7 +125,7 @@ public class PromptQueue extends LinkedList<Prompt> {
      * @param promptIndex This will hold the index of the prompt answers to be
      *                    injected in this post command.
      */
-    public record PostCommandMeta(String command, int[] promptIndex) {
+    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks) {
         @Override
         public String toString() {
             return "PostCommandMeta{" +
