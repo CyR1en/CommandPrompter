@@ -45,7 +45,8 @@ public class ContextProcessor {
             plugin.getMessenger().sendMessage(context.getSender(),
                     plugin.getI18N().getFormattedProperty("PromptInProgress",
                             plugin.getConfiguration().cancelKeyword()));
-            context.getCancellable().setCancelled(true);
+            if(context.getCancellable() != null)
+                context.getCancellable().setCancelled(true);
             return;
         }
 
