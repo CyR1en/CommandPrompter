@@ -45,10 +45,12 @@ import java.util.regex.Pattern;
 /**
  * Class that would manage all prompts.
  * <p>
- * We need to register a new prompt into this map. And we simply do that by appending a new
+ * We need to register a new prompt into this map. And we simply do that by
+ * appending a new
  * Prompt class with its optional argument key.
  * <p>
- * i.e: For chat prompt, the key would just be an empty string, and for an anvil prompt the key
+ * i.e: For chat prompt, the key would just be an empty string, and for an anvil
+ * prompt the key
  * would be 'a'.
  */
 public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
@@ -91,65 +93,82 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void sendPrompt(CommandSender sender) {
-        if (!promptRegistry.containsKey(sender)) return;
-        if (promptRegistry.get(sender).isEmpty()) return;
+        if (!promptRegistry.containsKey(sender))
+            return;
+
+        var queue = promptRegistry.get(sender);
+        if (queue.isEmpty() && !queue.containsPCM())
+            return;
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
-        var prompt = Objects.requireNonNull(promptRegistry.get(sender).peek());
-        Bukkit.getScheduler().runTaskLater(plugin, prompt::sendPrompt, 2L);
-        plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
+
+        if (!queue.isEmpty()) {
+            var prompt = Objects.requireNonNull(queue.peek());
+            Bukkit.getScheduler().runTaskLater(plugin, prompt::sendPrompt, 2L);
+            plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
+        } else if (queue.containsPCM()) {
+            // This means queue is empty but contains PCM. If it does, we just dispatch it.
+            dispatchQueue(sender, queue);
+        }
+
     }
 
     public void processPrompt(PromptContext context) {
         var sender = context.getSender();
 
-        if (!getPromptRegistry().containsKey(sender)) return;
-        if (promptRegistry.get(sender).isEmpty()) return;
+        if (!getPromptRegistry().containsKey(sender))
+            return;
 
-        var promptQueue = promptRegistry.get(sender);
+        var queue = promptRegistry.get(sender);
+        if (queue.isEmpty() && !queue.containsPCM())
+            return;
 
-        if (!checkInput(promptQueue, context))
+        if (!checkInput(queue, context))
             return;
 
         getPromptRegistry().get(sender).poll();
         getPromptRegistry().get(sender).addCompleted(context.getContent());
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
-            var queue = promptRegistry.get(sender);
-
-            var isCurrentOp = sender.isOp();
-            plugin.getPluginLogger().debug("Is Currently OP?: " + isCurrentOp);
-            plugin.getPluginLogger().debug("PromptQueue OP: " + queue.isOp());
-            if (queue.isOp() && !isCurrentOp) {
-                sender.setOp(true);
-                plugin.getPluginLogger().debug("Gave OP status temporarily");
-            }
-            plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
-            if (plugin.getConfiguration().showCompleted())
-                plugin.getMessenger().sendMessage(sender, plugin.getI18N()
-                        .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
-
-            queue.dispatch(plugin, (Player) sender);
-
-            if (!isCurrentOp) {
-                sender.setOp(false);
-                plugin.getPluginLogger().debug("Remove OP status");
-                // Redundancy for de-op
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    plugin.getPluginLogger().debug("Remove OP status (redundancy)");
-                    sender.setOp(false);
-                }, 2L);
-            }
-            promptRegistry.unregister(sender);
+            dispatchQueue((Player) sender, queue);
         } else if (sender instanceof Player player)
             sendPrompt(player);
 
     }
 
+    private void dispatchQueue(CommandSender sender, PromptQueue queue) {
+        var isCurrentOp = sender.isOp();
+        plugin.getPluginLogger().debug("Is Currently OP?: " + isCurrentOp);
+        plugin.getPluginLogger().debug("PromptQueue OP: " + queue.isOp());
+        if (queue.isOp() && !isCurrentOp) {
+            sender.setOp(true);
+            plugin.getPluginLogger().debug("Gave OP status temporarily");
+        }
+        plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
+        if (plugin.getConfiguration().showCompleted())
+            plugin.getMessenger().sendMessage(sender, plugin.getI18N()
+                    .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
+
+        queue.dispatch(plugin, (Player) sender);
+
+        if (!isCurrentOp) {
+            sender.setOp(false);
+            plugin.getPluginLogger().debug("Remove OP status");
+            // Redundancy for de-op
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                plugin.getPluginLogger().debug("Remove OP status (redundancy)");
+                sender.setOp(false);
+            }, 2L);
+        }
+        promptRegistry.unregister(sender);
+    }
+
     private boolean checkInput(PromptQueue promptQueue, PromptContext context) {
-        if (promptQueue.peek() == null) return true;
+        if (promptQueue.peek() == null)
+            return true;
 
         var prompt = promptQueue.peek();
-        if (prompt.isValidInput(context.getContent())) return true;
+        if (prompt.isValidInput(context.getContent()))
+            return true;
 
         var errMsg = plugin.getPromptConfig().getIVErrMessageWithRegex(prompt.getRegexCheck().pattern());
         plugin.getMessenger().sendMessage(context.getSender(), errMsg);
@@ -166,10 +185,12 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void cancel(CommandSender sender, int queueHash) {
-        if (!promptRegistry.containsKey(sender)) return;
+        if (!promptRegistry.containsKey(sender))
+            return;
         plugin.getPluginLogger().debug("queueHash: " + queueHash);
         plugin.getPluginLogger().debug("registryQueueHash: " + promptRegistry.get(sender).hashCode());
-        if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode()) return;
+        if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode())
+            return;
         promptRegistry.unregister(sender);
         plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
