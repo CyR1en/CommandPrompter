@@ -34,7 +34,8 @@ public class PromptContext {
   private final Cancellable cancellable;
   private final CommandSender sender;
   private String content;
-
+  
+  private boolean isConsoleDelegate;
   private boolean setPermissionAttachment;
 
   public PromptContext(PlayerCommandPreprocessEvent e) {
@@ -46,6 +47,7 @@ public class PromptContext {
     this.sender = sender;
     this.content = content;
     this.setPermissionAttachment = false;
+    this.isConsoleDelegate = false;
   }
 
   public CommandSender getSender() {
@@ -68,8 +70,16 @@ public class PromptContext {
     this.setPermissionAttachment = b;
   }
 
+  public void setIsConsoleDelegate(boolean b) {
+    this.isConsoleDelegate = b;
+  }
+
   public boolean isSetPermissionAttachment() {
     return this.setPermissionAttachment;
+  }
+
+  public boolean isConsoleDelegate() {
+    return this.isConsoleDelegate;
   }
 
   @Override

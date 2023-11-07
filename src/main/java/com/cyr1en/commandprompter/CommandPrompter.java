@@ -26,6 +26,7 @@ package com.cyr1en.commandprompter;
 
 import com.cyr1en.commandprompter.command.CommodoreRegistry;
 import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.commands.ConsoleDelegate;
 import com.cyr1en.commandprompter.commands.Reload;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
@@ -43,6 +44,7 @@ import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.commandprompter.util.Util;
+import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
@@ -79,12 +81,20 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-        loadDeps();
+        var serverType = ServerType.resolve();
+        logger.debug("Server Name: " + serverType.name());
+        logger.debug("Server Version: " + serverType.version());
+        var result = loadDeps();
+        if (!result)
+            return;
+
         i18n = new I18N(this, "CommandPrompter");
-        setupUpdater();
-        setupCommands();
-        initPromptSystem();
         messenger = new PluginMessenger(config.promptPrefix());
+
+        setupUpdater();
+        initPromptSystem();
+        setupCommands();
+
         instance = this;
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
 
@@ -97,8 +107,13 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        promptManager.clearPromptRegistry();
-        getPluginLogger().ansiUninstall();
+        if (promptManager != null)
+            promptManager.clearPromptRegistry();
+
+        PluginLogger logger;
+        if ((logger = getPluginLogger()) != null)
+            logger.ansiUninstall();
+
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
     }
@@ -109,21 +124,34 @@ public class CommandPrompter extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
-    private void loadDeps() {
+    private boolean loadDeps() {
         if (Util.isBundledVersion(this)) {
             getPluginLogger().info("This is a bundled version! Skipping dependency loading");
-            return;
+            return true;
         }
+
+        getPluginLogger().info("Loading dependencies...");
 
         var depLoader = new DependencyLoader(this);
-        if (depLoader.isRelocatorAvailable()) {
+        if (!depLoader.isClassLoaderAccessSupported())
+            return depErrAndDisable("No access to URLClassloader, cannot load depedencies!", depLoader);
+
+        if (!depLoader.loadCoreDeps())
+            return depErrAndDisable("Unable to load dependencies!", depLoader);
+
+        if (depLoader.relocatorAvailable()) {
             depLoader.loadDependency();
-            return;
+            return true;
         }
 
-        getPluginLogger().err("Unable to load dependencies!");
+        return depErrAndDisable("Unable to load dependencies!", depLoader);
+    }
+
+    private boolean depErrAndDisable(String message, DependencyLoader depLoader) {
+        getPluginLogger().err(message);
         depLoader.sendBundledMessage();
         Bukkit.getPluginManager().disablePlugin(this);
+        return false;
     }
 
     /**
@@ -174,6 +202,8 @@ public class CommandPrompter extends JavaPlugin {
         commandManager.registerCommand(Reload.class);
         commandManager.registerCommand(Cancel.class);
         PluginCommand command = getCommand("commandprompter");
+        PluginCommand delegate = getCommand("consoledelegate");
+        delegate.setExecutor(new ConsoleDelegate(this));
         Objects.requireNonNull(command).setExecutor(commandManager);
         CommodoreRegistry.register(this, command);
     }
@@ -198,7 +228,8 @@ public class CommandPrompter extends JavaPlugin {
 
     private void setupUpdater() {
         updateChecker = new UpdateChecker(this, 47772);
-        if (updateChecker.isDisabled()) return;
+        if (updateChecker.isDisabled())
+            return;
         Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (updateChecker.newVersionAvailable())
                 logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
@@ -270,4 +301,3 @@ public class CommandPrompter extends JavaPlugin {
         return updateChecker;
     }
 }
-

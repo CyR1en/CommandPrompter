@@ -35,9 +35,11 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Player command dispatcher for Support with CommandPrompter.
  *
- * <p>Because CommandPrompter cannot catch commands that were dispatched from
+ * <p>
+ * Because CommandPrompter cannot catch commands that were dispatched from
  * {@link org.bukkit.Bukkit#dispatchCommand(CommandSender, String)}, plugins
- * need a special way to execute player commands.</p>
+ * need a special way to execute player commands.
+ * </p>
  */
 public class Dispatcher {
 
@@ -58,21 +60,19 @@ public class Dispatcher {
         }.runTask(plugin);
     }
 
-    public static void dispatchNative(CommandSender sender, String command) {
-        final String checked = command.codePointAt(0) == 0x2F ?
-                command.replace("/", "") : command;
-        Bukkit.dispatchCommand(sender, checked);
-    }
-
     /**
      * Dispatch the command as Console.
      *
      * @param command command that would be dispatched.
      */
-    public static void dispatchOP(String command) {
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    public static void dispatchConsole(final String command) {
+        final String checked = command.codePointAt(0) == 0x2F ? command.replace("/", "") : command;
+        new BukkitRunnable() {
+            public void run() {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked);
+            }
+        }.runTask(CommandPrompter.getInstance());
     }
-
 
     /**
      * Dispatch a command for a player with a PermissionAttachment that contains
@@ -81,11 +81,11 @@ public class Dispatcher {
      * @param plugin  Instance of plugin.
      * @param sender  command sender (in menu's, then the item clicker)
      * @param command command that would be dispatched.
-     * @param ticks Number of ticks before the attachment expires
-     * @param perms Permissions to set to the PermissionAttachment
+     * @param ticks   Number of ticks before the attachment expires
+     * @param perms   Permissions to set to the PermissionAttachment
      */
-    public static void dispatchWithAttachment
-            (Plugin plugin, Player sender, String command, int ticks, @NotNull String[] perms) {
+    public static void dispatchWithAttachment(Plugin plugin, Player sender, String command, int ticks,
+            @NotNull String[] perms) {
         var commandPrompter = (CommandPrompter) plugin;
         var logger = commandPrompter.getPluginLogger();
 
@@ -101,7 +101,5 @@ public class Dispatcher {
         attachment.getPermissible().recalculatePermissions();
         dispatchCommand(plugin, (Player) attachment.getPermissible(), command);
     }
-
-
 
 }

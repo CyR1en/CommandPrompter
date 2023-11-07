@@ -10,7 +10,6 @@ import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
-import java.util.Objects;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 

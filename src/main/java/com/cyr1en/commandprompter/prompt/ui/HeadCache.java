@@ -30,12 +30,10 @@ public class HeadCache implements Listener {
     private final CommandPrompter plugin;
     private final PluginLogger logger;
 
-    private final String format;
 
     public HeadCache(CommandPrompter plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
-        this.format = plugin.getPromptConfig().skullNameFormat();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
@@ -107,10 +105,10 @@ public class HeadCache implements Listener {
                 .map(Optional::get).toList();
     }
 
-    private boolean checkNameFromItemStack(ItemStack is, String pName) {
-        if (Objects.isNull(is) || Objects.isNull(is.getItemMeta())) return false;
-        return Util.stripColor(is.getItemMeta().getDisplayName()).equals(pName);
-    }
+    // private boolean checkNameFromItemStack(ItemStack is, String pName) {
+    //     if (Objects.isNull(is) || Objects.isNull(is.getItemMeta())) return false;
+    //     return Util.stripColor(is.getItemMeta().getDisplayName()).equals(pName);
+    // }
 
 
     private SkullMeta makeSkullMeta(Player owningPlayer, PluginLogger logger) {

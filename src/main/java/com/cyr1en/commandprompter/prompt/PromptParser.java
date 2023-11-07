@@ -183,16 +183,18 @@ public class PromptParser {
     }
 
     private static final Pattern PCM_INDEX_PATTERN = Pattern.compile("p:\\d+");
+    private static final Pattern PCM_DELAYED_PATTERN = Pattern.compile("exa:\\d+");
 
     private PromptQueue.PostCommandMeta parsePCM(String prompt) {
         plugin.getPluginLogger().debug("Parsing PCM: " + prompt);
+
+
         var matcher = PCM_INDEX_PATTERN.matcher(prompt);
         var count = 0;
         while (matcher.find()) count++;
-
         plugin.getPluginLogger().debug("Index Count: " + count);
-        var indexes = new int[count];
 
+        var indexes = new int[count];
         matcher.reset();
         count = 0;
         while (matcher.find()) {
@@ -200,7 +202,10 @@ public class PromptParser {
             indexes[count] = Integer.parseInt(index);
             count++;
         }
-        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes);
+
+        var delayMatcher = PCM_DELAYED_PATTERN.matcher(prompt);
+        var delay = delayMatcher.find() ? Integer.parseInt(delayMatcher.group().split(":")[1]) : 0;
+        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes, delay);
         plugin.getPluginLogger().debug("Parsed PCM: " + pcm);
         return pcm;
     }
@@ -237,7 +242,7 @@ public class PromptParser {
     }
 
     public enum PromptQueueArgument implements Keyable {
-        POST_COMMAND("-exa");
+        POST_COMMAND("-exa(:\\d+)?");
 
         private final String key;
 

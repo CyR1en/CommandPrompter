@@ -16,20 +16,23 @@ public class PromptQueue extends LinkedList<Prompt> {
     private String command;
     private final LinkedList<String> completed;
     private final String escapedRegex;
-    private final boolean isOp;
 
+    private final boolean isOp;
+    private final boolean isDelegate;
     private final boolean isSetPermissionAttachment;
 
     private final List<PostCommandMeta> postCommandMetas;
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, String escapedRegex) {
+    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate,
+            String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
+        this.isDelegate = isDelegate;
         this.isSetPermissionAttachment = isSetPermissionAttachment;
         this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
@@ -47,6 +50,10 @@ public class PromptQueue extends LinkedList<Prompt> {
         return isSetPermissionAttachment;
     }
 
+    public boolean isDelegate() {
+        return isDelegate;
+    }
+
     public String getCompleteCommand() {
         command = command.formatted(completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
@@ -59,6 +66,10 @@ public class PromptQueue extends LinkedList<Prompt> {
         postCommandMetas.add(pcm);
     }
 
+    public boolean containsPCM() {
+        return postCommandMetas != null && !postCommandMetas.isEmpty();
+    }
+
     public String getCommand() {
         return command;
     }
@@ -68,15 +79,24 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public void dispatch(CommandPrompter plugin, Player sender) {
-        if (isSetPermissionAttachment())
+        if (isDelegate()) {
+            logger.debug("Dispatching as console");
+            Dispatcher.dispatchConsole(getCompleteCommand());
+        } else if (isSetPermissionAttachment()) {
             Dispatcher.dispatchWithAttachment(plugin, (Player) sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
                     plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
-        else
+        } else
             Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
-            postCommandMetas.forEach(pcm -> execPCM(pcm, sender));
+            postCommandMetas.forEach(pcm -> {
+                if (pcm.delayTicks() > 0)
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> execPCM(pcm, sender),
+                            pcm.delayTicks());
+                else
+                    execPCM(pcm, sender);
+            });
     }
 
     private void execPCM(PostCommandMeta postCommandMeta, Player sender) {
@@ -89,13 +109,23 @@ public class PromptQueue extends LinkedList<Prompt> {
             CommandPrompter.getInstance().getMessenger().sendMessage(sender, message);
         });
         logger.debug("After parse: " + command);
-        Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+
+        if (isDelegate()) {
+            logger.debug("Dispatching PostCommand as console");
+            Dispatcher.dispatchConsole(command);
+            return;
+        } else {
+            logger.debug("Dispatching PostCommand as player");
+            Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+        }
+
     }
 
     /**
-     * @param promptIndex This will hold the index of the prompt answers to be injected in this post command.
+     * @param promptIndex This will hold the index of the prompt answers to be
+     *                    injected in this post command.
      */
-    public record PostCommandMeta(String command, int[] promptIndex) {
+    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks) {
         @Override
         public String toString() {
             return "PostCommandMeta{" +

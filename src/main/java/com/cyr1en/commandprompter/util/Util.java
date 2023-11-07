@@ -2,6 +2,8 @@ package com.cyr1en.commandprompter.util;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
+
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
@@ -79,6 +81,32 @@ public class Util {
         public ConsumerFallback<T> orElse(Runnable runnable) {
             this.runnable = runnable;
             return this;
+        }
+    }
+
+    /**
+     * Pretty much useless as of now. But I'm keeping it just in case we need
+     * some logic for different server types in the future.
+     */
+    public enum ServerType {
+        CraftBukkit,
+        Spigot,
+        Paper,
+        Purpur,
+        CatServer;
+
+        public String version() {
+            return Bukkit.getServer().getVersion();
+        }
+
+        public static ServerType resolve() {
+            for (ServerType type : values()) {
+                var typeName = type.name().toLowerCase();
+                var serverName = Bukkit.getServer().getName().toLowerCase();
+                if (serverName.contains(typeName))
+                    return type;
+            }
+            return null;
         }
     }
 }
