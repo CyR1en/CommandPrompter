@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 5, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 5, patch: 1, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -64,6 +64,7 @@ dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.9.0-SNAPSHOT'
+    implementation 'io.github.rapha149.signgui:signgui:2.2.1'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
@@ -77,7 +78,7 @@ dependencies {
     compileOnly "net.kyori:adventure-text-serializer-plain:4.13.1"
     compileOnly "org.spigotmc:spigot-api:1.20-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.17'
-    compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
+    compileOnly 'com.comphenix.protocol:ProtocolLib:5.1.0'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
 
@@ -102,6 +103,7 @@ shadowJar {
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
+    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
@@ -131,9 +133,11 @@ tasks.register("lightJar", ShadowJar) {
         exclude(dependency('org.ow2.asm:asm-commons'))
         exclude(dependency('org.ow2.asm:asm-tree'))
         exclude(dependency('org.ow2.asm:asm-analysis'))
+        exclude(dependency('io.github.rapha149.signgui:signgui'))
     }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
+    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'

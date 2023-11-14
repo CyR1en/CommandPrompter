@@ -25,5 +25,14 @@
       "com.cyr1en.commodore"
     ],
     "sha1": "d0a8078c2fd05ae87f336950b9a583969d9087e2"
+  },
+  "SignGUI": {
+    "filename": "signgui-2.2.1.jar",
+    "url": "https://repo1.maven.org/maven2/io/github/rapha149/signgui/signgui/2.2.1/signgui-2.2.1.jar",
+    "relocation": [
+      "io.github.rapha149.signgui",
+      "com.cyr1en.signgui"
+    ],
+    "sha1": "7b74bb5b78d49e43bc9265ddbcb26a93316b34de"
   }
 }
