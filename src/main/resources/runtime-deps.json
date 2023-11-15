@@ -8,24 +8,6 @@
     ],
     "sha1": "26aaf95a5552972d6612febabbe31776b902ee75"
   },
-  "Commodore": {
-    "filename": "commodore-2.2.jar",
-    "url": "https://repo1.maven.org/maven2/me/lucko/commodore/2.2/commodore-2.2.jar",
-    "relocation": [
-      "me.lucko.commodore",
-      "com.cyr1en.commodore"
-    ],
-    "sha1": "08d4cc5c4438fbc4ed6e6052b1fb7cc9aff5a3d8"
-  },
-  "Commodore-File": {
-    "filename": "commodore-file-1.0.jar",
-    "url": "https://repo1.maven.org/maven2/me/lucko/commodore-file/1.0/commodore-file-1.0.jar",
-    "relocation": [
-      "me.lucko.commodore",
-      "com.cyr1en.commodore"
-    ],
-    "sha1": "d0a8078c2fd05ae87f336950b9a583969d9087e2"
-  },
   "SignGUI": {
     "filename": "signgui-2.2.1.jar",
     "url": "https://repo1.maven.org/maven2/io/github/rapha149/signgui/signgui/2.2.1/signgui-2.2.1.jar",
@@ -34,5 +16,14 @@
       "com.cyr1en.signgui"
     ],
     "sha1": "7b74bb5b78d49e43bc9265ddbcb26a93316b34de"
+  },
+  "CommandAPI": {
+    "filename": "commandapi-bukkit-shade-9.2.0.jar",
+    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade/9.2.0/commandapi-bukkit-shade-9.2.0.jar",
+    "relocation": [
+      "dev.jorel.commandapi",
+      "com.cyr1en.commandapi"
+    ],
+    "sha1": "8fa83e104eb825e452a0a8cebec27b7f4f04b22d"
   }
 }

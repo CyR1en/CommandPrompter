@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 import org.bukkit.entity.Player;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 
 public class ContextProcessor {

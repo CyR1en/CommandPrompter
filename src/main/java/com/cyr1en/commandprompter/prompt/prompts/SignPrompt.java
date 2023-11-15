@@ -35,9 +35,9 @@ public class SignPrompt extends AbstractPrompt {
         checkMultiArg(parts);
         getPlugin().getPluginLogger().debug("Is Multi-Arg: " + isMultiArg);
         if (parts.size() > 3 && !isMultiArg)
-            parts = parts.subList(0, 2);
-        else if (parts.size() > 4)
             parts = parts.subList(0, 3);
+        else if (parts.size() > 4)
+            parts = parts.subList(0, 4);
 
         List<String> finalParts = parts;
 

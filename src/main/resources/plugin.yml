@@ -7,15 +7,6 @@ softdepend: [ProtocolLib, VentureChat, SuperVanish, PuerkasChat, PlaceholderAPI,
 main: ${projectEntry}
 api-version: 1.13
 
-commands:
-  commandprompter:
-    aliases: [cmdprompter, cmdp]
-    description: General CommandPrompter commands
-  consoledelegate:
-    aliases: [cdelegate]
-    permission: commandprompter.consoledelegate
-    description: Delegate command to console
-
 permissions:
   commandprompter.reload:
     description: Allow sender to reload plugin.

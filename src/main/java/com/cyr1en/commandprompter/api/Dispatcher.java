@@ -66,7 +66,7 @@ public class Dispatcher {
      * @param command command that would be dispatched.
      */
     public static void dispatchConsole(final String command) {
-        final String checked = command.codePointAt(0) == 0x2F ? command.replace("/", "") : command;
+        final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
         new BukkitRunnable() {
             public void run() {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked);

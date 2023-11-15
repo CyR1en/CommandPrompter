@@ -24,10 +24,9 @@
 
 package com.cyr1en.commandprompter;
 
-import com.cyr1en.commandprompter.command.CommodoreRegistry;
-import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.commands.CommandAPIWrapper;
 import com.cyr1en.commandprompter.commands.ConsoleDelegate;
-import com.cyr1en.commandprompter.commands.Reload;
+import com.cyr1en.commandprompter.commands.MainCommand;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.config.PromptConfig;
@@ -49,9 +48,9 @@ import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.mc.command.CommandManager;
 import com.cyr1en.kiso.utils.SRegex;
+
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -75,9 +74,11 @@ public class CommandPrompter extends JavaPlugin {
     private PromptManager promptManager;
     private PluginMessenger messenger;
     private HeadCache headCache;
+    private CommandAPIWrapper commandAPIWrapper;
 
     @Override
     public void onEnable() {
+
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
@@ -87,6 +88,10 @@ public class CommandPrompter extends JavaPlugin {
         var result = loadDeps();
         if (!result)
             return;
+
+        commandAPIWrapper = new CommandAPIWrapper(this);
+        commandAPIWrapper.load();
+        commandAPIWrapper.onEnable();
 
         i18n = new I18N(this, "CommandPrompter");
         messenger = new PluginMessenger(config.promptPrefix());
@@ -107,6 +112,7 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        commandAPIWrapper.onDisable();
         if (promptManager != null)
             promptManager.clearPromptRegistry();
 
@@ -198,32 +204,7 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupCommands() {
-        setupCommandManager();
-        commandManager.registerCommand(Reload.class);
-        commandManager.registerCommand(Cancel.class);
-        PluginCommand command = getCommand("commandprompter");
-        PluginCommand delegate = getCommand("consoledelegate");
-        delegate.setExecutor(new ConsoleDelegate(this));
-        Objects.requireNonNull(command).setExecutor(commandManager);
-        CommodoreRegistry.register(this, command);
-    }
-
-    private void setupCommandManager() {
-        var cmgBuilder = new CommandManager.Builder();
-        cmgBuilder.plugin(this);
-        cmgBuilder.setPrefix(getConfig().getString("Prompt-Prefix"));
-        cmgBuilder.setPlayerOnlyMessage(getI18N().getProperty("CommandPlayerOnly"));
-        cmgBuilder.setCommandInvalidMessage(getI18N().getProperty("CommandInvalid"));
-        cmgBuilder.setNoPermMessage(getI18N().getFormattedProperty("CommandNoPerm"));
-        cmgBuilder.setFallBack(context -> {
-            getCommandManager().getMessenger().sendMessage(context.getSender(),
-                    getI18N().getFormattedProperty("PluginVersion", getDescription().getVersion()));
-            UpdateChecker uC = getUpdateChecker();
-            if (!uC.isDisabled() && uC.newVersionAvailable())
-                uC.sendUpdateAvailableMessage(context.getSender());
-            return false;
-        });
-        commandManager = cmgBuilder.build();
+        commandAPIWrapper.registerCommands();
     }
 
     private void setupUpdater() {
