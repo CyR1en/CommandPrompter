@@ -67,7 +67,6 @@ public class CommandPrompter extends JavaPlugin {
     private HookContainer hookContainer;
 
     private PluginLogger logger;
-    private CommandManager commandManager;
     private CommandListener commandListener;
     private I18N i18n;
     private UpdateChecker updateChecker;
@@ -225,10 +224,6 @@ public class CommandPrompter extends JavaPlugin {
         return i18n;
     }
 
-    public CommandManager getCommandManager() {
-        return commandManager;
-    }
-
     public HookContainer getHookContainer() {
         return this.hookContainer;
     }
@@ -255,7 +250,6 @@ public class CommandPrompter extends JavaPlugin {
         messenger.setPrefix(config.promptPrefix());
         logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
-        commandManager.getMessenger().setPrefix(config.promptPrefix());
         promptManager.getParser().initRegex();
         ChatPrompt.DefaultListener.setPriority(this);
         setupUpdater();
