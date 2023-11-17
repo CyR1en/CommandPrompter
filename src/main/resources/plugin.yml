@@ -8,6 +8,8 @@ main: ${projectEntry}
 api-version: 1.13
 
 permissions:
+  commandprompter.commands:
+    description: Allow sender to use CommandPrompter commands.
   commandprompter.reload:
     description: Allow sender to reload plugin.
   commandprompter.use:
