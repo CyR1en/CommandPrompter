@@ -21,7 +21,11 @@ public class CommandAPIWrapper {
     }
 
     public void load() {
-        CommandAPI.onLoad(new CommandAPIBukkitConfig(plugin).silentLogs(true));
+        var config = new CommandAPIBukkitConfig(plugin);
+        config = plugin.getConfiguration().debugMode() ? 
+                config.silentLogs(false).verboseOutput(true) : 
+                config.silentLogs(true).verboseOutput(false);
+        CommandAPI.onLoad(config);
     }
 
     public void onEnable() {

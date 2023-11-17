@@ -1,5 +1,6 @@
 package com.cyr1en.commandprompter.commands;
 
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 import org.bukkit.command.CommandSender;
@@ -20,12 +21,16 @@ public class MainCommand {
     }
 
     public void register() {
-        new CommandAPICommand("commandprompter")
+        var command = new CommandAPICommand("commandprompter")
+                .withPermission("commandprompter.commands")
                 .withAliases("cmdp")
                 .withSubcommand(new Reload(plugin))
-                .withSubcommand(new Cancel(plugin))
-                .register();
+                .withSubcommand(new Cancel(plugin));
 
+        if (!plugin.getConfiguration().showCompleted())
+            command.setArguments(Collections.emptyList());
+
+        command.register();
     }
 
     public class Reload extends CommandAPICommand {
@@ -36,9 +41,7 @@ public class MainCommand {
             super("reload");
             this.plugin = plugin;
             withPermission("commandprompter.reload");
-            executes((sender, args) -> {
-                exec(sender, args);
-            });
+            executes(this::exec);
         }
 
         public void exec(CommandSender sender, CommandArguments args) {
@@ -51,8 +54,7 @@ public class MainCommand {
 
     public class Cancel extends CommandAPICommand {
 
-        public static final Pattern commandPattern =
-            Pattern.compile("(commandprompter|cmdp) cancel");
+        public static final Pattern commandPattern = Pattern.compile("(commandprompter|cmdp) cancel");
 
         private final CommandPrompter plugin;
 
@@ -60,9 +62,7 @@ public class MainCommand {
             super("cancel");
             this.plugin = plugin;
             withPermission("commandprompter.cancel");
-            executes((sender, args) -> {
-                exec(sender, args);
-            });
+            executes(this::exec);
         }
 
         public void exec(CommandSender sender, CommandArguments args) {

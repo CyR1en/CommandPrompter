@@ -43,7 +43,7 @@ public class ConsoleDelegate extends ContextProcessor {
             .withPermission("commandprompter.consoledelegate")
             .withArguments(new PlayerArgument("target"))
             .withArguments(new GreedyStringArgument("command"))
-            .executes(this::exec)
+            .executesConsole(this::exec)
             .register();
             
     }
@@ -64,7 +64,7 @@ public class ConsoleDelegate extends ContextProcessor {
  
         var delegatedCommand = args.getRaw("command");
 
-        if (delegatedCommand.isEmpty()) {
+        if (delegatedCommand == null || delegatedCommand.isEmpty()) {
             messenger.sendMessage(sender, i18n.getProperty("DelegateInvalidCommand"));
             return;
         }
