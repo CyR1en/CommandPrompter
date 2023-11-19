@@ -25,8 +25,6 @@
 package com.cyr1en.commandprompter;
 
 import com.cyr1en.commandprompter.commands.CommandAPIWrapper;
-import com.cyr1en.commandprompter.commands.ConsoleDelegate;
-import com.cyr1en.commandprompter.commands.MainCommand;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.config.PromptConfig;
@@ -46,7 +44,6 @@ import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
-import com.cyr1en.kiso.mc.command.CommandManager;
 import com.cyr1en.kiso.utils.SRegex;
 
 import org.bstats.bukkit.Metrics;
