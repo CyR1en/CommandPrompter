@@ -97,7 +97,9 @@ public class Util {
         Spigot,
         Paper,
         Purpur,
-        CatServer;
+        CatServer,
+        Mohist,
+        Other;
 
         public String version() {
             return Bukkit.getServer().getVersion();
@@ -110,7 +112,7 @@ public class Util {
                 if (serverName.contains(typeName))
                     return type;
             }
-            return null;
+            return Other;
         }
     }
 }
