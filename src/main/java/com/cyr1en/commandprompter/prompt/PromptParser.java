@@ -97,6 +97,7 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Argument in prompt: " + arg);
 
             var pcmKey = PromptQueueArgument.POST_COMMAND.getKey();
+
             plugin.getPluginLogger().debug("Checking equality: '" + arg + "' == '" + pcmKey + "'");
             if (pcmKey.equals(arg)) {
                 var pcm = parsePCM(prompt);
@@ -133,14 +134,12 @@ public class PromptParser {
                 plugin.getPluginLogger().err("Error parsing prompt: " + prompt);
                 plugin.getPluginLogger().err("Cause: " + e.getCause());
             }
-        }
-        return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
-    }
+        }return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
 
+    }
 
     private String extractInputValidation(String prompt) {
         // iv is with pattern -iv:<alias>
-        // I want to get the <alias> part
         var pattern = Pattern.compile(PromptArgument.INPUT_VALIDATION.getKey());
         var matcher = pattern.matcher(prompt);
         if (!matcher.find()) return "";
@@ -183,7 +182,8 @@ public class PromptParser {
     }
 
     private static final Pattern PCM_INDEX_PATTERN = Pattern.compile("p:\\d+");
-    private static final Pattern PCM_DELAYED_PATTERN = Pattern.compile("exa:\\d+");
+    private static final Pattern PCM_DELAYED_PATTERN = Pattern.compile("(exa|exac):\\d+");
+    private static final Pattern PCM_CANCEL_PATTERN = Pattern.compile("exac(:\\d+)?");
 
     private PromptQueue.PostCommandMeta parsePCM(String prompt) {
         plugin.getPluginLogger().debug("Parsing PCM: " + prompt);
@@ -204,8 +204,9 @@ public class PromptParser {
         }
 
         var delayMatcher = PCM_DELAYED_PATTERN.matcher(prompt);
+        var isOnCancel = PCM_CANCEL_PATTERN.matcher(prompt).find();
         var delay = delayMatcher.find() ? Integer.parseInt(delayMatcher.group().split(":")[1]) : 0;
-        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes, delay);
+        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes, delay, isOnCancel);
         plugin.getPluginLogger().debug("Parsed PCM: " + pcm);
         return pcm;
     }
@@ -242,7 +243,7 @@ public class PromptParser {
     }
 
     public enum PromptQueueArgument implements Keyable {
-        POST_COMMAND("-exa(:\\d+)?");
+        POST_COMMAND("-([exa|exac]+)(?::(\\d+))?");
 
         private final String key;
 

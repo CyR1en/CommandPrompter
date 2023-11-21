@@ -191,6 +191,19 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         plugin.getPluginLogger().debug("registryQueueHash: " + promptRegistry.get(sender).hashCode());
         if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode())
             return;
+        var queue = promptRegistry.get(sender);
+        if (queue.containsPCM()) {
+            queue.getPostCommandMetas().forEach(pcm -> {
+                if (!pcm.isOnCancel())
+                    return;
+
+                if (pcm.delayTicks() > 0)
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> queue.execPCM(pcm, (Player) sender),
+                            pcm.delayTicks());
+                else
+                    queue.execPCM(pcm, (Player) sender);
+            });
+        }
         promptRegistry.unregister(sender);
         plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
