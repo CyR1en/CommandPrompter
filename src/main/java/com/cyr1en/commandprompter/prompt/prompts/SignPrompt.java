@@ -18,8 +18,8 @@ import java.util.List;
 
 public class SignPrompt extends AbstractPrompt {
 
-    private static final String MULTI_ARG_PATTERN_EMPTY = "[ -~]+:";
-    private static final String MULTI_ARG_PATTERN_FILLED = MULTI_ARG_PATTERN_EMPTY + "[ -~]+";
+    private static final String MULTI_ARG_PATTERN_EMPTY = "[\\S+]+:";
+    private static final String MULTI_ARG_PATTERN_FILLED = MULTI_ARG_PATTERN_EMPTY + "\\s?+[\\S+]+";
 
     private boolean isMultiArg;
 
