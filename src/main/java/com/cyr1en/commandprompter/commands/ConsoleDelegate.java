@@ -6,7 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-//import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.PluginMessenger;
 import com.cyr1en.commandprompter.prompt.ContextProcessor;
 import com.cyr1en.commandprompter.prompt.PromptContext;
@@ -20,14 +20,14 @@ import dev.jorel.commandapi.executors.CommandArguments;
 public class ConsoleDelegate extends ContextProcessor {
 
     private final CommandPrompter commandPrompter;
-    //private final PluginLogger logger;
+    private final PluginLogger logger;
     private final PluginMessenger messenger;
     private final I18N i18n;
 
     public ConsoleDelegate(JavaPlugin plugin) {
         super((CommandPrompter) plugin, ((CommandPrompter) plugin).getPromptManager());
         this.commandPrompter = (CommandPrompter) plugin;
-        //this.logger = commandPrompter.getPluginLogger();
+        this.logger = commandPrompter.getPluginLogger();
         this.messenger = commandPrompter.getMessenger();
         this.i18n = commandPrompter.getI18N();
     }
@@ -43,16 +43,18 @@ public class ConsoleDelegate extends ContextProcessor {
 
     public void register() {
         new CommandAPICommand("consoledelegate")
-            .withPermission("commandprompter.consoledelegate")
-            .withArguments(new PlayerArgument("target"))
-            .withArguments(new GreedyStringArgument("command"))
-            .executesConsole(this::exec)
-            .register();
-            
+                .withPermission("commandprompter.consoledelegate")
+                .withArguments(new PlayerArgument("target"))
+                .withArguments(new GreedyStringArgument("command"))
+                .executesConsole(this::exec)
+                .register();
+
     }
 
     private void exec(CommandSender sender, CommandArguments args) {
-         if (!(sender instanceof ConsoleCommandSender)) {
+        logger.debug("Command Arguments: " + args.fullInput());
+
+        if (!(sender instanceof ConsoleCommandSender)) {
             messenger.sendMessage(sender, i18n.getProperty("DelegateConsoleOnly"));
             return;
         }
@@ -64,7 +66,7 @@ public class ConsoleDelegate extends ContextProcessor {
             messenger.sendMessage(sender, i18n.getFormattedProperty("DelegateInvalidPlayer", arg0));
             return;
         }
- 
+
         var delegatedCommand = args.getRaw("command");
 
         if (delegatedCommand == null || delegatedCommand.isEmpty()) {
