@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AnvilPrompt extends AbstractPrompt {
 
     public AnvilPrompt(CommandPrompter plugin, PromptContext context,
-                       String prompt, List<PromptParser.PromptArgument> args) {
+            String prompt, List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
@@ -71,13 +71,14 @@ public class AnvilPrompt extends AbstractPrompt {
                 return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
 
-            message = getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
-                    stateSnapshot.getText() : message;
+            message = getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? stateSnapshot.getText()
+                    : message;
 
             isComplete.getAndSet(true);
             var ctx = new PromptContext.Builder()
                     .setSender(stateSnapshot.getPlayer())
                     .setContent(message).build();
+
             getPromptManager().processPrompt(ctx);
             return Collections.singletonList(AnvilGUI.ResponseAction.close());
         });
@@ -115,7 +116,7 @@ public class AnvilPrompt extends AbstractPrompt {
         if (parts.size() > 1)
             meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
 
-        //set custom model data
+        // set custom model data
         var integerData = getPlugin().getPromptConfig().itemCustomModelData();
         if (integerData != 0)
             meta.setCustomModelData(integerData);
