@@ -39,8 +39,12 @@ public class VanillaListener extends CommandListener {
     @SuppressWarnings("unused")
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
-        PromptContext context = new PromptContext(event, event.getPlayer(),
-                event.getMessage().replaceFirst("/", ""));
+        var content = event.getMessage().replaceFirst("/", "");
+        var context = new PromptContext.Builder()
+                .setCancellable(event)
+                .setSender(event.getPlayer())
+                .setContent(content)
+                .build();
         this.process(context);
     }
 }

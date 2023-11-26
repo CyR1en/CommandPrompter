@@ -84,7 +84,9 @@ public class SignPrompt extends AbstractPrompt {
             getPromptManager().cancel(p);
             return Collections.emptyList();
         }
-        var ctx = new PromptContext(null, p, response);
+        var ctx = new PromptContext.Builder()
+                .setSender(p)
+                .setContent(response).build();
 
         getPromptManager().processPrompt(ctx);
 

@@ -42,7 +42,11 @@ public class ModifiedListener extends CommandListener {
     public void onCommand(CommandDispatchEvent event) {
         if (!(event.getSender() instanceof Player sender))
             return;
-        PromptContext context = new PromptContext(event, sender, event.getCommandLine());
+        PromptContext context = new PromptContext.Builder()
+                .setCancellable(event)
+                .setSender(sender)
+                .setContent(event.getCommandLine())
+                .build();
         this.process(context);
     }
 

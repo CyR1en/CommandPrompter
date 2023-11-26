@@ -75,7 +75,9 @@ public class AnvilPrompt extends AbstractPrompt {
                     stateSnapshot.getText() : message;
 
             isComplete.getAndSet(true);
-            var ctx = new PromptContext(null, stateSnapshot.getPlayer(), message);
+            var ctx = new PromptContext.Builder()
+                    .setSender(stateSnapshot.getPlayer())
+                    .setContent(message).build();
             getPromptManager().processPrompt(ctx);
             return Collections.singletonList(AnvilGUI.ResponseAction.close());
         });

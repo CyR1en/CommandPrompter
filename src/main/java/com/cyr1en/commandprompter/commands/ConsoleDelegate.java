@@ -33,8 +33,11 @@ public class ConsoleDelegate extends ContextProcessor {
     }
 
     private void doCommand(Player targetPlayer, String command) {
-        var context = new PromptContext(null, targetPlayer, command);
-        context.setIsConsoleDelegate(true);
+        var context = new PromptContext.Builder()
+                .setSender(targetPlayer)
+                .setContent(command)
+                .setConsoleDelegate(true)
+                .build();
         this.process(context);
     }
 

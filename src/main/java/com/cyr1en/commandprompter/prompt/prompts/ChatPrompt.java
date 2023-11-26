@@ -133,9 +133,10 @@ public class ChatPrompt extends AbstractPrompt {
 
             var prompt = queue.peek();
             if (Objects.nonNull(prompt))
-                message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
-                        msg : message;
-            var ctx = new PromptContext(event, player, message);
+            var ctx = new PromptContext.Builder()
+                    .setCancellable(event)
+                    .setSender(player)
+                    .setContent(msg).build();
             Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
         }
     }

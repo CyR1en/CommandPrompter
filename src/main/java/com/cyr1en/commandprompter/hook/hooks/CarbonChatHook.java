@@ -58,7 +58,7 @@ public class CarbonChatHook extends BaseHook implements Listener {
             msg = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
                     ds : msg;
         }
-        var ctx = new PromptContext(null, player, msg);
+        var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
         Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));
     }
 }
