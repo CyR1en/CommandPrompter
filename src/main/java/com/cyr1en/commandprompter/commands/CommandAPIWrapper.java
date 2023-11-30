@@ -22,9 +22,8 @@ public class CommandAPIWrapper {
 
     public void load() {
         var config = new CommandAPIBukkitConfig(plugin);
-        config = plugin.getConfiguration().debugMode() ? 
-                config.silentLogs(false).verboseOutput(true) : 
-                config.silentLogs(true).verboseOutput(false);
+        var msg = plugin.getI18N().getProperty("DelegateConsoleOnly");
+        config.missingExecutorImplementationMessage(Util.color(msg));
         CommandAPI.onLoad(config);
     }
 
