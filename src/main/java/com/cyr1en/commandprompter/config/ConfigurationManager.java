@@ -13,6 +13,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
+
+import org.bukkit.Bukkit;
 
 /**
  * Class that manages your plugin's configuration(s)
@@ -52,6 +55,19 @@ public class ConfigurationManager {
             if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
 
             var nameAnnotation = declaredField.getAnnotation(NodeName.class);
+        
+            if (declaredField.isAnnotationPresent(Match.class)) {
+                var matchAnnotation = declaredField.getAnnotation(Match.class);
+                var regex = matchAnnotation.regex();
+                var pattern = Pattern.compile(regex);
+                var res = pattern.matcher(config.getString(nameAnnotation.value())).matches();
+                if(!res) {
+                    Bukkit.getLogger().warning("[CommandPrompter] Configured value for " + nameAnnotation.value() + " is invalid! Falling back to default value.");    
+                    configValues.add(constructDefaultField(declaredField));
+                    continue;
+                }
+            }
+            
             if (declaredField.getType().equals(int.class)) {
                 var val = config.getInt(nameAnnotation.value());
                 var constraint = declaredField.getAnnotation(IntegerConstraint.class);

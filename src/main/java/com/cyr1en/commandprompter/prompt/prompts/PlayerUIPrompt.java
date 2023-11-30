@@ -98,7 +98,9 @@ public class PlayerUIPrompt extends AbstractPrompt {
         var name = Objects.requireNonNull(Objects.requireNonNull(Objects.requireNonNull
                 ((SkullMeta) (e.getCurrentItem()).getItemMeta())).getOwningPlayer()).getName();
         name = Util.stripColor(name);
-        var ctx = new PromptContext(null, (Player) getContext().getSender(), name);
+        var ctx = new PromptContext.Builder()
+                .setSender((Player) getContext().getSender())
+                .setContent(name).build(); 
         getPlugin().getPromptManager().processPrompt(ctx);
         gui.setOnClose(null);
         ((Player) getContext().getSender()).closeInventory();

@@ -4,9 +4,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import org.bukkit.entity.Player;
+import org.fusesource.jansi.Ansi;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.commands.Cancel;
+import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 
 public class ContextProcessor {
@@ -28,6 +29,7 @@ public class ContextProcessor {
 
         if (isIgnored(context)) {
             plugin.getPluginLogger().debug("Caught command is ignored.");
+            plugin.getPluginLogger().info(new Ansi().fgGreen().a(context.getContent()).reset() + " is configured to be ignored.");
             return;
         }
 

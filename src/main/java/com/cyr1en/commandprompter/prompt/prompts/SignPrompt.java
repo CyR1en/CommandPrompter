@@ -3,25 +3,29 @@ package com.cyr1en.commandprompter.prompt.prompts;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
-import com.cyr1en.commandprompter.prompt.ui.SignMenuFactory;
+import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.utils.FastStrings;
-import org.bukkit.Bukkit;
+
+import io.github.rapha149.signgui.SignGUI;
+import io.github.rapha149.signgui.SignGUIAction;
+
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class SignPrompt extends AbstractPrompt {
 
-    private static final String MULTI_ARG_PATTERN_EMPTY = "[ -~]+:";
-    private static final String MULTI_ARG_PATTERN_FILLED = MULTI_ARG_PATTERN_EMPTY + "[ -~]+";
+    private static final String MULTI_ARG_PATTERN_EMPTY = "[\\S+]+:";
+    private static final String MULTI_ARG_PATTERN_FILLED = MULTI_ARG_PATTERN_EMPTY + "\\s?+[\\S+]+";
 
-    private final SignMenuFactory signMenuFactory;
     private boolean isMultiArg;
 
-    public SignPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+    public SignPrompt(CommandPrompter plugin, PromptContext context, String prompt,
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
-        this.signMenuFactory = new SignMenuFactory(plugin);
         isMultiArg = false;
     }
 
@@ -31,37 +35,39 @@ public class SignPrompt extends AbstractPrompt {
         checkMultiArg(parts);
         getPlugin().getPluginLogger().debug("Is Multi-Arg: " + isMultiArg);
         if (parts.size() > 3 && !isMultiArg)
-            parts = parts.subList(0, 2);
-        else if (parts.size() > 4)
             parts = parts.subList(0, 3);
+        else if (parts.size() > 4)
+            parts = parts.subList(0, 4);
 
         List<String> finalParts = parts;
-        var menu = signMenuFactory.newMenu(parts)
-                .response((p, s) -> process(finalParts, p, s));
-        Bukkit.getScheduler().runTaskLater(getPlugin(), () -> {
-            menu.open((Player) getContext().getSender());
-            if (isMultiArg)
-                getPlugin().getMessenger()
-                        .sendMessage(getContext().getSender(), getPlugin().getI18N().getProperty("SignPromptMultiArg"));
-            else
-                getPlugin().getMessenger()
-                        .sendMessage(getContext().getSender(), getPlugin().getI18N().getProperty("SignPromptReminder"));
-        }, 2L);
+
+        var matStr = getPlugin().getPromptConfig().signMaterial();
+        var mat = Util.getCheckedMaterial(matStr, Material.OAK_SIGN);
+        getPlugin().getPluginLogger().debug("Material: " + mat.name());
+
+        var gui = SignGUI.builder()
+                .setLines(finalParts.toArray(String[]::new))
+                .setType(mat)
+                .setHandler((p, r) -> process(finalParts, p, r.getLines()))
+                .build();
+
+        gui.open((Player) getContext().getSender());
+
     }
 
     private void checkMultiArg(List<String> parts) {
         isMultiArg = parts.stream().map(String::trim).anyMatch(s -> s.matches(MULTI_ARG_PATTERN_EMPTY));
     }
 
-    private boolean process(List<String> parts, Player p, String[] s) {
+    private List<SignGUIAction> process(List<String> parts, Player p, String[] s) {
         var cleanedParts = parts.stream().map(this::stripColor).toList();
         getPlugin().getPluginLogger().debug("Sign Strings: " + Arrays.toString(s));
 
-        var response = isMultiArg ?
-                FastStrings.join(Arrays.stream(s).filter(str -> !str.isBlank() && !cleanedParts.contains(str))
+        var response = isMultiArg
+                ? FastStrings.join(Arrays.stream(s).filter(str -> !str.isBlank() && !cleanedParts.contains(str))
                         .filter(str -> str.matches(MULTI_ARG_PATTERN_FILLED))
-                        .map(str -> str.replaceAll(MULTI_ARG_PATTERN_EMPTY, "").trim()).toArray(), " ") :
-                FastStrings.join(Arrays.stream(s)
+                        .map(str -> str.replaceAll(MULTI_ARG_PATTERN_EMPTY, "").trim()).toArray(), " ")
+                : FastStrings.join(Arrays.stream(s)
                         .filter(str -> !cleanedParts.contains(str) && !str.isBlank()).toArray(), " ");
 
         getPlugin().getPluginLogger().debug("Response: " + response);
@@ -70,18 +76,20 @@ public class SignPrompt extends AbstractPrompt {
         // we'll consider the command completion cancelled.
         if (response.isBlank()) {
             getPromptManager().cancel(p);
-            return true;
+            return Collections.emptyList();
         }
 
         var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
         if (cancelKeyword.equalsIgnoreCase(response)) {
             getPromptManager().cancel(p);
-            return true;
+            return Collections.emptyList();
         }
-        var ctx = new PromptContext(null, p, response);
+        var ctx = new PromptContext.Builder()
+                .setSender(p)
+                .setContent(response).build();
 
         getPromptManager().processPrompt(ctx);
 
-        return true;
+        return Collections.emptyList();
     }
 }

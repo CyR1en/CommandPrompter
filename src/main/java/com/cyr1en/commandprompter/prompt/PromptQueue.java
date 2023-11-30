@@ -70,6 +70,10 @@ public class PromptQueue extends LinkedList<Prompt> {
         return postCommandMetas != null && !postCommandMetas.isEmpty();
     }
 
+    public List<PostCommandMeta> getPostCommandMetas() {
+        return postCommandMetas;
+    }
+
     public String getCommand() {
         return command;
     }
@@ -91,6 +95,9 @@ public class PromptQueue extends LinkedList<Prompt> {
 
         if (!postCommandMetas.isEmpty())
             postCommandMetas.forEach(pcm -> {
+                if (pcm.isOnCancel())
+                    return;
+
                 if (pcm.delayTicks() > 0)
                     plugin.getServer().getScheduler().runTaskLater(plugin, () -> execPCM(pcm, sender),
                             pcm.delayTicks());
@@ -99,7 +106,7 @@ public class PromptQueue extends LinkedList<Prompt> {
             });
     }
 
-    private void execPCM(PostCommandMeta postCommandMeta, Player sender) {
+    void execPCM(PostCommandMeta postCommandMeta, Player sender) {
         logger.debug("Executing PCM: " + postCommandMeta.command());
 
         var completedClone = new LinkedList<>(completed);
@@ -125,13 +132,11 @@ public class PromptQueue extends LinkedList<Prompt> {
      * @param promptIndex This will hold the index of the prompt answers to be
      *                    injected in this post command.
      */
-    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks) {
+    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel) {
         @Override
         public String toString() {
-            return "PostCommandMeta{" +
-                    "command='" + command + '\'' +
-                    ", promptIndex=" + Arrays.toString(promptIndex) +
-                    '}';
+            return "PostCommandMeta{" + "command='" + command + '\'' + ", promptIndex=" + Arrays.toString(promptIndex)
+                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + '}';
         }
 
         public String makeAsCommand(LinkedList<String> promptAnswers) {

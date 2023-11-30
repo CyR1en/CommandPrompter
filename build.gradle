@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 5, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 6, patch: 0, fix: 0, classifier: 'RELEASE'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -64,11 +64,12 @@ dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.9.0-SNAPSHOT'
+    implementation 'io.github.rapha149.signgui:signgui:2.2.1'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
+    implementation "dev.jorel:commandapi-bukkit-shade:9.2.0"
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
     // Exclude these
-    implementation 'me.lucko:commodore:2.2'
     implementation 'me.lucko:jar-relocator:1.7'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.11'
 
@@ -77,7 +78,6 @@ dependencies {
     compileOnly "net.kyori:adventure-text-serializer-plain:4.13.1"
     compileOnly "org.spigotmc:spigot-api:1.20-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.17'
-    compileOnly 'com.comphenix.protocol:ProtocolLib:4.7.0'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
 
@@ -102,10 +102,10 @@ shadowJar {
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
+    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
+    relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
-
 
     manifest {
         attributes "Bundled": true
@@ -113,7 +113,6 @@ shadowJar {
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 
 tasks.register("lightJar", ShadowJar) {
     archiveClassifier.set(pluginManifest.version.classifier)
@@ -125,17 +124,18 @@ tasks.register("lightJar", ShadowJar) {
         exclude(dependency('com.mojang:brigadier'))
         exclude(dependency('com.github.stefvanschie.inventoryframework:IF'))
         exclude(dependency('me.lucko:jar-relocator'))
-        exclude(dependency('me.lucko:commodore'))
-        exclude(dependency('me.lucko:commodore-file'))
         exclude(dependency('org.ow2.asm:asm'))
         exclude(dependency('org.ow2.asm:asm-commons'))
         exclude(dependency('org.ow2.asm:asm-tree'))
         exclude(dependency('org.ow2.asm:asm-analysis'))
+        exclude(dependency('io.github.rapha149.signgui:signgui'))
+        exclude(dependency('dev.jorel:commandapi-bukkit-shade'))
     }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'me.lucko.commodore', 'com.cyr1en.commodore'
+    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
+    relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
 }
 

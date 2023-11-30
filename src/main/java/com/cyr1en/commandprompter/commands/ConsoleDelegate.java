@@ -1,9 +1,5 @@
 package com.cyr1en.commandprompter.commands;
 
-import java.util.Arrays;
-
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -16,13 +12,17 @@ import com.cyr1en.commandprompter.prompt.ContextProcessor;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.kiso.mc.I18N;
 
-public class ConsoleDelegate extends ContextProcessor implements CommandExecutor {
+import dev.jorel.commandapi.CommandAPICommand;
+import dev.jorel.commandapi.arguments.GreedyStringArgument;
+import dev.jorel.commandapi.arguments.PlayerArgument;
+import dev.jorel.commandapi.executors.CommandArguments;
+
+public class ConsoleDelegate extends ContextProcessor {
 
     private final CommandPrompter commandPrompter;
     private final PluginLogger logger;
     private final PluginMessenger messenger;
     private final I18N i18n;
-    private final String usage;
 
     public ConsoleDelegate(JavaPlugin plugin) {
         super((CommandPrompter) plugin, ((CommandPrompter) plugin).getPromptManager());
@@ -30,52 +30,54 @@ public class ConsoleDelegate extends ContextProcessor implements CommandExecutor
         this.logger = commandPrompter.getPluginLogger();
         this.messenger = commandPrompter.getMessenger();
         this.i18n = commandPrompter.getI18N();
-        this.usage = "consoledelegate <target player> <command...>";
     }
 
     private void doCommand(Player targetPlayer, String command) {
-        var context = new PromptContext(null, targetPlayer, command);
-        context.setIsConsoleDelegate(true);
+        var context = new PromptContext.Builder()
+                .setSender(targetPlayer)
+                .setContent(command)
+                .setConsoleDelegate(true)
+                .build();
         this.process(context);
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        logger.debug("Command: " + command);
-        logger.debug("Label: " + label);
-        logger.debug("Args: " + Arrays.toString(args));
+    public void register() {
+        new CommandAPICommand("consoledelegate")
+                .withPermission("commandprompter.consoledelegate")
+                .withArguments(new PlayerArgument("target"))
+                .withArguments(new GreedyStringArgument("command"))
+                .executesConsole(this::exec)
+                .register();
+
+    }
+
+    private void exec(CommandSender sender, CommandArguments args) {
+        logger.debug("Command Arguments: " + args.fullInput());
 
         if (!(sender instanceof ConsoleCommandSender)) {
             messenger.sendMessage(sender, i18n.getProperty("DelegateConsoleOnly"));
-            return true;
+            return;
         }
 
-        if (args.length < 2) {
-            messenger.sendMessage(sender, i18n.getProperty("DelegateInvalidArgs"));
-            messenger.sendMessage(sender, i18n.getFormattedProperty("DelegateUsage", this.usage));
-            return true;
-        }
-
-        var arg0 = args[0];
+        var arg0 = args.getRaw("target");
         var targetPlayer = commandPrompter.getServer().getPlayer(arg0);
 
         if (targetPlayer == null) {
             messenger.sendMessage(sender, i18n.getFormattedProperty("DelegateInvalidPlayer", arg0));
-            return true;
+            return;
         }
 
-        var delegatedCommand = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        var delegatedCommand = args.getRaw("command");
 
-        if (delegatedCommand.isEmpty()) {
+        if (delegatedCommand == null || delegatedCommand.isEmpty()) {
             messenger.sendMessage(sender, i18n.getProperty("DelegateInvalidCommand"));
-            return true;
+            return;
         }
 
         if (delegatedCommand.contains("%target_player%"))
             delegatedCommand = delegatedCommand.replace("%target_player%", targetPlayer.getName());
 
         doCommand(targetPlayer, delegatedCommand);
-        return true;
     }
 
 }

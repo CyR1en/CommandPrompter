@@ -51,7 +51,8 @@ import java.util.*;
 
 public class ChatPrompt extends AbstractPrompt {
 
-    public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+    public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt,
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
@@ -86,14 +87,14 @@ public class ChatPrompt extends AbstractPrompt {
         var container = plugin.getHookContainer();
         var ccHook = container.getHook(CarbonChatHook.class);
         ccHook.ifHooked((e) -> {
-                    var res = e.subscribe();
-                    if (!res) {
-                        registerDefault(plugin);
-                        plugin.getPluginLogger().info("Using default listener");
-                        return;
-                    }
-                    plugin.getPluginLogger().info("Using CarbonChat listener");
-                })
+            var res = e.subscribe();
+            if (!res) {
+                registerDefault(plugin);
+                plugin.getPluginLogger().info("Using default listener");
+                return;
+            }
+            plugin.getPluginLogger().info("Using CarbonChat listener");
+        })
                 .orElse(() -> {
                     registerDefault(plugin);
                     plugin.getPluginLogger().info("Using default listener");
@@ -127,19 +128,22 @@ public class ChatPrompt extends AbstractPrompt {
             if (cancelKeyword.equalsIgnoreCase(message))
                 manager.cancel(player);
 
-
             var queue = manager.getPromptRegistry().get(player);
-            if (Objects.isNull(queue)) return;
+            if (Objects.isNull(queue))
+                return;
 
             var prompt = queue.peek();
             if (Objects.nonNull(prompt))
-                message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
-                        msg : message;
-            var ctx = new PromptContext(event, player, message);
+                message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? msg : message;
+                
+            var ctx = new PromptContext.Builder()
+                    .setCancellable(event)
+                    .setSender(player)
+                    .setContent(msg).build();
+
             Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
         }
     }
-
 
     public static class DefaultListener implements Listener {
 
@@ -169,12 +173,14 @@ public class ChatPrompt extends AbstractPrompt {
 
         public static void setPriority(CommandPrompter plugin) {
             var configPriority = plugin.getPromptConfig().responseListenerPriority().toUpperCase(Locale.ROOT);
-            if (configPriority.equals("DEFAULT")) return;
+            if (configPriority.equals("DEFAULT"))
+                return;
 
             listAllRegisteredListeners(plugin);
             var logger = plugin.getPluginLogger();
             var currentPriority = getCurrentEventPriority(plugin);
-            if (Objects.isNull(currentPriority)) return;
+            if (Objects.isNull(currentPriority))
+                return;
 
             var priority = EventPriority.LOWEST;
             try {
@@ -184,7 +190,8 @@ public class ChatPrompt extends AbstractPrompt {
                         configPriority, priority.name());
             }
             // Do nothing if current priority = config priority
-            if (currentPriority.name().equals(priority.name())) return;
+            if (currentPriority.name().equals(priority.name()))
+                return;
 
             setPriority(plugin, priority);
         }
@@ -198,7 +205,8 @@ public class ChatPrompt extends AbstractPrompt {
                 var handlerSlotsF = handlerList.getClass().getDeclaredField("handlerslots");
                 handlerSlotsF.setAccessible(true);
                 @SuppressWarnings("unchecked")
-                var handlerSlots = (EnumMap<EventPriority, ArrayList<RegisteredListener>>) handlerSlotsF.get(handlerList);
+                var handlerSlots = (EnumMap<EventPriority, ArrayList<RegisteredListener>>) handlerSlotsF
+                        .get(handlerList);
                 var currentPriority = getCurrentEventPriority(plugin);
 
                 var registeredListener = handlerSlots.get(currentPriority).stream()
@@ -221,9 +229,9 @@ public class ChatPrompt extends AbstractPrompt {
             listAllRegisteredListeners(plugin);
         }
 
-
         private static EventPriority getCurrentEventPriority(CommandPrompter plugin) {
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList().getRegisteredListeners()) {
+            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+                    .getRegisteredListeners()) {
                 if (registeredListener.getPlugin().getName().equals(plugin.getName()))
                     return registeredListener.getPriority();
             }
@@ -233,7 +241,8 @@ public class ChatPrompt extends AbstractPrompt {
         private static void listAllRegisteredListeners(CommandPrompter plugin) {
             var logger = plugin.getPluginLogger();
             logger.debug("Registered Listeners: ");
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList().getRegisteredListeners()) {
+            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+                    .getRegisteredListeners()) {
                 logger.debug("  - '%s'", registeredListener.getListener().getClass().getSimpleName());
                 logger.debug("      Priority: " + registeredListener.getPriority());
                 logger.debug("      Plugin: " + registeredListener.getPlugin().getName());

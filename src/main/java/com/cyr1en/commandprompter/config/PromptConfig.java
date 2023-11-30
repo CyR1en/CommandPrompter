@@ -214,6 +214,8 @@ public record PromptConfig(
         @NodeComment({
                 "Sign UI Settings",
                 "",
+                "Material - The material to use for the sign",
+                "",
                 "Input-Field-Location - Which line should the answer",
                 "                       be read from.",
                 "",
@@ -232,6 +234,12 @@ public record PromptConfig(
                 "https://github.com/CyR1en/CommandPrompter/wiki/Prompts"
         })
         String inputFieldLocation,
+
+        @ConfigNode
+        @NodeName("SignUI.Material")
+        @NodeDefault("OAK_SIGN")
+        @Match(regex = "(.*SIGN.*)")
+        String signMaterial,
 
 
         // ============================== Input Validation ==============================

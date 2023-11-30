@@ -15,7 +15,6 @@ import org.bukkit.event.Listener;
 
 import java.util.Objects;
 
-
 @TargetPlugin(pluginName = "CarbonChat")
 public class CarbonChatHook extends BaseHook implements Listener {
     private final PromptManager promptManager;
@@ -37,7 +36,8 @@ public class CarbonChatHook extends BaseHook implements Listener {
 
     public void handle(CarbonChatEvent event) {
         var player = Bukkit.getPlayer(event.sender().uuid());
-        if (Objects.isNull(player) || !promptManager.getPromptRegistry().inCommandProcess(player)) return;
+        if (Objects.isNull(player) || !promptManager.getPromptRegistry().inCommandProcess(player))
+            return;
         event.result(CarbonChatEvent.Result.denied(Component.empty()));
         event.recipients().clear();
         var msg = PlainTextComponentSerializer.plainText().serialize(event.message());
@@ -50,15 +50,15 @@ public class CarbonChatHook extends BaseHook implements Listener {
         }
 
         var queue = promptManager.getPromptRegistry().get(player);
-        if (Objects.isNull(queue)) return;
+        if (Objects.isNull(queue))
+            return;
 
         var prompt = queue.peek();
         if (Objects.nonNull(prompt)) {
             var ds = LegacyComponentSerializer.legacyAmpersand().serialize(event.message());
-            msg = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ?
-                    ds : msg;
+            msg = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? ds : msg;
         }
-        var ctx = new PromptContext(null, player, msg);
+        var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
         Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));
     }
 }
