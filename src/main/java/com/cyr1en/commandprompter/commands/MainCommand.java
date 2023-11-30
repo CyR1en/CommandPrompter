@@ -22,7 +22,6 @@ public class MainCommand {
 
     public void register() {
         var command = new CommandAPICommand("commandprompter")
-                .withPermission("commandprompter.commands")
                 .withAliases("cmdp")
                 .withSubcommand(new Reload(plugin))
                 .withSubcommand(new Cancel(plugin));
