@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 5, patch: 1, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 6, patch: 0, fix: 0, classifier: 'RELEASE'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -78,7 +78,6 @@ dependencies {
     compileOnly "net.kyori:adventure-text-serializer-plain:4.13.1"
     compileOnly "org.spigotmc:spigot-api:1.20-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.17'
-    compileOnly 'com.comphenix.protocol:ProtocolLib:5.1.0'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
 

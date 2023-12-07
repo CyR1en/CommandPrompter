@@ -85,11 +85,12 @@ public class CommandPrompter extends JavaPlugin {
         if (!result)
             return;
 
+        i18n = new I18N(this, "CommandPrompter");
+
         commandAPIWrapper = new CommandAPIWrapper(this);
         commandAPIWrapper.load();
         commandAPIWrapper.onEnable();
-
-        i18n = new I18N(this, "CommandPrompter");
+        
         messenger = new PluginMessenger(config.promptPrefix());
 
         setupUpdater();

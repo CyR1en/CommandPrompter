@@ -72,10 +72,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.put("", ChatPrompt.class);
         this.put("a", AnvilPrompt.class);
         this.put("p", PlayerUIPrompt.class);
-        if (plugin.getServer().getPluginManager().getPlugin("ProtocolLib") != null)
-            this.put("s", SignPrompt.class);
-        else
-            plugin.getPluginLogger().warn("ProtocolLib not found. Sign GUI prompt is disabled.");
+        this.put("s", SignPrompt.class);
     }
 
     @Override

@@ -2,14 +2,12 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
-softdepend: [ProtocolLib, VentureChat, SuperVanish, PuerkasChat, PlaceholderAPI, CarbonChat]
+softdepend: [VentureChat, SuperVanish, PuerkasChat, PlaceholderAPI, CarbonChat]
 
 main: ${projectEntry}
 api-version: 1.13
 
 permissions:
-  commandprompter.commands:
-    description: Allow sender to use CommandPrompter commands.
   commandprompter.reload:
     description: Allow sender to reload plugin.
   commandprompter.use:
