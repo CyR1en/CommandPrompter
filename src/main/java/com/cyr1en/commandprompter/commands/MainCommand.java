@@ -79,4 +79,28 @@ public class MainCommand {
 
     }
 
+    public class RebuildHeadCache extends CommandAPICommand {
+
+        private final CommandPrompter plugin;
+
+        public RebuildHeadCache(CommandPrompter plugin) {
+            super("rebuildheadcache");
+            this.plugin = plugin;
+            withAliases("rhc");
+            withPermission("commandprompter.rebuildheadcache");
+            executes(this::exec);
+        }
+
+        public void exec(CommandSender sender, CommandArguments args) {
+            var currMillis = System.currentTimeMillis();
+            plugin.getHeadCache().reBuildCache().thenAccept(c -> {
+                var timeTaken = System.currentTimeMillis() - currMillis;
+                var msg = plugin.getI18N().getFormattedProperty("CommandRebuildHeadCacheSuccess", timeTaken + "");
+                plugin.getMessenger().sendMessage(sender, msg);
+                plugin.getPluginLogger().debug("Rebuilt head cache in " + timeTaken + "ms");
+            });
+        }
+
+    }
+
 }

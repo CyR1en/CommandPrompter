@@ -18,3 +18,5 @@ permissions:
     description: Allow sender to cancel their own command completion.
   commandprompter.consoledelegate:
     description: Allow sender to delegate command to console.
+  commandprompter.rebuildheadcache:
+    description: Allow sender to rebuild head cache.
