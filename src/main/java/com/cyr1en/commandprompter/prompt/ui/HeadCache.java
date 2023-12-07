@@ -57,7 +57,10 @@ public class HeadCache implements Listener {
     }
 
     public void invalidate(Player player) {
-        HEAD_CACHE.invalidate(player);
+        if (Objects.isNull(player)) return;
+
+        if (getHeadFor(player).isPresent())
+            HEAD_CACHE.invalidate(player);
     }
 
     public ImmutableMap<Player, Optional<ItemStack>> getHeadFor(Iterable<? extends Player> key) {
