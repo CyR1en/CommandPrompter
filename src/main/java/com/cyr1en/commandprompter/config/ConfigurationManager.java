@@ -1,6 +1,7 @@
 package com.cyr1en.commandprompter.config;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
@@ -35,9 +36,11 @@ import org.bukkit.Bukkit;
 public class ConfigurationManager {
 
     private final ConfigManager configManager;
+    private final PluginLogger logger;
 
     public ConfigurationManager(CommandPrompter plugin) {
         this.configManager = new ConfigManager(plugin);
+        this.logger = plugin.getPluginLogger();
     }
 
     public <T> T getConfig(Class<T> configClass) {
@@ -55,19 +58,19 @@ public class ConfigurationManager {
             if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
 
             var nameAnnotation = declaredField.getAnnotation(NodeName.class);
-        
+
             if (declaredField.isAnnotationPresent(Match.class)) {
                 var matchAnnotation = declaredField.getAnnotation(Match.class);
                 var regex = matchAnnotation.regex();
                 var pattern = Pattern.compile(regex);
                 var res = pattern.matcher(config.getString(nameAnnotation.value())).matches();
-                if(!res) {
-                    Bukkit.getLogger().warning("[CommandPrompter] Configured value for " + nameAnnotation.value() + " is invalid! Falling back to default value.");    
+                if (!res) {
+                    logger.warn("Configured value for " + nameAnnotation.value() + " is invalid! Falling back to default value.");
                     configValues.add(constructDefaultField(declaredField));
                     continue;
                 }
             }
-            
+
             if (declaredField.getType().equals(int.class)) {
                 var val = config.getInt(nameAnnotation.value());
                 var constraint = declaredField.getAnnotation(IntegerConstraint.class);
@@ -88,7 +91,7 @@ public class ConfigurationManager {
             @SuppressWarnings("unchecked") var out = (T) recordConfig;
             return out;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            logger.err("Failed to instantiate config: " + configClass.getSimpleName());
         }
         return null;
     }
@@ -145,7 +148,7 @@ public class ConfigurationManager {
             return f.getType().getDeclaredConstructor().newInstance();
         } catch (NoSuchMethodException | InvocationTargetException |
                  InstantiationException | IllegalAccessException e) {
-            e.printStackTrace();
+            logger.err("Failed to instantiate default value for field: " + f.getName());
         }
         return null;
     }

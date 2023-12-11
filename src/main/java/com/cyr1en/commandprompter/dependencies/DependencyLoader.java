@@ -1,6 +1,7 @@
 package com.cyr1en.commandprompter.dependencies;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.util.Util;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
@@ -58,7 +59,10 @@ public class DependencyLoader {
         var dataFolder = plugin.getDataFolder();
         var libDir = new File(dataFolder, "lib");
         if (!libDir.exists())
-            libDir.mkdir();
+            if(!libDir.mkdir()) {
+                plugin.getPluginLogger().err("Failed to create lib directory!");
+                return null;
+            }
         return libDir;
     }
 
@@ -108,7 +112,7 @@ public class DependencyLoader {
         try {
             var original = new File(libDir, dependency.getFileName().replace(".jar", "") + "-original.jar");
             if (original.exists())
-                original.delete();
+                delete(original);
 
             Files.copy(downloadedDep.toPath(), original.toPath());
             var relocated = new File(libDir, dependency.getFileName());
@@ -117,13 +121,17 @@ public class DependencyLoader {
             var rules = List.of(new Relocation(relocation[0], relocation[1]));
             var r = new JarRelocator(original, relocated, rules);
             r.run();
-            original.delete();
+            delete(original);
             plugin.getPluginLogger().debug("Relocated " + dependency.getFileName() + "!");
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            plugin.getPluginLogger().err("Failed to relocate " + dependency.getFileName() + "!");
             return false;
         }
+    }
+
+    private void delete(File file) {
+        Util.deleteFile(file, f -> plugin.getPluginLogger().err("Failed to delete " + f.getName() + "!"));
     }
 
     public void downloadDependencies(ImmutableList<Dependency> dependencyList) {
@@ -150,7 +158,7 @@ public class DependencyLoader {
     private ImmutableList<Dependency> readDependencies(String fileName) {
         var is = plugin.getResource(fileName);
         if (is == null) {
-            plugin.getLogger().warning("Could not find " + fileName + " in the jar file.");
+            plugin.getLogger().warning("Could not find " + "runtime-deps.json" + " in the jar file.");
             return ImmutableList.of();
         }
         var builder = ImmutableList.<Dependency>builder();

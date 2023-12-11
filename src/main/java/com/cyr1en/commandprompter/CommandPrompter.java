@@ -137,7 +137,7 @@ public class CommandPrompter extends JavaPlugin {
 
         var depLoader = new DependencyLoader(this);
         if (!depLoader.isClassLoaderAccessSupported())
-            return depErrAndDisable("No access to URLClassloader, cannot load depedencies!", depLoader);
+            return depErrAndDisable("No access to URLClassloader, cannot load dependencies!", depLoader);
 
         if (!depLoader.loadCoreDeps())
             return depErrAndDisable("Unable to load dependencies!", depLoader);
@@ -190,7 +190,7 @@ public class CommandPrompter extends JavaPlugin {
             logger.warn("sHash: " + sHash + " | pHash: " + pHash);
             Bukkit.getPluginManager().registerEvents(commandListener, this);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+            logger.err("Unable to hack command map!");
         }
     }
 

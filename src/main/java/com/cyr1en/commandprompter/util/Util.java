@@ -47,6 +47,12 @@ public class Util {
         }
     }
 
+    public static void deleteFile(File file, Consumer<File> onFail) {
+        if (file.exists())
+            if (!file.delete())
+                onFail.accept(file);
+    }
+
     public static boolean isBundledVersion(Plugin plugin) {
         var is = plugin.getResource("META-INF/MANIFEST.MF");
         if (is == null) return false;
