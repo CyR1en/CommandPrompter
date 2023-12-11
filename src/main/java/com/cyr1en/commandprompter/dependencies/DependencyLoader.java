@@ -67,7 +67,7 @@ public class DependencyLoader {
     }
 
     public void loadDependency() {
-        var dependencies = readDependencies("runtime-deps.json");
+        var dependencies = readDependencies();
         downloadDependencies(dependencies);
         loadAll(dependencies);
         plugin.getPluginLogger().info("Finished loading dependencies");
@@ -98,8 +98,6 @@ public class DependencyLoader {
                     }
                 }
                 var url = file.toURI().toURL();
-                if (url == null)
-                    continue;
                 access.addURL(url);
             } catch (IOException e) {
                 plugin.getPluginLogger().err("Failed to load " + dependency.getFileName() + "!");
@@ -155,14 +153,14 @@ public class DependencyLoader {
     /**
      * Function to get all the dependencies in the runtime-deps.json file.
      */
-    private ImmutableList<Dependency> readDependencies(String fileName) {
-        var is = plugin.getResource(fileName);
+    private ImmutableList<Dependency> readDependencies() {
+        var is = plugin.getResource("runtime-deps.json");
         if (is == null) {
             plugin.getLogger().warning("Could not find " + "runtime-deps.json" + " in the jar file.");
             return ImmutableList.of();
         }
         var builder = ImmutableList.<Dependency>builder();
-        String jsonStr = null;
+        String jsonStr;
         try {
             jsonStr = CharStreams.toString(new InputStreamReader(is, Charsets.UTF_8));
         } catch (IOException e) {
