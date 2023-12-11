@@ -33,6 +33,8 @@ import com.cyr1en.commandprompter.prompt.ui.inventory.ControlPane;
 import com.cyr1en.commandprompter.util.Util;
 import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
 import com.github.stefvanschie.inventoryframework.pane.PaginatedPane;
+
+import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -49,7 +51,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private final HeadCache headCache;
     private final VanishHook vanishHook;
 
-    public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
+    public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt,
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
         var cfgSize = getPlugin().getPromptConfig().playerUISize();
         var parts = Arrays.asList(getPrompt().split("\\{br}"));
@@ -59,19 +62,17 @@ public class PlayerUIPrompt extends AbstractPrompt {
         vanishHook = plugin.getHookContainer().getVanishHook().get();
     }
 
+    private void send(Player p) {
         gui.setOnClose(e -> getPromptManager().cancel(p));
 
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
 
         var isSorted = getPlugin().getPromptConfig().sorted();
         var isPerWorld = getPlugin().getPromptConfig().isPerWorld();
-        var skulls = isPerWorld ?
-                (isSorted ?
-                        headCache.getHeadsSortedFor(p.getWorld().getPlayers()) :
-                        headCache.getHeadsFor(p.getWorld().getPlayers())) :
-                (isSorted ?
-                        headCache.getHeadsSorted() :
-                        headCache.getHeads());
+        var skulls = isPerWorld
+                ? (isSorted ? headCache.getHeadsSortedFor(p.getWorld().getPlayers())
+                        : headCache.getHeadsFor(p.getWorld().getPlayers()))
+                : (isSorted ? headCache.getHeadsSorted() : headCache.getHeads());
 
         var headCacheStr = headCache.toString();
         getPlugin().getPluginLogger().debug("Head Cache: " + headCacheStr.substring(headCacheStr.indexOf('@')));
@@ -86,15 +87,41 @@ public class PlayerUIPrompt extends AbstractPrompt {
         gui.show((HumanEntity) getContext().getSender());
     }
 
+    @Override
+    public void sendPrompt() {
+        var p = (Player) getContext().getSender();
+        if (headCache.isEmpty()) {
+            getPlugin().getMessenger().sendMessage(p, getPlugin().getPromptConfig().emptyMessage());
+            getPromptManager().cancel(p);
+            return;
+        }
+        
+        var missingCached = Bukkit.getOnlinePlayers().stream().filter(player -> !vanishHook.isInvisible(player))
+                .count() > headCache.getHeads().size();
+        if (missingCached) {
+            getPlugin().getPluginLogger().debug("Missing heads in cache, rebuilding before sending...");
+            headCache.reBuildCache().thenAccept(cache -> {
+                getPlugin().getPluginLogger().debug("Rebuilt cache!");
+                send(p);
+            });
+        } else {
+            send(p);
+        }
+
+    }
+
     private void processClick(InventoryClickEvent e) {
         e.setCancelled(true);
-        if (Objects.isNull(e.getCurrentItem())) return;
-        var name = Objects.requireNonNull(Objects.requireNonNull(Objects.requireNonNull
-                ((SkullMeta) (e.getCurrentItem()).getItemMeta())).getOwningPlayer()).getName();
+        if (Objects.isNull(e.getCurrentItem()))
+            return;
+        var name = Objects.requireNonNull(
+                Objects.requireNonNull(Objects.requireNonNull((SkullMeta) (e.getCurrentItem()).getItemMeta()))
+                        .getOwningPlayer())
+                .getName();
         name = Util.stripColor(name);
         var ctx = new PromptContext.Builder()
                 .setSender((Player) getContext().getSender())
-                .setContent(name).build(); 
+                .setContent(name).build();
         getPlugin().getPromptManager().processPrompt(ctx);
         gui.setOnClose(null);
         ((Player) getContext().getSender()).closeInventory();
