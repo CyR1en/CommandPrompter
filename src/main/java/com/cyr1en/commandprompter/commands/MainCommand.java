@@ -24,7 +24,8 @@ public class MainCommand {
         var command = new CommandAPICommand("commandprompter")
                 .withAliases("cmdp")
                 .withSubcommand(new Reload(plugin))
-                .withSubcommand(new Cancel(plugin));
+                .withSubcommand(new Cancel(plugin))
+                .withSubcommand(new RebuildHeadCache(plugin));
 
         if (!plugin.getConfiguration().showCompleted())
             command.setArguments(Collections.emptyList());
