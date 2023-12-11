@@ -20,6 +20,7 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -133,6 +134,16 @@ public class HeadCache implements Listener {
         skullMeta.setDisplayName(Util.color(nameRef.get()));
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
+    }
+
+    public CompletableFuture<LoadingCache<Player, Optional<ItemStack>>> reBuildCache() {
+        HEAD_CACHE.invalidateAll();
+        return CompletableFuture.supplyAsync(() -> {
+            logger.debug("Building cache ...");
+            var players = Bukkit.getOnlinePlayers().stream().filter(p -> !isVanished(p)).toList();
+            players.forEach(HEAD_CACHE::getUnchecked);
+            return HEAD_CACHE;
+        });
     }
 
     public boolean isEmpty() {
