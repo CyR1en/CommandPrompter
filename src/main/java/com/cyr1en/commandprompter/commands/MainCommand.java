@@ -32,7 +32,7 @@ public class MainCommand {
         command.register();
     }
 
-    public class Reload extends CommandAPICommand {
+    public static class Reload extends CommandAPICommand {
 
         private final CommandPrompter plugin;
 
@@ -51,7 +51,7 @@ public class MainCommand {
 
     }
 
-    public class Cancel extends CommandAPICommand {
+    public static class Cancel extends CommandAPICommand {
 
         public static final Pattern commandPattern = Pattern.compile("(commandprompter|cmdp) cancel");
 
@@ -78,7 +78,7 @@ public class MainCommand {
 
     }
 
-    public class RebuildHeadCache extends CommandAPICommand {
+    public static class RebuildHeadCache extends CommandAPICommand {
 
         private final CommandPrompter plugin;
 
