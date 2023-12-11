@@ -91,7 +91,7 @@ public class PluginLogger {
         if (debugMode) {
             msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg)
                     : Objects.isNull(lastDebugClass) ? msg
-                            : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
+                    : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
             var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
             log(debugPrefix, Level.INFO, str, args);
         }
