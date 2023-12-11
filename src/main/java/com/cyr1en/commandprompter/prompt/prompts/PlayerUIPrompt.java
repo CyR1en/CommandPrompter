@@ -25,6 +25,7 @@
 package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.hook.hooks.VanishHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
@@ -46,6 +47,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private final int size;
     private final ChestGui gui;
     private final HeadCache headCache;
+    private final VanishHook vanishHook;
 
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt, List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
@@ -54,16 +56,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
         size = Math.max((cfgSize - (cfgSize % 9)) / 9, 2);
         gui = new ChestGui(size, color(parts.get(0)));
         this.headCache = plugin.getHeadCache();
+        vanishHook = plugin.getHookContainer().getVanishHook().get();
     }
-
-    @Override
-    public void sendPrompt() {
-        var p = (Player) getContext().getSender();
-        if (headCache.isEmpty()) {
-            getPlugin().getMessenger().sendMessage(p, getPlugin().getPromptConfig().emptyMessage());
-            getPromptManager().cancel(p);
-            return;
-        }
 
         gui.setOnClose(e -> getPromptManager().cancel(p));
 

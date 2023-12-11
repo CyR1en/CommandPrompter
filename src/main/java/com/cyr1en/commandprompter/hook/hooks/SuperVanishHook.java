@@ -11,7 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 @TargetPlugin(pluginName = "SuperVanish")
-public class SuperVanishHook extends VanishFallBack implements Listener {
+public class SuperVanishHook extends VanishHook implements Listener {
 
     private SuperVanishHook(CommandPrompter plugin) {
         super(plugin);
