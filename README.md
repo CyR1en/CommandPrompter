@@ -1,26 +1,55 @@
-## ![cp](https://www.spigotmc.org/data/resource_icons/47/47772.jpg?1506763424) CommandPrompter [![Actions Status](https://github.com/CyR1en/CommandPrompter/workflows/Java%20CI/badge.svg)](https://github.com/CyR1en/CommandPrompter/actions)
+![](https://www.spigotmc.org/attachments/asset-4-png.679568/)
+# CommandPrompter
+[![](https://img.shields.io/github/actions/workflow/status/CyR1en/CommandPrompter/gradle.yml?logo=GitHub)](https://github.com/CyR1en/CommandPrompter/actions)
+[![](https://img.shields.io/badge/Wiki-GitBook-brightgreen?logo=GitBook)](https://cyr1en.gitbook.io/commandprompter/)
+[![](https://img.shields.io/discord/936346802402238514.svg?label=discord&logo=discord)](https://discord.com/invite/qHM8kE4XHj)
+[![](https://img.shields.io/badge/Kofi-Support%20Development-brightgreen?logo=Kofi)](https://ko-fi.com/cyr1en)
 
-_Making commands more interactive._ 
-### What is this plugin for?
-CommandPrompter is for plugins such as Chest Commands. Where players could click an Item in the GUI and execute a command that have been pre-defined in the config as the player that clicked the item. The downside of Chest Command is that you already have to provide a command argument for an IconCommand(The item). Now with CommandPrompter, you can configure that pre-defined command for an Item to have an argument prompt.
+CommandPrompter is a powerful tool that enhances the command prompting experience and menu creation in your Minecraft server. With its customizable configuration options, CommandPrompter allows you to tailor the command prompting process to suit your server's specific requirements.
 
-### How do I use this plugin?
-If a player execute a command with arguments that are surrounded by "<" and ">". Those arguments are considered prompts. So after a player executes a command with prompts. CommandPrompter will send those prompts back to the player without the "<>" one by one and wait for the player's response. CommandPrompter will keep sending prompts until all the arguments have been replaced with the player's response.
+Features:
+* **Easy to use** - designed to be used within minutes after installation.
+* **Multiple prompts** - allows you to choose different [prompts](https://cyr1en.gitbook.io/commandprompter/prompts/) for your menus.
+* **Multi language support** - supports utf-8 characters to support a wide range of languages.
+* **Input validations** - never worry about miss inputs anymore.
+* **Console delegate** - a robust way to prompt a player via console.
+* **Post command** - expands your command by incorporation post commands.
 
-#### example:
+## Building
+
+CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:
+
+#### Requirements
+* JDK 16 or newer
+* Git
+
+#### Compiling from source
+```sh
+git clone https://github.com/CyR1en/CommandPrompter.git
+cd CommandPrompter/
+./gradlew clean build
 ```
-Player executes: /gamemode <What game mode do you want to switch to?>
-CommandPrompter sends: What game mode do you want to switch to?
-Player sends: creative
-```
-All prompts have been answered, CommandPrompter now makes the player execute the command "/gamemode creative".
 
-So on your Chest Command. Just configure an item to have a command that have argument prompts (surrounded by <>) and that command will be dispatched by the player when the Item gets clicked.
+## Special Thanks To:
+<div align="Left">
+  <a href="https://www.jetbrains.com">
+    <img width="130" src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg" />
+  </a>
 
-### Installation
-Just drag and drop the jar file to your plugins folder. No need to configure anything, no permissions, and no commands. But there is a config file if you do want to configure it. Should work like a charm.
+  <p>This project was developed with the help of JetBrains' generous <a href="https://www.jetbrains.com/opensource/">Open Source License program</a>. Huge thanks to their continued support for open source development!</p>
 
-#### Disclaimer:
-The idea for this plugin came from the user named Tommiek on Bukkit forums. Someone already wrote a similar plugin according to the thread, but the project page for that plugin can no longer be found. So I tried to recreate the plugin. The link for that thread is here.
+  <a href="https://www.gitbook.com/">
+    <img width="230" src="https://i.imgur.com/SIPKmzS.png">
+  </a>
 
-_Updates will be released._
+  <p>This project owes a huge thanks to GitBook's fantastic <a href="https://docs.gitbook.com/account-management/plans/apply-for-the-non-profit-open-source-plan">Open Source License</a> and their amazing platform for creating beautiful and accessible documentation. Their dedication to open source and ease-of-use has been invaluable to this project's success!</p>
+
+  <a href="https://lithiumhosting.com/">
+    <img width="100" src="https://lithiumhosting.com/billing/templates/lagom/assets/img/logo/logo_small_inverse.svg" />
+  </a>
+
+  <p>Lithium Hosting's invaluable support by providing a server to facilitate development. Their dedication to open source and the developer community has been instrumental in making this project possible.</p>
+</div>
+
+## License
+CommandPrompter is licensed under the permissive [MIT license](https://github.com/CyR1en/CommandPrompter/blob/master/LICENSE). Please see LICENSE.txt for more info.
