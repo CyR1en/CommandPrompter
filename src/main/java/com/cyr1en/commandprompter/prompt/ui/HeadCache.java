@@ -22,7 +22,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class HeadCache implements Listener {
 
@@ -121,19 +120,33 @@ public class HeadCache implements Listener {
 
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
         var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
-
-        var papi = plugin.getHookContainer().getHook(PapiHook.class);
-        var nameRef = new AtomicReference<>(skullName);
-
-        papi.ifHooked(p -> {
-            logger.debug("Setting PAPI placeholders");
-            if (!p.papiPlaceholders(skullFormat)) return;
-            nameRef.set(p.setPlaceholder(owningPlayer, skullFormat));
-        }).complete();
-
-        skullMeta.setDisplayName(Util.color(nameRef.get()));
+        setDisplayName(skullMeta, owningPlayer, skullName);
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
+    }
+
+    private void setDisplayName(SkullMeta skullMeta, Player player, String name) {
+        name = name.replace("%s", player.getName());
+        name = Util.color(name);
+
+        var papi = plugin.getHookContainer().getHook(PapiHook.class);
+
+        if (!papi.isHooked()) {
+            logger.debug("PAPI is not hooked");
+            skullMeta.setDisplayName(name);
+            return;
+        }
+
+        var hook = papi.get();
+        if (!hook.papiPlaceholders(name)) {
+            logger.debug("No PAPI placeholders found");
+            skullMeta.setDisplayName(name);
+            return;
+        }
+
+        name = hook.setPlaceholder(player, name);
+        logger.debug("PAPI placeholders found: %s", name);
+        skullMeta.setDisplayName(name);
     }
 
     public CompletableFuture<LoadingCache<Player, Optional<ItemStack>>> reBuildCache() {
