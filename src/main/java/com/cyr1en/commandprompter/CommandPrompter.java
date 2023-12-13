@@ -248,6 +248,7 @@ public class CommandPrompter extends JavaPlugin {
         messenger.setPrefix(config.promptPrefix());
         logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
+        headCache.reBuildCache();
         promptManager.getParser().initRegex();
         ChatPrompt.DefaultListener.setPriority(this);
         setupUpdater();
