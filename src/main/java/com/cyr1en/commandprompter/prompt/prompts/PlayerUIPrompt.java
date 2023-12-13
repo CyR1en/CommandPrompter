@@ -102,7 +102,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
             getPlugin().getPluginLogger().debug("Missing heads in cache, rebuilding before sending...");
             headCache.reBuildCache().thenAccept(cache -> {
                 getPlugin().getPluginLogger().debug("Rebuilt cache!");
-                send(p);
+                Bukkit.getScheduler().runTask(getPlugin(), () -> send(p));
             });
         } else {
             send(p);
