@@ -122,9 +122,9 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void initPromptSystem() {
+        Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
         promptManager = new PromptManager(this);
         initCommandListener();
-        Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
     private boolean loadDeps() {
