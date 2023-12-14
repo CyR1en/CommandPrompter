@@ -87,11 +87,11 @@ public class PromptQueue extends LinkedList<Prompt> {
             logger.debug("Dispatching as console");
             Dispatcher.dispatchConsole(getCompleteCommand());
         } else if (isSetPermissionAttachment()) {
-            Dispatcher.dispatchWithAttachment(plugin, (Player) sender, getCompleteCommand(),
+            Dispatcher.dispatchWithAttachment(plugin, sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
                     plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
         } else
-            Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
+            Dispatcher.dispatchCommand(plugin, sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
             postCommandMetas.forEach(pcm -> {
@@ -120,7 +120,6 @@ public class PromptQueue extends LinkedList<Prompt> {
         if (isDelegate()) {
             logger.debug("Dispatching PostCommand as console");
             Dispatcher.dispatchConsole(command);
-            return;
         } else {
             logger.debug("Dispatching PostCommand as player");
             Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);

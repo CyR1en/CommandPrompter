@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 public class HeadCache implements Listener {
 
     private final LoadingCache<Player, Optional<ItemStack>> HEAD_CACHE;
+    private final List<CacheFilter> filters;
 
     private final CommandPrompter plugin;
     private final PluginLogger logger;
@@ -34,6 +35,8 @@ public class HeadCache implements Listener {
     public HeadCache(CommandPrompter plugin) {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
+        this.filters = new ArrayList<>();
+        registerFilters();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
@@ -50,6 +53,30 @@ public class HeadCache implements Listener {
                         return Optional.of(skull);
                     }
                 });
+    }
+
+    private void registerFilters() {
+        registerFilter(new CacheFilter.WorldFilter());
+        registerFilter(new CacheFilter.RadialFilter());
+    }
+
+    public void registerFilter(CacheFilter filter) {
+        if (Objects.isNull(filter)) return;
+        if (!filters.contains(filter))
+            filters.add(filter);
+    }
+
+    public List<CacheFilter> getFilters() {
+        return filters;
+    }
+
+    public String makeFilteredPattern() {
+        var filterKeys = filters.stream()
+                .map(filter -> {
+                    var stringKey = filter.getRegexKey().toString();
+                    return "(" + stringKey + ")";
+                }).toList();
+        return "p(?::(%s?)+)?".replace("%s", String.join("?", filterKeys));
     }
 
     public Optional<ItemStack> getHeadFor(Player player) {
@@ -120,12 +147,18 @@ public class HeadCache implements Listener {
 
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
         var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
-        setDisplayName(skullMeta, owningPlayer, skullName);
+        setDisplayName(skullMeta, skullName);
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
     }
 
-    private void setDisplayName(SkullMeta skullMeta, Player player, String name) {
+    public void setDisplayName(SkullMeta skullMeta, String name) {
+        var owner = skullMeta.getOwningPlayer();
+        if (Objects.isNull(owner)) return;
+        var player = owner.getPlayer();
+        if (Objects.isNull(player)) return;
+
+        logger.debug("Setting display name for %s: %s", player.getName(), name);
         name = name.replace("%s", player.getName());
         name = Util.color(name);
 
@@ -134,6 +167,7 @@ public class HeadCache implements Listener {
         if (!papi.isHooked()) {
             logger.debug("PAPI is not hooked");
             skullMeta.setDisplayName(name);
+            logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
             return;
         }
 
@@ -141,12 +175,14 @@ public class HeadCache implements Listener {
         if (!hook.papiPlaceholders(name)) {
             logger.debug("No PAPI placeholders found");
             skullMeta.setDisplayName(name);
+            logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
             return;
         }
 
         name = hook.setPlaceholder(player, name);
         logger.debug("PAPI placeholders found: %s", name);
         skullMeta.setDisplayName(name);
+        logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
     }
 
     public CompletableFuture<LoadingCache<Player, Optional<ItemStack>>> reBuildCache() {
@@ -194,4 +230,6 @@ public class HeadCache implements Listener {
     public void onPlayerQuit(PlayerQuitEvent e) {
         HEAD_CACHE.invalidate(e.getPlayer());
     }
+
+
 }

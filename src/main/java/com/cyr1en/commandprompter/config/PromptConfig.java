@@ -4,6 +4,7 @@ import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
+import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -26,9 +27,10 @@ public record PromptConfig(
                 "Cache-Delay - Delay in ticks after the player", "",
                 "              joins before their head gets cached", "",
                 "Sorted - Should the player heads be sorted?",
-                "Per-World - Only show player in the current world?", "",
                 "Empty-Message - Message to be displayed when the", "",
                 "                head cache is empty", "",
+                "Filter-Format - The format for the heads depending", "",
+                "                on what filter is used", "",
         })
         String skullNameFormat,
 
@@ -114,14 +116,19 @@ public record PromptConfig(
         boolean sorted,
 
         @ConfigNode
-        @NodeName("PlayerUI.Per-World")
-        @NodeDefault("false")
-        boolean isPerWorld,
-
-        @ConfigNode
         @NodeName("PlayerUI.Empty-Message")
         @NodeDefault("&cNo players found!")
         String emptyMessage,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Filter-Format.World")
+        @NodeDefault("&6\uD804\uDC4D %s")
+        String worldFilterFormat,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Filter-Format.Radial")
+        @NodeDefault("&cᯤ %s")
+        String radialFilterFormat,
 
         // ============================== Anvil UI ==============================
         @ConfigNode
@@ -313,6 +320,24 @@ public record PromptConfig(
         return "";
     }
 
+    /**
+     * Gets the format for a cache filter.
+     * <p>
+     * This function exists because future cache filters will not be dynamically added.
+     * Instead, the user has the option to define their own cache filter format.
+     *
+     * <p>
+     * The format for world and radial filters are pre-defined in the config as an example.
+     *
+     * @param filter the cache filter to get the format of
+     * @return the format of the cache filter
+     */
+    public String getFilterFormat(CacheFilter filter) {
+        var key = filter.getConfigKey();
+        var format = rawConfig().getString(key);
+        return format != null ? format : "";
+    }
+
     private String asserted(ConfigurationSection section, String key, String keyVal, String query) {
         if (section == null) return "";
         // Still check for alias because we are anchoring each input validation with an alias.
@@ -328,6 +353,5 @@ public record PromptConfig(
         }
         return "";
     }
-
 
 }

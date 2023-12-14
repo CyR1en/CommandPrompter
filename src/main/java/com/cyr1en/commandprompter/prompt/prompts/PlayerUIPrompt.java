@@ -28,6 +28,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.hooks.VanishHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.prompt.ui.inventory.ControlPane;
 import com.cyr1en.commandprompter.util.Util;
@@ -38,11 +39,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.regex.Pattern;
 
 public class PlayerUIPrompt extends AbstractPrompt {
 
@@ -51,8 +53,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private final HeadCache headCache;
     private final VanishHook vanishHook;
 
+    private final String promptKey;
+
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-            List<PromptParser.PromptArgument> args) {
+                          List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
         var cfgSize = getPlugin().getPromptConfig().playerUISize();
         var parts = Arrays.asList(getPrompt().split("\\{br}"));
@@ -60,6 +64,86 @@ public class PlayerUIPrompt extends AbstractPrompt {
         gui = new ChestGui(size, color(parts.get(0)));
         this.headCache = plugin.getHeadCache();
         vanishHook = plugin.getHookContainer().getVanishHook().get();
+        this.promptKey = context.getPromptKey();
+    }
+
+    private List<Player> getPlayersForHeads(List<CacheFilter> filters, Player p) {
+        if (filters.isEmpty()) return (List<Player>) Bukkit.getOnlinePlayers();
+
+        var pattern = Pattern.compile(headCache.makeFilteredPattern());
+        getPlugin().getPluginLogger().debug("Pattern: " + pattern.pattern());
+        var matcher = pattern.matcher(this.promptKey);
+        if (!matcher.find()) {
+            getPlugin().getPluginLogger().debug("No match found!");
+            return (List<Player>) Bukkit.getOnlinePlayers();
+        }
+
+        getPlugin().getPluginLogger().debug("Filters: " + filters);
+
+        // for all filters get the players that exist on all filters
+        if (filters.size() == 1)
+            return filters.get(0).filter(p);
+
+        // Intersect all filters.filter
+        var intersect = new HashSet<>(filters.get(0).filter(p));
+        for (int i = 1; i < filters.size(); i++) {
+            var set2 = new HashSet<>(filters.get(i).filter(p));
+            intersect.retainAll(set2);
+        }
+
+        return intersect.stream().toList();
+    }
+
+    private List<CacheFilter> extractFilters() {
+        var pattern = Pattern.compile(headCache.makeFilteredPattern());
+        var matcher = pattern.matcher(this.promptKey);
+        if (!matcher.find()) {
+            getPlugin().getPluginLogger().debug("No match found!");
+            return List.of();
+        }
+        // debug all cap groups
+        for (int i = 0; i <= matcher.groupCount(); i++) {
+            getPlugin().getPluginLogger().debug("Group %d: %s", i, matcher.group(i));
+        }
+
+        var extractedFilters = new ArrayList<CacheFilter>();
+        for (var filter : headCache.getFilters()) {
+            var capGroup = getCapturingGroup(filter);
+            var filterKey = matcher.group(capGroup);
+            if (Objects.isNull(filterKey)) continue;
+            extractedFilters.add(filter.reConstruct(promptKey));
+        }
+        return extractedFilters;
+    }
+
+    private CacheFilter getFirstFilter(List<CacheFilter> filters) {
+        var keyStripped = promptKey.replace("p:", "");
+        if (filters.isEmpty()) return null;
+        if (filters.size() == 1) return filters.get(0);
+
+        var firstFilter = filters.get(0);
+        var idx = 0;
+        var matcher = firstFilter.getRegexKey().matcher(keyStripped);
+        if (matcher.find()) {
+            idx = matcher.start();
+        }
+        for (int i = 1; i < filters.size(); i++) {
+            var filter = filters.get(i);
+            var matcher2 = filter.getRegexKey().matcher(keyStripped);
+            if (matcher2.find()) {
+                var idx2 = matcher2.start();
+                if (idx2 < idx) {
+                    idx = idx2;
+                    firstFilter = filter;
+                }
+            }
+        }
+        return firstFilter;
+    }
+
+    private int getCapturingGroup(CacheFilter cacheFilter) {
+        var index = headCache.getFilters().indexOf(cacheFilter);
+        return index + 2;
     }
 
     private void send(Player p) {
@@ -67,13 +151,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
 
-        var isSorted = getPlugin().getPromptConfig().sorted();
-        var isPerWorld = getPlugin().getPromptConfig().isPerWorld();
-        var skulls = isPerWorld
-                ? (isSorted ? headCache.getHeadsSortedFor(p.getWorld().getPlayers())
-                        : headCache.getHeadsFor(p.getWorld().getPlayers()))
-                : (isSorted ? headCache.getHeadsSorted() : headCache.getHeads());
-
+        var skulls = prepareHeads(p);
         var headCacheStr = headCache.toString();
         getPlugin().getPluginLogger().debug("Head Cache: " + headCacheStr.substring(headCacheStr.indexOf('@')));
         getPlugin().getPluginLogger().debug("|-- Size: " + headCache.getHeads().size());
@@ -87,15 +165,41 @@ public class PlayerUIPrompt extends AbstractPrompt {
         gui.show((HumanEntity) getContext().getSender());
     }
 
+    private List<ItemStack> prepareHeads(Player p) {
+        getPlugin().getPluginLogger().debug("Preparing heads...");
+        var filters = extractFilters();
+        var players = getPlayersForHeads(filters, p);
+        var isSorted = getPlugin().getPromptConfig().sorted();
+        var skulls = isSorted ? headCache.getHeadsSortedFor(players) : headCache.getHeadsFor(players);
+        var clone = new ArrayList<>(skulls);
+        formatHeads(clone, getFirstFilter(filters));
+        debugHeads(clone);
+        return clone;
+    }
+
+    private void debugHeads(List<ItemStack> is) {
+        for (ItemStack itemStack : is) {
+            var meta = (SkullMeta) itemStack.getItemMeta();
+            getPlugin().getPluginLogger().debug("Head: " + meta.getDisplayName());
+        }
+    }
+
+    private void formatHeads(List<ItemStack> heads, @Nullable CacheFilter filter) {
+        getPlugin().getPluginLogger().debug("Formatting heads...");
+        var config = getPlugin().getPromptConfig();
+        var format = Objects.isNull(filter) ? config.skullNameFormat() : filter.getFormat(config);
+        for (ItemStack head : heads) {
+            var meta = (SkullMeta) head.getItemMeta();
+            if (Objects.isNull(meta)) continue;
+            headCache.setDisplayName(meta, format);
+            head.setItemMeta(meta);
+        }
+    }
+
     @Override
     public void sendPrompt() {
         var p = (Player) getContext().getSender();
-        if (headCache.isEmpty()) {
-            getPlugin().getMessenger().sendMessage(p, getPlugin().getPromptConfig().emptyMessage());
-            getPromptManager().cancel(p);
-            return;
-        }
-        
+
         var missingCached = Bukkit.getOnlinePlayers().stream().filter(player -> !vanishHook.isInvisible(player))
                 .count() > headCache.getHeads().size();
         if (missingCached) {
@@ -115,12 +219,12 @@ public class PlayerUIPrompt extends AbstractPrompt {
         if (Objects.isNull(e.getCurrentItem()))
             return;
         var name = Objects.requireNonNull(
-                Objects.requireNonNull(Objects.requireNonNull((SkullMeta) (e.getCurrentItem()).getItemMeta()))
-                        .getOwningPlayer())
+                        Objects.requireNonNull(Objects.requireNonNull((SkullMeta) (e.getCurrentItem()).getItemMeta()))
+                                .getOwningPlayer())
                 .getName();
         name = Util.stripColor(name);
         var ctx = new PromptContext.Builder()
-                .setSender((Player) getContext().getSender())
+                .setSender(getContext().getSender())
                 .setContent(name).build();
         getPlugin().getPromptManager().processPrompt(ctx);
         gui.setOnClose(null);
