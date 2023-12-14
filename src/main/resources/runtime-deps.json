@@ -9,21 +9,21 @@
     "sha1": "26aaf95a5552972d6612febabbe31776b902ee75"
   },
   "SignGUI": {
-    "filename": "signgui-2.2.1.jar",
-    "url": "https://repo1.maven.org/maven2/io/github/rapha149/signgui/signgui/2.2.1/signgui-2.2.1.jar",
+    "filename": "signgui-2.2.2.jar",
+    "url": "https://repo1.maven.org/maven2/io/github/rapha149/signgui/signgui/2.2.2/signgui-2.2.2.jar",
     "relocation": [
       "io.github.rapha149.signgui",
       "com.cyr1en.signgui"
     ],
-    "sha1": "7b74bb5b78d49e43bc9265ddbcb26a93316b34de"
+    "sha1": "982894bc7e9da56830b278a64c4cdbfc4df96054"
   },
   "CommandAPI": {
-    "filename": "commandapi-bukkit-shade-9.2.0.jar",
-    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade/9.2.0/commandapi-bukkit-shade-9.2.0.jar",
+    "filename": "commandapi-bukkit-shade-9.3.0.jar",
+    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade/9.3.0/commandapi-bukkit-shade-9.3.0.jar",
     "relocation": [
       "dev.jorel.commandapi",
       "com.cyr1en.commandapi"
     ],
-    "sha1": "8fa83e104eb825e452a0a8cebec27b7f4f04b22d"
+    "sha1": "145ee0e27a97733cc4cc40641910aabfb70d18c2"
   }
 }
