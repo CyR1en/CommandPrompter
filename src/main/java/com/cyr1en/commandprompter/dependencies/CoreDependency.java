@@ -100,6 +100,10 @@ public enum CoreDependency {
         return true;
     }
 
+    String getFileName() {
+        return fileName;
+    }
+
     void sendErrorMessage() {
         logger.err("Failed to download %s!", fileName);
         logger.err("Please download it manually from %s and put it in the lib folder.", url);
@@ -108,6 +112,8 @@ public enum CoreDependency {
     public static boolean loadAll(URLClassLoaderAccess access, File libDir) {
         logger.info("Loading core dependencies...");
         for (CoreDependency dependency : values()) {
+            if (dependency.inClassPath())
+                continue;
             var result = dependency.download(libDir);
             if (!result)
                 return false;
