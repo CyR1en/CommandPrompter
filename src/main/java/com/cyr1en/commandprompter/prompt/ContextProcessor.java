@@ -11,8 +11,6 @@ import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 
 public class ContextProcessor {
-    
-    private static final Pattern permissionAttachmentPattern = Pattern.compile("-pa ");
 
     private final CommandPrompter plugin;
     private final PromptManager promptManager;
@@ -52,7 +50,6 @@ public class ContextProcessor {
             return;
         }
 
-        parsePermissionAttachment(context);
         if (!promptManager.getParser().isParsable(context)) return;
         if (!(context.getSender() instanceof Player)) {
             plugin.getMessenger().sendMessage(context.getSender(),
@@ -84,12 +81,5 @@ public class ContextProcessor {
         return out.get();
     }
 
-    private void parsePermissionAttachment(PromptContext context) {
-        var matcher = permissionAttachmentPattern.matcher(context.getContent());
-        if(matcher.find()) {
-            context.setContent(matcher.replaceAll(""));
-            context.setSetPermissionAttachment(true);
-            plugin.getPluginLogger().debug("Using PermissionAttachment for command dispatch");
-        }
-    }
+
 }

@@ -18,15 +18,15 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final String escapedRegex;
 
     private final boolean isOp;
-    private final boolean isDelegate;
-    private final boolean isSetPermissionAttachment;
+    private final boolean isConsoleDelegate;
+    private String permissionAttachmentKey;
 
     private final List<PostCommandMeta> postCommandMetas;
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate,
-            String escapedRegex) {
+    public PromptQueue(String command, boolean isOp, boolean isDelegate,
+                       String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
@@ -34,6 +34,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         this.isOp = isOp;
         this.isDelegate = isDelegate;
         this.isSetPermissionAttachment = isSetPermissionAttachment;
+        this.permissionAttachmentKey = "";
         this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
     }
@@ -46,8 +47,12 @@ public class PromptQueue extends LinkedList<Prompt> {
         return isOp;
     }
 
-    public boolean isSetPermissionAttachment() {
-        return isSetPermissionAttachment;
+    public String getPermissionAttachmentKey() {
+        return permissionAttachmentKey;
+    }
+
+    public void setPermissionAttachmentKey(String key) {
+        this.permissionAttachmentKey = key;
     }
 
     public boolean isDelegate() {
@@ -86,10 +91,10 @@ public class PromptQueue extends LinkedList<Prompt> {
         if (isDelegate()) {
             logger.debug("Dispatching as console");
             Dispatcher.dispatchConsole(getCompleteCommand());
-        } else if (isSetPermissionAttachment()) {
+        } else if (!permissionAttachmentKey.isBlank()) {
             Dispatcher.dispatchWithAttachment(plugin, sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
-                    plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
+                    plugin.getConfiguration().getPermissionAttachment(permissionAttachmentKey));
         } else
             Dispatcher.dispatchCommand(plugin, sender, getCompleteCommand());
 

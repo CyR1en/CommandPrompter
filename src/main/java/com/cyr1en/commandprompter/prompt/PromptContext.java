@@ -39,23 +39,24 @@ public class PromptContext {
     private String promptKey;
 
     private boolean isConsoleDelegate;
-    private boolean setPermissionAttachment;
+
+    private final String paKey;
 
     public PromptContext(PlayerCommandPreprocessEvent e) {
-        this(e, e.getPlayer(), e.getMessage(), null, false, false);
+        this(e, e.getPlayer(), e.getMessage(), null, null, false);
     }
 
     public PromptContext(@Nullable Cancellable callable,
                          Player sender,
                          String content,
                          @Nullable String promptKey,
-                         boolean setPermissionAttachment,
+                         @Nullable String paKey,
                          boolean isConsoleDelegate) {
         this.cancellable = callable;
         this.sender = sender;
         this.content = content;
         this.promptKey = promptKey;
-        this.setPermissionAttachment = setPermissionAttachment;
+        this.paKey = paKey;
         this.isConsoleDelegate = isConsoleDelegate;
     }
 
@@ -83,20 +84,16 @@ public class PromptContext {
         this.promptKey = promptKey;
     }
 
-    public void setSetPermissionAttachment(boolean b) {
-        this.setPermissionAttachment = b;
-    }
-
     public void setIsConsoleDelegate(boolean b) {
         this.isConsoleDelegate = b;
     }
 
-    public boolean isSetPermissionAttachment() {
-        return this.setPermissionAttachment;
-    }
-
     public boolean isConsoleDelegate() {
         return this.isConsoleDelegate;
+    }
+
+    public String getPaKey() {
+        return Objects.isNull(paKey) ? "" : paKey;
     }
 
     @Override
@@ -106,8 +103,8 @@ public class PromptContext {
                 ", sender=" + sender +
                 ", content='" + content + '\'' +
                 ", promptKey='" + promptKey + '\'' +
+                ", paKey='" + paKey + '\'' +
                 ", isConsoleDelegate=" + isConsoleDelegate +
-                ", setPermissionAttachment=" + setPermissionAttachment +
                 '}';
     }
 
@@ -118,7 +115,8 @@ public class PromptContext {
         private String content;
 
         private String promptKey;
-        private boolean setPermissionAttachment;
+
+        private String paKey;
         private boolean isConsoleDelegate;
 
         public Builder() {
@@ -126,7 +124,7 @@ public class PromptContext {
             this.sender = null;
             this.content = null;
             this.promptKey = null;
-            this.setPermissionAttachment = false;
+            this.paKey = null;
             this.isConsoleDelegate = false;
         }
 
@@ -155,8 +153,8 @@ public class PromptContext {
             return this;
         }
 
-        public Builder setConsoleDelegate(boolean isConsoleDelegate) {
-            this.isConsoleDelegate = isConsoleDelegate;
+        public Builder setPaKey(String paKey) {
+            this.paKey = paKey;
             return this;
         }
 
@@ -165,7 +163,7 @@ public class PromptContext {
             if (sender == null || content == null)
                 throw new IllegalStateException("Sender and content must not be null!");
             return new PromptContext(cancellable, (Player) sender,
-                    content, promptKey, setPermissionAttachment, isConsoleDelegate);
+                    content, promptKey, paKey, isConsoleDelegate);
         }
     }
 }

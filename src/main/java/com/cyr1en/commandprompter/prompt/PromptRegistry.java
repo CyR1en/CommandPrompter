@@ -52,9 +52,9 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
         var queue = new PromptQueue(
                 command,
                 context.getSender().isOp(),
-                context.isSetPermissionAttachment(),
                 context.isConsoleDelegate(),
                 escapedRegex);
+        queue.setPermissionAttachmentKey(context.getPaKey());
 
         put(context.getSender(), queue);
     }
