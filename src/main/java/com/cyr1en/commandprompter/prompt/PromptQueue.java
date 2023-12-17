@@ -32,8 +32,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
-        this.isDelegate = isDelegate;
-        this.isSetPermissionAttachment = isSetPermissionAttachment;
+        this.isConsoleDelegate = isDelegate;
         this.permissionAttachmentKey = "";
         this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
@@ -55,8 +54,8 @@ public class PromptQueue extends LinkedList<Prompt> {
         this.permissionAttachmentKey = key;
     }
 
-    public boolean isDelegate() {
-        return isDelegate;
+    public boolean isConsoleDelegate() {
+        return isConsoleDelegate;
     }
 
     public String getCompleteCommand() {
@@ -88,7 +87,7 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public void dispatch(CommandPrompter plugin, Player sender) {
-        if (isDelegate()) {
+        if (isConsoleDelegate()) {
             logger.debug("Dispatching as console");
             Dispatcher.dispatchConsole(getCompleteCommand());
         } else if (!permissionAttachmentKey.isBlank()) {
@@ -122,7 +121,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         });
         logger.debug("After parse: " + command);
 
-        if (isDelegate()) {
+        if (isConsoleDelegate()) {
             logger.debug("Dispatching PostCommand as console");
             Dispatcher.dispatchConsole(command);
         } else {

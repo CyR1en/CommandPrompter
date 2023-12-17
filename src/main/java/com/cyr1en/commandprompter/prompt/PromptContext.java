@@ -37,7 +37,6 @@ public class PromptContext {
     private final CommandSender sender;
     private String content;
     private String promptKey;
-
     private boolean isConsoleDelegate;
 
     private final String paKey;
@@ -143,8 +142,8 @@ public class PromptContext {
             return this;
         }
 
-        public Builder setPermissionAttachment(boolean setPermissionAttachment) {
-            this.setPermissionAttachment = setPermissionAttachment;
+        public Builder setConsoleDelegate(boolean isConsoleDelegate) {
+            this.isConsoleDelegate = isConsoleDelegate;
             return this;
         }
 
