@@ -30,7 +30,9 @@ import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
+import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -123,8 +125,12 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (!checkInput(queue, context))
             return;
 
-        getPromptRegistry().get(sender).poll();
-        getPromptRegistry().get(sender).addCompleted(context.getContent());
+        var p = getPromptRegistry().get(sender).poll();
+        var content = context.getContent();
+        if (Objects.nonNull(p) && p.sanitizeInput())
+            content = sanitize(content);
+
+        getPromptRegistry().get(sender).addCompleted(content);
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             dispatchQueue(sender, queue);
@@ -190,6 +196,16 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         plugin.getMessenger().sendMessage(context.getSender(), errMsg);
         sendPrompt(context.getSender());
         return false;
+    }
+
+    private static final Pattern symbols = Pattern.compile("[{}\\[\\]<>()$§&]+");
+
+    private String sanitize(String input) {
+        plugin.getPluginLogger().debug("Sanitizing input: " + input);
+        input = Util.stripColor(ChatColor.translateAlternateColorCodes('&', input));
+        input = symbols.matcher(input).replaceAll("");
+        plugin.getPluginLogger().debug("Sanitized input: " + input);
+        return input;
     }
 
     public PromptRegistry getPromptRegistry() {

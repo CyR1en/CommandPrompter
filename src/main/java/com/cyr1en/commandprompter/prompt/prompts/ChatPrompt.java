@@ -52,7 +52,7 @@ import java.util.*;
 public class ChatPrompt extends AbstractPrompt {
 
     public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-            List<PromptParser.PromptArgument> args) {
+                      List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
@@ -87,14 +87,14 @@ public class ChatPrompt extends AbstractPrompt {
         var container = plugin.getHookContainer();
         var ccHook = container.getHook(CarbonChatHook.class);
         ccHook.ifHooked((e) -> {
-            var res = e.subscribe();
-            if (!res) {
-                registerDefault(plugin);
-                plugin.getPluginLogger().info("Using default listener");
-                return;
-            }
-            plugin.getPluginLogger().info("Using CarbonChat listener");
-        })
+                    var res = e.subscribe();
+                    if (!res) {
+                        registerDefault(plugin);
+                        plugin.getPluginLogger().info("Using default listener");
+                        return;
+                    }
+                    plugin.getPluginLogger().info("Using CarbonChat listener");
+                })
                 .orElse(() -> {
                     registerDefault(plugin);
                     plugin.getPluginLogger().info("Using default listener");
@@ -118,6 +118,7 @@ public class ChatPrompt extends AbstractPrompt {
 
         public void onResponse(Player player, String msg, Cancellable event) {
             plugin.getPluginLogger().debug("Cancellable event: " + event.getClass().getSimpleName());
+            msg = msg.replace("§", "&");
             if (!manager.getPromptRegistry().inCommandProcess(player))
                 return;
             event.setCancelled(true);
@@ -132,10 +133,6 @@ public class ChatPrompt extends AbstractPrompt {
             if (Objects.isNull(queue))
                 return;
 
-            var prompt = queue.peek();
-            if (Objects.nonNull(prompt))
-                message = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? msg : message;
-                
             var ctx = new PromptContext.Builder()
                     .setCancellable(event)
                     .setSender(player)

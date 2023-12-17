@@ -45,6 +45,8 @@ public abstract class AbstractPrompt implements Prompt {
 
     private Pattern regexCheck;
 
+    private boolean inputSanitation;
+
     public AbstractPrompt(CommandPrompter plugin, PromptContext context,
                           String prompt, List<PromptParser.PromptArgument> args) {
         this.plugin = plugin;
@@ -52,6 +54,7 @@ public abstract class AbstractPrompt implements Prompt {
         this.prompt = prompt;
         this.promptManager = plugin.getPromptManager();
         this.args = args;
+        this.inputSanitation = true;
         this.regexCheck = Pattern.compile("");
     }
 
@@ -104,6 +107,16 @@ public abstract class AbstractPrompt implements Prompt {
     @Override
     public Pattern getRegexCheck() {
         return regexCheck;
+    }
+
+    @Override
+    public void setInputSanitization(boolean sanitize) {
+        this.inputSanitation = sanitize;
+    }
+
+    @Override
+    public boolean sanitizeInput() {
+        return this.inputSanitation;
     }
 
     @Override

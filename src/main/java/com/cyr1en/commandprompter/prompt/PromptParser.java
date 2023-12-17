@@ -132,6 +132,8 @@ public class PromptParser {
                         .newInstance(plugin, promptContext, promptTxt, promptArgs);
 
                 p.setRegexCheck(plugin.getPromptConfig().findIVRegexCheckInConfig(inputValidation));
+                if (promptArgs.contains(PromptArgument.DISABLE_SANITATION))
+                    p.setInputSanitization(false);
 
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
