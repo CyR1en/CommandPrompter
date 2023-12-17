@@ -8,7 +8,7 @@ import dev.jorel.commandapi.CommandAPIBukkitConfig;
 
 /**
  * Wrapper for CommandAPI.
- * 
+ *
  * <p>
  * Since CommandPrompter loads CommandAPI dynamically, we need a wrapper to
  * prevent
@@ -43,6 +43,7 @@ public class CommandAPIWrapper {
 
     public void registerCommands() {
         new MainCommand(plugin).register();
-        new ConsoleDelegate(plugin).register();
+        new DelegateCommand.ConsoleDelegate(plugin).register();
+        new DelegateCommand.PlayerDelegate(plugin).register();
     }
 }
