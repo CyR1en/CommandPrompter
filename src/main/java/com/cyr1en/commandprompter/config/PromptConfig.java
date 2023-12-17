@@ -287,37 +287,21 @@ public record PromptConfig(
         @NodeDefault("&cInput must only consist letters of the alphabet!")
         String strSampleErrMessage
 
-) {
+) implements AliasedSection {
     public String findIVRegexCheckInConfig(String alias) {
-        return getInputValidationValue("Alias", alias, "Regex");
+        return getIVValue("Alias", alias, "Regex");
     }
 
     public String getIVErrMessage(String alias) {
-        return getInputValidationValue("Alias", alias, "Err-Message");
+        return getIVValue("Alias", alias, "Err-Message");
     }
 
     public String getIVErrMessageWithRegex(String regex) {
-        return getInputValidationValue("Regex", regex, "Err-Message");
+        return getIVValue("Regex", regex, "Err-Message");
     }
 
-    /**
-     * Get a value of a key in a validation section using a different key value to check if we're in the right section.
-     *
-     * @param key    key to check
-     * @param keyVal value of the key to check
-     * @param query  key to get the value of
-     * @return value of the query key
-     */
-    private String getInputValidationValue(String key, String keyVal, String query) {
-        var raw = rawConfig();
-        var validations = raw.getConfigurationSection("Input-Validation");
-
-        for (var k : validations.getKeys(false)) {
-            var section = validations.getConfigurationSection(k);
-            var asserted = asserted(section, key, keyVal, query);
-            if (!asserted.isEmpty() && !asserted.isBlank()) return asserted;
-        }
-        return "";
+    public String getIVValue(String key, String keyVal, String query) {
+        return getInputValidationValue("Input-Validation", key, keyVal, query);
     }
 
     /**
@@ -336,22 +320,6 @@ public record PromptConfig(
         var key = filter.getConfigKey();
         var format = rawConfig().getString(key);
         return format != null ? format : "";
-    }
-
-    private String asserted(ConfigurationSection section, String key, String keyVal, String query) {
-        if (section == null) return "";
-        // Still check for alias because we are anchoring each input validation with an alias.
-        // Therefore, the alias must always be present.
-        if (!section.getKeys(false).contains("Alias")) return "";
-
-        var cfgAlias = section.getString(key);
-        cfgAlias = cfgAlias != null ? cfgAlias : "";
-
-        if (cfgAlias.equals(keyVal)) {
-            var regex = section.getString(query);
-            return regex != null ? regex : "";
-        }
-        return "";
     }
 
 }

@@ -10,6 +10,7 @@ import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 
 import java.util.List;
+import java.util.Set;
 
 @Configuration
 @ConfigPath("config.yml")
@@ -159,8 +160,10 @@ public record CommandPrompterConfig(
         int permissionAttachmentTicks,
 
         @ConfigNode
-        @NodeName("Permission-Attachment.permissions")
-        @NodeDefault("sample.permission, sample.permission2")
+        @NodeName("Permission-Attachment.Permissions.GAMEMODE")
+        @NodeDefault("bukkit.command.gamemode, " +
+                "essentials.gamemode.survival," +
+                "essentials.gamemode.creative")
         List<String> attachmentPermissions,
 
         @ConfigNode
@@ -171,5 +174,20 @@ public record CommandPrompterConfig(
         })
         @NodeDefault("true")
         boolean commandTabComplete
-) {
+) implements AliasedSection {
+
+    public String[] getPermissionAttachment(String key) {
+        var section = rawConfig.getConfigurationSection("Permission-Attachment.Permissions");
+        var keyExist = section.getKeys(false).contains(key);
+        return keyExist ? section.getStringList(key).toArray(String[]::new) : new String[]{};
+    }
+
+    public String[] getPermissionKeys() {
+        var section = rawConfig.getConfigurationSection("Permission-Attachment.Permissions");
+        Set<String> keys = section == null ? Set.of() : section.getKeys(false);
+        keys.add("NONE");
+        return keys.toArray(String[]::new);
+    }
+
+
 }
