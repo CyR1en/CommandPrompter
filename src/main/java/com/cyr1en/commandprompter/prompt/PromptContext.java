@@ -31,7 +31,15 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
+import java.util.Objects;
 
+/**
+ * A helper class that holds context for the prompt system.
+ *
+ * <p>
+ * We can think of it as a data container for various functions throughout the
+ * prompt system.
+ */
 public class PromptContext {
     private final Cancellable cancellable;
     private final CommandSender sender;
