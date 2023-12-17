@@ -143,6 +143,20 @@ public record CommandPrompterConfig(
         List<String> ignoredCommands,
 
         @ConfigNode
+        @NodeName("Allowed-Commands-In-Prompt")
+        @NodeDefault("sampleCommand, sampleCommand2")
+        @NodeComment({
+                "What commands should CommandPrompter allow",
+                "",
+                "When the player executes another command while",
+                "completing a prompt.",
+                "",
+                "Do not include the /",
+                "",
+        })
+        List<String> allowedWhileInPrompt,
+
+        @ConfigNode
         @NodeName("Permission-Attachment.ticks")
         @NodeDefault("1")
         @NodeComment({
