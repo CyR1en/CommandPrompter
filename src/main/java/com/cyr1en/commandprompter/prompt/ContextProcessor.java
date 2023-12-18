@@ -69,7 +69,7 @@ public class ContextProcessor {
         var fulfilling = promptManager.getPromptRegistry().inCommandProcess(context.getSender());
         var cmd = extractCommand(context.getContent());
         var cmds = plugin.getConfiguration().allowedWhileInPrompt();
-        return fulfilling && !cmds.contains(cmd);
+        return fulfilling && (!cmds.contains(cmd) && promptManager.getParser().isParsable(context));
     }
 
     private boolean isIgnored(PromptContext context) {
