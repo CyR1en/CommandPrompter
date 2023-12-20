@@ -24,13 +24,12 @@
 
 package com.cyr1en.commandprompter.prompt;
 
-import javax.annotation.Nullable;
-
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**

@@ -1,7 +1,6 @@
 package com.cyr1en.commandprompter;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 

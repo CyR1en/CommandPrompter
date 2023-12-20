@@ -16,8 +16,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import org.bukkit.Bukkit;
-
 /**
  * Class that manages your plugin's configuration(s)
  *

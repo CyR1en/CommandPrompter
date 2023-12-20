@@ -2,7 +2,6 @@ package com.cyr1en.commandprompter.util;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;

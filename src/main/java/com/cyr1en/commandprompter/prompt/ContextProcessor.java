@@ -1,14 +1,12 @@
 package com.cyr1en.commandprompter.prompt;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-
-import org.bukkit.entity.Player;
-import org.fusesource.jansi.Ansi;
-
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
+import org.bukkit.entity.Player;
+import org.fusesource.jansi.Ansi;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ContextProcessor {
 

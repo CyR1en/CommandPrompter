@@ -6,7 +6,6 @@ import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
 import com.cyr1en.kiso.mc.configuration.base.Config;
-import org.bukkit.configuration.ConfigurationSection;
 
 @Configuration
 @ConfigPath("prompt-config.yml")

@@ -1,8 +1,8 @@
 package com.cyr1en.commandprompter.dependencies;
 
-import java.io.File;
-
 import com.cyr1en.commandprompter.PluginLogger;
+
+import java.io.File;
 
 /**
  * Represents a core dependency for the plugin.

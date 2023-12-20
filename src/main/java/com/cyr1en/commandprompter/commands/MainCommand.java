@@ -1,15 +1,12 @@
 package com.cyr1en.commandprompter.commands;
 
-import java.util.Collections;
-import java.util.regex.Pattern;
-
-import org.bukkit.command.CommandSender;
-
 import com.cyr1en.commandprompter.CommandPrompter;
-//import com.cyr1en.commandprompter.PluginLogger;
-
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.executors.CommandArguments;
+import org.bukkit.command.CommandSender;
+
+import java.util.Collections;
+import java.util.regex.Pattern;
 
 public class MainCommand {
     private final CommandPrompter plugin;
