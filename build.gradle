@@ -97,7 +97,7 @@ shadowJar {
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set(pluginManifest.version.classifier + "-Bundled")
+    archiveClassifier.set('bundled')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
@@ -115,10 +115,8 @@ shadowJar {
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 tasks.register("lightJar", ShadowJar) {
-    archiveClassifier.set(pluginManifest.version.classifier)
     from sourceSets.main.output
     configurations = [project.configurations.runtimeClasspath]
-
 
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
