@@ -99,4 +99,18 @@ public interface Prompt {
      * @return true if input is valid
      */
     boolean isValidInput(String input);
+
+    /**
+     * Returns a boolean value if inputs should be sanitized.
+     *
+     * @return true if inputs should be sanitized
+     */
+    boolean sanitizeInput();
+
+    /**
+     * Set whether inputs should be sanitized.
+     *
+     * @param sanitize true if inputs should be sanitized
+     */
+    void setInputSanitization(boolean sanitize);
 }

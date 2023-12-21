@@ -1,7 +1,6 @@
 package com.cyr1en.commandprompter;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 
@@ -17,8 +16,8 @@ public class PluginLogger {
     private final ColorGradient normalGrad;
     private final ColorGradient debugGrad;
 
-    private boolean debugMode = false;
-    private boolean isFancy = true;
+    private final boolean debugMode;
+    private final boolean isFancy;
 
     public PluginLogger(CommandPrompter plugin, String prefix) {
         this.isFancy = plugin.getConfiguration().fancyLogger();
@@ -91,18 +90,10 @@ public class PluginLogger {
         if (debugMode) {
             msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg)
                     : Objects.isNull(lastDebugClass) ? msg
-                            : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
+                    : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
             var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
             log(debugPrefix, Level.INFO, str, args);
         }
-    }
-
-    public void setDebugMode(boolean b) {
-        debugMode = b;
-    }
-
-    public void bukkitWarn(String msg) {
-        Bukkit.getConsoleSender().sendMessage(ChatColor.GOLD + getPrefix() + msg);
     }
 
     private String getPrefix() {

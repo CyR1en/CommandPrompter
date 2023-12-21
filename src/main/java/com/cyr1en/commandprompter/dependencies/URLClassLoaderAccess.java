@@ -26,13 +26,12 @@
 // Author: Lucko (https://github.com/lucko/helper/blob/master/helper/src/main/java/me/lucko/helper/maven/URLClassLoaderAccess.java)
 package com.cyr1en.commandprompter.dependencies;
 
+import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Collection;
-
-import javax.annotation.Nonnull;
 
 /**
  * Provides access to {@link URLClassLoader}#addURL.

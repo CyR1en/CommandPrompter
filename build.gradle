@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 6, patch: 0, fix: 0, classifier: 'RELEASE'),
+        version    : new Version(major: 2, minor: 7, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Perfect companion plugin for inventory UI menu.',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -63,10 +63,10 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.0-SNAPSHOT'
-    implementation 'io.github.rapha149.signgui:signgui:2.2.1'
+    implementation 'net.wesjd:anvilgui:1.9.2-SNAPSHOT'
+    implementation 'io.github.rapha149.signgui:signgui:2.2.2'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation "dev.jorel:commandapi-bukkit-shade:9.2.0"
+    implementation "dev.jorel:commandapi-bukkit-shade:9.3.0"
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
     // Exclude these
@@ -97,7 +97,7 @@ shadowJar {
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set(pluginManifest.version.classifier + "-Bundled")
+    archiveClassifier.set('bundled')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
@@ -115,10 +115,8 @@ shadowJar {
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 tasks.register("lightJar", ShadowJar) {
-    archiveClassifier.set(pluginManifest.version.classifier)
     from sourceSets.main.output
     configurations = [project.configurations.runtimeClasspath]
-
 
     dependencies {
         exclude(dependency('com.mojang:brigadier'))

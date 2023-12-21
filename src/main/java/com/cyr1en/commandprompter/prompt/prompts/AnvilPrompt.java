@@ -35,6 +35,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,30 +59,7 @@ public class AnvilPrompt extends AbstractPrompt {
 
     private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item) {
         var isComplete = new AtomicBoolean(false);
-        var builder = new AnvilGUI.Builder();
-        builder.onClick((slot, stateSnapshot) -> {
-            if (slot != AnvilGUI.Slot.OUTPUT)
-                return Collections.emptyList();
-
-            var message = ChatColor.stripColor(
-                    ChatColor.translateAlternateColorCodes('&', stateSnapshot.getText()));
-            var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
-            if (cancelKeyword.equalsIgnoreCase(message)) {
-                getPromptManager().cancel(stateSnapshot.getPlayer());
-                return Collections.singletonList(AnvilGUI.ResponseAction.close());
-            }
-
-            message = getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? stateSnapshot.getText()
-                    : message;
-
-            isComplete.getAndSet(true);
-            var ctx = new PromptContext.Builder()
-                    .setSender(stateSnapshot.getPlayer())
-                    .setContent(message).build();
-
-            getPromptManager().processPrompt(ctx);
-            return Collections.singletonList(AnvilGUI.ResponseAction.close());
-        });
+        var builder = getBuilder(isComplete);
         builder.onClose(p -> {
             if (isComplete.get())
                 return;
@@ -99,6 +77,32 @@ public class AnvilPrompt extends AbstractPrompt {
         }
         builder.itemLeft(item);
         builder.plugin(getPlugin());
+        return builder;
+    }
+
+    @NotNull
+    private AnvilGUI.Builder getBuilder(AtomicBoolean isComplete) {
+        var builder = new AnvilGUI.Builder();
+        builder.onClick((slot, stateSnapshot) -> {
+            if (slot != AnvilGUI.Slot.OUTPUT)
+                return Collections.emptyList();
+
+            var message = ChatColor.stripColor(
+                    ChatColor.translateAlternateColorCodes('&', stateSnapshot.getText()));
+            var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
+            if (cancelKeyword.equalsIgnoreCase(message)) {
+                getPromptManager().cancel(stateSnapshot.getPlayer());
+                return Collections.singletonList(AnvilGUI.ResponseAction.close());
+            }
+
+            isComplete.getAndSet(true);
+            var ctx = new PromptContext.Builder()
+                    .setSender(stateSnapshot.getPlayer())
+                    .setContent(stateSnapshot.getText()).build();
+
+            getPromptManager().processPrompt(ctx);
+            return Collections.singletonList(AnvilGUI.ResponseAction.close());
+        });
         return builder;
     }
 

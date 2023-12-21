@@ -1,15 +1,12 @@
 package com.cyr1en.commandprompter.commands;
 
-import java.util.Collections;
-import java.util.regex.Pattern;
-
-import org.bukkit.command.CommandSender;
-
 import com.cyr1en.commandprompter.CommandPrompter;
-//import com.cyr1en.commandprompter.PluginLogger;
-
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.executors.CommandArguments;
+import org.bukkit.command.CommandSender;
+
+import java.util.Collections;
+import java.util.regex.Pattern;
 
 public class MainCommand {
     private final CommandPrompter plugin;
@@ -24,7 +21,8 @@ public class MainCommand {
         var command = new CommandAPICommand("commandprompter")
                 .withAliases("cmdp")
                 .withSubcommand(new Reload(plugin))
-                .withSubcommand(new Cancel(plugin));
+                .withSubcommand(new Cancel(plugin))
+                .withSubcommand(new RebuildHeadCache(plugin));
 
         if (!plugin.getConfiguration().showCompleted())
             command.setArguments(Collections.emptyList());
@@ -32,7 +30,7 @@ public class MainCommand {
         command.register();
     }
 
-    public class Reload extends CommandAPICommand {
+    public static class Reload extends CommandAPICommand {
 
         private final CommandPrompter plugin;
 
@@ -51,7 +49,7 @@ public class MainCommand {
 
     }
 
-    public class Cancel extends CommandAPICommand {
+    public static class Cancel extends CommandAPICommand {
 
         public static final Pattern commandPattern = Pattern.compile("(commandprompter|cmdp) cancel");
 
@@ -74,6 +72,30 @@ public class MainCommand {
             }
 
             plugin.getPromptManager().cancel(sender);
+        }
+
+    }
+
+    public static class RebuildHeadCache extends CommandAPICommand {
+
+        private final CommandPrompter plugin;
+
+        public RebuildHeadCache(CommandPrompter plugin) {
+            super("rebuildheadcache");
+            this.plugin = plugin;
+            withAliases("rhc");
+            withPermission("commandprompter.rebuildheadcache");
+            executes(this::exec);
+        }
+
+        public void exec(CommandSender sender, CommandArguments args) {
+            var currMillis = System.currentTimeMillis();
+            plugin.getHeadCache().reBuildCache().thenAccept(c -> {
+                var timeTaken = System.currentTimeMillis() - currMillis;
+                var msg = plugin.getI18N().getFormattedProperty("CommandRebuildHeadCacheSuccess", timeTaken + "");
+                plugin.getMessenger().sendMessage(sender, msg);
+                plugin.getPluginLogger().debug("Rebuilt head cache in " + timeTaken + "ms");
+            });
         }
 
     }

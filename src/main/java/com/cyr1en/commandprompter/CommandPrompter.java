@@ -45,7 +45,6 @@ import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.utils.SRegex;
-
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -122,9 +121,9 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void initPromptSystem() {
+        Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
         promptManager = new PromptManager(this);
         initCommandListener();
-        Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
     }
 
     private boolean loadDeps() {
@@ -137,7 +136,7 @@ public class CommandPrompter extends JavaPlugin {
 
         var depLoader = new DependencyLoader(this);
         if (!depLoader.isClassLoaderAccessSupported())
-            return depErrAndDisable("No access to URLClassloader, cannot load depedencies!", depLoader);
+            return depErrAndDisable("No access to URLClassloader, cannot load dependencies!", depLoader);
 
         if (!depLoader.loadCoreDeps())
             return depErrAndDisable("Unable to load dependencies!", depLoader);
@@ -190,7 +189,7 @@ public class CommandPrompter extends JavaPlugin {
             logger.warn("sHash: " + sHash + " | pHash: " + pHash);
             Bukkit.getPluginManager().registerEvents(commandListener, this);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+            logger.err("Unable to hack command map!");
         }
     }
 
@@ -248,6 +247,7 @@ public class CommandPrompter extends JavaPlugin {
         messenger.setPrefix(config.promptPrefix());
         logger = new PluginLogger(this, "CommandPrompter");
         i18n = new I18N(this, "CommandPrompter");
+        headCache.reBuildCache();
         promptManager.getParser().initRegex();
         ChatPrompt.DefaultListener.setPriority(this);
         setupUpdater();

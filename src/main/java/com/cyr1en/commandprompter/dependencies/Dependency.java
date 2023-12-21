@@ -1,11 +1,11 @@
 package com.cyr1en.commandprompter.dependencies;
 
+import com.cyr1en.commandprompter.util.Util;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
-
-import com.cyr1en.commandprompter.util.Util;
 
 public class Dependency {
 

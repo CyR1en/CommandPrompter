@@ -90,16 +90,22 @@ public class Dispatcher {
         var logger = commandPrompter.getPluginLogger();
 
         logger.debug("Dispatching command with permission attachment");
+
         var attachment = sender.addAttachment(plugin, ticks);
         if (attachment == null) {
             logger.err("Unable to create PermissionAttachment for " + sender.getName());
             return;
         }
-        logger.debug("Added PermissionAttachment");
-        for (String perm : perms)
+
+        for (String perm : perms) {
+            logger.debug("Attached Perm: " + perm);
             attachment.setPermission(perm, true);
+        }
         attachment.getPermissible().recalculatePermissions();
-        dispatchCommand(plugin, (Player) attachment.getPermissible(), command);
+        final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
+        Bukkit.dispatchCommand(sender, checked);
+        //dispatchCommand(plugin, sender, command);
+        sender.removeAttachment(attachment);
     }
 
 }

@@ -8,11 +8,11 @@ import org.bukkit.metadata.MetadataValue;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-public class VanishFallBack extends BaseHook {
+public class VanishHook extends BaseHook {
 
     private final HeadCache headCache;
 
-    public VanishFallBack(CommandPrompter plugin) {
+    public VanishHook(CommandPrompter plugin) {
         super(plugin);
         this.headCache = plugin.getHeadCache();
     }
@@ -32,6 +32,7 @@ public class VanishFallBack extends BaseHook {
         getPlugin().getPluginLogger().debug("Post Vanish State Change: " + headCache.getHeads().stream().map(i ->
                 Objects.requireNonNull(i.getItemMeta()).getDisplayName()).toList());
     }
+
 
     @Override
     public String toString() {

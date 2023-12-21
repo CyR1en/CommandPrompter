@@ -4,7 +4,6 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
-import com.cyr1en.commandprompter.prompt.PromptParser;
 import net.draycia.carbon.api.CarbonChatProvider;
 import net.draycia.carbon.api.events.CarbonChatEvent;
 import net.kyori.adventure.text.Component;
@@ -56,7 +55,7 @@ public class CarbonChatHook extends BaseHook implements Listener {
         var prompt = queue.peek();
         if (Objects.nonNull(prompt)) {
             var ds = LegacyComponentSerializer.legacyAmpersand().serialize(event.message());
-            msg = prompt.getArgs().contains(PromptParser.PromptArgument.DISABLE_SANITATION) ? ds : msg;
+            msg = prompt.sanitizeInput() ? ds : msg;
         }
         var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
         Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));

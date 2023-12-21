@@ -74,10 +74,10 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
     }
 
     @SuppressWarnings("unchecked")
-    public Hook<VanishFallBack> getVanishHook() {
+    public Hook<VanishHook> getVanishHook() {
         return values().stream()
-                .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishFallBack))
-                .map(hook -> (Hook<VanishFallBack>) hook).findFirst().orElse(Hook.of(new VanishFallBack(plugin)));
+                .filter(hook -> hook.isHooked() && (hook.get() instanceof VanishHook))
+                .map(hook -> (Hook<VanishHook>) hook).findFirst().orElse(Hook.of(new VanishHook(plugin)));
     }
 
     public <T> Hook<T> getHook(Class<T> hookClass) {

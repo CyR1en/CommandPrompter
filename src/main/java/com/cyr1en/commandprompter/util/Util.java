@@ -2,7 +2,6 @@ package com.cyr1en.commandprompter.util;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
-
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -45,6 +44,12 @@ public class Util {
         } catch (NoSuchAlgorithmException | IOException e) {
             return false;
         }
+    }
+
+    public static void deleteFile(File file, Consumer<File> onFail) {
+        if (file.exists())
+            if (!file.delete())
+                onFail.accept(file);
     }
 
     public static boolean isBundledVersion(Plugin plugin) {

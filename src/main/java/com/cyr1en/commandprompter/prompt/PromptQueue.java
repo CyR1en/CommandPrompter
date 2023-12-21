@@ -18,22 +18,22 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final String escapedRegex;
 
     private final boolean isOp;
-    private final boolean isDelegate;
-    private final boolean isSetPermissionAttachment;
+    private final boolean isConsoleDelegate;
+    private String permissionAttachmentKey;
 
     private final List<PostCommandMeta> postCommandMetas;
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isSetPermissionAttachment, boolean isDelegate,
-            String escapedRegex) {
+    public PromptQueue(String command, boolean isOp, boolean isDelegate,
+                       String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
         this.isOp = isOp;
-        this.isDelegate = isDelegate;
-        this.isSetPermissionAttachment = isSetPermissionAttachment;
+        this.isConsoleDelegate = isDelegate;
+        this.permissionAttachmentKey = "";
         this.postCommandMetas = new LinkedList<>();
         logger = CommandPrompter.getInstance().getPluginLogger();
     }
@@ -46,12 +46,16 @@ public class PromptQueue extends LinkedList<Prompt> {
         return isOp;
     }
 
-    public boolean isSetPermissionAttachment() {
-        return isSetPermissionAttachment;
+    public String getPermissionAttachmentKey() {
+        return permissionAttachmentKey;
     }
 
-    public boolean isDelegate() {
-        return isDelegate;
+    public void setPermissionAttachmentKey(String key) {
+        this.permissionAttachmentKey = key;
+    }
+
+    public boolean isConsoleDelegate() {
+        return isConsoleDelegate;
     }
 
     public String getCompleteCommand() {
@@ -83,15 +87,15 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public void dispatch(CommandPrompter plugin, Player sender) {
-        if (isDelegate()) {
+        if (isConsoleDelegate()) {
             logger.debug("Dispatching as console");
             Dispatcher.dispatchConsole(getCompleteCommand());
-        } else if (isSetPermissionAttachment()) {
-            Dispatcher.dispatchWithAttachment(plugin, (Player) sender, getCompleteCommand(),
+        } else if (!permissionAttachmentKey.isBlank()) {
+            Dispatcher.dispatchWithAttachment(plugin, sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
-                    plugin.getConfiguration().attachmentPermissions().toArray(new String[0]));
+                    plugin.getConfiguration().getPermissionAttachment(permissionAttachmentKey));
         } else
-            Dispatcher.dispatchCommand(plugin, (Player) sender, getCompleteCommand());
+            Dispatcher.dispatchCommand(plugin, sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
             postCommandMetas.forEach(pcm -> {
@@ -117,10 +121,9 @@ public class PromptQueue extends LinkedList<Prompt> {
         });
         logger.debug("After parse: " + command);
 
-        if (isDelegate()) {
+        if (isConsoleDelegate()) {
             logger.debug("Dispatching PostCommand as console");
             Dispatcher.dispatchConsole(command);
-            return;
         } else {
             logger.debug("Dispatching PostCommand as player");
             Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);

@@ -1,18 +1,14 @@
 package com.cyr1en.commandprompter.prompt;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
-
-import org.bukkit.entity.Player;
-import org.fusesource.jansi.Ansi;
-
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
+import org.bukkit.entity.Player;
+import org.fusesource.jansi.Ansi;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ContextProcessor {
-    
-    private static final Pattern permissionAttachmentPattern = Pattern.compile("-pa ");
 
     private final CommandPrompter plugin;
     private final PromptManager promptManager;
@@ -21,7 +17,7 @@ public class ContextProcessor {
         this.plugin = plugin;
         this.promptManager = promptManager;
     }
-    
+
     protected void process(PromptContext context) {
         // Sanity Checks
         plugin.getPluginLogger().debug("Command: " + context.getContent());
@@ -43,16 +39,15 @@ public class ContextProcessor {
                     plugin.getI18N().getProperty("PromptNoPerm"));
             return;
         }
-        if (promptManager.getPromptRegistry().inCommandProcess(context.getSender())) {
+        if (shouldBlock(context)) {
             plugin.getMessenger().sendMessage(context.getSender(),
                     plugin.getI18N().getFormattedProperty("PromptInProgress",
                             plugin.getConfiguration().cancelKeyword()));
-            if(context.getCancellable() != null)
+            if (context.getCancellable() != null)
                 context.getCancellable().setCancelled(true);
             return;
         }
 
-        parsePermissionAttachment(context);
         if (!promptManager.getParser().isParsable(context)) return;
         if (!(context.getSender() instanceof Player)) {
             plugin.getMessenger().sendMessage(context.getSender(),
@@ -60,19 +55,30 @@ public class ContextProcessor {
             return;
         }
 
-        if(context.getCancellable() != null)
+        if (context.getCancellable() != null)
             context.getCancellable().setCancelled(true);
-            
+
         plugin.getPluginLogger().debug("Ctx Before Parse: " + context);
         promptManager.parse(context);
         promptManager.sendPrompt(context.getSender());
     }
 
+    private boolean shouldBlock(PromptContext context) {
+        var fulfilling = promptManager.getPromptRegistry().inCommandProcess(context.getSender());
+        var cmd = extractCommand(context.getContent());
+        var cmds = plugin.getConfiguration().allowedWhileInPrompt();
+        return fulfilling && (!cmds.contains(cmd) && promptManager.getParser().isParsable(context));
+    }
+
     private boolean isIgnored(PromptContext context) {
-        var end = context.getContent().indexOf(" ");
-        end = end == -1 ? context.getContent().length() : end;
-        var cmd = context.getContent().substring(0, end);
+        var cmd = extractCommand(context.getContent());
         return plugin.getConfiguration().ignoredCommands().contains(cmd) || isCmdChatChannel(cmd);
+    }
+
+    private String extractCommand(String content) {
+        var end = content.indexOf(" ");
+        end = end == -1 ? content.length() : end;
+        return content.substring(0, end);
     }
 
     private boolean isCmdChatChannel(String cmd) {
@@ -84,12 +90,5 @@ public class ContextProcessor {
         return out.get();
     }
 
-    private void parsePermissionAttachment(PromptContext context) {
-        var matcher = permissionAttachmentPattern.matcher(context.getContent());
-        if(matcher.find()) {
-            context.setContent(matcher.replaceAll(""));
-            context.setSetPermissionAttachment(true);
-            plugin.getPluginLogger().debug("Using PermissionAttachment for command dispatch");
-        }
-    }
+
 }

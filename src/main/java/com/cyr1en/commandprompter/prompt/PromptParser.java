@@ -94,7 +94,7 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Parsing: " + prompt);
 
             var arg = resolveArg(prompt);
-            plugin.getPluginLogger().debug("Argument in prompt: " + arg);
+            plugin.getPluginLogger().debug("Argument in prompt: '" + arg + "'");
 
             var pcmKey = PromptQueueArgument.POST_COMMAND.getKey();
 
@@ -109,6 +109,11 @@ public class PromptParser {
             }
 
             Class<? extends Prompt> pClass = manager.get(arg);
+            if (pClass == null) {
+                plugin.getPluginLogger().debug("Prompt not found for: " + arg);
+                continue;
+            }
+            promptContext.setPromptKey(arg);
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
                 var cleanPrompt = cleanPrompt(prompt);
@@ -127,6 +132,8 @@ public class PromptParser {
                         .newInstance(plugin, promptContext, promptTxt, promptArgs);
 
                 p.setRegexCheck(plugin.getPromptConfig().findIVRegexCheckInConfig(inputValidation));
+                if (promptArgs.contains(PromptArgument.DISABLE_SANITATION))
+                    p.setInputSanitization(false);
 
                 manager.getPromptRegistry().addPrompt(sender, p);
             } catch (NoSuchMethodException | InvocationTargetException
@@ -134,7 +141,8 @@ public class PromptParser {
                 plugin.getPluginLogger().err("Error parsing prompt: " + prompt);
                 plugin.getPluginLogger().err("Cause: " + e.getCause());
             }
-        }return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+        }
+        return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
 
     }
 
@@ -174,7 +182,7 @@ public class PromptParser {
     }
 
     private String getCleanArg(String arg) {
-        return arg.replaceAll("\\W", "");
+        return arg.replace("-", "").trim();
     }
 
     private List<String> getPrompts(PromptContext promptContext) {

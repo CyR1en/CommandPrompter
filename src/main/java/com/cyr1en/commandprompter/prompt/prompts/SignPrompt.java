@@ -5,10 +5,8 @@ import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.utils.FastStrings;
-
 import io.github.rapha149.signgui.SignGUI;
 import io.github.rapha149.signgui.SignGUIAction;
-
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 

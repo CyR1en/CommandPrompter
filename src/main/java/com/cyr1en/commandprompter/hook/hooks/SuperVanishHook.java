@@ -11,7 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 @TargetPlugin(pluginName = "SuperVanish")
-public class SuperVanishHook extends VanishFallBack implements Listener {
+public class SuperVanishHook extends VanishHook implements Listener {
 
     private SuperVanishHook(CommandPrompter plugin) {
         super(plugin);
@@ -23,6 +23,8 @@ public class SuperVanishHook extends VanishFallBack implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onVisibilityStateChange(PlayerVanishStateChangeEvent e) {
-        onStateChange(Bukkit.getPlayer(e.getUUID()), e::isVanishing);
+        var player = Bukkit.getPlayer(e.getUUID());
+        if (player == null) return;
+        onStateChange(player, e::isVanishing);
     }
 }
