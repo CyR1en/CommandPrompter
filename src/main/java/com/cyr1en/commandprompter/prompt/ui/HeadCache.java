@@ -3,6 +3,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
+import com.cyr1en.commandprompter.hook.hooks.TownyHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -58,6 +59,10 @@ public class HeadCache implements Listener {
     private void registerFilters() {
         registerFilter(new CacheFilter.WorldFilter());
         registerFilter(new CacheFilter.RadialFilter());
+        plugin.getHookContainer()
+                .getHook(TownyHook.class)
+                .ifHooked(hook -> hook.registerFilters(this))
+                .complete();
     }
 
     public void registerFilter(CacheFilter filter) {
