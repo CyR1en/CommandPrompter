@@ -1,9 +1,9 @@
 ![](https://www.spigotmc.org/attachments/asset-4-png.679568/)
 # CommandPrompter
-[![](https://img.shields.io/github/actions/workflow/status/CyR1en/CommandPrompter/gradle.yml?logo=GitHub)](https://github.com/CyR1en/CommandPrompter/actions)
-[![](https://img.shields.io/badge/Wiki-GitBook-brightgreen?logo=GitBook)](https://cyr1en.gitbook.io/commandprompter/)
-[![](https://img.shields.io/discord/936346802402238514.svg?label=discord&logo=discord)](https://discord.com/invite/qHM8kE4XHj)
-[![](https://img.shields.io/badge/Kofi-Support%20Development-brightgreen?logo=Kofi)](https://ko-fi.com/cyr1en)
+[![](https://ci.cyr1en.com/job/CommandPrompter/badge/icon)](https://ci.cyr1en.com/job/CommandPrompter)
+[![](https://img.shields.io/badge/GitBook-documentation-brightgreen?logo=gitbook)](https://cyr1en.gitbook.io/commandprompter/)
+[![](https://img.shields.io/discord/936346802402238514.svg?label=Discord&logo=discord)](https://discord.com/invite/qHM8kE4XHj)
+[![](https://img.shields.io/badge/Kofi-support%20development-brightgreen?logo=Kofi)](https://ko-fi.com/cyr1en)
 
 CommandPrompter is a powerful tool that enhances the command prompting experience and menu creation in your Minecraft server. With its customizable configuration options, CommandPrompter allows you to tailor the command prompting process to suit your server's specific requirements.
 
