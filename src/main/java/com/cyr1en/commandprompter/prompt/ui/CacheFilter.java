@@ -71,7 +71,16 @@ public abstract class CacheFilter {
     }
 
     /**
-     * Clone this cache filter with a new prompt key.
+     * A method that allows you to reconstruct a subclass of {@link CacheFilter}
+     * based on the prompt key.
+     *
+     * <p>
+     * In cases where the prompt key contains additional information, this method
+     * could be used to reconstruct a certain subclass of {@link CacheFilter}.
+     *
+     * <p>
+     * Additional filter information can be parsed from the {@link com.cyr1en.commandprompter.prompt.PromptParser}
+     * but for better readability, it is recommended to use this method instead.
      *
      * @param promptKey the prompt key
      * @return the cloned cache filter
