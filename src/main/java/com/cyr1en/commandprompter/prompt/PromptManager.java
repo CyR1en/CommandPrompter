@@ -189,11 +189,11 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             return true;
 
         var prompt = promptQueue.peek();
-        if (prompt.isValidInput(context.getContent()))
+        var validator = prompt.getInputValidator();
+        if (validator.validate(context.getContent()))
             return true;
 
-        var errMsg = plugin.getPromptConfig().getIVErrMessageWithRegex(prompt.getRegexCheck().pattern());
-        plugin.getMessenger().sendMessage(context.getSender(), errMsg);
+        plugin.getMessenger().sendMessage(context.getSender(), validator.messageOnFail());
         sendPrompt(context.getSender());
         return false;
     }
