@@ -27,6 +27,8 @@ public record PromptConfig(
                 "PlayerUI formatting", "",
                 "Skull-Name-Format - The display name format",
                 "                    for the player heads", "",
+                "Skull-Custom-Model-Data - The custom model data for the",
+                "                          player heads", "",
                 "Size - the size of the UI (multiple of 9, between 18-54)", "",
                 "Cache-Size - Size for the head cache", "",
                 "Cache-Delay - Delay in ticks after the player", "",
@@ -38,6 +40,11 @@ public record PromptConfig(
                 "                on what filter is used", "",
         })
         String skullNameFormat,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Skull-Custom-Model-Data")
+        @NodeDefault("0")
+        int skullCustomModelData,
 
         @ConfigNode
         @NodeName("PlayerUI.Size")

@@ -151,6 +151,11 @@ public class HeadCache implements Listener {
         Objects.requireNonNull(skullMeta).setOwningPlayer(owningPlayer);
 
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
+        var customModelData = plugin.getPromptConfig().skullCustomModelData();
+        if (customModelData != 0) {
+            logger.debug("Setting custom model data: %s", customModelData);
+            skullMeta.setCustomModelData(customModelData);
+        }
         var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
         setDisplayName(skullMeta, skullName);
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
