@@ -102,6 +102,7 @@ public class CommandPrompter extends JavaPlugin {
         Bukkit.getScheduler().runTaskLater(this, () -> {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
+            headCache.registerFilters();
             ChatPrompt.resolveListener(this);
         }, 1L);
     }

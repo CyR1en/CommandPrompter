@@ -37,7 +37,6 @@ public class HeadCache implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.filters = new ArrayList<>();
-        registerFilters();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
@@ -56,7 +55,7 @@ public class HeadCache implements Listener {
                 });
     }
 
-    private void registerFilters() {
+    public void registerFilters() {
         registerFilter(new CacheFilter.WorldFilter());
         registerFilter(new CacheFilter.RadialFilter());
         plugin.getHookContainer()
