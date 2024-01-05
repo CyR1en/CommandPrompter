@@ -66,8 +66,10 @@ public class HeadCache implements Listener {
 
     public void registerFilter(CacheFilter filter) {
         if (Objects.isNull(filter)) return;
-        if (!filters.contains(filter))
+        if (!filters.contains(filter)) {
             filters.add(filter);
+            logger.debug("Registered filter: " + filter.getClass().getSimpleName());
+        }
     }
 
     public List<CacheFilter> getFilters() {
