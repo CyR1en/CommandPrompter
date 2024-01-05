@@ -68,10 +68,9 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
         this.scheduler = Bukkit.getScheduler();
-        registerPrompts();
     }
 
-    private void registerPrompts() {
+    public void registerPrompts() {
         this.put("", ChatPrompt.class);
         this.put("a", AnvilPrompt.class);
         this.put(plugin.getHeadCache().makeFilteredPattern(), PlayerUIPrompt.class);

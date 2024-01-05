@@ -103,6 +103,7 @@ public class CommandPrompter extends JavaPlugin {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
             headCache.registerFilters();
+            promptManager.registerPrompts();
             ChatPrompt.resolveListener(this);
         }, 1L);
     }
