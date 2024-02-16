@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.hook.hooks.LuckPermsHook;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.hook.hooks.TownyHook;
 import com.cyr1en.commandprompter.util.Util;
@@ -60,6 +61,10 @@ public class HeadCache implements Listener {
         registerFilter(new CacheFilter.RadialFilter());
         plugin.getHookContainer()
                 .getHook(TownyHook.class)
+                .ifHooked(hook -> hook.registerFilters(this))
+                .complete();
+        plugin.getHookContainer()
+                .getHook(LuckPermsHook.class)
                 .ifHooked(hook -> hook.registerFilters(this))
                 .complete();
     }
