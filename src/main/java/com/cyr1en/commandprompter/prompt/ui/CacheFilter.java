@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.config.PromptConfig;
+import com.cyr1en.commandprompter.prompt.PromptParser;
 import org.bukkit.entity.Player;
 
 import java.util.List;
@@ -26,14 +27,21 @@ public abstract class CacheFilter {
      */
     private final String configKey;
 
+    private final int capGroupOffset;
+
     /**
      * Construct a new cache filter.
      *
      * @param regexKey the regex key
      */
     public CacheFilter(Pattern regexKey, String configKey) {
+        this(regexKey, configKey, 0);
+    }
+
+    public CacheFilter(Pattern regexKey, String configKey, int capGroupOffset) {
         this.regexKey = regexKey;
         this.configKey = configKey;
+        this.capGroupOffset = capGroupOffset;
     }
 
     /**
@@ -65,6 +73,16 @@ public abstract class CacheFilter {
 
     }
 
+    /**
+     * Get the capture group offset.
+     *
+     * @return the capture group offset
+     */
+    public int getCapGroupOffset() {
+        return capGroupOffset;
+    }
+
+
     @Override
     public String toString() {
         return this.getClass().getSimpleName();
@@ -79,7 +97,7 @@ public abstract class CacheFilter {
      * could be used to reconstruct a certain subclass of {@link CacheFilter}.
      *
      * <p>
-     * Additional filter information can be parsed from the {@link com.cyr1en.commandprompter.prompt.PromptParser}
+     * Additional filter information can be parsed from the {@link PromptParser}
      * but for better readability, it is recommended to use this method instead.
      *
      * @param promptKey the prompt key
@@ -144,7 +162,7 @@ public abstract class CacheFilter {
          * @param radius the radius
          */
         public RadialFilter(int radius) {
-            super(Pattern.compile("r(\\d+)"), "PlayerUI.Filter-Format.Radial");
+            super(Pattern.compile("r(\\d+)"), "PlayerUI.Filter-Format.Radial", 1);
             this.radius = radius;
         }
 

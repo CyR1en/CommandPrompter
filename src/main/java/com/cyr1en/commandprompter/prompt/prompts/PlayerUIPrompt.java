@@ -108,6 +108,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         var extractedFilters = new ArrayList<CacheFilter>();
         for (var filter : headCache.getFilters()) {
             var capGroup = getCapturingGroup(filter);
+            getPlugin().getPluginLogger().debug("Capturing group: " + capGroup);
             var filterKey = matcher.group(capGroup);
             if (Objects.isNull(filterKey)) continue;
             extractedFilters.add(filter.reConstruct(promptKey));
@@ -141,8 +142,13 @@ public class PlayerUIPrompt extends AbstractPrompt {
     }
 
     private int getCapturingGroup(CacheFilter cacheFilter) {
-        var index = headCache.getFilters().indexOf(cacheFilter);
-        return index + 2;
+        getPlugin().getPluginLogger().debug("Getting capturing group for filter: " + cacheFilter.getRegexKey());
+        var idx = 2; // index starts at 2 because 0 is the whole match and 1 is just a blank.
+        for (var filter : headCache.getFilters()) {
+            if (filter.equals(cacheFilter)) return idx;
+            idx = idx + filter.getCapGroupOffset() + 1;
+        }
+        return -1;
     }
 
     private void send(Player p) {
