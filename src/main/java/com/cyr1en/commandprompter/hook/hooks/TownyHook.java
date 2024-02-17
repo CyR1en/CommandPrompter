@@ -30,7 +30,7 @@ public class TownyHook extends BaseHook implements FilterHook {
 
 
         public TownFilter() {
-            super(Pattern.compile("t"), "PlayerUI.Filter-Format.TownyTown");
+            super(Pattern.compile("tt"), "PlayerUI.Filter-Format.TownyTown");
         }
 
         @Override
@@ -55,7 +55,7 @@ public class TownyHook extends BaseHook implements FilterHook {
     private static class NationFilter extends CacheFilter {
 
         public NationFilter() {
-            super(Pattern.compile("n"), "PlayerUI.Filter-Format.TownyNation");
+            super(Pattern.compile("tn"), "PlayerUI.Filter-Format.TownyNation");
         }
 
         @Override
