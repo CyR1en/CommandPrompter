@@ -4,12 +4,15 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.util.MMUtil;
+import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public class PromptQueue extends LinkedList<Prompt> {
 
@@ -61,8 +64,17 @@ public class PromptQueue extends LinkedList<Prompt> {
     public String getCompleteCommand() {
         command = command.formatted(completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
-        while (!completedClone.isEmpty())
-            command = command.replaceFirst(escapedRegex, completedClone.pollFirst());
+
+        // get all prompts that we have to replace in the command
+        var sRegex = new SRegex();
+        var prompts = sRegex.find(Pattern.compile(escapedRegex), command).getResultsList();
+        prompts = MMUtil.filterOutMiniMessageTags(prompts);
+
+        for (String prompt : prompts) {
+            if (completedClone.isEmpty())
+                break;
+            command = command.replaceFirst(prompt, completedClone.pollFirst());
+        }
         return "/" + command;
     }
 
