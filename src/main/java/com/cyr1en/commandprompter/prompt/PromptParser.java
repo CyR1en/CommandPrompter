@@ -30,6 +30,9 @@ import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
 import com.cyr1en.kiso.utils.SRegex;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.entity.Player;
 
 import java.lang.reflect.InvocationTargetException;
@@ -75,6 +78,8 @@ public class PromptParser {
 
     public boolean isParsable(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
+        if (plugin.getConfiguration().ignoreMiniMessage())
+            prompts = filterOutMiniMessageTags(prompts);
         return !prompts.isEmpty();
     }
 
@@ -145,7 +150,23 @@ public class PromptParser {
             }
         }
         return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+    }
 
+    private List<String> filterOutMiniMessageTags(List<String> prompts) {
+        return prompts.stream().filter(prompt -> !isMiniMessageTag(prompt)).toList();
+    }
+
+    /**
+     * Function that checks if the prompt is a mini message tag.
+     *
+     * @param prompt Prompt to check
+     * @return true if the prompt is a mini message tag, false otherwise.
+     */
+    private boolean isMiniMessageTag(String prompt) {
+        var serializer = MiniMessage.builder()
+                .tags(StandardTags.defaults()).build();
+        var parsed = serializer.deserialize(prompt);
+        return !Component.text(prompt).equals(parsed);
     }
 
     private InputValidator extractInputValidation(String prompt) {
