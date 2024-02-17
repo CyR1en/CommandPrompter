@@ -118,8 +118,10 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             return;
 
         var queue = promptRegistry.get(sender);
-        if (queue.isEmpty() && !queue.containsPCM())
+        if (queue.isEmpty() && !queue.containsPCM()) {
+            dispatchQueue(sender, queue);
             return;
+        }
 
         if (!checkInput(queue, context))
             return;
