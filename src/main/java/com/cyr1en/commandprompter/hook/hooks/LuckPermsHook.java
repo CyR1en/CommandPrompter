@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * Main component of this hook are the cache filters for LuckPerms groups.
  */
 @TargetPlugin(pluginName = "LuckPerms")
-public class LuckPermsHook extends BaseHook implements FilterHook{
+public class LuckPermsHook extends BaseHook implements FilterHook {
 
     private LuckPerms api;
 
@@ -61,7 +61,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook{
         if (api == null || groupName.isBlank()) return List.of();
         return (List<Player>) Bukkit.getOnlinePlayers().stream()
                 .filter(p -> {
-                    var user = api.getUserManager().getUser(p.getUniqueId());
+                    var user = api.getUserManager().getUser(p.getName());
                     if (user == null) return false;
                     var group = user.getPrimaryGroup();
                     return group.equals(groupName);
@@ -95,7 +95,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook{
          * @param hook the LuckPerms hook
          */
         public OwnGroupFilter(LuckPermsHook hook) {
-            super(Pattern.compile("og"), "PlayerUI.Filter-Format.LuckPermsOwnGroup");
+            super(Pattern.compile("lpo"), "PlayerUI.Filter-Format.LuckPermsOwnGroup");
             this.hook = hook;
         }
 
@@ -138,9 +138,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook{
          * @param hook the LuckPerms hook
          */
         public GroupFilter(LuckPermsHook hook) {
-            super(Pattern.compile("g(\\S+)"), "PlayerUI.Filter-Format.LuckPermsGroup");
-            this.groupName = "";
-            this.hook = hook;
+            this("", hook);
         }
 
         /**
@@ -153,7 +151,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook{
          * @param hook      the LuckPerms hook
          */
         public GroupFilter(String groupName, LuckPermsHook hook) {
-            super(Pattern.compile("g(\\S+)"), "PlayerUI.Filter-Format.LuckPermsGroup");
+            super(Pattern.compile("lpg(\\S+);"), "PlayerUI.Filter-Format.LuckPermsGroup", 1);
             this.groupName = groupName;
             this.hook = hook;
         }
@@ -168,7 +166,9 @@ public class LuckPermsHook extends BaseHook implements FilterHook{
 
         @Override
         public List<Player> filter(Player relativePlayer) {
-            return hook.getPlayersWithGroup(groupName);
+            var players = hook.getPlayersWithGroup(groupName);
+            hook.getPlugin().getPluginLogger().debug("Players: %s", players);
+            return players;
         }
     }
 
