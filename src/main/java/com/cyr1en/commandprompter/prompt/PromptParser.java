@@ -86,6 +86,15 @@ public class PromptParser {
     /**
      * Parses a contents of {@link PromptContext}
      *
+     * <p>
+     * This method will parse the contents of the {@link PromptContext} and
+     * create a {@link PromptQueue} for the sender. It will also parse the
+     * {@link Prompt} and add it to the {@link PromptQueue}.
+     *
+     * <p>
+     * This function returns the hashCode of the {@link PromptQueue} that was
+     * created. This is used to retroactively cancel the prompt within a certain time.
+     *
      * @param promptContext Context to parse
      * @return hashCode of the {@link PromptQueue} that was created.
      */
