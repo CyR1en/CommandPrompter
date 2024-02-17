@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * Main component of this hook are the cache filters for LuckPerms groups.
  */
 @TargetPlugin(pluginName = "LuckPerms")
-public class LuckPermsHook extends BaseHook {
+public class LuckPermsHook extends BaseHook implements FilterHook{
 
     private LuckPerms api;
 

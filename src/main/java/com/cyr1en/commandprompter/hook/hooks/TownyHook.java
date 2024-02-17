@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 @TargetPlugin(pluginName = "Towny")
-public class TownyHook extends BaseHook {
+public class TownyHook extends BaseHook implements FilterHook {
     public TownyHook(CommandPrompter plugin) {
         super(plugin);
     }
