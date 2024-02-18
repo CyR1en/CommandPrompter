@@ -2,7 +2,10 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.hook.hooks.FilterHook;
+import com.cyr1en.commandprompter.hook.hooks.LuckPermsHook;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
+import com.cyr1en.commandprompter.hook.hooks.TownyHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -36,7 +39,6 @@ public class HeadCache implements Listener {
         this.plugin = plugin;
         this.logger = plugin.getPluginLogger();
         this.filters = new ArrayList<>();
-        registerFilters();
         HEAD_CACHE = CacheBuilder.newBuilder().maximumSize(plugin.getPromptConfig().cacheSize())
                 .build(new CacheLoader<>() {
                     @Override
@@ -55,15 +57,28 @@ public class HeadCache implements Listener {
                 });
     }
 
-    private void registerFilters() {
+    private static final Class<? extends FilterHook>[] fHooks = new Class[]{
+            TownyHook.class,
+            LuckPermsHook.class
+    };
+
+    public void registerFilters() {
         registerFilter(new CacheFilter.WorldFilter());
         registerFilter(new CacheFilter.RadialFilter());
+        for (var fHook : fHooks) {
+            plugin.getHookContainer()
+                    .getHook(fHook)
+                    .ifHooked(hook -> hook.registerFilters(this))
+                    .complete();
+        }
     }
 
     public void registerFilter(CacheFilter filter) {
         if (Objects.isNull(filter)) return;
-        if (!filters.contains(filter))
+        if (!filters.contains(filter)) {
             filters.add(filter);
+            logger.debug("Registered filter: " + filter.getClass().getSimpleName());
+        }
     }
 
     public List<CacheFilter> getFilters() {
@@ -146,6 +161,11 @@ public class HeadCache implements Listener {
         Objects.requireNonNull(skullMeta).setOwningPlayer(owningPlayer);
 
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
+        var customModelData = plugin.getPromptConfig().skullCustomModelData();
+        if (customModelData != 0) {
+            logger.debug("Setting custom model data: %s", customModelData);
+            skullMeta.setCustomModelData(customModelData);
+        }
         var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
         setDisplayName(skullMeta, skullName);
         logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());

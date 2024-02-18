@@ -25,8 +25,11 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
+import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
+import com.cyr1en.commandprompter.util.MMUtil;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
 
@@ -73,17 +76,30 @@ public class PromptParser {
 
     public boolean isParsable(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
+        if (plugin.getConfiguration().ignoreMiniMessage())
+            prompts = MMUtil.filterOutMiniMessageTags(prompts);
         return !prompts.isEmpty();
     }
 
     /**
      * Parses a contents of {@link PromptContext}
      *
+     * <p>
+     * This method will parse the contents of the {@link PromptContext} and
+     * create a {@link PromptQueue} for the sender. It will also parse the
+     * {@link Prompt} and add it to the {@link PromptQueue}.
+     *
+     * <p>
+     * This function returns the hashCode of the {@link PromptQueue} that was
+     * created. This is used to retroactively cancel the prompt within a certain time.
+     *
      * @param promptContext Context to parse
      * @return hashCode of the {@link PromptQueue} that was created.
      */
     public int parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
+        prompts = MMUtil.filterOutMiniMessageTags(prompts);
+
         plugin.getPluginLogger().debug("Prompts: " + prompts);
 
         var command = promptContext.getContent().trim();
@@ -120,7 +136,7 @@ public class PromptParser {
                 var sender = promptContext.getSender();
                 var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt);
                 plugin.getPluginLogger().debug("Prompt args: " + promptArgs);
-                var inputValidation = extractInputValidation(cleanPrompt);
+                var inputValidator = extractInputValidation(cleanPrompt);
 
                 // Set papi placeholders if exists
                 var promptTxt = ArgumentUtil.stripArgs(cleanPrompt);
@@ -131,7 +147,7 @@ public class PromptParser {
                                 String.class, List.class)
                         .newInstance(plugin, promptContext, promptTxt, promptArgs);
 
-                p.setRegexCheck(plugin.getPromptConfig().findIVRegexCheckInConfig(inputValidation));
+                p.setInputValidator(inputValidator);
                 if (promptArgs.contains(PromptArgument.DISABLE_SANITATION))
                     p.setInputSanitization(false);
 
@@ -143,16 +159,16 @@ public class PromptParser {
             }
         }
         return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
-
     }
 
-    private String extractInputValidation(String prompt) {
+    private InputValidator extractInputValidation(String prompt) {
         // iv is with pattern -iv:<alias>
         var pattern = Pattern.compile(PromptArgument.INPUT_VALIDATION.getKey());
         var matcher = pattern.matcher(prompt);
-        if (!matcher.find()) return "";
+        if (!matcher.find()) return new NoopValidator();
         var found = matcher.group();
-        return found.split(":")[1];
+        var alias = found.split(":")[1];
+        return plugin.getPromptConfig().getInputValidator(alias);
     }
 
     private String resolvePapiPlaceholders(Player sender, String prompt) {

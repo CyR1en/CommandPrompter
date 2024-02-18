@@ -1,11 +1,17 @@
 package com.cyr1en.commandprompter.config;
 
+import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
+import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
+import com.cyr1en.commandprompter.prompt.validators.OnlinePlayerValidator;
+import com.cyr1en.commandprompter.prompt.validators.RegexValidator;
 import com.cyr1en.kiso.mc.configuration.base.Config;
+
+import java.util.regex.Pattern;
 
 @Configuration
 @ConfigPath("prompt-config.yml")
@@ -21,6 +27,8 @@ public record PromptConfig(
                 "PlayerUI formatting", "",
                 "Skull-Name-Format - The display name format",
                 "                    for the player heads", "",
+                "Skull-Custom-Model-Data - The custom model data for the",
+                "                          player heads", "",
                 "Size - the size of the UI (multiple of 9, between 18-54)", "",
                 "Cache-Size - Size for the head cache", "",
                 "Cache-Delay - Delay in ticks after the player", "",
@@ -32,6 +40,11 @@ public record PromptConfig(
                 "                on what filter is used", "",
         })
         String skullNameFormat,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Skull-Custom-Model-Data")
+        @NodeDefault("0")
+        int skullCustomModelData,
 
         @ConfigNode
         @NodeName("PlayerUI.Size")
@@ -287,20 +300,28 @@ public record PromptConfig(
         String strSampleErrMessage
 
 ) implements AliasedSection {
-    public String findIVRegexCheckInConfig(String alias) {
+    private String findIVRegexCheckInConfig(String alias) {
         return getIVValue("Alias", alias, "Regex");
     }
 
-    public String getIVErrMessage(String alias) {
+    private String getIVErrMessage(String alias) {
         return getIVValue("Alias", alias, "Err-Message");
     }
 
-    public String getIVErrMessageWithRegex(String regex) {
-        return getIVValue("Regex", regex, "Err-Message");
+    private String getIVValue(String key, String keyVal, String query) {
+        return getInputValidationValue("Input-Validation", key, keyVal, query);
     }
 
-    public String getIVValue(String key, String keyVal, String query) {
-        return getInputValidationValue("Input-Validation", key, keyVal, query);
+    public InputValidator getInputValidator(String alias) {
+        if (alias == null || alias.isBlank())
+            return new NoopValidator();
+        var isPlayer = Boolean.parseBoolean(getIVValue("Alias", alias, "Online-Player"));
+        if (isPlayer)
+            return new OnlinePlayerValidator(alias, getIVErrMessage(alias));
+        var regex = findIVRegexCheckInConfig(alias);
+        if (regex != null && !regex.isBlank())
+            return new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias));
+        return new NoopValidator();
     }
 
     /**

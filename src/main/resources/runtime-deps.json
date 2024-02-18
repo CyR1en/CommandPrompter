@@ -25,5 +25,14 @@
       "com.cyr1en.commandapi"
     ],
     "sha1": "145ee0e27a97733cc4cc40641910aabfb70d18c2"
+  },
+  "MiniMessage": {
+    "filename": "adventure-text-minimessage-4.15.0.jar",
+    "url": "https://repo1.maven.org/maven2/net/kyori/adventure-text-minimessage/4.15.0/adventure-text-minimessage-4.15.0.jar",
+    "relocation": [
+      "net.kyori.adventure.text.minimessage",
+      "com.cyr1en.minimessage"
+    ],
+    "sha1": "16299c7bf78b2cd51d893046cfb69357355b276b"
   }
 }

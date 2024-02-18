@@ -25,14 +25,15 @@
 package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
 import com.cyr1en.commandprompter.util.Util;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 public abstract class AbstractPrompt implements Prompt {
 
@@ -43,7 +44,7 @@ public abstract class AbstractPrompt implements Prompt {
 
     private final List<PromptParser.PromptArgument> args;
 
-    private Pattern regexCheck;
+    private InputValidator validator;
 
     private boolean inputSanitation;
 
@@ -55,7 +56,7 @@ public abstract class AbstractPrompt implements Prompt {
         this.promptManager = plugin.getPromptManager();
         this.args = args;
         this.inputSanitation = true;
-        this.regexCheck = Pattern.compile("");
+        this.validator = new NoopValidator();
     }
 
     protected String stripColor(String msg) {
@@ -95,18 +96,13 @@ public abstract class AbstractPrompt implements Prompt {
     }
 
     @Override
-    public void setRegexCheck(String regexCheck) {
-        this.regexCheck = Pattern.compile(regexCheck);
+    public void setInputValidator(InputValidator inputValidator) {
+        this.validator = inputValidator;
     }
 
     @Override
-    public void setRegexCheck(Pattern regexCheck) {
-        this.regexCheck = regexCheck;
-    }
-
-    @Override
-    public Pattern getRegexCheck() {
-        return regexCheck;
+    public InputValidator getInputValidator() {
+        return this.validator;
     }
 
     @Override
@@ -119,10 +115,4 @@ public abstract class AbstractPrompt implements Prompt {
         return this.inputSanitation;
     }
 
-    @Override
-    public boolean isValidInput(String input) {
-        plugin.getPluginLogger().debug("Checking input with regex: " + regexCheck);
-        if (regexCheck.pattern().isBlank() || regexCheck.pattern().isEmpty()) return true;
-        return regexCheck.matcher(input).matches();
-    }
 }

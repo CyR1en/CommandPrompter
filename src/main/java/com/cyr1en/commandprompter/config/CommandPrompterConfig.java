@@ -187,7 +187,17 @@ public record CommandPrompterConfig(
                 "for CommandPrompter"
         })
         @NodeDefault("true")
-        boolean commandTabComplete
+        boolean commandTabComplete,
+
+        @ConfigNode
+        @NodeName("Ignore-MiniMessage")
+        @NodeComment({
+                "If Prompt-Regex is left to default",
+                "this will ignore MiniMessage syntax."
+        })
+        boolean ignoreMiniMessage
+
+
 ) implements AliasedSection {
 
     public String[] getPermissionAttachment(String key) {

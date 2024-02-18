@@ -26,6 +26,8 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
         hook(CarbonChatHook.class);
         hook(VanishNoPacketHook.class);
         hook(PapiHook.class);
+        hook(TownyHook.class);
+        hook(LuckPermsHook.class);
     }
 
     @Override

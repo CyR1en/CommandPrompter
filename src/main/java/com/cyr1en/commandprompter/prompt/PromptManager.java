@@ -68,10 +68,9 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
         this.scheduler = Bukkit.getScheduler();
-        registerPrompts();
     }
 
-    private void registerPrompts() {
+    public void registerPrompts() {
         this.put("", ChatPrompt.class);
         this.put("a", AnvilPrompt.class);
         this.put(plugin.getHeadCache().makeFilteredPattern(), PlayerUIPrompt.class);
@@ -119,8 +118,10 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             return;
 
         var queue = promptRegistry.get(sender);
-        if (queue.isEmpty() && !queue.containsPCM())
+        if (queue.isEmpty() && !queue.containsPCM()) {
+            dispatchQueue(sender, queue);
             return;
+        }
 
         if (!checkInput(queue, context))
             return;
@@ -189,11 +190,11 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             return true;
 
         var prompt = promptQueue.peek();
-        if (prompt.isValidInput(context.getContent()))
+        var validator = prompt.getInputValidator();
+        if (validator.validate(context.getContent()))
             return true;
 
-        var errMsg = plugin.getPromptConfig().getIVErrMessageWithRegex(prompt.getRegexCheck().pattern());
-        plugin.getMessenger().sendMessage(context.getSender(), errMsg);
+        plugin.getMessenger().sendMessage(context.getSender(), validator.messageOnFail());
         sendPrompt(context.getSender());
         return false;
     }
