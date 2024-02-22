@@ -7,13 +7,13 @@ import java.io.File;
 /**
  * Represents a core dependency for the plugin.
  * This dependency is required for the plugin to work.
- * 
+ *
  * <p>
  * These type of dependencies must be available in the classpath by the time the
  * plugin is loaded.
  * if they're not present in the classpath, the plugin will try to download them
  * and attempt to load them.
- * 
+ *
  * <p>
  * These should not have any relocations and must stay as is.
  */
@@ -32,7 +32,22 @@ public enum CoreDependency {
             "gson-2.10.1.jar",
             "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar",
             "b3add478d4382b78ea20b1671390a858002feb6c",
-            "com.google.gson.JsonParser");
+            "com.google.gson.JsonParser"),
+    ADVENTURE_API(
+            "adventure-api-4.15.0.jar",
+            "https://repo.maven.apache.org/maven2/net/kyori/adventure-api/4.15.0/adventure-api-4.15.0.jar",
+            "84e507c4cf17404299078435736e7e752dde8bae",
+            "net.kyori.adventure.text.serializer.ComponentSerializer"),
+    ADVENTURE_KEY(
+            "adventure-key-4.16.0.jar",
+            "https://repo.maven.apache.org/maven2/net/kyori/adventure-key/4.16.0/adventure-key-4.16.0.jar",
+            "b695c40a7d2fd658246de78ea428e8f8dc7ffd2d",
+            "net.kyori.adventure.key.InvalidKeyException"),
+    EXAMINATION_API(
+            "examination-api-1.3.0.jar",
+            "https://repo.maven.apache.org/maven2/net/kyori/examination-api/1.3.0/examination-api-1.3.0.jar",
+            "8a2d185275307f1e2ef2adf7152b9a0d1d44c30b",
+            "net.kyori.examination.Examinable");
 
     private final String fileName;
     private final String url;
@@ -49,7 +64,7 @@ public enum CoreDependency {
     }
 
     public Dependency asDependency() {
-        return new Dependency(fileName, url, new String[] { "", "" }, sha1);
+        return new Dependency(fileName, url, new String[]{"", ""}, sha1);
     }
 
     public boolean inClassPath() {
