@@ -73,7 +73,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         for (String prompt : prompts) {
             if (completedClone.isEmpty())
                 break;
-            command = command.replaceFirst(prompt, completedClone.pollFirst());
+            command = command.replace(prompt, completedClone.pollFirst());
         }
         return "/" + command;
     }
