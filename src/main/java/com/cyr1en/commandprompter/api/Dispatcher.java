@@ -52,7 +52,7 @@ public class Dispatcher {
      */
     public static void dispatchCommand(Player sender, String command) {
         final String checked = command.codePointAt(0) == 0x2F ? command : "/" + command;
-        CommandPrompter.getInstance().getScheduler().runTask(SchedulerType.SYNC, task -> sender.chat(checked));
+        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> sender.chat(checked));
     }
 
     /**
@@ -62,7 +62,7 @@ public class Dispatcher {
      */
     public static void dispatchConsole(final String command) {
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
-        CommandPrompter.getInstance().getScheduler().runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked));
+        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked));
     }
 
     /**
@@ -94,7 +94,7 @@ public class Dispatcher {
         }
         attachment.getPermissible().recalculatePermissions();
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
-        CommandPrompter.getInstance().getScheduler().runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(sender, checked));
+        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(sender, checked));
         //dispatchCommand(plugin, sender, command);
         sender.removeAttachment(attachment);
     }

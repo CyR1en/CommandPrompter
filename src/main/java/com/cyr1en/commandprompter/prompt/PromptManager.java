@@ -69,7 +69,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
-        this.scheduler = CommandPrompter.getInstance().getScheduler();
+        this.scheduler = CommandPrompter.scheduler;
     }
 
     public void registerPrompts() {
@@ -233,7 +233,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                     return;
 
                 if (pcm.delayTicks() > 0)
-                    plugin.getScheduler().runDelayed(SchedulerType.SYNC, task -> queue.execPCM(pcm, (Player) sender),
+                    scheduler.runDelayed(SchedulerType.SYNC, task -> queue.execPCM(pcm, (Player) sender),
                             pcm.delayTicks());
                 else
                     queue.execPCM(pcm, (Player) sender);

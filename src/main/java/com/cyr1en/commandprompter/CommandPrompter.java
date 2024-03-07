@@ -59,6 +59,7 @@ import java.util.Objects;
 public class CommandPrompter extends JavaPlugin {
 
     private static CommandPrompter instance;
+    public static Scheduler scheduler;
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
@@ -73,12 +74,11 @@ public class CommandPrompter extends JavaPlugin {
     private PluginMessenger messenger;
     private HeadCache headCache;
     private CommandAPIWrapper commandAPIWrapper;
-    private Energie energie;
 
     @Override
     public void onEnable() {
         instance = this;
-        energie = new Energie(this);
+        scheduler = new Energie(this).getScheduler(Energie.SchedulerSoft.MINECRAFT);
 
         new Metrics(this, 5359);
         setupConfig();
@@ -104,7 +104,7 @@ public class CommandPrompter extends JavaPlugin {
 
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
 
-        getScheduler().runDelayed(SchedulerType.SYNC, task -> {
+        scheduler.runDelayed(SchedulerType.SYNC, task -> {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
             headCache.registerFilters();
@@ -177,7 +177,7 @@ public class CommandPrompter extends JavaPlugin {
             return;
         }
         var delay = (long) config.modificationDelay();
-        getScheduler().runDelayed(SchedulerType.SYNC, task -> this.hackMap(), delay);
+        scheduler.runDelayed(SchedulerType.SYNC, task -> this.hackMap(), delay);
     }
 
     private void hackMap() {
@@ -215,7 +215,7 @@ public class CommandPrompter extends JavaPlugin {
         updateChecker = new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
-        getScheduler().runTask(SchedulerType.ASYNC, task -> {
+        scheduler.runTask(SchedulerType.ASYNC, task -> {
             if (updateChecker.newVersionAvailable())
                 logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
                         updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
@@ -227,10 +227,6 @@ public class CommandPrompter extends JavaPlugin {
 
     public I18N getI18N() {
         return i18n;
-    }
-
-    public Scheduler getScheduler() {
-        return energie.getScheduler(Energie.SchedulerSoft.MINECRAFT);
     }
 
     public HookContainer getHookContainer() {

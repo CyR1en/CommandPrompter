@@ -139,7 +139,7 @@ public class ChatPrompt extends AbstractPrompt {
                     .setSender(player)
                     .setContent(msg).build();
 
-            CommandPrompter.getInstance().getScheduler().runTask(SchedulerType.SYNC, task -> manager.processPrompt(ctx));
+            CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> manager.processPrompt(ctx));
         }
     }
 
