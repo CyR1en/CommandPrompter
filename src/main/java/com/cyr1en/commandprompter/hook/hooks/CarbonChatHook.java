@@ -4,6 +4,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
+import fr.euphyllia.energie.model.SchedulerType;
 import net.draycia.carbon.api.CarbonChatProvider;
 import net.draycia.carbon.api.events.CarbonChatEvent;
 import net.kyori.adventure.text.Component;
@@ -58,6 +59,6 @@ public class CarbonChatHook extends BaseHook implements Listener {
             msg = prompt.sanitizeInput() ? ds : msg;
         }
         var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
-        Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));
+        CommandPrompter.getInstance().getScheduler().runTask(SchedulerType.SYNC, task -> promptManager.processPrompt(ctx));
     }
 }

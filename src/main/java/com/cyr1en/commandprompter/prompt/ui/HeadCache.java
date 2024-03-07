@@ -11,6 +11,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
+import fr.euphyllia.energie.model.SchedulerType;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -227,7 +228,7 @@ public class HeadCache implements Listener {
         var cacheDelay = plugin.getPromptConfig().cacheDelay();
         logger.debug("Caching Delay: %s", cacheDelay);
 
-        Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
+        CommandPrompter.getInstance().getScheduler().runDelayed(SchedulerType.ASYNC, task -> {
             if (isVanished(e.getPlayer())) {
                 logger.debug("Player is vanished");
                 return;

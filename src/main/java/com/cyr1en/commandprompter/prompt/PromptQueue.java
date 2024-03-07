@@ -6,6 +6,7 @@ import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.util.MMUtil;
 import com.cyr1en.kiso.utils.SRegex;
+import fr.euphyllia.energie.model.SchedulerType;
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
@@ -107,7 +108,7 @@ public class PromptQueue extends LinkedList<Prompt> {
                     plugin.getConfiguration().permissionAttachmentTicks(),
                     plugin.getConfiguration().getPermissionAttachment(permissionAttachmentKey));
         } else
-            Dispatcher.dispatchCommand(plugin, sender, getCompleteCommand());
+            Dispatcher.dispatchCommand(sender, getCompleteCommand());
 
         if (!postCommandMetas.isEmpty())
             postCommandMetas.forEach(pcm -> {
@@ -115,7 +116,7 @@ public class PromptQueue extends LinkedList<Prompt> {
                     return;
 
                 if (pcm.delayTicks() > 0)
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> execPCM(pcm, sender),
+                    plugin.getScheduler().runDelayed(SchedulerType.SYNC, task -> execPCM(pcm, sender),
                             pcm.delayTicks());
                 else
                     execPCM(pcm, sender);
@@ -138,7 +139,7 @@ public class PromptQueue extends LinkedList<Prompt> {
             Dispatcher.dispatchConsole(command);
         } else {
             logger.debug("Dispatching PostCommand as player");
-            Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            Dispatcher.dispatchCommand(sender, command);
         }
 
     }
