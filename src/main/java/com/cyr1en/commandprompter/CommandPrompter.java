@@ -211,6 +211,7 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupUpdater() {
+        if (Energie.isFolia()) return;
         updateChecker = new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
