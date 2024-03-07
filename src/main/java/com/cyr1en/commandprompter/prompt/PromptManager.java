@@ -31,6 +31,8 @@ import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.util.Util;
+import fr.euphyllia.energie.model.Scheduler;
+import fr.euphyllia.energie.model.SchedulerType;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -61,13 +63,13 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     private final CommandPrompter plugin;
     private final PromptRegistry promptRegistry;
     private final PromptParser promptParser;
-    private final BukkitScheduler scheduler;
+    private final Scheduler scheduler;
 
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
-        this.scheduler = Bukkit.getScheduler();
+        this.scheduler = CommandPrompter.getInstance().getScheduler();
     }
 
     public void registerPrompts() {
@@ -88,7 +90,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void parse(PromptContext context) {
         var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
+        scheduler.runDelayed(SchedulerType.SYNC, task -> cancel(context.getSender(), queueHash), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
@@ -102,7 +104,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
         if (!queue.isEmpty()) {
             var prompt = Objects.requireNonNull(queue.peek());
-            Bukkit.getScheduler().runTaskLater(plugin, prompt::sendPrompt, 2L);
+            scheduler.runDelayed(SchedulerType.SYNC, task -> prompt.sendPrompt(), 2L);
             plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
         } else if (queue.containsPCM()) {
             // This means queue is empty but contains PCM. If it does, we just dispatch it.
@@ -177,7 +179,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             sender.setOp(false);
             plugin.getPluginLogger().debug("Remove OP status");
             // Redundancy for de-op
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            scheduler.runDelayed(SchedulerType.SYNC, task -> {
                 plugin.getPluginLogger().debug("Remove OP status (redundancy)");
                 sender.setOp(false);
             }, 2L);
@@ -231,7 +233,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
                     return;
 
                 if (pcm.delayTicks() > 0)
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> queue.execPCM(pcm, (Player) sender),
+                    plugin.getScheduler().runDelayed(SchedulerType.SYNC, task -> queue.execPCM(pcm, (Player) sender),
                             pcm.delayTicks());
                 else
                     queue.execPCM(pcm, (Player) sender);

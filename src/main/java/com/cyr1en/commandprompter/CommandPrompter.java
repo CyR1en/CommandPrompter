@@ -45,6 +45,9 @@ import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.utils.SRegex;
+import fr.euphyllia.energie.Energie;
+import fr.euphyllia.energie.model.Scheduler;
+import fr.euphyllia.energie.model.SchedulerType;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -70,9 +73,12 @@ public class CommandPrompter extends JavaPlugin {
     private PluginMessenger messenger;
     private HeadCache headCache;
     private CommandAPIWrapper commandAPIWrapper;
+    private Energie energie;
 
     @Override
     public void onEnable() {
+        instance = this;
+        energie = new Energie(this);
 
         new Metrics(this, 5359);
         setupConfig();
@@ -96,10 +102,9 @@ public class CommandPrompter extends JavaPlugin {
         initPromptSystem();
         setupCommands();
 
-        instance = this;
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
 
-        Bukkit.getScheduler().runTaskLater(this, () -> {
+        getScheduler().runDelayed(SchedulerType.SYNC, task -> {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
             headCache.registerFilters();
@@ -172,7 +177,7 @@ public class CommandPrompter extends JavaPlugin {
             return;
         }
         var delay = (long) config.modificationDelay();
-        Bukkit.getScheduler().runTaskLater(this, this::hackMap, delay);
+        getScheduler().runDelayed(SchedulerType.SYNC, task -> this.hackMap(), delay);
     }
 
     private void hackMap() {
@@ -209,7 +214,7 @@ public class CommandPrompter extends JavaPlugin {
         updateChecker = new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
+        getScheduler().runTask(SchedulerType.ASYNC, task -> {
             if (updateChecker.newVersionAvailable())
                 logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
                         updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
@@ -221,6 +226,10 @@ public class CommandPrompter extends JavaPlugin {
 
     public I18N getI18N() {
         return i18n;
+    }
+
+    public Scheduler getScheduler() {
+        return energie.getScheduler(Energie.SchedulerSoft.MINECRAFT);
     }
 
     public HookContainer getHookContainer() {
