@@ -47,6 +47,7 @@ public class SignPrompt extends AbstractPrompt {
                 .setLines(finalParts.toArray(String[]::new))
                 .setType(mat)
                 .setHandler((p, r) -> process(finalParts, p, r.getLines()))
+                .callHandlerSynchronously(CommandPrompter.getInstance())
                 .build();
 
         gui.open((Player) getContext().getSender());
