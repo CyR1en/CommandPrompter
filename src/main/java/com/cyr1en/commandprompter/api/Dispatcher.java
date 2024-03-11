@@ -101,10 +101,21 @@ public class Dispatcher {
         }
         attachment.getPermissible().recalculatePermissions();
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
-        CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, sender, task -> Bukkit.dispatchCommand(sender, checked), null);
+        Bukkit.dispatchCommand(sender, checked);
         //dispatchCommand(plugin, sender, command);
         sender.removeAttachment(attachment);
     }
+
+    /**
+     * Dispatch a command for a player with a PermissionAttachment that contains
+     * all the whitelisted commands. - folia
+     *
+     * @param plugin  Instance of plugin.
+     * @param sender  command sender (in menu's, then the item clicker)
+     * @param command command that would be dispatched.
+     * @param ticks   Number of ticks before the attachment expires
+     * @param perms   Permissions to set to the PermissionAttachment
+     */
     public static void dispatchWithAttachmentFolia(Plugin plugin, Player sender, String command, int ticks,
                                               @NotNull String[] perms) {
         var commandPrompter = (CommandPrompter) plugin;

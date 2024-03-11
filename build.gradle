@@ -65,7 +65,7 @@ dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'net.wesjd:anvilgui:1.9.2-SNAPSHOT'
-    implementation 'io.github.rapha149.signgui:signgui:2.2.2'
+    implementation 'de.rapha149.signgui:signgui:2.3.2'
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation "dev.jorel:commandapi-bukkit-shade:9.3.0"
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
@@ -107,7 +107,7 @@ shadowJar {
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
+    relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
@@ -142,7 +142,7 @@ tasks.register("lightJar", ShadowJar) {
     }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
+    relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
