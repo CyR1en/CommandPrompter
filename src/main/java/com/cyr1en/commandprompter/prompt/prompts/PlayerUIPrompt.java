@@ -212,7 +212,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
             getPlugin().getPluginLogger().debug("Missing heads in cache, rebuilding before sending...");
             headCache.reBuildCache().thenAccept(cache -> {
                 getPlugin().getPluginLogger().debug("Rebuilt cache!");
-                CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> send(p));
+                CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, task -> send(p));
             });
         } else {
             send(p);

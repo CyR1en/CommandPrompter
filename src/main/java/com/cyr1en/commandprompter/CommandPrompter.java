@@ -40,6 +40,7 @@ import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
+import com.cyr1en.commandprompter.util.FoliaUpdateChecker;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
@@ -59,7 +60,7 @@ import java.util.Objects;
 public class CommandPrompter extends JavaPlugin {
 
     private static CommandPrompter instance;
-    public static Scheduler scheduler;
+    private static Scheduler scheduler;
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
@@ -211,8 +212,7 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupUpdater() {
-        if (Energie.isFolia()) return;
-        updateChecker = new UpdateChecker(this, 47772);
+        updateChecker = Energie.isFolia()? new FoliaUpdateChecker(this, 47772) :  new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
         scheduler.runTask(SchedulerType.ASYNC, task -> {
@@ -268,6 +268,10 @@ public class CommandPrompter extends JavaPlugin {
 
     public static CommandPrompter getInstance() {
         return instance;
+    }
+
+    public static Scheduler getScheduler() {
+        return scheduler;
     }
 
     public CommandPrompterConfig getConfiguration() {

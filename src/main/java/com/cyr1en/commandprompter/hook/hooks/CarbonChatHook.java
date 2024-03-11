@@ -59,6 +59,6 @@ public class CarbonChatHook extends BaseHook implements Listener {
             msg = prompt.sanitizeInput() ? ds : msg;
         }
         var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
-        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> promptManager.processPrompt(ctx));
+        CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, task -> promptManager.processPrompt(ctx));
     }
 }

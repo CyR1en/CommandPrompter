@@ -25,12 +25,16 @@
 package com.cyr1en.commandprompter.api;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import fr.euphyllia.energie.Energie;
 import fr.euphyllia.energie.model.SchedulerType;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Player command dispatcher for Support with CommandPrompter.
@@ -52,7 +56,7 @@ public class Dispatcher {
      */
     public static void dispatchCommand(Player sender, String command) {
         final String checked = command.codePointAt(0) == 0x2F ? command : "/" + command;
-        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> sender.chat(checked));
+        CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, sender, task -> sender.chat(checked), null);
     }
 
     /**
@@ -62,7 +66,7 @@ public class Dispatcher {
      */
     public static void dispatchConsole(final String command) {
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
-        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked));
+        CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), checked));
     }
 
     /**
@@ -77,6 +81,10 @@ public class Dispatcher {
      */
     public static void dispatchWithAttachment(Plugin plugin, Player sender, String command, int ticks,
             @NotNull String[] perms) {
+        if (Energie.isFolia()) {
+            dispatchWithAttachmentFolia(plugin, sender, command, ticks, perms);
+            return;
+        }
         var commandPrompter = (CommandPrompter) plugin;
         var logger = commandPrompter.getPluginLogger();
 
@@ -94,9 +102,34 @@ public class Dispatcher {
         }
         attachment.getPermissible().recalculatePermissions();
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
-        CommandPrompter.scheduler.runTask(SchedulerType.SYNC, task -> Bukkit.dispatchCommand(sender, checked));
+        CommandPrompter.getScheduler().runTask(SchedulerType.SYNC, sender, task -> Bukkit.dispatchCommand(sender, checked), null);
         //dispatchCommand(plugin, sender, command);
         sender.removeAttachment(attachment);
     }
+    public static void dispatchWithAttachmentFolia(Plugin plugin, Player sender, String command, int ticks,
+                                              @NotNull String[] perms) {
+        var commandPrompter = (CommandPrompter) plugin;
+        var logger = commandPrompter.getPluginLogger();
 
+        logger.debug("Dispatching command with permission attachment");
+
+        var attachment = sender.addAttachment(plugin);
+        CommandPrompter.getScheduler().runDelayed(SchedulerType.SYNC, task -> attachment.remove(), ticks);
+
+        if (attachment == null) {
+            logger.err("Unable to create PermissionAttachment for " + sender.getName());
+            return;
+        }
+
+        for (String perm : perms) {
+            logger.debug("Attached Perm: " + perm);
+            attachment.setPermission(perm, true);
+        }
+        attachment.getPermissible().recalculatePermissions();
+        final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
+
+        new CompletableFuture<Boolean>().completeAsync(() -> Bukkit.dispatchCommand(sender, checked),executor -> CommandPrompter.
+                getScheduler().runTask(SchedulerType.SYNC,sender, task -> executor.run(), null)).thenRun(() ->
+                sender.removeAttachment(attachment)).join();
+    }
 }

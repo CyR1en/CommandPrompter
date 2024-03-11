@@ -228,7 +228,7 @@ public class HeadCache implements Listener {
         var cacheDelay = plugin.getPromptConfig().cacheDelay();
         logger.debug("Caching Delay: %s", cacheDelay);
 
-        CommandPrompter.scheduler.runDelayed(SchedulerType.ASYNC, task -> {
+        CommandPrompter.getScheduler().runDelayed(SchedulerType.ASYNC, task -> {
             if (isVanished(e.getPlayer())) {
                 logger.debug("Player is vanished");
                 return;

@@ -69,7 +69,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
         this.promptParser = new PromptParser(this);
-        this.scheduler = CommandPrompter.scheduler;
+        this.scheduler = CommandPrompter.getScheduler();
     }
 
     public void registerPrompts() {

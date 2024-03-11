@@ -116,7 +116,7 @@ public class PromptQueue extends LinkedList<Prompt> {
                     return;
 
                 if (pcm.delayTicks() > 0)
-                    CommandPrompter.scheduler.runDelayed(SchedulerType.SYNC, task -> execPCM(pcm, sender),
+                    CommandPrompter.getScheduler().runDelayed(SchedulerType.SYNC, task -> execPCM(pcm, sender),
                             pcm.delayTicks());
                 else
                     execPCM(pcm, sender);
