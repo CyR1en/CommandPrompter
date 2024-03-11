@@ -212,7 +212,7 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupUpdater() {
-        updateChecker = Energie.isFolia()? new FoliaUpdateChecker(this, 47772) :  new UpdateChecker(this, 47772);
+        updateChecker = Energie.isFolia() ? new FoliaUpdateChecker(this, 47772) :  new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
         scheduler.runTask(SchedulerType.ASYNC, task -> {

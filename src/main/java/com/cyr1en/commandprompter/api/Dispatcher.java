@@ -33,7 +33,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -129,7 +128,7 @@ public class Dispatcher {
         final String checked = command.codePointAt(0) == 0x2F ? command.substring(1) : command;
 
         new CompletableFuture<Boolean>().completeAsync(() -> Bukkit.dispatchCommand(sender, checked),executor -> CommandPrompter.
-                getScheduler().runTask(SchedulerType.SYNC,sender, task -> executor.run(), null)).thenRun(() ->
+                getScheduler().runTask(SchedulerType.SYNC, sender, task -> executor.run(), null)).thenRun(() ->
                 sender.removeAttachment(attachment)).join();
     }
 }
