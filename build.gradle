@@ -69,7 +69,7 @@ dependencies {
     implementation 'org.bstats:bstats-bukkit:3.0.0'
     implementation "dev.jorel:commandapi-bukkit-shade:9.3.0"
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation("com.github.Euphillya:Energie:5659f25e22")
+    implementation("com.github.Euphillya:Energie:1.1.4")
 
     // Exclude these
     implementation 'me.lucko:jar-relocator:1.7'
