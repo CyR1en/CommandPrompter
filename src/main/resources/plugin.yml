@@ -6,6 +6,7 @@ softdepend: [VentureChat, SuperVanish, PuerkasChat, PlaceholderAPI, CarbonChat, 
 
 main: ${projectEntry}
 api-version: 1.13
+folia-supported: true
 
 permissions:
   commandprompter.reload:

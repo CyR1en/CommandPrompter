@@ -40,11 +40,15 @@ import com.cyr1en.commandprompter.prompt.ui.HeadCache;
 import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
 import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
 import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
+import com.cyr1en.commandprompter.util.FoliaUpdateChecker;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.utils.SRegex;
+import fr.euphyllia.energie.Energie;
+import fr.euphyllia.energie.model.Scheduler;
+import fr.euphyllia.energie.model.SchedulerType;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -56,6 +60,7 @@ import java.util.Objects;
 public class CommandPrompter extends JavaPlugin {
 
     private static CommandPrompter instance;
+    private static Scheduler scheduler;
 
     private ConfigurationManager configManager;
     private CommandPrompterConfig config;
@@ -73,6 +78,8 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        instance = this;
+        scheduler = new Energie(this).getScheduler(Energie.SchedulerSoft.MINECRAFT);
 
         new Metrics(this, 5359);
         setupConfig();
@@ -96,10 +103,9 @@ public class CommandPrompter extends JavaPlugin {
         initPromptSystem();
         setupCommands();
 
-        instance = this;
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
 
-        Bukkit.getScheduler().runTaskLater(this, () -> {
+        scheduler.runDelayed(SchedulerType.SYNC, task -> {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
             headCache.registerFilters();
@@ -172,7 +178,7 @@ public class CommandPrompter extends JavaPlugin {
             return;
         }
         var delay = (long) config.modificationDelay();
-        Bukkit.getScheduler().runTaskLater(this, this::hackMap, delay);
+        scheduler.runDelayed(SchedulerType.SYNC, task -> this.hackMap(), delay);
     }
 
     private void hackMap() {
@@ -206,10 +212,10 @@ public class CommandPrompter extends JavaPlugin {
     }
 
     private void setupUpdater() {
-        updateChecker = new UpdateChecker(this, 47772);
+        updateChecker = Energie.isFolia() ? new FoliaUpdateChecker(this, 47772) :  new UpdateChecker(this, 47772);
         if (updateChecker.isDisabled())
             return;
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
+        scheduler.runTask(SchedulerType.ASYNC, task -> {
             if (updateChecker.newVersionAvailable())
                 logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
                         updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
@@ -262,6 +268,10 @@ public class CommandPrompter extends JavaPlugin {
 
     public static CommandPrompter getInstance() {
         return instance;
+    }
+
+    public static Scheduler getScheduler() {
+        return scheduler;
     }
 
     public CommandPrompterConfig getConfiguration() {
