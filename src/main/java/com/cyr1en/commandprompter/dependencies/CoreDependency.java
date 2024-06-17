@@ -34,14 +34,14 @@ public enum CoreDependency {
             "b3add478d4382b78ea20b1671390a858002feb6c",
             "com.google.gson.JsonParser"),
     ADVENTURE_API(
-            "adventure-api-4.15.0.jar",
-            "https://repo.maven.apache.org/maven2/net/kyori/adventure-api/4.15.0/adventure-api-4.15.0.jar",
-            "84e507c4cf17404299078435736e7e752dde8bae",
+            "adventure-api-4.17.0.jar",
+            "https://repo.maven.apache.org/maven2/net/kyori/adventure-api/4.17.0/adventure-api-4.17.0.jar",
+            "e90703097679e9ca0ee8a059bb933aa7d495bce3",
             "net.kyori.adventure.text.serializer.ComponentSerializer"),
     ADVENTURE_KEY(
-            "adventure-key-4.16.0.jar",
-            "https://repo.maven.apache.org/maven2/net/kyori/adventure-key/4.16.0/adventure-key-4.16.0.jar",
-            "b695c40a7d2fd658246de78ea428e8f8dc7ffd2d",
+            "adventure-key-4.17.0.jar",
+            "https://repo.maven.apache.org/maven2/net/kyori/adventure-key/4.17.0/adventure-key-4.17.0.jar",
+            "799f1b5fedb920a7b71916e9b71123ff94d07acf",
             "net.kyori.adventure.key.InvalidKeyException"),
     EXAMINATION_API(
             "examination-api-1.3.0.jar",
