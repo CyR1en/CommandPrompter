@@ -2,7 +2,6 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
-import com.cyr1en.commandprompter.hook.hooks.VentureChatHook;
 import org.bukkit.entity.Player;
 import org.fusesource.jansi.Ansi;
 
@@ -72,7 +71,7 @@ public class ContextProcessor {
 
     private boolean isIgnored(PromptContext context) {
         var cmd = extractCommand(context.getContent());
-        return plugin.getConfiguration().ignoredCommands().contains(cmd) || isCmdChatChannel(cmd);
+        return plugin.getConfiguration().ignoredCommands().contains(cmd);
     }
 
     private String extractCommand(String content) {
@@ -80,15 +79,5 @@ public class ContextProcessor {
         end = end == -1 ? content.length() : end;
         return content.substring(0, end);
     }
-
-    private boolean isCmdChatChannel(String cmd) {
-        var out = new AtomicBoolean(false);
-        var vcHook = plugin.getHookContainer().getHook(VentureChatHook.class);
-        plugin.getPluginLogger().debug("VentureChat hooked: " + vcHook.isHooked());
-        vcHook.ifHooked(hook -> out.set(hook.isChatChannel(cmd))).complete();
-        plugin.getPluginLogger().debug("is VentureChat channel: " + out.get());
-        return out.get();
-    }
-
 
 }
