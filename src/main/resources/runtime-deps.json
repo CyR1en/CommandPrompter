@@ -1,38 +1,38 @@
 {
   "IF": {
-    "filename": "IF-0.10.11.jar",
-    "url": "https://github.com/stefvanschie/IF/releases/download/v0.10.11/IF-0.10.11.jar",
+    "filename": "IF-0.10.14.jar",
+    "url": "https://github.com/stefvanschie/IF/releases/download/v0.10.14/IF-0.10.14.jar",
     "relocation": [
       "com.github.stefvanschie.inventoryframework",
       "com.cyr1en.inventoryframework"
     ],
-    "sha1": "26aaf95a5552972d6612febabbe31776b902ee75"
+    "sha1": "7574fb97dcdb429dcdee0b2086af1b4a5d5ee4d4"
   },
   "SignGUI": {
-    "filename": "signgui-2.2.2.jar",
-    "url": "https://repo1.maven.org/maven2/io/github/rapha149/signgui/signgui/2.2.2/signgui-2.2.2.jar",
+    "filename": "signgui-2.3.3.jar",
+    "url": "https://repo1.maven.org/maven2/de/rapha149/signgui/signgui/2.3.3/signgui-2.3.3.jar",
     "relocation": [
-      "io.github.rapha149.signgui",
+      "de.rapha149.signgui",
       "com.cyr1en.signgui"
     ],
-    "sha1": "982894bc7e9da56830b278a64c4cdbfc4df96054"
+    "sha1": "3bb088b0ad638ab26781623dd6e5a9e6ca5380f3"
   },
   "CommandAPI": {
-    "filename": "commandapi-bukkit-shade-9.3.0.jar",
-    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade/9.3.0/commandapi-bukkit-shade-9.3.0.jar",
+    "filename": "commandapi-bukkit-shade-mojang-mapped-9.5.0.jar",
+    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade-mojang-mapped/9.5.0/commandapi-bukkit-shade-mojang-mapped-9.5.0.jar",
     "relocation": [
       "dev.jorel.commandapi",
       "com.cyr1en.commandapi"
     ],
-    "sha1": "145ee0e27a97733cc4cc40641910aabfb70d18c2"
+    "sha1": "ac639a785c863a30b4796b3284f2943bff5b271c"
   },
   "MiniMessage": {
-    "filename": "adventure-text-minimessage-4.15.0.jar",
-    "url": "https://repo1.maven.org/maven2/net/kyori/adventure-text-minimessage/4.15.0/adventure-text-minimessage-4.15.0.jar",
+    "filename": "adventure-text-minimessage-4.17.0.jar",
+    "url": "https://repo1.maven.org/maven2/net/kyori/adventure-text-minimessage/4.17.0/adventure-text-minimessage-4.17.0.jar",
     "relocation": [
       "net.kyori.adventure.text.minimessage",
       "com.cyr1en.minimessage"
     ],
-    "sha1": "16299c7bf78b2cd51d893046cfb69357355b276b"
+    "sha1": "696817a0f9700483bcd9dbd5cc62f33ac83b12f9"
   }
 }
