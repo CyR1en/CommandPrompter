@@ -32,14 +32,10 @@ import com.cyr1en.commandprompter.dependencies.DependencyLoader;
 import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.CommandSendListener;
-import com.cyr1en.commandprompter.listener.ModifiedListener;
 import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
-import com.cyr1en.commandprompter.unsafe.CommandMapHacker;
-import com.cyr1en.commandprompter.unsafe.ModifiedCommandMap;
-import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.Util.ServerType;
 import com.cyr1en.kiso.mc.I18N;
@@ -165,34 +161,8 @@ public class CommandPrompter extends JavaPlugin {
      * command map. Otherwise, it will just use the vanilla listener.
      */
     private void initCommandListener() {
-        var useUnsafe = config.enableUnsafe();
-        if (!useUnsafe) {
-            commandListener = new VanillaListener(promptManager);
-            Bukkit.getPluginManager().registerEvents(commandListener, this);
-            return;
-        }
-        var delay = (long) config.modificationDelay();
-        Bukkit.getScheduler().runTaskLater(this, this::hackMap, delay);
-    }
-
-    private void hackMap() {
-        try {
-            var mapHacker = new CommandMapHacker(this);
-
-            var newCommandMap = new ModifiedCommandMap(getServer(), this);
-            mapHacker.hackCommandMapIn(getServer(), newCommandMap);
-            mapHacker.hackCommandMapIn(getServer().getPluginManager(), newCommandMap);
-
-            commandListener = new ModifiedListener(promptManager);
-
-            var mutator = new PvtFieldMutator();
-            var sHash = mutator.forField("commandMap").in(getServer()).getHashCode();
-            var pHash = mutator.forField("commandMap").in(getServer().getPluginManager()).getHashCode();
-            logger.warn("sHash: " + sHash + " | pHash: " + pHash);
-            Bukkit.getPluginManager().registerEvents(commandListener, this);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            logger.err("Unable to hack command map!");
-        }
+        commandListener = new VanillaListener(promptManager);
+        Bukkit.getPluginManager().registerEvents(commandListener, this);
     }
 
     private void setupConfig() {
