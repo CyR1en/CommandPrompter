@@ -41,7 +41,7 @@ PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
         version    : new Version(major: 2, minor: 8, patch: 2, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
-        description: 'Perfect companion plugin for inventory UI menu.',
+        description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
 ]
 
