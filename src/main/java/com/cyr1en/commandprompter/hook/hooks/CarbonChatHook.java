@@ -5,7 +5,7 @@ import com.cyr1en.commandprompter.hook.annotations.TargetPlugin;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import net.draycia.carbon.api.CarbonChatProvider;
-import net.draycia.carbon.api.events.CarbonChatEvent;
+import net.draycia.carbon.api.event.events.CarbonChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -37,7 +37,7 @@ public class CarbonChatHook extends BaseHook implements Listener {
         var player = Bukkit.getPlayer(event.sender().uuid());
         if (Objects.isNull(player) || !promptManager.getPromptRegistry().inCommandProcess(player))
             return;
-        event.result(CarbonChatEvent.Result.denied(Component.empty()));
+        event.cancelled(true);
         event.recipients().clear();
         var msg = PlainTextComponentSerializer.plainText().serialize(event.message());
         var cancel = getPlugin().getConfiguration().cancelKeyword();
