@@ -1,4 +1,4 @@
-package com.cyr1en.commandprompter.unsafe;
+package com.cyr1en.commandprompter.util.unsafe;
 
 import sun.misc.Unsafe;
 

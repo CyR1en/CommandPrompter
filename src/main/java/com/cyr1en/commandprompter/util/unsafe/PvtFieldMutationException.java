@@ -1,4 +1,4 @@
-package com.cyr1en.commandprompter.unsafe;
+package com.cyr1en.commandprompter.util.unsafe;
 
 public class PvtFieldMutationException extends RuntimeException {
     public PvtFieldMutationException(Class<?> targetClass) {
