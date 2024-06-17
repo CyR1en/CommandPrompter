@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 8, patch: 2, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 9, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -64,23 +64,24 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.2-SNAPSHOT'
-    implementation 'io.github.rapha149.signgui:signgui:2.2.2'
-    implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation "dev.jorel:commandapi-bukkit-shade:9.3.0"
+    implementation 'net.wesjd:anvilgui:1.9.4-SNAPSHOT'
+    implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
     // Exclude these
     implementation 'me.lucko:jar-relocator:1.7'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.11'
-    implementation "net.kyori:adventure-text-minimessage:4.15.0"
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.14'
+    implementation "net.kyori:adventure-text-minimessage:4.17.0"
+    implementation "dev.jorel:commandapi-bukkit-shade-mojang-mapped:9.5.0"
+    implementation 'de.rapha149.signgui:signgui:2.3.3'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
-    compileOnly "net.kyori:adventure-text-serializer-legacy:4.15.0"
-    compileOnly "net.kyori:adventure-text-serializer-plain:4.15.0"
-    compileOnly 'com.palmergames.bukkit.towny:towny:0.100.0.0'
-    compileOnly "org.spigotmc:spigot-api:1.20.4-R0.1-SNAPSHOT"
-    compileOnly 'com.github.LeonMangler:SuperVanish:6.2.17'
+    compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
+    compileOnly "net.kyori:adventure-text-serializer-plain:4.17.0"
+    compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
+    compileOnly "org.spigotmc:spigot-api:1.21-R0.1-SNAPSHOT"
+    compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
+    compileOnly 'de.hexaoxi:carbonchat-api:3.0.0-beta.26'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'net.luckperms:api:5.4'
@@ -106,7 +107,7 @@ shadowJar {
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
+    relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
     relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
@@ -136,8 +137,8 @@ tasks.register("lightJar", ShadowJar) {
         exclude(dependency('org.ow2.asm:asm-commons'))
         exclude(dependency('org.ow2.asm:asm-tree'))
         exclude(dependency('org.ow2.asm:asm-analysis'))
-        exclude(dependency('io.github.rapha149.signgui:signgui'))
-        exclude(dependency('dev.jorel:commandapi-bukkit-shade'))
+        exclude(dependency('de.rapha149.signgui:signgui'))
+        exclude(dependency('dev.jorel:commandapi-bukkit-shade-mojang-mapped'))
     }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
