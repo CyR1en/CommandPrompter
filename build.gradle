@@ -99,6 +99,11 @@ configurations.implementation {
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
+        exclude(dependency('me.lucko:jar-relocator'))
+        exclude(dependency('org.ow2.asm:asm'))
+        exclude(dependency('org.ow2.asm:asm-commons'))
+        exclude(dependency('org.ow2.asm:asm-tree'))
+        exclude(dependency('org.ow2.asm:asm-analysis'))
     }
 
     archiveBaseName.set("$project.name")
