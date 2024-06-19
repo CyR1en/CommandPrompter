@@ -2,10 +2,10 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
-softdepend: [VentureChat, SuperVanish, PuerkasChat, PlaceholderAPI, CarbonChat, Towny, PlaceholderAPI]
+softdepend: [SuperVanish, PlaceholderAPI, CarbonChat, Towny, PlaceholderAPI]
 
 main: ${projectEntry}
-api-version: 1.20
+api-version: 1.13
 
 permissions:
   commandprompter.reload:
