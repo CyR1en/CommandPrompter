@@ -64,7 +64,7 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.4-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.9.5-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
 
@@ -72,8 +72,8 @@ dependencies {
     implementation 'me.lucko:jar-relocator:1.7'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.14'
     implementation "net.kyori:adventure-text-minimessage:4.17.0"
-    implementation "dev.jorel:commandapi-bukkit-shade-mojang-mapped:9.5.0"
-    implementation 'de.rapha149.signgui:signgui:2.3.3'
+    implementation "dev.jorel:commandapi-bukkit-shade:9.5.1"
+    implementation 'de.rapha149.signgui:signgui:2.3.4'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
@@ -138,7 +138,7 @@ tasks.register("lightJar", ShadowJar) {
         exclude(dependency('org.ow2.asm:asm-tree'))
         exclude(dependency('org.ow2.asm:asm-analysis'))
         exclude(dependency('de.rapha149.signgui:signgui'))
-        exclude(dependency('dev.jorel:commandapi-bukkit-shade-mojang-mapped'))
+        exclude(dependency('dev.jorel:commandapi-bukkit-shade'))
     }
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
