@@ -18,13 +18,24 @@
     "sha1": "3bb088b0ad638ab26781623dd6e5a9e6ca5380f3"
   },
   "CommandAPI": {
-    "filename": "commandapi-bukkit-shade-mojang-mapped-9.5.0.jar",
-    "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade-mojang-mapped/9.5.0/commandapi-bukkit-shade-mojang-mapped-9.5.0.jar",
-    "relocation": [
-      "dev.jorel.commandapi",
-      "com.cyr1en.commandapi"
-    ],
-    "sha1": "ac639a785c863a30b4796b3284f2943bff5b271c"
+    "default": {
+      "filename": "commandapi-bukkit-shade-9.5.1.jar",
+      "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade/9.5.1/commandapi-bukkit-shade-9.5.1.jar",
+      "relocation": [
+        "dev.jorel.commandapi",
+        "com.cyr1en.commandapi"
+      ],
+      "sha1": "74ed096f9727c80ca67f3935a36d63ffb43c85aa"
+    },
+    "mojang-mapped": {
+      "filename": "commandapi-bukkit-shade-mojang-mapped-9.5.1.jar",
+      "url": "https://repo1.maven.org/maven2/dev/jorel/commandapi-bukkit-shade-mojang-mapped/9.5.1/commandapi-bukkit-shade-mojang-mapped-9.5.1.jar",
+      "relocation": [
+        "dev.jorel.commandapi",
+        "com.cyr1en.commandapi"
+      ],
+      "sha1": "5958427a6c633e3e8c76ee1070da04e533bb98eb"
+    }
   },
   "MiniMessage": {
     "filename": "adventure-text-minimessage-4.17.0.jar",

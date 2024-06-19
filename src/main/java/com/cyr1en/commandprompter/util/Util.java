@@ -1,5 +1,6 @@
 package com.cyr1en.commandprompter.util;
 
+import com.cyr1en.kiso.mc.Version;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
 import org.bukkit.Bukkit;
@@ -114,6 +115,18 @@ public class Util {
                     return type;
             }
             return Other;
+        }
+
+        public static boolean isMojangMapped() {
+            var resolved = resolve();
+            var ver = resolved.parsedVersion();
+            return (resolve() == Paper || resolve() == Purpur) && ver.isNewerThan(Version.parse("1.20.4"));
+        }
+
+        public Version parsedVersion() {
+            var version = version();
+            version = version.substring(version.indexOf("MC: ") + 4, version.length() - 1);
+            return Version.parse(version);
         }
     }
 }

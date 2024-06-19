@@ -193,6 +193,13 @@ public class DependencyLoader {
         var json = new Gson().fromJson(jsonStr, JsonObject.class);
         for (var entry : json.entrySet()) {
             var obj = entry.getValue().getAsJsonObject();
+
+            if (obj.has("default") && obj.has("mojang-mapped"))
+                obj = Util.ServerType.isMojangMapped() ?
+                        obj.getAsJsonObject("mojang-mapped") : obj.getAsJsonObject("default");
+
+            logger.debug("Dependency JSON: " + obj.get("filename"));
+
             var dependency = new Gson().fromJson(obj, Dependency.class);
             logger.debug("Dependency: " + dependency);
             builder.add(dependency);
