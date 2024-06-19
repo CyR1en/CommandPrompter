@@ -9,13 +9,13 @@
     "sha1": "7574fb97dcdb429dcdee0b2086af1b4a5d5ee4d4"
   },
   "SignGUI": {
-    "filename": "signgui-2.3.3.jar",
-    "url": "https://repo1.maven.org/maven2/de/rapha149/signgui/signgui/2.3.3/signgui-2.3.3.jar",
+    "filename": "signgui-2.3.4.jar",
+    "url": "https://repo1.maven.org/maven2/de/rapha149/signgui/signgui/2.3.4/signgui-2.3.4.jar",
     "relocation": [
       "de.rapha149.signgui",
       "com.cyr1en.signgui"
     ],
-    "sha1": "3bb088b0ad638ab26781623dd6e5a9e6ca5380f3"
+    "sha1": "342d8c8533b4aff9e07fef452791513fb4ebe5ed"
   },
   "CommandAPI": {
     "default": {
