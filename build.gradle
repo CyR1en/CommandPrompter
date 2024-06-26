@@ -58,6 +58,7 @@ repositories {
     maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
     maven { url 'https://jitpack.io' }
     maven { url 'https://repo.glaremasters.me/repository/towny/'}
+    maven { url 'https://repo.william278.net/releases' }
     flatDir { dirs 'libs' }
 }
 
@@ -85,6 +86,7 @@ dependencies {
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'net.luckperms:api:5.4'
+    compileOnly 'net.william278.husktowns:husktowns-common:3.0.5'
 
     // Local
     implementation fileTree(dir: 'libs', include: '*.jar')

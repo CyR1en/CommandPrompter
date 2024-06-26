@@ -26,6 +26,7 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
         hook(PapiHook.class);
         hook(TownyHook.class);
         hook(LuckPermsHook.class);
+        hook(HuskTownsHook.class);
     }
 
     @Override
