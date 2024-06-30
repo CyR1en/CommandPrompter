@@ -55,6 +55,7 @@ repositories {
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
     maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
+    maven { url 'https://repo.codemc.io/repository/maven-public/' }
     maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
     maven { url 'https://jitpack.io' }
     maven { url 'https://repo.glaremasters.me/repository/towny/'}
@@ -64,16 +65,13 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.5-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.9.6-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-
-    // Exclude these
-    implementation 'me.lucko:jar-relocator:1.7'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.14'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.15'
     implementation "net.kyori:adventure-text-minimessage:4.17.0"
     implementation "dev.jorel:commandapi-bukkit-shade:9.5.1"
-    implementation 'de.rapha149.signgui:signgui:2.3.4'
+    implementation 'de.rapha149.signgui:signgui:2.3.5'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
@@ -99,15 +97,10 @@ configurations.implementation {
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
-        exclude(dependency('me.lucko:jar-relocator'))
-        exclude(dependency('org.ow2.asm:asm'))
-        exclude(dependency('org.ow2.asm:asm-commons'))
-        exclude(dependency('org.ow2.asm:asm-tree'))
-        exclude(dependency('org.ow2.asm:asm-analysis'))
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set('bundled')
+    archiveClassifier.set('shaded')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
@@ -117,41 +110,6 @@ shadowJar {
     relocate 'net.kyori.examination', 'com.cyr1en.examination'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
-    relocate 'org.bstats', 'com.cyr1en.bstats'
-
-    manifest {
-        attributes "Bundled": true
-    }
-}
-
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
-tasks.register("lightJar", ShadowJar) {
-    from sourceSets.main.output
-    configurations = [project.configurations.runtimeClasspath]
-
-    dependencies {
-        exclude(dependency('com.mojang:brigadier'))
-        exclude(dependency('com.github.stefvanschie.inventoryframework:IF'))
-        exclude(dependency('me.lucko:jar-relocator'))
-        exclude(dependency('net.kyori:adventure-text-minimessage'))
-        exclude(dependency('net.kyori:adventure-api'))
-        exclude(dependency('net.kyori:adventure-key'))
-        exclude(dependency('net.kyori:examination-api'))
-        exclude(dependency('net.kyori:examination-string'))
-        exclude(dependency('org.ow2.asm:asm'))
-        exclude(dependency('org.ow2.asm:asm-commons'))
-        exclude(dependency('org.ow2.asm:asm-tree'))
-        exclude(dependency('org.ow2.asm:asm-analysis'))
-        exclude(dependency('de.rapha149.signgui:signgui'))
-        exclude(dependency('dev.jorel:commandapi-bukkit-shade'))
-    }
-    relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
-    relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
-    relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
-    relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
-    relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
 }
 
@@ -171,7 +129,6 @@ processResources {
 
 artifacts {
     archives shadowJar
-    archives lightJar
 }
 
 publishing {
