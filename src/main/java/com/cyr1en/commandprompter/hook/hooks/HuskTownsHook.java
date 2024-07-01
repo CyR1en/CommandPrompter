@@ -10,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 @TargetPlugin(pluginName = "HuskTowns")
@@ -46,6 +47,7 @@ public class HuskTownsHook extends BaseHook implements FilterHook {
             if (town.get().town().getMembers().isEmpty()) return List.of();
             return town.get().town().getMembers().keySet().stream()
                     .map(Bukkit::getPlayer)
+                    .filter(Objects::nonNull)
                     .toList();
         }
     }
