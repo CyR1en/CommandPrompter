@@ -28,7 +28,6 @@ import com.cyr1en.commandprompter.commands.CommandAPIWrapper;
 import com.cyr1en.commandprompter.config.CommandPrompterConfig;
 import com.cyr1en.commandprompter.config.ConfigurationManager;
 import com.cyr1en.commandprompter.config.PromptConfig;
-import com.cyr1en.commandprompter.dependencies.DependencyLoader;
 import com.cyr1en.commandprompter.hook.HookContainer;
 import com.cyr1en.commandprompter.listener.CommandListener;
 import com.cyr1en.commandprompter.listener.CommandSendListener;
@@ -76,9 +75,6 @@ public class CommandPrompter extends JavaPlugin {
         var serverType = ServerType.resolve();
         logger.debug("Server Name: " + serverType.name());
         logger.debug("Server Version: " + serverType.version());
-        var result = loadDeps();
-        if (!result)
-            return;
 
         i18n = new I18N(this, "CommandPrompter");
 
@@ -122,36 +118,6 @@ public class CommandPrompter extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(headCache = new HeadCache(this), this);
         promptManager = new PromptManager(this);
         initCommandListener();
-    }
-
-    private boolean loadDeps() {
-        if (Util.isBundledVersion(this)) {
-            getPluginLogger().info("This is a bundled version! Skipping dependency loading");
-            return true;
-        }
-
-        getPluginLogger().info("Loading dependencies...");
-
-        var depLoader = new DependencyLoader(this);
-        if (!depLoader.isClassLoaderAccessSupported())
-            return depErrAndDisable("No access to URLClassloader, cannot load dependencies!", depLoader);
-
-        if (!depLoader.loadCoreDeps())
-            return depErrAndDisable("Unable to load dependencies!", depLoader);
-
-        if (depLoader.relocatorAvailable()) {
-            depLoader.loadDependency();
-            return true;
-        }
-
-        return depErrAndDisable("Unable to load dependencies!", depLoader);
-    }
-
-    private boolean depErrAndDisable(String message, DependencyLoader depLoader) {
-        getPluginLogger().err(message);
-        depLoader.sendBundledMessage();
-        Bukkit.getPluginManager().disablePlugin(this);
-        return false;
     }
 
     /**

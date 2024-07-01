@@ -79,34 +79,6 @@ public record CommandPrompterConfig(
         boolean debugMode,
 
         @ConfigNode
-        @NodeName("Enable-Unsafe")
-        @NodeDefault("false")
-        @NodeComment({
-                "Enable unsafe features for",
-                "CommandPrompter. Enabling this",
-                "allows CommandPrompter to",
-                "modify the command map and",
-                "catch dispatched commands"
-        })
-        boolean enableUnsafe,
-
-        @ConfigNode
-        @NodeName("Modification-Delay")
-        @NodeDefault("1")
-        @NodeComment({
-                "If Enable-Unsafe is set to",
-                "true, this delay (in ticks)",
-                "will be used before modifying",
-                "the command map to allow all",
-                "plugins to register all of",
-                "their commands First", "",
-                "If you experience issues,",
-                "increase the value of this delay.",
-                "Note that 20 ticks is 1 second."
-        })
-        int modificationDelay,
-
-        @ConfigNode
         @NodeName("Show-Complete-Command")
         @NodeDefault("true")
         @NodeComment({
