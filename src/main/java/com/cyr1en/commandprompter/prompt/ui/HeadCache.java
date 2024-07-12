@@ -57,20 +57,13 @@ public class HeadCache implements Listener {
                 });
     }
 
-    private static final Class<? extends FilterHook>[] fHooks = new Class[]{
-            TownyHook.class,
-            LuckPermsHook.class
-    };
 
     public void registerFilters() {
         registerFilter(new CacheFilter.WorldFilter());
         registerFilter(new CacheFilter.RadialFilter());
-        for (var fHook : fHooks) {
-            plugin.getHookContainer()
-                    .getHook(fHook)
-                    .ifHooked(hook -> hook.registerFilters(this))
-                    .complete();
-        }
+        plugin.getHookContainer().getFilterHooks().forEach(hook ->
+                hook.ifHooked(filterHook -> filterHook.registerFilters(this))
+                        .complete());
     }
 
     public void registerFilter(CacheFilter filter) {

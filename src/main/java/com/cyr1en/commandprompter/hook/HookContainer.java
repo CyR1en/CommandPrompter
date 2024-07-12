@@ -10,6 +10,7 @@ import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.List;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
@@ -20,14 +21,13 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
     }
 
     public void initHooks() {
-        hook(VentureChatHook.class);
         hook(SuperVanishHook.class);
-        hook(PuerkasChatHook.class);
         hook(CarbonChatHook.class);
         hook(VanishNoPacketHook.class);
         hook(PapiHook.class);
         hook(TownyHook.class);
         hook(LuckPermsHook.class);
+        hook(HuskTownsHook.class);
     }
 
     @Override
@@ -86,6 +86,14 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
         @SuppressWarnings("unchecked") var t = (Hook<T>) get(hookClass);
         if (t == null) return Hook.empty();
         return t;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<? extends Hook<? extends FilterHook>> getFilterHooks() {
+        return values().stream()
+                .filter(hook -> hook.isHooked() && hook.get() instanceof FilterHook)
+                .map(hook -> (Hook<? extends FilterHook>) hook)
+                .toList();
     }
 
     public boolean isHooked(Class<?> hookClass) {

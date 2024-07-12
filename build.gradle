@@ -23,7 +23,7 @@
  */
 
 plugins {
-    id "com.github.johnrengelman.shadow" version "7.0.0"
+    id "io.github.goooler.shadow" version "8.1.7"
     id 'java'
     id 'maven-publish'
 }
@@ -33,15 +33,15 @@ compileTestJava.options.encoding = "UTF-8"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(16)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 8, patch: 2, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 9, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
-        description: 'Perfect companion plugin for inventory UI menu.',
+        description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
 ]
 
@@ -55,35 +55,36 @@ repositories {
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
     maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
+    maven { url 'https://repo.codemc.io/repository/maven-public/' }
     maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
     maven { url 'https://jitpack.io' }
     maven { url 'https://repo.glaremasters.me/repository/towny/'}
+    maven { url 'https://repo.william278.net/releases' }
     flatDir { dirs 'libs' }
 }
 
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.2-SNAPSHOT'
-    implementation 'io.github.rapha149.signgui:signgui:2.2.2'
-    implementation 'org.bstats:bstats-bukkit:3.0.0'
-    implementation "dev.jorel:commandapi-bukkit-shade:9.3.0"
+    implementation 'net.wesjd:anvilgui:1.9.6-SNAPSHOT'
+    implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-
-    // Exclude these
-    implementation 'me.lucko:jar-relocator:1.7'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.11'
-    implementation "net.kyori:adventure-text-minimessage:4.15.0"
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.15'
+    implementation "net.kyori:adventure-text-minimessage:4.17.0"
+    implementation "dev.jorel:commandapi-bukkit-shade:9.5.1"
+    implementation 'de.rapha149.signgui:signgui:2.3.5'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
-    compileOnly "net.kyori:adventure-text-serializer-legacy:4.15.0"
-    compileOnly "net.kyori:adventure-text-serializer-plain:4.15.0"
-    compileOnly 'com.palmergames.bukkit.towny:towny:0.100.0.0'
-    compileOnly "org.spigotmc:spigot-api:1.20.4-R0.1-SNAPSHOT"
-    compileOnly 'com.github.LeonMangler:SuperVanish:6.2.17'
+    compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
+    compileOnly "net.kyori:adventure-text-serializer-plain:4.17.0"
+    compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
+    compileOnly "org.spigotmc:spigot-api:1.21-R0.1-SNAPSHOT"
+    compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
+    compileOnly 'de.hexaoxi:carbonchat-api:3.0.0-beta.26'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'net.luckperms:api:5.4'
+    compileOnly 'net.william278.husktowns:husktowns-common:3.0.5'
 
     // Local
     implementation fileTree(dir: 'libs', include: '*.jar')
@@ -101,50 +102,16 @@ shadowJar {
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set('bundled')
+    archiveClassifier.set('shaded')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
-    relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
+    relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
+    relocate 'net.kyori.adventure', 'com.cyr1en.adventure'
+    relocate 'net.kyori.examination', 'com.cyr1en.examination'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
-    relocate 'org.bstats', 'com.cyr1en.bstats'
-
-    manifest {
-        attributes "Bundled": true
-    }
-}
-
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
-tasks.register("lightJar", ShadowJar) {
-    from sourceSets.main.output
-    configurations = [project.configurations.runtimeClasspath]
-
-    dependencies {
-        exclude(dependency('com.mojang:brigadier'))
-        exclude(dependency('com.github.stefvanschie.inventoryframework:IF'))
-        exclude(dependency('me.lucko:jar-relocator'))
-        exclude(dependency('net.kyori:adventure-text-minimessage'))
-        exclude(dependency('net.kyori:adventure-api'))
-        exclude(dependency('net.kyori:adventure-key'))
-        exclude(dependency('net.kyori:examination-api'))
-        exclude(dependency('net.kyori:examination-string'))
-        exclude(dependency('org.ow2.asm:asm'))
-        exclude(dependency('org.ow2.asm:asm-commons'))
-        exclude(dependency('org.ow2.asm:asm-tree'))
-        exclude(dependency('org.ow2.asm:asm-analysis'))
-        exclude(dependency('io.github.rapha149.signgui:signgui'))
-        exclude(dependency('dev.jorel:commandapi-bukkit-shade'))
-    }
-    relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
-    relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
-    relocate 'io.github.rapha149.signgui', 'com.cyr1en.signgui'
-    relocate 'net.kyori.adventure.text.minimessage', 'com.cyr1en.minimessage'
-    relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
-    relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.bstats', 'com.cyr1en.bstats'
 }
 
@@ -164,7 +131,6 @@ processResources {
 
 artifacts {
     archives shadowJar
-    archives lightJar
 }
 
 publishing {

@@ -26,12 +26,10 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.hooks.CarbonChatHook;
-import com.cyr1en.commandprompter.hook.hooks.PuerkasChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
-import com.cyr1en.commandprompter.unsafe.PvtFieldMutator;
-import es.capitanpuerka.puerkaschat.manager.PuerkasFormat;
+import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -161,11 +159,7 @@ public class ChatPrompt extends AbstractPrompt {
         @EventHandler(priority = EventPriority.LOWEST)
         public void onChat(AsyncPlayerChatEvent event) {
             var plain = event.getMessage();
-            var isPuerkasChatHooked = plugin.getHookContainer().getHook(PuerkasChatHook.class).isHooked();
-            if (!isPuerkasChatHooked) {
-                handler.onResponse(event.getPlayer(), plain, event);
-            } else if ((PuerkasFormat.getFormats() != null && !PuerkasFormat.getFormats().isEmpty()))
-                handler.onResponse(event.getPlayer(), plain, event);
+            handler.onResponse(event.getPlayer(), plain, event);
         }
 
         public static void setPriority(CommandPrompter plugin) {

@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-java@v2.5.0
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - name: Build with Gradle
         run: ./gradlew clean build
       - name: Upload artifact
@@ -41,7 +41,7 @@ jobs:
         uses: actions/setup-java@v2.5.0
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - name: Publish to Kakuno
         env:
           KAKUNO_USER: ${{ secrets.KAKUNO_USER }}
