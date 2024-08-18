@@ -66,13 +66,13 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.9.6-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.10.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.15'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.17'
     implementation "net.kyori:adventure-text-minimessage:4.17.0"
-    implementation "dev.jorel:commandapi-bukkit-shade:9.5.1"
-    implementation 'de.rapha149.signgui:signgui:2.3.5'
+    implementation "dev.jorel:commandapi-bukkit-shade:9.5.3"
+    implementation 'de.rapha149.signgui:signgui:2.4.0'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
