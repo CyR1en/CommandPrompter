@@ -72,7 +72,7 @@ dependencies {
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.17'
     implementation "net.kyori:adventure-text-minimessage:4.17.0"
     implementation "dev.jorel:commandapi-bukkit-shade:9.5.3"
-    implementation 'de.rapha149.signgui:signgui:2.4.0'
+    implementation 'de.rapha149.signgui:signgui:2.4.1'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
