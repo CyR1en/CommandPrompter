@@ -32,9 +32,12 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
     @Override
     public Hook<?> put(Class<?> key, Hook<?> value) {
-        var prefix = value.isHooked() ? new Ansi().fgRgb(153, 214, 90).a("✓").reset() :
-                new Ansi().fgRgb(255, 96, 109).a("-").reset();
-        plugin.getPluginLogger().info(prefix + " " + key.getSimpleName() + " contained");
+
+        if (value.isHooked()) {
+            var prefix = new Ansi().fgRgb(153, 214, 90).a("✓").reset();
+            plugin.getPluginLogger().info(prefix + " " + key.getSimpleName() + " contained");
+        }
+
         return super.put(key, value);
     }
 
