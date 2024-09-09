@@ -31,6 +31,7 @@ import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.util.Util;
+import com.cyr1en.kiso.mc.Version;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -63,6 +64,21 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     private final PromptParser promptParser;
     private final BukkitScheduler scheduler;
 
+    private static final HashMap<Class<? extends Prompt>, Version> supportTable;
+
+    private static final Version LATEST = Version.parse("1.21.1");
+    // Arbitrary 10 version, that means this should work until minecraft v10 lol "any".
+    private static final Version ANY = Version.parse("10");
+
+    static {
+        supportTable = new HashMap<>();
+        supportTable.put(ChatPrompt.class, ANY);
+        supportTable.put(AnvilPrompt.class, LATEST);
+        supportTable.put(PlayerUIPrompt.class, LATEST);
+        supportTable.put(SignPrompt.class, LATEST);
+    }
+
+
     public PromptManager(CommandPrompter commandPrompter) {
         this.plugin = commandPrompter;
         this.promptRegistry = new PromptRegistry(plugin);
@@ -79,6 +95,17 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     @Override
     public Class<? extends Prompt> put(String key, Class<? extends Prompt> value) {
+        if (!supportTable.containsKey(value)) return null;
+        var version = supportTable.get(value);
+        var serverVersion = Util.ServerType.resolve().parsedVersion();
+        plugin.getPluginLogger().debug("Server Version: " + serverVersion);
+        plugin.getPluginLogger().debug("Prompt Version: " + version);
+
+        if (serverVersion.isNewerThan(version)) {
+            plugin.getPluginLogger().warn("Prompt %s is not supported on this server version", value.getSimpleName());
+            return null;
+        }
+
         var ret = super.put(key, value);
         plugin.getPluginLogger().info("Registered " +
                 new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()).reset());
