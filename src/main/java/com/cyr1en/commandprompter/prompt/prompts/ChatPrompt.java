@@ -29,10 +29,9 @@ import com.cyr1en.commandprompter.hook.hooks.CarbonChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.*;
 import net.md_5.bungee.api.chat.hover.content.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -56,29 +55,54 @@ public class ChatPrompt extends AbstractPrompt {
 
     public void sendPrompt() {
         List<String> parts = Arrays.stream(getPrompt().split("\\{br}")).map(String::trim).toList();
-        String prefix = getPlugin().getConfiguration().promptPrefix();
-        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
-        var isSendCancel = getPlugin().getPromptConfig().sendCancelText();
-        getPlugin().getPluginLogger().debug("Send Cancel: " + isSendCancel);
-        if (isSendCancel)
-            sendCancelText();
+        if (Util.ServerType.BUNGEE_CHAT_AVAILABLE())
+            sendWithChatAPI(parts);
+        else
+            sendWithDefault(parts);
     }
 
-    private void sendCancelText() {
-        try {
-            if (Class.forName("org.spigotmc.SpigotConfig") == null)
-                return;
-            var cancelMessage = getPlugin().getPromptConfig().textCancelMessage();
-            var hoverMessage = getPlugin().getPromptConfig().textCancelHoverMessage();
-            String prefix = getPlugin().getConfiguration().promptPrefix();
-            var component = new ComponentBuilder(color(prefix + cancelMessage))
-                    .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/commandprompter cancel"))
-                    .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(color(hoverMessage))))
-                    .create();
-            getContext().getSender().spigot().sendMessage(component);
-        } catch (ClassNotFoundException e) {
-            getPlugin().getPluginLogger().debug("ChatAPI not available, can't send clickable cancel");
+    private void sendWithDefault(List<String> parts) {
+        var prefix = getPlugin().getConfiguration().promptPrefix();
+        var cancelText = makeMessage();
+        if (parts.size() == 1) {
+            getContext().getSender().sendMessage(color(prefix + parts.get(0)));
+            getContext().getSender().spigot().sendMessage(cancelText);
+            return;
         }
+        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
+        getContext().getSender().spigot().sendMessage(cancelText);
+    }
+
+    private void sendWithChatAPI(List<String> parts) {
+        var prefix = getPlugin().getConfiguration().promptPrefix();
+        if (parts.size() == 1) {
+            var msg = color(prefix + parts.get(0) + " ");
+            var component = new ComponentBuilder().append(TextComponent.fromLegacy(msg))
+                    .append(makeMessage()).create();
+            getContext().getSender().spigot().sendMessage(component);
+            return;
+        }
+        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
+        getContext().getSender().spigot().sendMessage(makeMessage(true));
+    }
+
+    private BaseComponent[] makeMessage() {
+        return makeMessage(false);
+    }
+
+    private BaseComponent[] makeMessage(boolean addPrefix) {
+        if (!Util.ServerType.BUNGEE_CHAT_AVAILABLE())
+            return new BaseComponent[0];
+
+        var prefix = getPlugin().getConfiguration().promptPrefix();
+        var cancelMessage = getPlugin().getPromptConfig().textCancelMessage();
+        cancelMessage = addPrefix ? prefix + cancelMessage : cancelMessage;
+        var hoverMessage = getPlugin().getPromptConfig().textCancelHoverMessage();
+
+        return new ComponentBuilder(TextComponent.fromLegacy(color(cancelMessage)))
+                .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/commandprompter cancel"))
+                .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(color(hoverMessage))))
+                .create();
     }
 
     public static void resolveListener(CommandPrompter plugin) {
