@@ -1,10 +1,13 @@
 package com.cyr1en.commandprompter.util;
 
+import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.kiso.mc.Version;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
+import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+
 import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
 
@@ -16,15 +19,39 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 public class Util {
+
     public static String stripColor(String msg) {
         return ChatColor.stripColor(color(msg));
     }
 
+    private static Optional<PluginLogger> getLogger() {
+        if (CommandPrompter.getInstance() == null)
+            return Optional.empty();
+        return Optional.of(CommandPrompter.getInstance().getPluginLogger());
+    }
+
+
     public static String color(String msg) {
+        if (!ServerType.BUNGEE_CHAT_AVAILABLE())
+            return org.bukkit.ChatColor.translateAlternateColorCodes('&', msg);
+
+        var supportedHex = ServerType.resolved.parsedVersion().isNewerThan(Version.parse("1.15.0"));
+        if (supportedHex) {
+            var pattern = Pattern.compile("#[a-fA-F0-9]{6}");
+            var matcher = pattern.matcher(msg);
+
+            while (matcher.find()) {
+                String color = msg.substring(matcher.start(), matcher.end());
+                msg = msg.replace(color, ChatColor.of(color) + "");
+                matcher = pattern.matcher(msg);
+            }
+        }
         return ChatColor.translateAlternateColorCodes('&', msg);
     }
 
@@ -103,18 +130,24 @@ public class Util {
         Mohist,
         Other;
 
+        private static ServerType resolved;
+
         public String version() {
             return Bukkit.getServer().getVersion();
         }
 
         public static ServerType resolve() {
+            if (resolved != null) return resolved;
+
             for (ServerType type : values()) {
                 var typeName = type.name().toLowerCase();
                 var serverName = Bukkit.getServer().getName().toLowerCase();
-                if (serverName.contains(typeName))
-                    return type;
+                if (serverName.contains(typeName)) {
+                    resolved = type;
+                }
             }
-            return Other;
+            resolved = Other;
+            return resolved;
         }
 
         public static boolean isMojangMapped() {
@@ -127,6 +160,15 @@ public class Util {
             var version = version();
             version = version.substring(version.indexOf("MC: ") + 4, version.length() - 1);
             return Version.parse(version);
+        }
+
+        public static boolean BUNGEE_CHAT_AVAILABLE() {
+            try {
+                Class.forName("net.md_5.bungee.api.ChatColor");
+                return true;
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
         }
     }
 }
