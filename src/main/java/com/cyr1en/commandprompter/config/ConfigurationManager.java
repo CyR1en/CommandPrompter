@@ -6,14 +6,13 @@ import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
+import com.cyr1en.commandprompter.config.handlers.ConfigTypeHandlerFactory;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 import com.cyr1en.kiso.mc.configuration.base.ConfigManager;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -36,11 +35,23 @@ public class ConfigurationManager {
     private final ConfigManager configManager;
     private final PluginLogger logger;
 
+    /**
+     * Constructs a new ConfigurationManager for a given plugin.
+     *
+     * @param plugin The plugin instance which this manager will handle configurations for.
+     */
     public ConfigurationManager(CommandPrompter plugin) {
         this.configManager = new ConfigManager(plugin);
         this.logger = plugin.getPluginLogger();
     }
 
+    /**
+     * Retrieves or initializes the configuration for a specified configuration class.
+     *
+     * @param <T>         The type of the configuration record.
+     * @param configClass The class of the configuration record.
+     * @return An instance of T with values from the configuration, or null if configuration class is not annotated properly.
+     */
     public <T> T getConfig(Class<T> configClass) {
         if (configClass.getAnnotation(Configuration.class) == null)
             return null;
@@ -52,39 +63,30 @@ public class ConfigurationManager {
         var configValues = new ArrayList<>();
         configValues.add(config);
 
-        for (Field declaredField : configClass.getDeclaredFields()) {
-            if (declaredField.getAnnotation(ConfigNode.class) == null) continue;
+        for (Field field : configClass.getDeclaredFields()) {
+            if (field.getAnnotation(ConfigNode.class) == null) continue;
 
-            var nameAnnotation = declaredField.getAnnotation(NodeName.class);
+            var nameAnnotation = field.getAnnotation(NodeName.class);
+            String nodeName = nameAnnotation != null ? nameAnnotation.value() : field.getName();
 
-            if (declaredField.isAnnotationPresent(Match.class)) {
-                var matchAnnotation = declaredField.getAnnotation(Match.class);
+            var handler = ConfigTypeHandlerFactory.getHandler(field.getType());
+
+            if (field.isAnnotationPresent(Match.class)) {
+                var matchAnnotation = field.getAnnotation(Match.class);
                 var regex = matchAnnotation.regex();
                 var pattern = Pattern.compile(regex);
-                var res = pattern.matcher(config.getString(nameAnnotation.value())).matches();
+                var res = pattern.matcher(config.getString(nodeName)).matches();
                 if (!res) {
-                    logger.warn("Configured value for " + nameAnnotation.value() + " is invalid! Falling back to default value.");
-                    configValues.add(constructDefaultField(declaredField));
+                    logger.warn("Configured value for " + nodeName + " is invalid! Using default.");
+                    configValues.add(handler.getDefault(field));
                     continue;
                 }
             }
 
-            if (declaredField.getType().equals(int.class)) {
-                var val = config.getInt(nameAnnotation.value());
-                var constraint = declaredField.getAnnotation(IntegerConstraint.class);
-                if (constraint != null)
-                    val = val > constraint.max() ? constraint.max() : Math.max(val, constraint.min());
-                configValues.add(val);
-            } else if (declaredField.getType().equals(boolean.class))
-                configValues.add(config.getBoolean(nameAnnotation.value()));
-            else if (declaredField.getType().equals(double.class))
-                configValues.add(config.getDouble(nameAnnotation.value()));
-            else if (declaredField.getType().equals(List.class))
-                configValues.add(config.getList(nameAnnotation.value()));
-            else configValues.add(config.getString(nameAnnotation.value()));
+            configValues.add(handler.getValue(config, nodeName, field));
         }
         try {
-            // Records only have 1 constructor so just access index 0
+            // Since records in Java have canonical constructors, we directly use the first constructor
             var recordConfig = configClass.getDeclaredConstructors()[0].newInstance(configValues.toArray());
             @SuppressWarnings("unchecked") var out = (T) recordConfig;
             return out;
@@ -94,17 +96,37 @@ public class ConfigurationManager {
         return null;
     }
 
+    /**
+     * Reloads the configuration for the given configuration class. This method simply calls getConfig.
+     *
+     * @param <T>         The type of the configuration record.
+     * @param configClass The class of the configuration record to reload.
+     * @return A reloaded instance of T or null if reload fails or configClass is invalid.
+     */
     public <T> T reload(Class<T> configClass) {
         return getConfig(configClass);
     }
 
+    /**
+     * Initializes the configuration file with default values defined in the record.
+     *
+     * @param configClass The class of the record for which configuration needs to be initialized.
+     * @param config      The Config object representing the YAML file.
+     */
     private void initializeConfig(Class<?> configClass, Config config) {
         var fields = configClass.getDeclaredFields();
         for (Field field : fields)
             initializeField(field, config);
     }
 
+    /**
+     * Initializes or retrieves the configuration file for the given configuration class.
+     *
+     * @param configClass The class of the configuration record.
+     * @return A Config object representing the configuration file.
+     */
     private Config initConfigFile(Class<?> configClass) {
+        // Determine file path and header for the config file
         var pathAnnotation = configClass.getAnnotation(ConfigPath.class);
         var filePath = pathAnnotation == null ? configClass.getSimpleName() : pathAnnotation.value();
 
@@ -114,53 +136,60 @@ public class ConfigurationManager {
         return configManager.getNewConfig(filePath, header);
     }
 
+    /**
+     * Initializes a single field of the configuration with its default value or annotated default.
+     *
+     * @param field  The field from the record to initialize in the config.
+     * @param config The Config object where the field should be initialized.
+     */
     private void initializeField(Field field, Config config) {
         if (field.getAnnotation(ConfigNode.class) == null) return;
 
         var nameAnnotation = field.getAnnotation(NodeName.class);
-        var nodeName = nameAnnotation == null ? field.getName() : nameAnnotation.value();
+        var nodeName = nameAnnotation != null ? nameAnnotation.value() : field.getName();
+
+        var handler = ConfigTypeHandlerFactory.getHandler(field.getType());
 
         var defaultAnnotation = field.getAnnotation(NodeDefault.class);
-        var nodeDefault = defaultAnnotation == null ? constructDefaultField(field) : parseDefault(field);
+        var nodeDefault = defaultAnnotation != null ? parseDefault(field) : handler.getDefault(field);
 
         var commentAnnotation = field.getAnnotation(NodeComment.class);
-        var nodeComment = commentAnnotation == null ? new String[]{} : commentAnnotation.value();
+        var nodeComment = commentAnnotation != null ? commentAnnotation.value() : new String[]{};
 
-        if (config.get(nodeName) != null) return;
-        config.set(nodeName, nodeDefault, nodeComment);
-        config.saveConfig();
+        if (config.get(nodeName) == null) {
+            handler.setValue(config, nodeName, nodeDefault, nodeComment);
+            config.saveConfig();
+        }
     }
 
+    /**
+     * Constructs a default value for a field when no default is provided via annotations.
+     *
+     * @param f The field for which to construct a default value.
+     * @return An object representing the default value for the field, or null on failure.
+     */
     private Object constructDefaultField(Field f) {
+
         try {
             if (f.getType().isPrimitive()) {
-                if (f.getType().equals(int.class))
-                    return 0;
-                if (f.getType().equals(boolean.class))
-                    return false;
-                if (f.getType().equals(double.class))
-                    return 0.0;
-                if (f.getType().equals(List.class))
-                    return new ArrayList<>();
+                var handler = ConfigTypeHandlerFactory.getHandler(f.getType());
+                return handler.getDefault(f);
             }
             return f.getType().getDeclaredConstructor().newInstance();
-        } catch (NoSuchMethodException | InvocationTargetException |
-                 InstantiationException | IllegalAccessException e) {
+        } catch (Exception e) {
             logger.err("Failed to instantiate default value for field: " + f.getName());
         }
         return null;
     }
 
+    /**
+     * Parses the default value from the @NodeDefault annotation for a field.
+     *
+     * @param field The field with a @NodeDefault annotation.
+     * @return The parsed default value as an object, according to the field's type.
+     */
     private Object parseDefault(Field field) {
-        var defaultAnnotation = field.getAnnotation(NodeDefault.class);
-        if (field.getType().equals(int.class))
-            return Integer.valueOf(defaultAnnotation.value());
-        if (field.getType().equals(boolean.class))
-            return Boolean.valueOf(defaultAnnotation.value());
-        if (field.getType().equals(double.class))
-            return Double.valueOf(defaultAnnotation.value());
-        if (field.getType().equals(List.class))
-            return Arrays.stream(defaultAnnotation.value().split(",\\s+")).toList();
-        return defaultAnnotation.value();
+        var handler = ConfigTypeHandlerFactory.getHandler(field.getType());
+        return handler.getDefault(field);
     }
 }
