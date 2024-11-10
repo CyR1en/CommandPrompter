@@ -1,11 +1,15 @@
 package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -81,7 +85,6 @@ public abstract class CacheFilter {
     public int getCapGroupOffset() {
         return capGroupOffset;
     }
-
 
     @Override
     public String toString() {
@@ -189,6 +192,26 @@ public abstract class CacheFilter {
             return relativePlayer.getWorld().getPlayers().stream()
                     .filter(p -> p.getLocation().distance(relativePlayer.getLocation()) <= radius)
                     .toList();
+        }
+    }
+
+    public static class SelfFilter extends CacheFilter {
+
+        public SelfFilter() {
+            super(Pattern.compile("s"), "PlayerUI.Filter-Format.Self");
+        }
+
+        @Override
+        public List<Player> filter(Player relativePlayer) {
+            return Bukkit.getOnlinePlayers().stream()
+                    .map(OfflinePlayer::getPlayer)
+                    .filter(Objects::nonNull)
+                    .filter(p -> !p.equals(relativePlayer))
+                    .toList();
+        }
+
+        public CacheFilter reConstruct(String promptKey) {
+            return new SelfFilter();
         }
     }
 }

@@ -61,6 +61,7 @@ public class HeadCache implements Listener {
     public void registerFilters() {
         registerFilter(new CacheFilter.WorldFilter());
         registerFilter(new CacheFilter.RadialFilter());
+        registerFilter(new CacheFilter.SelfFilter());
         plugin.getHookContainer().getFilterHooks().forEach(hook ->
                 hook.ifHooked(filterHook -> filterHook.registerFilters(this))
                         .complete());
