@@ -66,13 +66,13 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.10.1-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.10.3-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.17'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.18'
     implementation "net.kyori:adventure-text-minimessage:4.17.0"
-    implementation "dev.jorel:commandapi-bukkit-shade:9.5.3"
-    implementation 'de.rapha149.signgui:signgui:2.4.1'
+    implementation "dev.jorel:commandapi-bukkit-shade:9.6.1"
+    implementation 'de.rapha149.signgui:signgui:2.4.2'
 
     compileOnly 'me.clip:placeholderapi:2.11.2'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
@@ -96,13 +96,15 @@ configurations.implementation {
     exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
+tasks.named('jar').configure { enabled = false }
+
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
     }
 
     archiveBaseName.set("$project.name")
-    archiveClassifier.set('shaded')
+    archiveClassifier.set('')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
