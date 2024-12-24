@@ -6,7 +6,6 @@ import com.cyr1en.kiso.mc.Version;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
 import net.md_5.bungee.api.ChatColor;
-import org.bukkit.Bukkit;
 
 import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
@@ -38,10 +37,10 @@ public class Util {
 
 
     public static String color(String msg) {
-        if (!ServerType.BUNGEE_CHAT_AVAILABLE())
+        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE())
             return org.bukkit.ChatColor.translateAlternateColorCodes('&', msg);
 
-        var supportedHex = ServerType.resolved.parsedVersion().isNewerThan(Version.parse("1.15.0"));
+        var supportedHex = ServerUtil.parsedVersion().isNewerThan(Version.parse("1.15.0"));
         if (supportedHex) {
             var pattern = Pattern.compile("#[a-fA-F0-9]{6}");
             var matcher = pattern.matcher(msg);
@@ -117,58 +116,4 @@ public class Util {
         }
     }
 
-    /**
-     * Pretty much useless as of now. But I'm keeping it just in case we need
-     * some logic for different server types in the future.
-     */
-    public enum ServerType {
-        CraftBukkit,
-        Spigot,
-        Paper,
-        Purpur,
-        CatServer,
-        Mohist,
-        Other;
-
-        private static ServerType resolved;
-
-        public String version() {
-            return Bukkit.getServer().getVersion();
-        }
-
-        public static ServerType resolve() {
-            if (resolved != null) return resolved;
-
-            for (ServerType type : values()) {
-                var typeName = type.name().toLowerCase();
-                var serverName = Bukkit.getServer().getName().toLowerCase();
-                if (serverName.contains(typeName)) {
-                    resolved = type;
-                }
-            }
-            resolved = Other;
-            return resolved;
-        }
-
-        public static boolean isMojangMapped() {
-            var resolved = resolve();
-            var ver = resolved.parsedVersion();
-            return (resolve() == Paper || resolve() == Purpur) && ver.isNewerThan(Version.parse("1.20.4"));
-        }
-
-        public Version parsedVersion() {
-            var version = version();
-            version = version.substring(version.indexOf("MC: ") + 4, version.length() - 1);
-            return Version.parse(version);
-        }
-
-        public static boolean BUNGEE_CHAT_AVAILABLE() {
-            try {
-                Class.forName("net.md_5.bungee.api.ChatColor");
-                return true;
-            } catch (ClassNotFoundException e) {
-                return false;
-            }
-        }
-    }
 }

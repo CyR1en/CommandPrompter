@@ -29,6 +29,7 @@ import com.cyr1en.commandprompter.hook.hooks.CarbonChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
 import net.md_5.bungee.api.chat.*;
@@ -55,7 +56,7 @@ public class ChatPrompt extends AbstractPrompt {
 
     public void sendPrompt() {
         List<String> parts = Arrays.stream(getPrompt().split("\\{br}")).map(String::trim).toList();
-        if (Util.ServerType.BUNGEE_CHAT_AVAILABLE())
+        if (ServerUtil.BUNGEE_CHAT_AVAILABLE())
             sendWithChatAPI(parts);
         else
             sendWithDefault(parts);
@@ -91,7 +92,7 @@ public class ChatPrompt extends AbstractPrompt {
     }
 
     private BaseComponent[] makeMessage(boolean addPrefix) {
-        if (!Util.ServerType.BUNGEE_CHAT_AVAILABLE())
+        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE())
             return new BaseComponent[0];
 
         var prefix = getPlugin().getConfiguration().promptPrefix();

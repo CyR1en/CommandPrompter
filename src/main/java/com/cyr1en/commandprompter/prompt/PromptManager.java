@@ -30,6 +30,7 @@ import com.cyr1en.commandprompter.prompt.prompts.AnvilPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
+import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.mc.Version;
 import org.bukkit.Bukkit;
@@ -97,7 +98,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public Class<? extends Prompt> put(String key, Class<? extends Prompt> value) {
         if (!supportTable.containsKey(value)) return null;
         var version = supportTable.get(value);
-        var serverVersion = Util.ServerType.resolve().parsedVersion();
+        var serverVersion = ServerUtil.parsedVersion();
         plugin.getPluginLogger().debug("Server Version: " + serverVersion);
         plugin.getPluginLogger().debug("Prompt Version: " + version);
 

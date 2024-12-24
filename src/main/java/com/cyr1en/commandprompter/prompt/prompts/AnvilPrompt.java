@@ -27,8 +27,8 @@ package com.cyr1en.commandprompter.prompt.prompts;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
-import com.cyr1en.commandprompter.util.VersionUtil;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -129,7 +129,7 @@ public class AnvilPrompt extends AbstractPrompt {
             meta.setCustomModelData(integerData);
 
         // set hide tool tips
-        if (VersionUtil.isAtOrAbove("1.21.2")){
+        if (ServerUtil.isAtOrAbove("1.21.2")){
             boolean hiddenTooltips = getPlugin().getPromptConfig().itemHideTooltips();
             meta.setHideTooltip(hiddenTooltips);
         }
@@ -163,7 +163,7 @@ public class AnvilPrompt extends AbstractPrompt {
             meta.setCustomModelData(integerData);
 
         // set hide tool tips
-        if (VersionUtil.isAtOrAbove("1.21.2")){
+        if (ServerUtil.isAtOrAbove("1.21.2")){
             boolean hiddenTooltips = getPlugin().getPromptConfig().resultItemHideTooltips();
             meta.setHideTooltip(hiddenTooltips);
         }
