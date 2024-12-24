@@ -152,6 +152,9 @@ public record PromptConfig(
                 "Enable-Title - Show the first line of the prompt",
                 "(if with {br}) as title of Anvil GUI",
                 "",
+                "Enable-Cancel-Item - Show a cancel item on the ",
+                "right slot input slot.",
+                "",
                 "Item - The Left item to place on the Anvil GUI",
                 "",
                 "Enchanted - Do you want the item enchanted?",
@@ -178,6 +181,10 @@ public record PromptConfig(
         @NodeDefault("")
         String promptMessage,
 
+        @ConfigNode
+        @NodeName("AnvilGUI.Enable-Cancel-Item")
+        @NodeDefault("false")
+        boolean enableCancelItem,
 
         @ConfigNode
         @NodeName("AnvilGUI.Item.Material")
@@ -219,6 +226,31 @@ public record PromptConfig(
         @NodeName("AnvilGUI.ResultItem.Enchanted")
         @NodeDefault("false")
         boolean resultItemAnvilEnchanted,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Material")
+        @NodeDefault("Barrier")
+        String anvilCancelItem,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.HideTooltips")
+        @NodeDefault("false")
+        boolean cancelItemHideTooltips,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Custom-Model-Data")
+        @NodeDefault("0")
+        int cancelItemCustomModelData,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Enchanted")
+        @NodeDefault("false")
+        boolean cancelItemAnvilEnchanted,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.HoverText")
+        @NodeDefault("&cClick to Cancel")
+        String cancelItemHoverText,
 
         // ============================== Text Prompt ==============================
         @ConfigNode

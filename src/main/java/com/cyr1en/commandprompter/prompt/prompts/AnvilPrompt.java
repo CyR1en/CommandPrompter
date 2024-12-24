@@ -47,19 +47,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AnvilPrompt extends AbstractPrompt {
 
     public AnvilPrompt(CommandPrompter plugin, PromptContext context,
-            String prompt, List<PromptParser.PromptArgument> args) {
+                       String prompt, List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
     @Override
     public void sendPrompt() {
         List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
-        var item = makeItem(parts);
+        var item = makeAnvilItem(parts);
         var resultItem = makeResultItem(parts);
-        makeAnvil(parts, item, resultItem).open((Player) getContext().getSender());
+        var cancelItem = makeCancelItem(parts);
+        makeAnvil(parts, item, resultItem, cancelItem).open((Player) getContext().getSender());
     }
 
-    private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item, ItemStack resultItem) {
+    private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item, ItemStack resultItem, ItemStack cancelItem) {
         var isComplete = new AtomicBoolean(false);
         var builder = getBuilder(isComplete);
         builder.onClose(p -> {
@@ -77,6 +78,9 @@ public class AnvilPrompt extends AbstractPrompt {
             title = title.isEmpty() ? color(parts.get(0)) : color(title);
             builder.title(title);
         }
+
+        if (getPlugin().getPromptConfig().enableCancelItem())
+            builder.itemRight(cancelItem);
         builder.itemLeft(item);
         builder.itemOutput(resultItem);
         builder.plugin(getPlugin());
@@ -87,6 +91,12 @@ public class AnvilPrompt extends AbstractPrompt {
     private AnvilGUI.Builder getBuilder(AtomicBoolean isComplete) {
         var builder = new AnvilGUI.Builder();
         builder.onClick((slot, stateSnapshot) -> {
+            var cancelEnabled = getPlugin().getPromptConfig().enableCancelItem();
+            if (slot == AnvilGUI.Slot.INPUT_RIGHT && cancelEnabled) {
+                getPromptManager().cancel(stateSnapshot.getPlayer());
+                return Collections.singletonList(AnvilGUI.ResponseAction.close());
+            }
+
             if (slot != AnvilGUI.Slot.OUTPUT)
                 return Collections.emptyList();
 
@@ -109,66 +119,59 @@ public class AnvilPrompt extends AbstractPrompt {
         return builder;
     }
 
-    private ItemStack makeItem(List<String> parts) {
-        var item = new ItemStack(Util.getCheckedMaterial(getPlugin().getPromptConfig().anvilItem(), Material.PAPER));
+    private ItemStack makeItem(String prefix, List<String> parts, String customTitle) {
+        var config = getPlugin().getPromptConfig().rawConfig();
+        var material = config.getString(prefix + ".Material", "PAPER");
+        var enchanted = config.getBoolean(prefix + ".Enchanted", false);
+        var customModelData = config.getInt(prefix + ".Custom-Model-Data", 0);
+        var hideTooltips = config.getBoolean(prefix + ".HideTooltips", false);
+
+        var item = new ItemStack(Util.getCheckedMaterial(material, Material.PAPER));
         var meta = item.getItemMeta();
         getPlugin().getPluginLogger().debug("ItemMeta: " + meta);
-        if (getPlugin().getPromptConfig().itemAnvilEnchanted()) {
+
+        if (enchanted) {
             Objects.requireNonNull(meta).addEnchant(Enchantment.LURE, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
+
         Objects.requireNonNull(meta).addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        meta.setDisplayName(parts.get(0));
+        if (customTitle != null)
+            meta.setDisplayName(customTitle);
+        else {
+            meta.setDisplayName(parts.get(0));
 
-        if (parts.size() > 1)
-            meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
+            meta.setDisplayName(parts.get(0));
 
-        // set custom model data
-        var integerData = getPlugin().getPromptConfig().itemCustomModelData();
-        if (integerData != 0)
-            meta.setCustomModelData(integerData);
+            if (parts.size() > 1)
+                meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
 
-        // set hide tool tips
-        if (ServerUtil.isAtOrAbove("1.21.2")){
-            boolean hiddenTooltips = getPlugin().getPromptConfig().itemHideTooltips();
-            meta.setHideTooltip(hiddenTooltips);
+            if (customModelData != 0)
+                meta.setCustomModelData(customModelData);
+
+            if (ServerUtil.isAtOrAbove("1.21.2")) {
+                meta.setHideTooltip(hideTooltips);
+            }
         }
 
         item.setItemMeta(meta);
         return item;
     }
 
+    private ItemStack makeItem(String prefix, List<String> parts) {
+        return makeItem("AnvilGUI.Item", parts, null);
+    }
+
+    private ItemStack makeAnvilItem(List<String> parts) {
+        return makeItem("AnvilGUI.Item", parts);
+    }
+
     private ItemStack makeResultItem(List<String> parts) {
-        var item = new ItemStack(Util.getCheckedMaterial(getPlugin().getPromptConfig().anvilResultItem(), Material.PAPER));
-        var meta = item.getItemMeta();
-        getPlugin().getPluginLogger().debug("ResultItemMeta: " + meta);
+        return makeItem("AnvilGUI.ResultItem", parts);
+    }
 
-        // set enchantment glow
-        if (getPlugin().getPromptConfig().resultItemAnvilEnchanted()) {
-            Objects.requireNonNull(meta).addEnchant(Enchantment.LURE, 1, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-        }
-
-        // hide attributes
-        Objects.requireNonNull(meta).addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-
-        meta.setDisplayName(parts.get(0));
-
-        if (parts.size() > 1)
-            meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
-
-        // set custom model data
-        var integerData = getPlugin().getPromptConfig().resultItemCustomModelData();
-        if (integerData != 0)
-            meta.setCustomModelData(integerData);
-
-        // set hide tool tips
-        if (ServerUtil.isAtOrAbove("1.21.2")){
-            boolean hiddenTooltips = getPlugin().getPromptConfig().resultItemHideTooltips();
-            meta.setHideTooltip(hiddenTooltips);
-        }
-
-        item.setItemMeta(meta);
-        return item;
+    private ItemStack makeCancelItem(List<String> parts) {
+        var cancelText = getPlugin().getPromptConfig().cancelItemHoverText();
+        return makeItem("AnvilGUI.CancelItem", parts, Util.color(cancelText));
     }
 }
