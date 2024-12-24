@@ -6,6 +6,7 @@ import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.utils.FastStrings;
 import de.rapha149.signgui.*;
+import de.rapha149.signgui.exception.SignGUIVersionException;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
@@ -21,7 +22,7 @@ public class SignPrompt extends AbstractPrompt {
     private boolean isMultiArg;
 
     public SignPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-            List<PromptParser.PromptArgument> args) {
+                      List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
         isMultiArg = false;
     }
@@ -42,14 +43,18 @@ public class SignPrompt extends AbstractPrompt {
         var mat = Util.getCheckedMaterial(matStr, Material.OAK_SIGN);
         getPlugin().getPluginLogger().debug("Material: " + mat.name());
 
-        var gui = SignGUI.builder()
-                .setLines(finalParts.toArray(String[]::new))
-                .setType(mat)
-                .setHandler((p, r) -> process(finalParts, p, r.getLines()))
-                .build();
+        try {
+            var gui = SignGUI.builder()
+                    .setLines(finalParts.toArray(String[]::new))
+                    .setType(mat)
+                    .setHandler((p, r) -> process(finalParts, p, r.getLines()))
+                    .build();
 
-        gui.open((Player) getContext().getSender());
-
+            gui.open((Player) getContext().getSender());
+        } catch (SignGUIVersionException e) {
+            getPlugin().getPluginLogger().err("SignGUI version exception: " + e.getMessage());
+            getPromptManager().cancel(getContext().getSender());
+        }
     }
 
     private void checkMultiArg(List<String> parts) {
@@ -62,10 +67,10 @@ public class SignPrompt extends AbstractPrompt {
 
         var response = isMultiArg
                 ? FastStrings.join(Arrays.stream(s).filter(str -> !str.isBlank() && !cleanedParts.contains(str))
-                        .filter(str -> str.matches(MULTI_ARG_PATTERN_FILLED))
-                        .map(str -> str.replaceAll(MULTI_ARG_PATTERN_EMPTY, "").trim()).toArray(), " ")
+                .filter(str -> str.matches(MULTI_ARG_PATTERN_FILLED))
+                .map(str -> str.replaceAll(MULTI_ARG_PATTERN_EMPTY, "").trim()).toArray(), " ")
                 : FastStrings.join(Arrays.stream(s)
-                        .filter(str -> !cleanedParts.contains(str) && !str.isBlank()).toArray(), " ");
+                .filter(str -> !cleanedParts.contains(str) && !str.isBlank()).toArray(), " ");
 
         getPlugin().getPluginLogger().debug("Response: " + response);
 

@@ -35,7 +35,7 @@ import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
-import com.cyr1en.commandprompter.util.Util.ServerType;
+import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
 import com.cyr1en.kiso.utils.SRegex;
@@ -71,9 +71,9 @@ public class CommandPrompter extends JavaPlugin {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
-        var serverType = ServerType.resolve();
+        var serverType = ServerUtil.resolve();
         logger.debug("Server Name: " + serverType.name());
-        logger.debug("Server Version: " + serverType.version());
+        logger.debug("Server Version: " + ServerUtil.version());
 
         i18n = new I18N(this, "CommandPrompter");
 

@@ -152,9 +152,16 @@ public record PromptConfig(
                 "Enable-Title - Show the first line of the prompt",
                 "(if with {br}) as title of Anvil GUI",
                 "",
-                "Item - The item to place on the Anvil GUI",
+                "Enable-Cancel-Item - Show a cancel item on the ",
+                "right slot input slot.",
+                "",
+                "Item - The Left item to place on the Anvil GUI",
                 "",
                 "Enchanted - Do you want the item enchanted?",
+                "",
+                "ResultItem - The Result item to place on the Anvil GUI",
+                "",
+                "Hide-Tooltips - Hide tooltips of item (1.21.2 OR ABOVE)",
                 "",
                 "Custom-Title - If title is enabled, and if custom",
                 "title is not empty, CommandPrompter will use this instead",
@@ -175,9 +182,19 @@ public record PromptConfig(
         String promptMessage,
 
         @ConfigNode
+        @NodeName("AnvilGUI.Enable-Cancel-Item")
+        @NodeDefault("false")
+        boolean enableCancelItem,
+
+        @ConfigNode
         @NodeName("AnvilGUI.Item.Material")
         @NodeDefault("Paper")
         String anvilItem,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.Item.HideTooltips")
+        @NodeDefault("false")
+        boolean itemHideTooltips,
 
         @ConfigNode
         @NodeName("AnvilGUI.Item.Custom-Model-Data")
@@ -185,9 +202,55 @@ public record PromptConfig(
         int itemCustomModelData,
 
         @ConfigNode
-        @NodeName("AnvilGUI.Enchanted")
+        @NodeName("AnvilGUI.Item.Enchanted")
         @NodeDefault("false")
-        boolean anvilEnchanted,
+        boolean itemAnvilEnchanted,
+
+
+        @ConfigNode
+        @NodeName("AnvilGUI.ResultItem.Material")
+        @NodeDefault("Paper")
+        String anvilResultItem,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.ResultItem.HideTooltips")
+        @NodeDefault("false")
+        boolean resultItemHideTooltips,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.ResultItem.Custom-Model-Data")
+        @NodeDefault("0")
+        int resultItemCustomModelData,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.ResultItem.Enchanted")
+        @NodeDefault("false")
+        boolean resultItemAnvilEnchanted,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Material")
+        @NodeDefault("Barrier")
+        String anvilCancelItem,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.HideTooltips")
+        @NodeDefault("false")
+        boolean cancelItemHideTooltips,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Custom-Model-Data")
+        @NodeDefault("0")
+        int cancelItemCustomModelData,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.Enchanted")
+        @NodeDefault("false")
+        boolean cancelItemAnvilEnchanted,
+
+        @ConfigNode
+        @NodeName("AnvilGUI.CancelItem.HoverText")
+        @NodeDefault("&cClick to Cancel")
+        String cancelItemHoverText,
 
         // ============================== Text Prompt ==============================
         @ConfigNode
