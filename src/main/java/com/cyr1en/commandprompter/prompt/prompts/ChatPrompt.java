@@ -30,7 +30,6 @@ import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.ServerUtil;
-import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
 import net.md_5.bungee.api.chat.*;
 import net.md_5.bungee.api.chat.hover.content.Text;
@@ -64,7 +63,7 @@ public class ChatPrompt extends AbstractPrompt {
 
     private void sendWithDefault(List<String> parts) {
         var prefix = getPlugin().getConfiguration().promptPrefix();
-        var cancelText = makeMessage();
+        var cancelText = makeCancelButton();
         if (parts.size() == 1) {
             getContext().getSender().sendMessage(color(prefix + parts.get(0)));
             getContext().getSender().spigot().sendMessage(cancelText);
@@ -78,21 +77,23 @@ public class ChatPrompt extends AbstractPrompt {
         var prefix = getPlugin().getConfiguration().promptPrefix();
         if (parts.size() == 1) {
             var msg = color(prefix + parts.get(0) + " ");
-            var component = new ComponentBuilder().append(TextComponent.fromLegacy(msg))
-                    .append(makeMessage()).create();
-            getContext().getSender().spigot().sendMessage(component);
+            var component = new ComponentBuilder().append(TextComponent.fromLegacy(msg));
+            var cancelComponent = makeCancelButton();
+            if (cancelComponent.length > 0)
+                component.append(makeCancelButton());
+            getContext().getSender().spigot().sendMessage(component.create());
             return;
         }
         parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
-        getContext().getSender().spigot().sendMessage(makeMessage(true));
+        getContext().getSender().spigot().sendMessage(makeCancelButton(true));
     }
 
-    private BaseComponent[] makeMessage() {
-        return makeMessage(false);
+    private BaseComponent[] makeCancelButton() {
+        return makeCancelButton(false);
     }
 
-    private BaseComponent[] makeMessage(boolean addPrefix) {
-        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE())
+    private BaseComponent[] makeCancelButton(boolean addPrefix) {
+        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE() || !getPlugin().getPromptConfig().sendCancelText())
             return new BaseComponent[0];
 
         var prefix = getPlugin().getConfiguration().promptPrefix();
