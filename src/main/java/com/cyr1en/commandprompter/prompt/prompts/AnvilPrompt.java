@@ -28,6 +28,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
+import com.cyr1en.commandprompter.util.VersionUtil;
 import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -54,10 +55,11 @@ public class AnvilPrompt extends AbstractPrompt {
     public void sendPrompt() {
         List<String> parts = Arrays.asList(getPrompt().split("\\{br}"));
         var item = makeItem(parts);
-        makeAnvil(parts, item).open((Player) getContext().getSender());
+        var resultItem = makeResultItem(parts);
+        makeAnvil(parts, item, resultItem).open((Player) getContext().getSender());
     }
 
-    private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item) {
+    private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item, ItemStack resultItem) {
         var isComplete = new AtomicBoolean(false);
         var builder = getBuilder(isComplete);
         builder.onClose(p -> {
@@ -76,6 +78,7 @@ public class AnvilPrompt extends AbstractPrompt {
             builder.title(title);
         }
         builder.itemLeft(item);
+        builder.itemOutput(resultItem);
         builder.plugin(getPlugin());
         return builder;
     }
@@ -110,7 +113,7 @@ public class AnvilPrompt extends AbstractPrompt {
         var item = new ItemStack(Util.getCheckedMaterial(getPlugin().getPromptConfig().anvilItem(), Material.PAPER));
         var meta = item.getItemMeta();
         getPlugin().getPluginLogger().debug("ItemMeta: " + meta);
-        if (getPlugin().getPromptConfig().anvilEnchanted()) {
+        if (getPlugin().getPromptConfig().itemAnvilEnchanted()) {
             Objects.requireNonNull(meta).addEnchant(Enchantment.LURE, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
@@ -124,6 +127,46 @@ public class AnvilPrompt extends AbstractPrompt {
         var integerData = getPlugin().getPromptConfig().itemCustomModelData();
         if (integerData != 0)
             meta.setCustomModelData(integerData);
+
+        // set hide tool tips
+        if (VersionUtil.isAtOrAbove("1.21.2")){
+            boolean hiddenTooltips = getPlugin().getPromptConfig().itemHideTooltips();
+            meta.setHideTooltip(hiddenTooltips);
+        }
+
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack makeResultItem(List<String> parts) {
+        var item = new ItemStack(Util.getCheckedMaterial(getPlugin().getPromptConfig().anvilResultItem(), Material.PAPER));
+        var meta = item.getItemMeta();
+        getPlugin().getPluginLogger().debug("ResultItemMeta: " + meta);
+
+        // set enchantment glow
+        if (getPlugin().getPromptConfig().resultItemAnvilEnchanted()) {
+            Objects.requireNonNull(meta).addEnchant(Enchantment.LURE, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        // hide attributes
+        Objects.requireNonNull(meta).addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+
+        meta.setDisplayName(parts.get(0));
+
+        if (parts.size() > 1)
+            meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
+
+        // set custom model data
+        var integerData = getPlugin().getPromptConfig().resultItemCustomModelData();
+        if (integerData != 0)
+            meta.setCustomModelData(integerData);
+
+        // set hide tool tips
+        if (VersionUtil.isAtOrAbove("1.21.2")){
+            boolean hiddenTooltips = getPlugin().getPromptConfig().resultItemHideTooltips();
+            meta.setHideTooltip(hiddenTooltips);
+        }
 
         item.setItemMeta(meta);
         return item;
