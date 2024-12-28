@@ -96,7 +96,7 @@ configurations.implementation {
     exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
-tasks.named('jar').configure { enabled = false }
+tasks.named('jar').configure { enabled = true }
 
 shadowJar {
     dependencies {
