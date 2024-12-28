@@ -123,6 +123,46 @@ public record PromptConfig(
         String cancelText,
 
         @ConfigNode
+        @NodeName("PlayerUI.Search.Item")
+        @NodeDefault("Name_Tag")
+        String searchItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Custom-Model-Data")
+        @NodeDefault("0")
+        int searchCustomModelData,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Column")
+        @NodeDefault("9")
+        int searchColumn,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Text")
+        @NodeDefault("&6Search ⌕")
+        String searchText,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Title")
+        @NodeDefault("&6&lPlayer Search")
+        String searchAnvilItemTitle,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Material")
+        @NodeDefault("PAPER")
+        String searchAnvilItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.CustomModelData")
+        @NodeDefault("0")
+        int searchAnvilItemCustomModelData,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Text")
+        @NodeDefault("&6Enter Player Name")
+        String searchAnvilItemText,
+
+        @ConfigNode
         @NodeName("PlayerUI.Sorted")
         @NodeDefault("false")
         boolean sorted,

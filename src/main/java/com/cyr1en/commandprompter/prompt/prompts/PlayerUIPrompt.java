@@ -54,6 +54,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     private final String promptKey;
 
+    private boolean isSearching;
+
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt,
                           List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
@@ -64,6 +66,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         this.headCache = plugin.getHeadCache();
         vanishHook = plugin.getHookContainer().getVanishHook().get();
         this.promptKey = context.getPromptKey();
+        this.isSearching = false;
     }
 
     private List<Player> getPlayersForHeads(List<CacheFilter> filters, Player p) {
@@ -152,7 +155,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
     }
 
     private void send(Player p) {
-        gui.setOnClose(e -> getPromptManager().cancel(p));
+        gui.setOnClose(e -> {
+            if (!isSearching)
+                getPromptManager().cancel(p);
+        });
 
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);
 
@@ -165,7 +171,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         skullPane.setOnClick(this::processClick);
 
         gui.addPane(skullPane);
-        gui.addPane(new ControlPane(getPlugin(), skullPane, gui, getContext(), size));
+        gui.addPane(new ControlPane(getPlugin(), skullPane, gui, getContext(), size, this));
 
         gui.show((HumanEntity) getContext().getSender());
     }
@@ -199,6 +205,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
             headCache.setDisplayName(meta, format);
             head.setItemMeta(meta);
         }
+    }
+
+    public void setSearching(boolean searching) {
+        isSearching = searching;
     }
 
     @Override
