@@ -266,7 +266,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             });
         }
         promptRegistry.unregister(sender);
-        plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
+        if (plugin.getConfiguration().showCancelled())
+            plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
     }
 
