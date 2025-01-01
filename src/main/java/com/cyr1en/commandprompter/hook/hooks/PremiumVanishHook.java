@@ -24,7 +24,6 @@ public class PremiumVanishHook extends VanishHook implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL)
     public void onStateChange(PlayerVanishStateChangeEvent e) {
-        System.out.println("onStateCHange: "+e.isVanishing());
         var player = Bukkit.getPlayer(e.getUUID());
         if (player == null) return;
         onStateChange(player, e::isVanishing);
