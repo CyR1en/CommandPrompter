@@ -21,6 +21,7 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
     }
 
     public void initHooks() {
+        hook(PremiumVanishHook.class);
         hook(SuperVanishHook.class);
         hook(CarbonChatHook.class);
         hook(VanishNoPacketHook.class);

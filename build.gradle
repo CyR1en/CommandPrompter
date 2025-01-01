@@ -85,7 +85,7 @@ dependencies {
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'net.luckperms:api:5.4'
     compileOnly 'net.william278.husktowns:husktowns-common:3.0.5'
-
+    compileOnly 'com.github.LeonMangler:PremiumVanishAPI:2.9.0-4'
     // Local
     implementation fileTree(dir: 'libs', include: '*.jar')
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
