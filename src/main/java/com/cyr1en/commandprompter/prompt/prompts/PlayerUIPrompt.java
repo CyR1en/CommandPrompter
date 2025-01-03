@@ -179,7 +179,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private List<ItemStack> prepareHeads(Player p) {
         getPlugin().getPluginLogger().debug("Preparing heads...");
         var filters = extractFilters();
-        var players = getPlayersForHeads(filters, p);
+        var players = getPlayersForHeads(filters, p).stream().filter(player -> !vanishHook.isInvisible(player)).toList();
         var isSorted = getPlugin().getPromptConfig().sorted();
         var skulls = isSorted ? headCache.getHeadsSortedFor(players) : headCache.getHeadsFor(players);
         var clone = new ArrayList<>(skulls);
