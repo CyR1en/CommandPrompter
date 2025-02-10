@@ -6,10 +6,12 @@ import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
+import com.cyr1en.commandprompter.prompt.validators.JSExprValidator;
 import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
 import com.cyr1en.commandprompter.prompt.validators.OnlinePlayerValidator;
 import com.cyr1en.commandprompter.prompt.validators.RegexValidator;
 import com.cyr1en.kiso.mc.configuration.base.Config;
+import org.bukkit.entity.Player;
 
 import java.util.regex.Pattern;
 
@@ -415,15 +417,21 @@ public record PromptConfig(
         return getInputValidationValue("Input-Validation", key, keyVal, query);
     }
 
-    public InputValidator getInputValidator(String alias) {
+    public InputValidator getInputValidator(String alias, Player player) {
         if (alias == null || alias.isBlank())
             return new NoopValidator();
+
+        var expr = getIVValue("Alias", alias, "JS-Expression");
+        if (expr != null && !expr.isBlank())
+            return new JSExprValidator(alias, expr, getIVErrMessage(alias), player);
+
         var isPlayer = Boolean.parseBoolean(getIVValue("Alias", alias, "Online-Player"));
         if (isPlayer)
-            return new OnlinePlayerValidator(alias, getIVErrMessage(alias));
+            return new OnlinePlayerValidator(alias, getIVErrMessage(alias), player);
+
         var regex = findIVRegexCheckInConfig(alias);
         if (regex != null && !regex.isBlank())
-            return new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias));
+            return new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias), player);
         return new NoopValidator();
     }
 

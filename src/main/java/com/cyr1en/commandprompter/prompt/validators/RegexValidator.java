@@ -1,6 +1,7 @@
 package com.cyr1en.commandprompter.prompt.validators;
 
 import com.cyr1en.commandprompter.api.prompt.InputValidator;
+import org.bukkit.entity.Player;
 
 import java.util.regex.Pattern;
 
@@ -13,7 +14,7 @@ import java.util.regex.Pattern;
  * @param regex The regex pattern to use for validation.
  * @param messageOnFail The message to send when validation fails.
  */
-public record RegexValidator(String alias, Pattern regex, String messageOnFail) implements InputValidator {
+public record RegexValidator(String alias, Pattern regex, String messageOnFail, Player inputPlayer) implements InputValidator {
 
     @Override
     public boolean validate(String input) {
