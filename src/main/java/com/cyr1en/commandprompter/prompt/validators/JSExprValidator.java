@@ -31,7 +31,6 @@ public class JSExprValidator implements InputValidator {
         this.logger = CommandPrompter.getInstance().getPluginLogger();
         var manager = Bukkit.getServer().getServicesManager();
         var factory = new NashornScriptEngineFactory();
-        ;
         if (engine == null) {
             if (manager.isProvidedFor(ScriptEngineManager.class)) {
                 final RegisteredServiceProvider provider = manager.getRegistration(ScriptEngineManager.class);
@@ -47,13 +46,12 @@ public class JSExprValidator implements InputValidator {
 
     @Override
     public boolean validate(String input) {
-        var aExprStr = new AtomicReference<>(expression.replace("%prompt_input%", input));
-        CommandPrompter.getInstance().getHookContainer().getHook(PapiHook.class).ifHooked(hook -> {
-            var exprStr = hook.setPlaceholder(inputPlayer, expression);
-            aExprStr.set(exprStr);
-        }).complete();
+        var exprStr = expression.replace("%prompt_input%", input);
 
-        var exprStr = aExprStr.get();
+        var hook = CommandPrompter.getInstance().getHookContainer().getHook(PapiHook.class);
+        if (hook.isHooked())
+            exprStr = hook.get().setPlaceholder(inputPlayer, exprStr);
+
         logger.debug("JS expression: " + exprStr);
         if (exprStr.isBlank()) {
             logger.debug("JS expression is blank");
