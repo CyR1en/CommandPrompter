@@ -6,13 +6,11 @@ import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
-import com.cyr1en.commandprompter.prompt.validators.JSExprValidator;
-import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
-import com.cyr1en.commandprompter.prompt.validators.OnlinePlayerValidator;
-import com.cyr1en.commandprompter.prompt.validators.RegexValidator;
+import com.cyr1en.commandprompter.prompt.validators.*;
 import com.cyr1en.kiso.mc.configuration.base.Config;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 @Configuration
@@ -421,18 +419,32 @@ public record PromptConfig(
         if (alias == null || alias.isBlank())
             return new NoopValidator();
 
+        var validators = findValidators(alias, player);
+        if (validators.length == 1)
+            return validators[0];
+        else if (validators.length > 1) {
+            return new CompoundedValidator(alias, getIVErrMessage(alias), player, validators);
+        }
+
+        return new NoopValidator();
+    }
+
+    private InputValidator[] findValidators(String alias, Player player) {
+        var validators = new ArrayList<InputValidator>();
+
         var expr = getIVValue("Alias", alias, "JS-Expression");
         if (expr != null && !expr.isBlank())
-            return new JSExprValidator(alias, expr, getIVErrMessage(alias), player);
+            validators.add(new JSExprValidator(alias, expr, getIVErrMessage(alias), null));
 
         var isPlayer = Boolean.parseBoolean(getIVValue("Alias", alias, "Online-Player"));
         if (isPlayer)
-            return new OnlinePlayerValidator(alias, getIVErrMessage(alias), player);
+            validators.add(new OnlinePlayerValidator(alias, getIVErrMessage(alias), player));
 
         var regex = findIVRegexCheckInConfig(alias);
         if (regex != null && !regex.isBlank())
-            return new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias), player);
-        return new NoopValidator();
+            validators.add(new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias), player));
+
+        return validators.toArray(new InputValidator[0]);
     }
 
     /**

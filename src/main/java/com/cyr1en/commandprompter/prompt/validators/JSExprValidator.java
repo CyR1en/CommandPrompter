@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.validators;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.api.prompt.CompoundableValidator;
 import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import org.bukkit.Bukkit;
@@ -11,11 +12,10 @@ import org.bukkit.plugin.ServicePriority;
 import org.openjdk.nashorn.api.scripting.NashornScriptEngineFactory;
 
 import javax.script.ScriptEngineManager;
-import java.util.concurrent.atomic.AtomicReference;
 
+public class JSExprValidator implements InputValidator, CompoundableValidator {
 
-public class JSExprValidator implements InputValidator {
-
+    public static final CompoundableValidator.Type DEFAULT_TYPE = Type.AND;
     private final String alias;
     private final String expression;
     private final String messageOnFail;
@@ -23,18 +23,28 @@ public class JSExprValidator implements InputValidator {
     private final PluginLogger logger;
     private ScriptEngineManager engine;
 
+    private CompoundableValidator.Type type = DEFAULT_TYPE;
+
     public JSExprValidator(String alias, String expression, String messageOnFail, Player inputPlayer) {
         this.alias = alias;
         this.expression = expression;
         this.messageOnFail = messageOnFail;
         this.inputPlayer = inputPlayer;
         this.logger = CommandPrompter.getInstance().getPluginLogger();
+        initEngine();
+    }
+
+    private void initEngine() {
         var manager = Bukkit.getServer().getServicesManager();
         var factory = new NashornScriptEngineFactory();
         if (engine == null) {
             if (manager.isProvidedFor(ScriptEngineManager.class)) {
-                final RegisteredServiceProvider provider = manager.getRegistration(ScriptEngineManager.class);
-                engine = (ScriptEngineManager) provider.getProvider();
+                final RegisteredServiceProvider<ScriptEngineManager> provider = manager.getRegistration(ScriptEngineManager.class);
+                if (provider == null) {
+                    logger.debug("ScriptEngineManager provider is null");
+                    return;
+                }
+                engine = provider.getProvider();
             } else {
                 engine = new ScriptEngineManager();
                 manager.register(ScriptEngineManager.class, engine, CommandPrompter.getInstance(), ServicePriority.Highest);
@@ -91,5 +101,15 @@ public class JSExprValidator implements InputValidator {
     @Override
     public Player inputPlayer() {
         return inputPlayer;
+    }
+
+    @Override
+    public Type getType() {
+        return type;
+    }
+
+    @Override
+    public void setType(Type type) {
+        this.type = type;
     }
 }
