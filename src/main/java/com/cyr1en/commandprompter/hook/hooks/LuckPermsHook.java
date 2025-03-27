@@ -57,6 +57,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook {
      * @param groupName the group name
      * @return a list of players with the same group
      */
+    @SuppressWarnings("unchecked")
     private List<Player> getPlayersWithGroup(String groupName) {
         if (api == null || groupName.isBlank()) return List.of();
         return (List<Player>) Bukkit.getOnlinePlayers().stream()
