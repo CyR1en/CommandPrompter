@@ -165,7 +165,7 @@ public class AnvilPrompt extends AbstractPrompt {
     }
 
     private ItemStack makeItem(String prefix, List<String> parts) {
-        return makeItem("AnvilGUI.Item", parts, null);
+        return makeItem(prefix, parts, null);
     }
 
     private ItemStack makeAnvilItem(List<String> parts) {
