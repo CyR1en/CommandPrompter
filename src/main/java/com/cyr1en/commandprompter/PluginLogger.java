@@ -2,7 +2,6 @@ package com.cyr1en.commandprompter;
 
 import org.bukkit.Bukkit;
 import org.fusesource.jansi.Ansi;
-import org.fusesource.jansi.AnsiConsole;
 
 import java.awt.*;
 import java.util.Objects;
@@ -22,7 +21,6 @@ public class PluginLogger {
     public PluginLogger(CommandPrompter plugin, String prefix) {
         this.isFancy = plugin.getConfiguration().fancyLogger();
         this.debugMode = plugin.getConfiguration().debugMode();
-        AnsiConsole.systemInstall();
 
         // Spread love not war <3
         normalGrad = new ColorGradient(new Color(1, 88, 181), new Color(246, 206, 0));
@@ -30,11 +28,6 @@ public class PluginLogger {
         debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
 
         setPrefix(prefix);
-    }
-
-    public void ansiUninstall() {
-        if (AnsiConsole.isInstalled())
-            AnsiConsole.systemUninstall();
     }
 
     public void setPrefix(String prefix) {
