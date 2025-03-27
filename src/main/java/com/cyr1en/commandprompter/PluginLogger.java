@@ -5,6 +5,7 @@ import org.fusesource.jansi.Ansi;
 
 import java.awt.*;
 import java.util.Objects;
+import java.util.UnknownFormatConversionException;
 import java.util.logging.Level;
 
 public class PluginLogger {
@@ -49,8 +50,11 @@ public class PluginLogger {
 
     public void log(String prefix, Level level, String msg, Object... args) {
         String pre = prefix == null ? getPrefix() : prefix;
-        if (msg.contains("%s"))
-            msg = String.format(msg, args);
+        try {
+            if (msg.matches("%s"))
+                msg = String.format(msg, args);
+        } catch (UnknownFormatConversionException ignore) {
+        }
         Bukkit.getLogger().log(level, pre + msg);
     }
 
