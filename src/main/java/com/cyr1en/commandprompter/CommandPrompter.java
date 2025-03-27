@@ -67,7 +67,6 @@ public class CommandPrompter extends JavaPlugin {
 
     @Override
     public void onEnable() {
-
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
@@ -104,10 +103,6 @@ public class CommandPrompter extends JavaPlugin {
         commandAPIWrapper.onDisable();
         if (promptManager != null)
             promptManager.clearPromptRegistry();
-
-        PluginLogger logger;
-        if ((logger = getPluginLogger()) != null)
-            logger.ansiUninstall();
 
         if (Objects.nonNull(updateChecker) && !updateChecker.isDisabled())
             HandlerList.unregisterAll(updateChecker);
