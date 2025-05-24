@@ -46,6 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AnvilPrompt extends AbstractPrompt {
 
+    public static char BLANK_CHAR = '\u00A0'; // No-Break Space
+
     public AnvilPrompt(CommandPrompter plugin, PromptContext context,
                        String prompt, List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
@@ -70,7 +72,9 @@ public class AnvilPrompt extends AbstractPrompt {
         });
 
         var promptText = getPlugin().getPromptConfig().promptMessage();
-        var text = (promptText.isEmpty() || promptText.isBlank()) ? color(parts.get(0)) : color(promptText);
+
+        var text = (promptText.isBlank()) ? color(parts.get(0)) : promptText.equals("BLANK") ?
+                String.valueOf(BLANK_CHAR) : color(promptText);
         builder.text(text);
 
         if (getPlugin().getPromptConfig().enableTitle()) {
@@ -81,6 +85,7 @@ public class AnvilPrompt extends AbstractPrompt {
 
         if (getPlugin().getPromptConfig().enableCancelItem())
             builder.itemRight(cancelItem);
+
         builder.itemLeft(item);
         builder.itemOutput(resultItem);
         builder.plugin(getPlugin());
@@ -109,9 +114,10 @@ public class AnvilPrompt extends AbstractPrompt {
             }
 
             isComplete.getAndSet(true);
+            var content = stateSnapshot.getText().replaceAll(String.valueOf(BLANK_CHAR), "");
             var ctx = new PromptContext.Builder()
                     .setSender(stateSnapshot.getPlayer())
-                    .setContent(stateSnapshot.getText()).build();
+                    .setContent(content).build();
 
             getPromptManager().processPrompt(ctx);
             return Collections.singletonList(AnvilGUI.ResponseAction.close());
@@ -159,7 +165,7 @@ public class AnvilPrompt extends AbstractPrompt {
     }
 
     private ItemStack makeItem(String prefix, List<String> parts) {
-        return makeItem("AnvilGUI.Item", parts, null);
+        return makeItem(prefix, parts, null);
     }
 
     private ItemStack makeAnvilItem(List<String> parts) {

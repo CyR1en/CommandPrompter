@@ -1,6 +1,7 @@
 package com.cyr1en.commandprompter.prompt.validators;
 
 import com.cyr1en.commandprompter.api.prompt.InputValidator;
+import org.bukkit.entity.Player;
 
 /**
  * A validator that does nothing.
@@ -21,5 +22,10 @@ public class NoopValidator implements InputValidator {
     @Override
     public String messageOnFail() {
         return "";
+    }
+
+    @Override
+    public Player inputPlayer() {
+        return null;
     }
 }

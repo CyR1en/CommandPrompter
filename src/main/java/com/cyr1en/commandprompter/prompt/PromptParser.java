@@ -136,7 +136,7 @@ public class PromptParser {
                 var sender = promptContext.getSender();
                 var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt);
                 plugin.getPluginLogger().debug("Prompt args: " + promptArgs);
-                var inputValidator = extractInputValidation(cleanPrompt);
+                var inputValidator = extractInputValidation(cleanPrompt, (Player) sender);
 
                 // Set papi placeholders if exists
                 var promptTxt = ArgumentUtil.stripArgs(cleanPrompt);
@@ -161,14 +161,14 @@ public class PromptParser {
         return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
     }
 
-    private InputValidator extractInputValidation(String prompt) {
+    private InputValidator extractInputValidation(String prompt, Player player) {
         // iv is with pattern -iv:<alias>
         var pattern = Pattern.compile(PromptArgument.INPUT_VALIDATION.getKey());
         var matcher = pattern.matcher(prompt);
         if (!matcher.find()) return new NoopValidator();
         var found = matcher.group();
         var alias = found.split(":")[1];
-        return plugin.getPromptConfig().getInputValidator(alias);
+        return plugin.getPromptConfig().getInputValidator(alias, player);
     }
 
     private String resolvePapiPlaceholders(Player sender, String prompt) {

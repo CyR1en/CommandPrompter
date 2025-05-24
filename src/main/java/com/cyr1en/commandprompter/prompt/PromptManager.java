@@ -67,7 +67,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private static final HashMap<Class<? extends Prompt>, Version> supportTable;
 
-    private static final Version LATEST = Version.parse("1.21.4");
+    private static final Version LATEST = Version.parse("1.21.5");
     // Arbitrary 10 version, that means this should work until minecraft v10 lol "any".
     private static final Version ANY = Version.parse("10");
 
@@ -266,7 +266,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             });
         }
         promptRegistry.unregister(sender);
-        plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
+        if (plugin.getConfiguration().showCancelled())
+            plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
     }
 

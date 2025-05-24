@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 12, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 13, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -58,7 +58,7 @@ repositories {
     maven { url 'https://repo.codemc.io/repository/maven-public/' }
     maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
     maven { url 'https://jitpack.io' }
-    maven { url 'https://repo.glaremasters.me/repository/towny/'}
+    maven { url 'https://repo.glaremasters.me/repository/towny/' }
     maven { url 'https://repo.william278.net/releases' }
     flatDir { dirs 'libs' }
 }
@@ -66,17 +66,18 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.10.4-SNAPSHOT'
+    implementation 'net.wesjd:anvilgui:1.10.5-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.10.19'
-    implementation "net.kyori:adventure-text-minimessage:4.17.0"
-    implementation "dev.jorel:commandapi-bukkit-shade:9.7.0"
-    implementation 'de.rapha149.signgui:signgui:2.5.0'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.0'
+    implementation "net.kyori:adventure-text-minimessage:4.21.0"
+    implementation "dev.jorel:commandapi-bukkit-shade:10.0.1"
+    implementation 'de.rapha149.signgui:signgui:2.5.1'
+    implementation 'org.openjdk.nashorn:nashorn-core:15.4'
 
+    compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
+    compileOnly "net.kyori:adventure-text-serializer-plain:4.21.0"
     compileOnly 'me.clip:placeholderapi:2.11.6'
-    compileOnly "net.kyori:adventure-text-serializer-legacy:4.17.0"
-    compileOnly "net.kyori:adventure-text-serializer-plain:4.17.0"
     compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
     compileOnly "org.spigotmc:spigot-api:1.21.3-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
@@ -85,7 +86,7 @@ dependencies {
     compileOnly 'org.jetbrains:annotations:23.0.0'
     compileOnly 'net.luckperms:api:5.4'
     compileOnly 'net.william278.husktowns:husktowns-common:3.0.5'
-
+    compileOnly 'com.github.LeonMangler:PremiumVanishAPI:2.9.0-4'
     // Local
     implementation fileTree(dir: 'libs', include: '*.jar')
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
@@ -96,7 +97,7 @@ configurations.implementation {
     exclude group: 'org.atteo.classindex', module: 'classindex'
 }
 
-tasks.named('jar').configure { enabled = false }
+tasks.named('jar').configure { enabled = true }
 
 shadowJar {
     dependencies {
@@ -107,11 +108,10 @@ shadowJar {
     archiveClassifier.set('')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
+    //relocate 'net.kyori.adventure', 'com.cyr1en.adventure'
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
     relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
-    relocate 'net.kyori.adventure', 'com.cyr1en.adventure'
-    relocate 'net.kyori.examination', 'com.cyr1en.examination'
     relocate 'dev.jorel.commandapi', 'com.cyr1en.commandapi'
     relocate 'org.fusesource.jansi', 'com.cyr1en.jansi'
     relocate 'org.bstats', 'com.cyr1en.bstats'

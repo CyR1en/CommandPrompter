@@ -2,7 +2,7 @@ name: ${projectName}
 version: ${projectVersion}
 author: ${projectAuthor}
 description: ${projectDescription}
-softdepend: [SuperVanish, PlaceholderAPI, CarbonChat, Towny, HuskTowns, PlaceholderAPI]
+softdepend: [SuperVanish,PremiumVanish, PlaceholderAPI, CarbonChat, Towny, HuskTowns]
 
 main: ${projectEntry}
 api-version: 1.13

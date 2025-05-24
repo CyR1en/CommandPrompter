@@ -89,6 +89,16 @@ public record CommandPrompterConfig(
         boolean showCompleted,
 
         @ConfigNode
+        @NodeName("Show-Prompt-Cancelled")
+        @NodeDefault("true")
+        @NodeComment({
+                "Should CommandPrompter a",
+                "prompt cancellation message",
+                "to the player."
+        })
+        boolean showCancelled,
+
+        @ConfigNode
         @NodeName("Fancy-Logger")
         @NodeDefault("true")
         @NodeComment({

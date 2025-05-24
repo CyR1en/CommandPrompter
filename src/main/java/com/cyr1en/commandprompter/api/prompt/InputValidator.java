@@ -1,6 +1,8 @@
 package com.cyr1en.commandprompter.api.prompt;
 
 
+import org.bukkit.entity.Player;
+
 /**
  * A functional interface for validating input.
  *
@@ -33,4 +35,9 @@ public interface InputValidator {
      * @return the message to send when validation fails
      */
     String messageOnFail();
+
+    /**
+     * Get the player that entered the input.
+     */
+    Player inputPlayer();
 }

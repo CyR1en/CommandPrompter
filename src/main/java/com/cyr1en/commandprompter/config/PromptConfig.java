@@ -6,11 +6,11 @@ import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;
 import com.cyr1en.commandprompter.config.annotations.type.Configuration;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
-import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
-import com.cyr1en.commandprompter.prompt.validators.OnlinePlayerValidator;
-import com.cyr1en.commandprompter.prompt.validators.RegexValidator;
+import com.cyr1en.commandprompter.prompt.validators.*;
 import com.cyr1en.kiso.mc.configuration.base.Config;
+import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 @Configuration
@@ -121,6 +121,46 @@ public record PromptConfig(
         @NodeName("PlayerUI.Cancel.Text")
         @NodeDefault("&7Cancel ✘")
         String cancelText,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Item")
+        @NodeDefault("Name_Tag")
+        String searchItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Custom-Model-Data")
+        @NodeDefault("0")
+        int searchCustomModelData,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Column")
+        @NodeDefault("9")
+        int searchColumn,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.Text")
+        @NodeDefault("&6Search ⌕")
+        String searchText,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Title")
+        @NodeDefault("&6&lPlayer Search")
+        String searchAnvilItemTitle,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Material")
+        @NodeDefault("PAPER")
+        String searchAnvilItem,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.CustomModelData")
+        @NodeDefault("0")
+        int searchAnvilItemCustomModelData,
+
+        @ConfigNode
+        @NodeName("PlayerUI.Search.AnvilItem.Text")
+        @NodeDefault("&6Enter Player Name")
+        String searchAnvilItemText,
 
         @ConfigNode
         @NodeName("PlayerUI.Sorted")
@@ -375,16 +415,36 @@ public record PromptConfig(
         return getInputValidationValue("Input-Validation", key, keyVal, query);
     }
 
-    public InputValidator getInputValidator(String alias) {
+    public InputValidator getInputValidator(String alias, Player player) {
         if (alias == null || alias.isBlank())
             return new NoopValidator();
+
+        var validators = findValidators(alias, player);
+        if (validators.length == 1)
+            return validators[0];
+        else if (validators.length > 1) {
+            return new CompoundedValidator(alias, getIVErrMessage(alias), player, validators);
+        }
+
+        return new NoopValidator();
+    }
+
+    private InputValidator[] findValidators(String alias, Player player) {
+        var validators = new ArrayList<InputValidator>();
+
+        var expr = getIVValue("Alias", alias, "JS-Expression");
+        if (expr != null && !expr.isBlank())
+            validators.add(new JSExprValidator(alias, expr, getIVErrMessage(alias), null));
+
         var isPlayer = Boolean.parseBoolean(getIVValue("Alias", alias, "Online-Player"));
         if (isPlayer)
-            return new OnlinePlayerValidator(alias, getIVErrMessage(alias));
+            validators.add(new OnlinePlayerValidator(alias, getIVErrMessage(alias), player));
+
         var regex = findIVRegexCheckInConfig(alias);
         if (regex != null && !regex.isBlank())
-            return new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias));
-        return new NoopValidator();
+            validators.add(new RegexValidator(alias, Pattern.compile(regex), getIVErrMessage(alias), player));
+
+        return validators.toArray(new InputValidator[0]);
     }
 
     /**

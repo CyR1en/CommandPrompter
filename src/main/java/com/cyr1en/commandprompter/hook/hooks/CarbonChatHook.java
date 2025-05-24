@@ -12,6 +12,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 @TargetPlugin(pluginName = "CarbonChat")
@@ -39,10 +40,12 @@ public class CarbonChatHook extends BaseHook implements Listener {
             return;
         event.cancelled(true);
         event.recipients().clear();
-        var msg = PlainTextComponentSerializer.plainText().serialize(event.message());
+        Arrays.stream(event.getClass().getDeclaredMethods()).forEach(method -> getPlugin().getPluginLogger().debug(method.toGenericString()));
+        var msg = event.message();
+        var serializedMsg = PlainTextComponentSerializer.plainText().serialize(msg);
         var cancel = getPlugin().getConfiguration().cancelKeyword();
 
-        if (cancel.equalsIgnoreCase(msg)) {
+        if (cancel.equalsIgnoreCase(serializedMsg)) {
             promptManager.cancel(player);
             event.message(Component.empty());
             return;
@@ -55,9 +58,9 @@ public class CarbonChatHook extends BaseHook implements Listener {
         var prompt = queue.peek();
         if (Objects.nonNull(prompt)) {
             var ds = LegacyComponentSerializer.legacyAmpersand().serialize(event.message());
-            msg = prompt.sanitizeInput() ? ds : msg;
+            serializedMsg = prompt.sanitizeInput() ? ds : serializedMsg;
         }
-        var ctx = new PromptContext.Builder().setSender(player).setContent(msg).build();
+        var ctx = new PromptContext.Builder().setSender(player).setContent(serializedMsg).build();
         Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));
     }
 }

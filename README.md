@@ -20,7 +20,7 @@ Features:
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:
 
 #### Requirements
-* JDK 16 or newer
+* JDK 17 or newer
 * Git
 
 #### Compiling from source
@@ -32,12 +32,6 @@ cd CommandPrompter/
 
 ## Special Thanks To:
 <div align="Left">
-  <a href="https://www.jetbrains.com">
-    <img width="130" src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg" />
-  </a>
-
-  <p>This project was developed with the help of JetBrains' generous <a href="https://www.jetbrains.com/opensource/">Open Source License program</a>. Huge thanks to their continued support for open source development!</p>
-
   <a href="https://www.gitbook.com/">
     <img width="230" src="https://i.imgur.com/SIPKmzS.png">
   </a>

@@ -23,6 +23,7 @@ public class CommandAPIWrapper {
 
     public void load() {
         var config = new CommandAPIBukkitConfig(plugin);
+        config.skipReloadDatapacks(true);
         config.useLatestNMSVersion(false);
         config = plugin.getConfiguration().debugMode() ? config.silentLogs(false).verboseOutput(true)
                 : config.silentLogs(true).verboseOutput(false);
