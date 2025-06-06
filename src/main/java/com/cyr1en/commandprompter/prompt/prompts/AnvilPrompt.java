@@ -59,7 +59,7 @@ public class AnvilPrompt extends AbstractPrompt {
         var item = makeAnvilItem(parts);
         var resultItem = makeResultItem(parts);
         var cancelItem = makeCancelItem(parts);
-        makeAnvil(parts, item, resultItem, cancelItem).open((Player) getContext().getSender());
+        makeAnvil(parts, item, resultItem, cancelItem).open(getContext().getPromptedPlayer());
     }
 
     private AnvilGUI.Builder makeAnvil(List<String> parts, ItemStack item, ItemStack resultItem, ItemStack cancelItem) {
@@ -116,7 +116,8 @@ public class AnvilPrompt extends AbstractPrompt {
             isComplete.getAndSet(true);
             var content = stateSnapshot.getText().replaceAll(String.valueOf(BLANK_CHAR), "");
             var ctx = new PromptContext.Builder()
-                    .setSender(stateSnapshot.getPlayer())
+                    .setCommandSender(stateSnapshot.getPlayer())
+                    .setPromptedPlayer(stateSnapshot.getPlayer())
                     .setContent(content).build();
 
             getPromptManager().processPrompt(ctx);

@@ -42,7 +42,8 @@ public class VanillaListener extends CommandListener {
         var content = event.getMessage().replaceFirst("/", "");
         var context = new PromptContext.Builder()
                 .setCancellable(event)
-                .setSender(event.getPlayer())
+                .setCommandSender(event.getPlayer())
+                .setPromptedPlayer(event.getPlayer())
                 .setContent(content)
                 .build();
         this.process(context);

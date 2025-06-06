@@ -117,7 +117,7 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Checking equality: '" + arg + "' == '" + pcmKey + "'");
             if (pcmKey.equals(arg)) {
                 var pcm = parsePCM(prompt);
-                var promptQueue = manager.getPromptRegistry().get(promptContext.getSender());
+                var promptQueue = manager.getPromptRegistry().get(promptContext.getPromptedPlayer());
                 promptQueue.addPCM(pcm);
                 // remove the <-exa some command>
                 promptQueue.setCommand(promptQueue.getCommand().replace(prompt, ""));
@@ -133,7 +133,7 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
                 var cleanPrompt = cleanPrompt(prompt);
-                var sender = promptContext.getSender();
+                var sender = promptContext.getPromptedPlayer();
                 var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt);
                 plugin.getPluginLogger().debug("Prompt args: " + promptArgs);
                 var inputValidator = extractInputValidation(cleanPrompt, (Player) sender);
@@ -158,7 +158,7 @@ public class PromptParser {
                 plugin.getPluginLogger().err("Cause: " + e.getCause());
             }
         }
-        return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+        return manager.getPromptRegistry().get(promptContext.getPromptedPlayer()).hashCode();
     }
 
     private InputValidator extractInputValidation(String prompt, Player player) {

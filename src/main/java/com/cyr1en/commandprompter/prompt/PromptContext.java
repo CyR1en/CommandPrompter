@@ -41,7 +41,8 @@ import java.util.Objects;
  */
 public class PromptContext {
     private final Cancellable cancellable;
-    private final CommandSender sender;
+    private final CommandSender sender; // Command sender that initiated the prompt (usually a player or console).
+    private final Player promptedPlayer; // Player that we're going to send the prompt to.
     private String content;
     private String promptKey;
     private boolean isConsoleDelegate;
@@ -49,25 +50,31 @@ public class PromptContext {
     private final String paKey;
 
     public PromptContext(PlayerCommandPreprocessEvent e) {
-        this(e, e.getPlayer(), e.getMessage(), null, null, false);
+        this(e, e.getPlayer(), e.getPlayer(), e.getMessage(), null, null, false);
     }
 
     public PromptContext(@Nullable Cancellable callable,
-                         Player sender,
+                         CommandSender sender,
+                         Player promptedPlayer,
                          String content,
                          @Nullable String promptKey,
                          @Nullable String paKey,
                          boolean isConsoleDelegate) {
         this.cancellable = callable;
         this.sender = sender;
+        this.promptedPlayer = promptedPlayer;
         this.content = content;
         this.promptKey = promptKey;
         this.paKey = paKey;
         this.isConsoleDelegate = isConsoleDelegate;
     }
 
-    public CommandSender getSender() {
+    public CommandSender getCommandSender() {
         return sender;
+    }
+
+    public Player getPromptedPlayer() {
+        return promptedPlayer;
     }
 
     public Cancellable getCancellable() {
@@ -118,6 +125,7 @@ public class PromptContext {
     public static class Builder {
         private Cancellable cancellable;
         private CommandSender sender;
+        private Player promptedPlayer;
         private String content;
 
         private String promptKey;
@@ -139,8 +147,13 @@ public class PromptContext {
             return this;
         }
 
-        public Builder setSender(CommandSender sender) {
+        public Builder setCommandSender(CommandSender sender) {
             this.sender = sender;
+            return this;
+        }
+
+        public Builder setPromptedPlayer(Player promptedPlayer) {
+            this.promptedPlayer = promptedPlayer;
             return this;
         }
 
@@ -165,11 +178,9 @@ public class PromptContext {
         }
 
         public PromptContext build() {
-            // check if sender and content is null.
             if (sender == null || content == null)
-                throw new IllegalStateException("Sender and content must not be null!");
-            return new PromptContext(cancellable, (Player) sender,
-                    content, promptKey, paKey, isConsoleDelegate);
+                throw new IllegalStateException("Must provide non-null CommandSender, Player, and String!");
+            return new PromptContext(cancellable, sender, promptedPlayer, content, promptKey, paKey, isConsoleDelegate);
         }
     }
 }

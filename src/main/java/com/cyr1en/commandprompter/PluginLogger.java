@@ -7,9 +7,11 @@ import java.awt.*;
 import java.util.Objects;
 import java.util.UnknownFormatConversionException;
 import java.util.logging.Level;
+import java.util.regex.Pattern;
 
 public class PluginLogger {
 
+    private final Pattern placeholderPattern = Pattern.compile("%s(?!\\w)");
     private String prefix;
     private String debugPrefix;
 
@@ -24,7 +26,7 @@ public class PluginLogger {
         this.debugMode = plugin.getConfiguration().debugMode();
 
         // Spread love not war <3
-        normalGrad = new ColorGradient(new Color(1, 88, 181), new Color(246, 206, 0));
+        normalGrad = new ColorGradient(new Color(101, 78, 163), new Color(234, 175, 200));
 
         debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
 
@@ -51,7 +53,7 @@ public class PluginLogger {
     public void log(String prefix, Level level, String msg, Object... args) {
         String pre = prefix == null ? getPrefix() : prefix;
         try {
-            if (msg.matches("%s"))
+            if (placeholderPattern.matcher(msg).find())
                 msg = String.format(msg, args);
         } catch (UnknownFormatConversionException ignore) {
         }

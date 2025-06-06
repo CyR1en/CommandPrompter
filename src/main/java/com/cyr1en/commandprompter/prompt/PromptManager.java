@@ -116,7 +116,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void parse(PromptContext context) {
         var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
+        scheduler.runTaskLater(plugin, () -> cancel(context.getPromptedPlayer(), queueHash), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
@@ -140,7 +140,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void processPrompt(PromptContext context) {
-        var sender = context.getSender();
+        var sender = context.getPromptedPlayer();
 
         if (!getPromptRegistry().containsKey(sender))
             return;
@@ -163,8 +163,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             dispatchQueue(sender, queue);
-        } else if (sender instanceof Player player)
-            sendPrompt(player);
+        } else
+            sendPrompt(sender);
 
     }
 
@@ -222,8 +222,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (validator.validate(context.getContent()))
             return true;
 
-        plugin.getMessenger().sendMessage(context.getSender(), validator.messageOnFail());
-        sendPrompt(context.getSender());
+        plugin.getMessenger().sendMessage(context.getPromptedPlayer(), validator.messageOnFail());
+        sendPrompt(context.getPromptedPlayer());
         return false;
     }
 

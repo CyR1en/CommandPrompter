@@ -65,12 +65,12 @@ public class ChatPrompt extends AbstractPrompt {
         var prefix = getPlugin().getConfiguration().promptPrefix();
         var cancelText = makeCancelButton();
         if (parts.size() == 1) {
-            getContext().getSender().sendMessage(color(prefix + parts.get(0)));
-            getContext().getSender().spigot().sendMessage(cancelText);
+            getContext().getPromptedPlayer().sendMessage(color(prefix + parts.get(0)));
+            getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
             return;
         }
-        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
-        getContext().getSender().spigot().sendMessage(cancelText);
+        parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
+        getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
     }
 
     private void sendWithChatAPI(List<String> parts) {
@@ -81,11 +81,11 @@ public class ChatPrompt extends AbstractPrompt {
             var cancelComponent = makeCancelButton();
             if (cancelComponent.length > 0)
                 component.append(makeCancelButton());
-            getContext().getSender().spigot().sendMessage(component.create());
+            getContext().getPromptedPlayer().spigot().sendMessage(component.create());
             return;
         }
-        parts.forEach(part -> getContext().getSender().sendMessage(color(prefix + part)));
-        getContext().getSender().spigot().sendMessage(makeCancelButton(true));
+        parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
+        getContext().getPromptedPlayer().spigot().sendMessage(makeCancelButton(true));
     }
 
     private BaseComponent[] makeCancelButton() {
@@ -159,7 +159,8 @@ public class ChatPrompt extends AbstractPrompt {
 
             var ctx = new PromptContext.Builder()
                     .setCancellable(event)
-                    .setSender(player)
+                    .setCommandSender(player)
+                    .setPromptedPlayer(player)
                     .setContent(msg).build();
 
             Bukkit.getScheduler().runTask(plugin, () -> manager.processPrompt(ctx));
