@@ -39,7 +39,7 @@ java {
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 13, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 14, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
