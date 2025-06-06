@@ -133,25 +133,35 @@ public class PromptQueue extends LinkedList<Prompt> {
         });
         logger.debug("After parse: " + command);
 
-        if (isConsoleDelegate()) {
-            logger.debug("Dispatching PostCommand as console");
-            Dispatcher.dispatchConsole(command);
+        if (postCommandMeta.dispatcherType != Dispatcher.Type.PASSTHROUGH) {
+            if (postCommandMeta.dispatcherType == Dispatcher.Type.CONSOLE) {
+                logger.debug("Dispatching Piped PostCommand as console");
+                Dispatcher.dispatchConsole(command);
+            } else {
+                logger.debug("Dispatching Piped PostCommand as player");
+                Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            }
         } else {
-            logger.debug("Dispatching PostCommand as player");
-            Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            if (isConsoleDelegate()) {
+                logger.debug("Dispatching PostCommand as console");
+                Dispatcher.dispatchConsole(command);
+            } else {
+                logger.debug("Dispatching PostCommand as player");
+                Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            }
         }
-
     }
 
     /**
      * @param promptIndex This will hold the index of the prompt answers to be
      *                    injected in this post command.
      */
-    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel) {
+    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel,
+                                  Dispatcher.Type dispatcherType) {
         @Override
         public String toString() {
             return "PostCommandMeta{" + "command='" + command + '\'' + ", promptIndex=" + Arrays.toString(promptIndex)
-                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + '}';
+                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + ", dispatcherType=" + dispatcherType + '}';
         }
 
         public String makeAsCommand(LinkedList<String> promptAnswers) {
