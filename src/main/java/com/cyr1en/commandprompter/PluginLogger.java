@@ -1,17 +1,15 @@
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.util.FormatUtil;
 import org.bukkit.Bukkit;
 import org.fusesource.jansi.Ansi;
 
 import java.awt.*;
 import java.util.Objects;
-import java.util.UnknownFormatConversionException;
 import java.util.logging.Level;
-import java.util.regex.Pattern;
 
 public class PluginLogger {
 
-    private final Pattern placeholderPattern = Pattern.compile("%s(?!\\w)");
     private String prefix;
     private String debugPrefix;
 
@@ -52,11 +50,7 @@ public class PluginLogger {
 
     public void log(String prefix, Level level, String msg, Object... args) {
         String pre = prefix == null ? getPrefix() : prefix;
-        try {
-            if (placeholderPattern.matcher(msg).find())
-                msg = String.format(msg, args);
-        } catch (UnknownFormatConversionException ignore) {
-        }
+        msg = FormatUtil.safeFormat(msg, args);
         Bukkit.getLogger().log(level, pre + msg);
     }
 

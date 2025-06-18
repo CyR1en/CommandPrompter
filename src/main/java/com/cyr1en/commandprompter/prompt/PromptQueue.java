@@ -4,6 +4,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.util.FormatUtil;
 import com.cyr1en.commandprompter.util.MMUtil;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
@@ -62,7 +63,7 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public String getCompleteCommand() {
-        command = command.formatted(completed);
+        command = FormatUtil.safeFormat(command, completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
 
         // get all prompts that we have to replace in the command
