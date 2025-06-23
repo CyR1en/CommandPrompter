@@ -21,7 +21,6 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final LinkedList<String> completed;
     private final String escapedRegex;
 
-    private final boolean isOp;
     private final boolean isConsoleDelegate;
     private String permissionAttachmentKey;
 
@@ -29,13 +28,12 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isDelegate,
+    public PromptQueue(String command, boolean isDelegate,
                        String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
-        this.isOp = isOp;
         this.isConsoleDelegate = isDelegate;
         this.permissionAttachmentKey = "";
         this.postCommandMetas = new LinkedList<>();
@@ -44,10 +42,6 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     public void addCompleted(String s) {
         completed.add(s);
-    }
-
-    public boolean isOp() {
-        return isOp;
     }
 
     public String getPermissionAttachmentKey() {
