@@ -66,20 +66,23 @@ repositories {
 dependencies {
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
-    implementation 'net.wesjd:anvilgui:1.10.5-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.0'
     implementation "net.kyori:adventure-text-minimessage:4.21.0"
-    implementation "dev.jorel:commandapi-bukkit-shade:10.0.1"
-    implementation 'de.rapha149.signgui:signgui:2.5.1'
     implementation 'org.openjdk.nashorn:nashorn-core:15.4'
+
+    implementation "dev.jorel:commandapi-bukkit-shade:10.1.0"
+
+    // UI libs
+    implementation 'net.wesjd:anvilgui:1.10.6-SNAPSHOT'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.1'
+    //implementation 'de.rapha149.signgui:signgui:2.5.1'
 
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
     compileOnly "net.kyori:adventure-text-serializer-plain:4.21.0"
     compileOnly 'me.clip:placeholderapi:2.11.6'
     compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
-    compileOnly "org.spigotmc:spigot-api:1.21.3-R0.1-SNAPSHOT"
+    compileOnly "org.spigotmc:spigot-api:1.21.6-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
     compileOnly 'de.hexaoxi:carbonchat-api:3.0.0-beta.26'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
