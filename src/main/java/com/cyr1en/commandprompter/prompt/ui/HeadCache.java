@@ -2,10 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
-import com.cyr1en.commandprompter.hook.hooks.FilterHook;
-import com.cyr1en.commandprompter.hook.hooks.LuckPermsHook;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
-import com.cyr1en.commandprompter.hook.hooks.TownyHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -215,6 +212,13 @@ public class HeadCache implements Listener {
 
     @EventHandler
     @SuppressWarnings("unused")
+    /**
+     * @TODO: Use PlayerConnectionValidateLoginEvent once moved to Paper
+     * "The use of PlayerLoginEvent is now deprecated. This change has been made to allow us to start developing API for the Configuration Phase in Minecraft.
+     *  This most notably allows for dialogs to be sent to the player before they join the game, or for resource packs to be sent before as well.
+     *  This is an early warning. While PlayerLoginEvent will remain available for now, breaking changes may be introduced in the future.
+     *  Plugins relying on this event should begin migrating as soon as possible."
+     */
     public void onPlayerLogin(PlayerLoginEvent e) {
         logger.debug("Caching %s", e.getPlayer());
 

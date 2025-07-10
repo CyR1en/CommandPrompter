@@ -92,8 +92,8 @@ public class ControlPane extends StaticPane {
         addItem(plugin.getPromptConfig().cancelText(), cancelIS, cancelLoc, cancelCMD,
                 c -> {
                     c.setCancelled(true);
-                    plugin.getPromptManager().cancel(ctx.getSender());
-                    ((Player) ctx.getSender()).closeInventory();
+                    plugin.getPromptManager().cancel(ctx.getPromptedPlayer());
+                    ((Player) ctx.getPromptedPlayer()).closeInventory();
                 });
 
         var searchMatString = plugin.getPromptConfig().searchItem();

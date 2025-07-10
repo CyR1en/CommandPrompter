@@ -60,7 +60,10 @@ public class CarbonChatHook extends BaseHook implements Listener {
             var ds = LegacyComponentSerializer.legacyAmpersand().serialize(event.message());
             serializedMsg = prompt.sanitizeInput() ? ds : serializedMsg;
         }
-        var ctx = new PromptContext.Builder().setSender(player).setContent(serializedMsg).build();
+        var ctx = new PromptContext.Builder()
+                .setCommandSender(player)
+                .setPromptedPlayer(player)
+                .setContent(serializedMsg).build();
         Bukkit.getScheduler().runTask(getPlugin(), () -> promptManager.processPrompt(ctx));
     }
 }

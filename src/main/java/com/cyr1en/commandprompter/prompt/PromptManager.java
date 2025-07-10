@@ -67,7 +67,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private static final HashMap<Class<? extends Prompt>, Version> supportTable;
 
-    private static final Version LATEST = Version.parse("1.21.5");
+    private static final Version LATEST = Version.parse("1.21.7");
     // Arbitrary 10 version, that means this should work until minecraft v10 lol "any".
     private static final Version ANY = Version.parse("10");
 
@@ -116,7 +116,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void parse(PromptContext context) {
         var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.runTaskLater(plugin, () -> cancel(context.getSender(), queueHash), 20L * timeout);
+        scheduler.runTaskLater(plugin, () -> cancel(context.getPromptedPlayer(), queueHash), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
@@ -140,7 +140,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     public void processPrompt(PromptContext context) {
-        var sender = context.getSender();
+        var sender = context.getPromptedPlayer();
 
         if (!getPromptRegistry().containsKey(sender))
             return;
@@ -163,8 +163,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             dispatchQueue(sender, queue);
-        } else if (sender instanceof Player player)
-            sendPrompt(player);
+        } else
+            sendPrompt(sender);
 
     }
 
@@ -187,29 +187,17 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     }
 
     private void dispatchQueue(CommandSender sender, PromptQueue queue) {
-        var isCurrentOp = sender.isOp();
-        plugin.getPluginLogger().debug("Is Currently OP?: " + isCurrentOp);
-        plugin.getPluginLogger().debug("PromptQueue OP: " + queue.isOp());
-        if (queue.isOp() && !isCurrentOp) {
-            sender.setOp(true);
-            plugin.getPluginLogger().debug("Gave OP status temporarily");
+        if (!promptRegistry.containsKey(sender)) {
+            plugin.getPluginLogger().err("No prompt queue found for %s", sender.getName());
+            return;
         }
+
         plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
         if (plugin.getConfiguration().showCompleted())
             plugin.getMessenger().sendMessage(sender, plugin.getI18N()
                     .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
 
         queue.dispatch(plugin, (Player) sender);
-
-        if (!isCurrentOp) {
-            sender.setOp(false);
-            plugin.getPluginLogger().debug("Remove OP status");
-            // Redundancy for de-op
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                plugin.getPluginLogger().debug("Remove OP status (redundancy)");
-                sender.setOp(false);
-            }, 2L);
-        }
         promptRegistry.unregister(sender);
     }
 
@@ -222,8 +210,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (validator.validate(context.getContent()))
             return true;
 
-        plugin.getMessenger().sendMessage(context.getSender(), validator.messageOnFail());
-        sendPrompt(context.getSender());
+        plugin.getMessenger().sendMessage(context.getPromptedPlayer(), validator.messageOnFail());
+        sendPrompt(context.getPromptedPlayer());
         return false;
     }
 

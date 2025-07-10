@@ -4,6 +4,7 @@ import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
+import com.cyr1en.commandprompter.util.FormatUtil;
 import com.cyr1en.commandprompter.util.MMUtil;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
@@ -20,7 +21,6 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final LinkedList<String> completed;
     private final String escapedRegex;
 
-    private final boolean isOp;
     private final boolean isConsoleDelegate;
     private String permissionAttachmentKey;
 
@@ -28,13 +28,12 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     private final PluginLogger logger;
 
-    public PromptQueue(String command, boolean isOp, boolean isDelegate,
+    public PromptQueue(String command, boolean isDelegate,
                        String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
         this.completed = new LinkedList<>();
-        this.isOp = isOp;
         this.isConsoleDelegate = isDelegate;
         this.permissionAttachmentKey = "";
         this.postCommandMetas = new LinkedList<>();
@@ -43,10 +42,6 @@ public class PromptQueue extends LinkedList<Prompt> {
 
     public void addCompleted(String s) {
         completed.add(s);
-    }
-
-    public boolean isOp() {
-        return isOp;
     }
 
     public String getPermissionAttachmentKey() {
@@ -62,7 +57,7 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public String getCompleteCommand() {
-        command = command.formatted(completed);
+        command = FormatUtil.safeFormat(command, completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
 
         // get all prompts that we have to replace in the command
@@ -133,25 +128,35 @@ public class PromptQueue extends LinkedList<Prompt> {
         });
         logger.debug("After parse: " + command);
 
-        if (isConsoleDelegate()) {
-            logger.debug("Dispatching PostCommand as console");
-            Dispatcher.dispatchConsole(command);
+        if (postCommandMeta.dispatcherType != Dispatcher.Type.PASSTHROUGH) {
+            if (postCommandMeta.dispatcherType == Dispatcher.Type.CONSOLE) {
+                logger.debug("Dispatching Piped PostCommand as console");
+                Dispatcher.dispatchConsole(command);
+            } else {
+                logger.debug("Dispatching Piped PostCommand as player");
+                Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            }
         } else {
-            logger.debug("Dispatching PostCommand as player");
-            Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            if (isConsoleDelegate()) {
+                logger.debug("Dispatching PostCommand as console");
+                Dispatcher.dispatchConsole(command);
+            } else {
+                logger.debug("Dispatching PostCommand as player");
+                Dispatcher.dispatchCommand(CommandPrompter.getInstance(), sender, command);
+            }
         }
-
     }
 
     /**
      * @param promptIndex This will hold the index of the prompt answers to be
      *                    injected in this post command.
      */
-    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel) {
+    public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel,
+                                  Dispatcher.Type dispatcherType) {
         @Override
         public String toString() {
             return "PostCommandMeta{" + "command='" + command + '\'' + ", promptIndex=" + Arrays.toString(promptIndex)
-                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + '}';
+                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + ", dispatcherType=" + dispatcherType + '}';
         }
 
         public String makeAsCommand(LinkedList<String> promptAnswers) {

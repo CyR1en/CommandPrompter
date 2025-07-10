@@ -46,17 +46,16 @@ public class PromptRegistry extends HashMap<CommandSender, PromptQueue> {
     }
 
     public void initRegistryFor(PromptContext context, String command, String escapedRegex) {
-        if (containsKey(context.getSender()))
+        if (containsKey(context.getPromptedPlayer()))
             return;
 
         var queue = new PromptQueue(
                 command,
-                context.getSender().isOp(),
                 context.isConsoleDelegate(),
                 escapedRegex);
         queue.setPermissionAttachmentKey(context.getPaKey());
 
-        put(context.getSender(), queue);
+        put(context.getPromptedPlayer(), queue);
     }
 
     public void addPrompt(CommandSender sender, Prompt p) {

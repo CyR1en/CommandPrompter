@@ -50,10 +50,10 @@ public class SignPrompt extends AbstractPrompt {
                     .setHandler((p, r) -> process(finalParts, p, r.getLines()))
                     .build();
 
-            gui.open((Player) getContext().getSender());
+            gui.open((Player) getContext().getPromptedPlayer());
         } catch (SignGUIVersionException e) {
             getPlugin().getPluginLogger().err("SignGUI version exception: " + e.getMessage());
-            getPromptManager().cancel(getContext().getSender());
+            getPromptManager().cancel(getContext().getPromptedPlayer());
         }
     }
 
@@ -87,7 +87,8 @@ public class SignPrompt extends AbstractPrompt {
             return Collections.emptyList();
         }
         var ctx = new PromptContext.Builder()
-                .setSender(p)
+                .setCommandSender(p)
+                .setPromptedPlayer(p)
                 .setContent(response).build();
 
         getPromptManager().processPrompt(ctx);

@@ -85,7 +85,7 @@ public class Dispatcher {
      * @param perms   Permissions to set to the PermissionAttachment
      */
     public static void dispatchWithAttachment(Plugin plugin, Player sender, String command, int ticks,
-            @NotNull String[] perms) {
+                                              @NotNull String[] perms) {
         var commandPrompter = (CommandPrompter) plugin;
         var logger = commandPrompter.getPluginLogger();
 
@@ -108,4 +108,40 @@ public class Dispatcher {
         sender.removeAttachment(attachment);
     }
 
+    /**
+     * A helper enum to determine to easily determine which dispatcher to use. This will be used to override
+     * the context of a CommandExecutor.
+     *
+     * <p>
+     * PASSTHROUGH is a default type that indicates that we are not overriding the execution context.
+     */
+    public enum Type {
+        PLAYER("p"),
+        CONSOLE("c"),
+        PASSTHROUGH;
+
+        private String key;
+
+        Type() {
+            this.key = "";
+        }
+
+        Type(String key) {
+            this.key = key;
+        }
+
+        /**
+         * Get the key for this type.
+         *
+         * @param typeStr the type string to parse
+         * @return the key for this type
+         */
+        public static Type parse(String typeStr) {
+            typeStr = typeStr == null ? "" : typeStr.trim().toLowerCase();
+            for (Type value : Type.values())
+                if (value.key.equals(typeStr))
+                    return value;
+            return PASSTHROUGH;
+        }
+    }
 }

@@ -1,11 +1,11 @@
 package com.cyr1en.commandprompter;
 
+import com.cyr1en.commandprompter.util.FormatUtil;
 import org.bukkit.Bukkit;
 import org.fusesource.jansi.Ansi;
 
 import java.awt.*;
 import java.util.Objects;
-import java.util.UnknownFormatConversionException;
 import java.util.logging.Level;
 
 public class PluginLogger {
@@ -24,7 +24,7 @@ public class PluginLogger {
         this.debugMode = plugin.getConfiguration().debugMode();
 
         // Spread love not war <3
-        normalGrad = new ColorGradient(new Color(1, 88, 181), new Color(246, 206, 0));
+        normalGrad = new ColorGradient(new Color(101, 78, 163), new Color(234, 175, 200));
 
         debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
 
@@ -50,11 +50,7 @@ public class PluginLogger {
 
     public void log(String prefix, Level level, String msg, Object... args) {
         String pre = prefix == null ? getPrefix() : prefix;
-        try {
-            if (msg.matches("%s"))
-                msg = String.format(msg, args);
-        } catch (UnknownFormatConversionException ignore) {
-        }
+        msg = FormatUtil.safeFormat(msg, args);
         Bukkit.getLogger().log(level, pre + msg);
     }
 

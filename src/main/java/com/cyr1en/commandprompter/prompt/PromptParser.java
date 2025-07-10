@@ -25,6 +25,7 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
@@ -116,8 +117,8 @@ public class PromptParser {
 
             plugin.getPluginLogger().debug("Checking equality: '" + arg + "' == '" + pcmKey + "'");
             if (pcmKey.equals(arg)) {
-                var pcm = parsePCM(prompt);
-                var promptQueue = manager.getPromptRegistry().get(promptContext.getSender());
+                var pcm = parsePCM(promptContext, prompt);
+                var promptQueue = manager.getPromptRegistry().get(promptContext.getPromptedPlayer());
                 promptQueue.addPCM(pcm);
                 // remove the <-exa some command>
                 promptQueue.setCommand(promptQueue.getCommand().replace(prompt, ""));
@@ -133,7 +134,7 @@ public class PromptParser {
             plugin.getPluginLogger().debug("Prompt to construct: " + pClass.getSimpleName());
             try {
                 var cleanPrompt = cleanPrompt(prompt);
-                var sender = promptContext.getSender();
+                var sender = promptContext.getPromptedPlayer();
                 var promptArgs = ArgumentUtil.findPattern(PromptArgument.class, cleanPrompt);
                 plugin.getPluginLogger().debug("Prompt args: " + promptArgs);
                 var inputValidator = extractInputValidation(cleanPrompt, (Player) sender);
@@ -158,7 +159,7 @@ public class PromptParser {
                 plugin.getPluginLogger().err("Cause: " + e.getCause());
             }
         }
-        return manager.getPromptRegistry().get(promptContext.getSender()).hashCode();
+        return manager.getPromptRegistry().get(promptContext.getPromptedPlayer()).hashCode();
     }
 
     private InputValidator extractInputValidation(String prompt, Player player) {
@@ -205,11 +206,16 @@ public class PromptParser {
         return sRegex.find(Pattern.compile(escapedRegex), promptContext.getContent()).getResultsList();
     }
 
+    // Pattern to check for prompt indices within a prompt that we can use for PCM.
     private static final Pattern PCM_INDEX_PATTERN = Pattern.compile("p:\\d+");
-    private static final Pattern PCM_DELAYED_PATTERN = Pattern.compile("(exa|exac):\\d+");
+    // This checks if PCM has a delay (piped or not piped)
+    private static final Pattern PCM_DELAYED_PATTERN = Pattern.compile("(exa|exac):\\d+(\\|[pc]|)");
+    // This checks if PCM is on cancel
     private static final Pattern PCM_CANCEL_PATTERN = Pattern.compile("exac(:\\d+)?");
+    // This checks if PCM is piped
+    private static final Pattern PCM_PIPED_PATTERN = Pattern.compile("(exa|exac)(:\\d+|)\\|[pc]");
 
-    private PromptQueue.PostCommandMeta parsePCM(String prompt) {
+    private PromptQueue.PostCommandMeta parsePCM(PromptContext ctx, String prompt) {
         plugin.getPluginLogger().debug("Parsing PCM: " + prompt);
 
 
@@ -228,9 +234,17 @@ public class PromptParser {
         }
 
         var delayMatcher = PCM_DELAYED_PATTERN.matcher(prompt);
+        var pipeMatcher = PCM_PIPED_PATTERN.matcher(prompt);
         var isOnCancel = PCM_CANCEL_PATTERN.matcher(prompt).find();
         var delay = delayMatcher.find() ? Integer.parseInt(delayMatcher.group().split(":")[1]) : 0;
-        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes, delay, isOnCancel);
+        var pipeTo = pipeMatcher.find() ? pipeMatcher.group().split("\\|")[1] : "";
+
+        var dispatcherType = Dispatcher.Type.parse(pipeTo);
+        if (dispatcherType != Dispatcher.Type.PASSTHROUGH && ctx.getCommandSender() instanceof Player) {
+            dispatcherType = Dispatcher.Type.PASSTHROUGH;
+            plugin.getPluginLogger().warn("Players cannot pipe post commands to a different executor, defaulting to PASSTHROUGH.");
+        }
+        var pcm = new PromptQueue.PostCommandMeta(cleanPrompt(prompt), indexes, delay, isOnCancel, dispatcherType);
         plugin.getPluginLogger().debug("Parsed PCM: " + pcm);
         return pcm;
     }
@@ -267,7 +281,7 @@ public class PromptParser {
     }
 
     public enum PromptQueueArgument implements Keyable {
-        POST_COMMAND("-([exa|exac]+)(?::(\\d+))?");
+        POST_COMMAND("-(((exac)|(exa))+)(?::(\\d+))?(\\|[pc])?");
 
         private final String key;
 

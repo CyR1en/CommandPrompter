@@ -173,7 +173,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         gui.addPane(skullPane);
         gui.addPane(new ControlPane(getPlugin(), skullPane, gui, getContext(), size, this));
 
-        gui.show((HumanEntity) getContext().getSender());
+        gui.show(getContext().getPromptedPlayer());
     }
 
     private List<ItemStack> prepareHeads(Player p) {
@@ -213,7 +213,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     @Override
     public void sendPrompt() {
-        var p = (Player) getContext().getSender();
+        var p = getContext().getPromptedPlayer();
 
         var missingCached = Bukkit.getOnlinePlayers().stream().filter(player -> !vanishHook.isInvisible(player))
                 .count() > headCache.getHeads().size();
@@ -239,10 +239,11 @@ public class PlayerUIPrompt extends AbstractPrompt {
                 .getName();
         name = Util.stripColor(name);
         var ctx = new PromptContext.Builder()
-                .setSender(getContext().getSender())
+                .setCommandSender(getContext().getCommandSender())
+                .setPromptedPlayer(getContext().getPromptedPlayer())
                 .setContent(name).build();
         getPlugin().getPromptManager().processPrompt(ctx);
         gui.setOnClose(null);
-        ((Player) getContext().getSender()).closeInventory();
+        getContext().getPromptedPlayer().closeInventory();
     }
 }

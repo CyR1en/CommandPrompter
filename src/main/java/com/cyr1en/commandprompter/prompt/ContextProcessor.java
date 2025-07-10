@@ -32,14 +32,14 @@ public class ContextProcessor {
         if (context.getContent().matches(Cancel.commandPattern.toString()))
             return;
 
-        if (!context.getSender().hasPermission("commandprompter.use") &&
+        if (!context.getPromptedPlayer().hasPermission("commandprompter.use") &&
                 plugin.getConfiguration().enablePermission()) {
-            plugin.getMessenger().sendMessage(context.getSender(),
+            plugin.getMessenger().sendMessage(context.getPromptedPlayer(),
                     plugin.getI18N().getProperty("PromptNoPerm"));
             return;
         }
         if (shouldBlock(context)) {
-            plugin.getMessenger().sendMessage(context.getSender(),
+            plugin.getMessenger().sendMessage(context.getPromptedPlayer(),
                     plugin.getI18N().getFormattedProperty("PromptInProgress",
                             plugin.getConfiguration().cancelKeyword()));
             if (context.getCancellable() != null)
@@ -48,22 +48,23 @@ public class ContextProcessor {
         }
 
         if (!promptManager.getParser().isParsable(context)) return;
-        if (!(context.getSender() instanceof Player)) {
-            plugin.getMessenger().sendMessage(context.getSender(),
-                    plugin.getI18N().getProperty("PromptPlayerOnly"));
-            return;
-        }
+
+//        if (!(context.getPromptedPlayer() instanceof Player)) {
+//            plugin.getMessenger().sendMessage(context.getSender(),
+//                    plugin.getI18N().getProperty("PromptPlayerOnly"));
+//            return;
+//        }
 
         if (context.getCancellable() != null)
             context.getCancellable().setCancelled(true);
 
         plugin.getPluginLogger().debug("Ctx Before Parse: " + context);
         promptManager.parse(context);
-        promptManager.sendPrompt(context.getSender());
+        promptManager.sendPrompt(context.getPromptedPlayer());
     }
 
     private boolean shouldBlock(PromptContext context) {
-        var fulfilling = promptManager.getPromptRegistry().inCommandProcess(context.getSender());
+        var fulfilling = promptManager.getPromptRegistry().inCommandProcess(context.getPromptedPlayer());
         var cmd = extractCommand(context.getContent());
         var cmds = plugin.getConfiguration().allowedWhileInPrompt();
         return fulfilling && (!cmds.contains(cmd) && promptManager.getParser().isParsable(context));

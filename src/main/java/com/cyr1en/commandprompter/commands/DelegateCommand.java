@@ -35,7 +35,7 @@ public abstract class DelegateCommand extends ContextProcessor {
 
     public abstract void register();
 
-    public abstract void doCommand(Player targetPlayer, String command, CommandArguments args);
+    public abstract void doCommand(CommandSender sender, Player targetPlayer, String command, CommandArguments args);
 
     protected void exec(CommandSender sender, CommandArguments args) {
         logger.debug("Command Arguments: " + args.fullInput());
@@ -65,7 +65,7 @@ public abstract class DelegateCommand extends ContextProcessor {
         if (delegatedCommand.contains("%target_player%"))
             delegatedCommand = delegatedCommand.replace("%target_player%", targetPlayer.getName());
 
-        doCommand(targetPlayer, delegatedCommand, args);
+        doCommand(sender, targetPlayer, delegatedCommand, args);
     }
 
     public static class ConsoleDelegate extends DelegateCommand {
@@ -83,9 +83,10 @@ public abstract class DelegateCommand extends ContextProcessor {
                     .register();
         }
 
-        public void doCommand(Player targetPlayer, String command, CommandArguments args) {
+        public void doCommand(CommandSender sender, Player targetPlayer, String command, CommandArguments args) {
             var context = new PromptContext.Builder()
-                    .setSender(targetPlayer)
+                    .setCommandSender(targetPlayer)
+                    .setPromptedPlayer(targetPlayer)
                     .setContent(command)
                     .setConsoleDelegate(true)
                     .build();
@@ -117,9 +118,10 @@ public abstract class DelegateCommand extends ContextProcessor {
         }
 
         @Override
-        public void doCommand(Player targetPlayer, String command, CommandArguments args) {
+        public void doCommand(CommandSender sender, Player targetPlayer, String command, CommandArguments args) {
             var context = new PromptContext.Builder()
-                    .setSender(targetPlayer)
+                    .setCommandSender(targetPlayer)
+                    .setPromptedPlayer(targetPlayer)
                     .setContent(command)
                     .setPaKey(args.getRaw("permission"))
                     .build();
