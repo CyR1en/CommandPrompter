@@ -22,7 +22,7 @@ public record PromptConfig(
         // ============================== Player UI ==============================
         @ConfigNode
         @NodeName("PlayerUI.Skull-Name-Format")
-        @NodeDefault("&6%s")
+        @NodeDefault("&6{0}")
         @NodeComment({
                 "PlayerUI formatting", "",
                 "Skull-Name-Format - The display name format",
@@ -174,12 +174,12 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("PlayerUI.Filter-Format.World")
-        @NodeDefault("&6\uD804\uDC4D %s")
+        @NodeDefault("&6\uD804\uDC4D {0}")
         String worldFilterFormat,
 
         @ConfigNode
         @NodeName("PlayerUI.Filter-Format.Radial")
-        @NodeDefault("&cᯤ %s")
+        @NodeDefault("&cᯤ {0}")
         String radialFilterFormat,
 
         // ============================== Anvil UI ==============================

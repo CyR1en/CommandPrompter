@@ -1,7 +1,6 @@
 package com.cyr1en.commandprompter.util;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.kiso.mc.Version;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;

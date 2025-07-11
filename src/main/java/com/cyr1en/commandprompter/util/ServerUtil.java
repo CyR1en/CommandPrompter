@@ -22,10 +22,13 @@ public class ServerUtil {
         return Version.parse(version);
     }
 
-    public static boolean isMojangMapped() {
-        var resolved = ServerType.resolve();
-        var ver = parsedVersion();
-        return (resolved == ServerType.Paper || resolved == ServerType.Purpur) && ver.isNewerThan(Version.parse("1.20.4"));
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     public static boolean BUNGEE_CHAT_AVAILABLE() {

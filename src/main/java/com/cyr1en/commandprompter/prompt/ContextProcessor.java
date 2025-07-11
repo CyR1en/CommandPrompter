@@ -2,10 +2,8 @@ package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
-import org.bukkit.entity.Player;
-import org.fusesource.jansi.Ansi;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import static com.cyr1en.commandprompter.util.MMUtil.mm;
 
 public class ContextProcessor {
 
@@ -24,7 +22,7 @@ public class ContextProcessor {
 
         if (isIgnored(context)) {
             plugin.getPluginLogger().debug("Caught command is ignored.");
-            plugin.getPluginLogger().info(new Ansi().fgGreen().a(context.getContent()).reset() + " is configured to be ignored.");
+            plugin.getPluginLogger().info(mm("<green>" + context.getContent() + "</green> is configured to be ignored."));
             return;
         }
 

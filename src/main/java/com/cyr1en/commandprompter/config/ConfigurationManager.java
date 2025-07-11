@@ -1,7 +1,7 @@
 package com.cyr1en.commandprompter.config;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginLogger;
 import com.cyr1en.commandprompter.config.annotations.field.*;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigHeader;
 import com.cyr1en.commandprompter.config.annotations.type.ConfigPath;

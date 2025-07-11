@@ -1,8 +1,11 @@
 package com.cyr1en.commandprompter.util;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
@@ -25,4 +28,16 @@ public class MMUtil {
         return !Component.text(str).equals(parsed);
     }
 
+    public static Component mm(@NonNull String str, Object... args) {
+        str = FormatUtil.format(str, args);
+        return MiniMessage.miniMessage().deserialize(str);
+    }
+
+    public static Component joinComponents(@NonNull Component... components) {
+        return Component.join(JoinConfiguration.separator(Component.space()), components);
+    }
+
+    public static String plain(@NonNull Component component) {
+        return PlainTextComponentSerializer.plainText().serialize(component);
+    }
 }

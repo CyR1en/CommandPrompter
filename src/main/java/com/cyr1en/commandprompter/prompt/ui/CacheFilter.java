@@ -1,7 +1,6 @@
 package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.commandprompter.config.PromptConfig;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import org.bukkit.Bukkit;
@@ -181,7 +180,7 @@ public abstract class CacheFilter {
             var found = matcher.find();
             //print all groups
             for (int i = 0; i <= matcher.groupCount(); i++) {
-                CommandPrompter.getInstance().getPluginLogger().debug("Group %d: %s", i, matcher.group(i));
+                CommandPrompter.getInstance().getPluginLogger().debug("Group {0}: {1}", i, matcher.group(i));
             }
             var radius = found ? Integer.parseInt(matcher.group(1)) : 0;
             return new RadialFilter(radius);

@@ -105,7 +105,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         }
         // debug all cap groups
         for (int i = 0; i <= matcher.groupCount(); i++) {
-            getPlugin().getPluginLogger().debug("Group %d: %s", i, matcher.group(i));
+            getPlugin().getPluginLogger().debug("Group {0}: {1}", i, matcher.group(i));
         }
 
         var extractedFilters = new ArrayList<CacheFilter>();

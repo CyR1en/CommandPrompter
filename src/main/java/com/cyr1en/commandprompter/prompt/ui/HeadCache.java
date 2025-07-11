@@ -1,7 +1,7 @@
 package com.cyr1en.commandprompter.prompt.ui;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginLogger;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.util.Util;
 import com.google.common.cache.CacheBuilder;
@@ -40,7 +40,7 @@ public class HeadCache implements Listener {
                 .build(new CacheLoader<>() {
                     @Override
                     public @NotNull Optional<ItemStack> load(@NotNull Player key) {
-                        logger.debug("Loading head for %s", key.getName());
+                        logger.debug("Loading head for {0}", key.getName());
                         if (!Bukkit.getOnlinePlayers().contains(key)) {
                             logger.debug("Player is not in online players");
                             return Optional.empty();
@@ -154,12 +154,12 @@ public class HeadCache implements Listener {
         var skullFormat = plugin.getPromptConfig().skullNameFormat();
         var customModelData = plugin.getPromptConfig().skullCustomModelData();
         if (customModelData != 0) {
-            logger.debug("Setting custom model data: %s", customModelData);
+            logger.debug("Setting custom model data: {0}", customModelData);
             skullMeta.setCustomModelData(customModelData);
         }
         var skullName = skullFormat.replaceAll("%s", owningPlayer.getName());
         setDisplayName(skullMeta, skullName);
-        logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
+        logger.debug("Skull Meta: [{0}. {1}]", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
         return skullMeta;
     }
 
@@ -169,7 +169,7 @@ public class HeadCache implements Listener {
         var player = owner.getPlayer();
         if (Objects.isNull(player)) return;
 
-        logger.debug("Setting display name for %s: %s", player.getName(), name);
+        logger.debug("Setting display name for {0}: {1}", player.getName(), name);
         name = name.replace("%s", player.getName());
         name = Util.color(name);
 
@@ -178,7 +178,7 @@ public class HeadCache implements Listener {
         if (!papi.isHooked()) {
             logger.debug("PAPI is not hooked");
             skullMeta.setDisplayName(name);
-            logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
+            logger.debug("Skull Meta: [%s. %s]", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
             return;
         }
 
@@ -186,14 +186,14 @@ public class HeadCache implements Listener {
         if (!hook.papiPlaceholders(name)) {
             logger.debug("No PAPI placeholders found");
             skullMeta.setDisplayName(name);
-            logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
+            logger.debug("Skull Meta: [%s. %s]", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
             return;
         }
 
         name = hook.setPlaceholder(player, name);
         logger.debug("PAPI placeholders found: %s", name);
         skullMeta.setDisplayName(name);
-        logger.debug("Skull Meta: {%s. %s}", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
+        logger.debug("Skull Meta: [%s. %s]", skullMeta.getDisplayName(), skullMeta.getOwningPlayer());
     }
 
     public CompletableFuture<LoadingCache<Player, Optional<ItemStack>>> reBuildCache() {
@@ -220,10 +220,10 @@ public class HeadCache implements Listener {
      *  Plugins relying on this event should begin migrating as soon as possible."
      */
     public void onPlayerLogin(PlayerLoginEvent e) {
-        logger.debug("Caching %s", e.getPlayer());
+        logger.debug("Caching {0}", e.getPlayer());
 
         var cacheDelay = plugin.getPromptConfig().cacheDelay();
-        logger.debug("Caching Delay: %s", cacheDelay);
+        logger.debug("Caching Delay: {0}", cacheDelay);
 
         Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
             if (isVanished(e.getPlayer())) {
@@ -232,13 +232,13 @@ public class HeadCache implements Listener {
             }
 
             HEAD_CACHE.getUnchecked(e.getPlayer());
-            logger.debug("Cache status for %s: %s", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
+            logger.debug("Cache status for {0}: {1}", e.getPlayer(), getHeadFor(e.getPlayer()).isPresent());
         }, cacheDelay);
     }
 
     private boolean isVanished(Player player) {
         var vanishHook = plugin.getHookContainer().getVanishHook();
-        logger.debug("Acquired VanishHook: %s", vanishHook);
+        logger.debug("Acquired VanishHook: {0}", vanishHook);
         if (!vanishHook.isHooked()) return false;
         return vanishHook.get().isInvisible(player);
     }

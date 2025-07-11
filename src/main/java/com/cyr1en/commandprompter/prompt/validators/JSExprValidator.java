@@ -1,7 +1,7 @@
 package com.cyr1en.commandprompter.prompt.validators;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginLogger;
 import com.cyr1en.commandprompter.api.prompt.CompoundableValidator;
 import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;

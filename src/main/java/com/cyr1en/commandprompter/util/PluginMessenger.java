@@ -1,6 +1,5 @@
-package com.cyr1en.commandprompter;
+package com.cyr1en.commandprompter.util;
 
-import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.command.CommandSender;
 
 public class PluginMessenger {

@@ -1,7 +1,7 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginLogger;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.util.FormatUtil;
@@ -57,7 +57,7 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public String getCompleteCommand() {
-        command = FormatUtil.safeFormat(command, completed);
+        command = FormatUtil.format(command, completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
 
         // get all prompts that we have to replace in the command
