@@ -1,7 +1,7 @@
 package com.cyr1en.commandprompter.commands;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.util.Util;
+import com.cyr1en.commandprompter.util.AdventureUtil;
 import dev.jorel.commandapi.CommandAPI;
 import dev.jorel.commandapi.CommandAPIBukkitConfig;
 
@@ -30,7 +30,7 @@ public class CommandAPIWrapper {
                 : config.silentLogs(true).verboseOutput(false);
 
         var msg = plugin.getI18N().getProperty("DelegateConsoleOnly");
-        config.missingExecutorImplementationMessage(Util.color(msg));
+        config.missingExecutorImplementationMessage(AdventureUtil.legacyColor(msg));
         CommandAPI.onLoad(config);
     }
 

@@ -31,7 +31,6 @@ import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
-import com.cyr1en.commandprompter.util.Util;
 
 import java.util.List;
 
@@ -59,13 +58,6 @@ public abstract class AbstractPrompt implements Prompt {
         this.validator = new NoopValidator();
     }
 
-    protected String stripColor(String msg) {
-        return Util.stripColor(msg);
-    }
-
-    protected String color(String msg) {
-        return Util.color(msg);
-    }
 
     @Override
     public abstract void sendPrompt();

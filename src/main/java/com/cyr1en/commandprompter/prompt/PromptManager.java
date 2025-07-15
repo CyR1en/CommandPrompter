@@ -31,10 +31,8 @@ import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.util.ServerUtil;
-import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.mc.Version;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -46,7 +44,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.cyr1en.commandprompter.util.MMUtil.mm;
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 /**
  * Class that would manage all prompts.
@@ -100,8 +98,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (!supportTable.containsKey(value)) return null;
         var version = supportTable.get(value);
         var serverVersion = ServerUtil.parsedVersion();
-        plugin.getPluginLogger().debug("Server Version: " + serverVersion);
-        plugin.getPluginLogger().debug("Prompt Version: " + version);
+        plugin.getPluginLogger().debug("Server Version: {0}", serverVersion);
+        plugin.getPluginLogger().debug("Prompt Version: {0}", version);
 
         if (serverVersion.isNewerThan(version)) {
             plugin.getPluginLogger().warn("Prompt {0} is not supported on this server version", value.getSimpleName());
@@ -219,7 +217,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private String sanitize(String input) {
         plugin.getPluginLogger().debug("Sanitizing input: " + input);
-        input = Util.stripColor(ChatColor.translateAlternateColorCodes('&', input));
+        input = plain(input);
         input = symbols.matcher(input).replaceAll("");
         plugin.getPluginLogger().debug("Sanitized input: " + input);
         return input;

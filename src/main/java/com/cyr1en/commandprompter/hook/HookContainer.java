@@ -11,7 +11,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 
-import static com.cyr1en.commandprompter.util.MMUtil.mm;
+import static com.cyr1en.commandprompter.util.AdventureUtil.mm;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 

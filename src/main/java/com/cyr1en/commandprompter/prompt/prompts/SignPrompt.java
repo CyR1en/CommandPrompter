@@ -14,6 +14,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
+
 public class SignPrompt extends AbstractPrompt {
 
     private static final String MULTI_ARG_PATTERN_EMPTY = "[\\S+]+:";
@@ -62,7 +64,7 @@ public class SignPrompt extends AbstractPrompt {
     }
 
     private List<SignGUIAction> process(List<String> parts, Player p, String[] s) {
-        var cleanedParts = parts.stream().map(this::stripColor).toList();
+        var cleanedParts = parts.stream().map(str -> plain(str)).toList();
         getPlugin().getPluginLogger().debug("Sign Strings: " + Arrays.toString(s));
 
         var response = isMultiArg

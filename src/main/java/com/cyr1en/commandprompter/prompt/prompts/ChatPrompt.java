@@ -29,61 +29,43 @@ import com.cyr1en.commandprompter.hook.hooks.CarbonChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
-import com.cyr1en.commandprompter.util.MMUtil;
-import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
+
+import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.RegisteredListener;
-import org.checkerframework.checker.units.qual.C;
 
 import java.util.*;
 
-import static com.cyr1en.commandprompter.util.MMUtil.*;
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 public class ChatPrompt extends AbstractPrompt {
 
     public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-                      List<PromptParser.PromptArgument> args) {
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
     public void sendPrompt() {
         List<String> parts = Arrays.stream(getPrompt().split("\\{br}")).map(String::trim).toList();
-        if (ServerUtil.BUNGEE_CHAT_AVAILABLE())
-            sendWithChatAPI(parts);
-        else
-            sendWithDefault(parts);
+        send(parts);
     }
 
-    private void sendWithDefault(List<String> parts) {
-        var prefix = getPlugin().getConfiguration().promptPrefix();
-        var cancelText = makeCancelButton();
-        if (parts.size() == 1) {
-            getContext().getPromptedPlayer().sendMessage(color(prefix + parts.getFirst()));
-            getContext().getPromptedPlayer().sendMessage(cancelText);
-            return;
-        }
-        parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
-        getContext().getPromptedPlayer().sendMessage(cancelText);
-    }
-
-    private void sendWithChatAPI(List<String> parts) {
+    private void send(List<String> parts) {
         var prefix = getPlugin().getConfiguration().promptPrefix();
         if (parts.size() == 1) {
             var msg = color(prefix + parts.getFirst() + " ");
             var cancelComponent = makeCancelButton();
-            var component = Objects.nonNull(cancelComponent) ? joinComponents(Component.text(msg), cancelComponent) : Component.text(msg);
+            var component = cancelComponent.equals(Component.empty()) ? joinComponents(msg, cancelComponent) : msg;
             getContext().getPromptedPlayer().sendMessage(component);
             return;
         }
@@ -96,14 +78,13 @@ public class ChatPrompt extends AbstractPrompt {
     }
 
     private Component makeCancelButton(boolean addPrefix) {
-        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE() || !getPlugin().getPromptConfig().sendCancelText())
+        if (!getPlugin().getPromptConfig().sendCancelText())
             return Component.empty();
 
         var prefix = getPlugin().getConfiguration().promptPrefix();
         var cancelMessage = getPlugin().getPromptConfig().textCancelMessage();
         cancelMessage = addPrefix ? prefix + cancelMessage : cancelMessage;
         var hoverMessage = getPlugin().getPromptConfig().textCancelHoverMessage();
-
 
         return Component.text(cancelMessage)
                 .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/commandprompter cancel"))
@@ -114,14 +95,14 @@ public class ChatPrompt extends AbstractPrompt {
         var container = plugin.getHookContainer();
         var ccHook = container.getHook(CarbonChatHook.class);
         ccHook.ifHooked((e) -> {
-                    var res = e.subscribe();
-                    if (!res) {
-                        registerDefault(plugin);
-                        plugin.getPluginLogger().info("Using default listener");
-                        return;
-                    }
-                    plugin.getPluginLogger().info("Using CarbonChat listener");
-                })
+            var res = e.subscribe();
+            if (!res) {
+                registerDefault(plugin);
+                plugin.getPluginLogger().info("Using default listener");
+                return;
+            }
+            plugin.getPluginLogger().info("Using CarbonChat listener");
+        })
                 .orElse(() -> {
                     registerDefault(plugin);
                     plugin.getPluginLogger().info("Using default listener");
@@ -143,8 +124,9 @@ public class ChatPrompt extends AbstractPrompt {
             this.manager = plugin.getPromptManager();
         }
 
-        public void onResponse(Player player, String msg, Cancellable event) {
+        public void onResponse(Player player, Component msgComponent, Cancellable event) {
             plugin.getPluginLogger().debug("Cancellable event: " + event.getClass().getSimpleName());
+            var msg = toLegacyColor(msgComponent);
             msg = msg.replace("§", "&");
             if (!manager.getPromptRegistry().inCommandProcess(player))
                 return;
@@ -172,12 +154,10 @@ public class ChatPrompt extends AbstractPrompt {
     public static class DefaultListener implements Listener {
 
         private final PromptManager manager;
-        private final CommandPrompter plugin;
         private final ResponseHandler handler;
 
         public DefaultListener(PromptManager manager, CommandPrompter plugin) {
             this.manager = manager;
-            this.plugin = plugin;
             this.handler = new ResponseHandler(plugin);
         }
 
@@ -186,8 +166,8 @@ public class ChatPrompt extends AbstractPrompt {
         }
 
         @EventHandler(priority = EventPriority.LOWEST)
-        public void onChat(AsyncPlayerChatEvent event) {
-            var plain = event.getMessage();
+        public void onChat(AsyncChatEvent event) {
+            var plain = event.message();
             handler.onResponse(event.getPlayer(), plain, event);
         }
 
@@ -220,7 +200,7 @@ public class ChatPrompt extends AbstractPrompt {
             var logger = plugin.getPluginLogger();
             logger.debug("Setting PromptResponseListener priority from '{0}' to '{1}'",
                     getCurrentEventPriority(plugin).name(), newPriority.name());
-            var handlerList = AsyncPlayerChatEvent.getHandlerList();
+            var handlerList = AsyncChatEvent.getHandlerList();
             try {
                 var handlerSlotsF = handlerList.getClass().getDeclaredField("handlerslots");
                 handlerSlotsF.setAccessible(true);
@@ -249,7 +229,7 @@ public class ChatPrompt extends AbstractPrompt {
         }
 
         private static EventPriority getCurrentEventPriority(CommandPrompter plugin) {
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+            for (RegisteredListener registeredListener : AsyncChatEvent.getHandlerList()
                     .getRegisteredListeners()) {
                 if (registeredListener.getPlugin().getName().equals(plugin.getName()))
                     return registeredListener.getPriority();
@@ -260,7 +240,7 @@ public class ChatPrompt extends AbstractPrompt {
         private static void listAllRegisteredListeners(CommandPrompter plugin) {
             var logger = plugin.getPluginLogger();
             logger.debug("Registered Listeners: ");
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+            for (RegisteredListener registeredListener : AsyncChatEvent.getHandlerList()
                     .getRegisteredListeners()) {
                 logger.debug("  - '{0}'", registeredListener.getListener().getClass().getSimpleName());
                 logger.debug("      Priority: " + registeredListener.getPriority());

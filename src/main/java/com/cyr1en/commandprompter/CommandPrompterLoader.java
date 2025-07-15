@@ -12,7 +12,7 @@ public class CommandPrompterLoader implements PluginLoader {
     @Override
     public void classloader(PluginClasspathBuilder classpathBuilder) {
         MavenLibraryResolver resolver = new MavenLibraryResolver();
-        resolver.addRepository(new RemoteRepository.Builder("central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
+        resolver.addRepository(new RemoteRepository.Builder("central", "default", "https://maven-central.storage-download.googleapis.com/maven2").build());
         resolver.addDependency(new Dependency(new DefaultArtifact("org.openjdk.nashorn:nashorn-core:15.4"), null));
         classpathBuilder.addLibrary(resolver);
     }

@@ -27,16 +27,21 @@ package com.cyr1en.commandprompter.prompt.prompts;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptParser;
+import com.cyr1en.commandprompter.prompt.ui.anvil.AnvilGUI;
+import com.cyr1en.commandprompter.util.AdventureUtil;
+import com.cyr1en.commandprompter.util.ModelDataComponent;
 import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
-import net.wesjd.anvilgui.AnvilGUI;
-import org.bukkit.ChatColor;
+
+import net.kyori.adventure.text.Component;
+
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@SuppressWarnings("UnstableApiUsage")
 public class AnvilPrompt extends AbstractPrompt {
 
     public static char BLANK_CHAR = '\u00A0'; // No-Break Space
@@ -73,13 +79,13 @@ public class AnvilPrompt extends AbstractPrompt {
 
         var promptText = getPlugin().getPromptConfig().promptMessage();
 
-        var text = (promptText.isBlank()) ? color(parts.get(0)) : promptText.equals("BLANK") ?
-                String.valueOf(BLANK_CHAR) : color(promptText);
+        String text = (promptText.isBlank()) ? plain(mm(parts.getFirst()))
+                : promptText.equals("BLANK") ? String.valueOf(BLANK_CHAR) : plain(mm(promptText));
         builder.text(text);
 
         if (getPlugin().getPromptConfig().enableTitle()) {
             var title = getPlugin().getPromptConfig().customTitle();
-            title = title.isEmpty() ? color(parts.get(0)) : color(title);
+            title = title.isEmpty() ? plain(mm(parts.getFirst())) : plain(mm(title));
             builder.title(title);
         }
 
@@ -105,8 +111,7 @@ public class AnvilPrompt extends AbstractPrompt {
             if (slot != AnvilGUI.Slot.OUTPUT)
                 return Collections.emptyList();
 
-            var message = ChatColor.stripColor(
-                    ChatColor.translateAlternateColorCodes('&', stateSnapshot.getText()));
+            var message = plain(Component.text(stateSnapshot.getText()));
             var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
             if (cancelKeyword.equalsIgnoreCase(message)) {
                 getPromptManager().cancel(stateSnapshot.getPlayer());
@@ -144,17 +149,17 @@ public class AnvilPrompt extends AbstractPrompt {
 
         Objects.requireNonNull(meta).addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         if (customTitle != null)
-            meta.setDisplayName(customTitle);
+            meta.displayName(mm(customTitle));
         else {
-            meta.setDisplayName(parts.get(0));
-
-            meta.setDisplayName(parts.get(0));
+            meta.displayName(mm(parts.getFirst()));
 
             if (parts.size() > 1)
-                meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
+                meta.lore(parts.subList(1, parts.size()).stream().map(AdventureUtil::color).toList());
 
-            if (customModelData != 0)
-                meta.setCustomModelData(customModelData);
+            if (customModelData != 0) {
+                var data = ModelDataComponent.legacy(customModelData);
+                meta.setCustomModelDataComponent(data);
+            }
 
             if (ServerUtil.isAtOrAbove("1.21.2")) {
                 meta.setHideTooltip(hideTooltips);
@@ -179,6 +184,6 @@ public class AnvilPrompt extends AbstractPrompt {
 
     private ItemStack makeCancelItem(List<String> parts) {
         var cancelText = getPlugin().getPromptConfig().cancelItemHoverText();
-        return makeItem("AnvilGUI.CancelItem", parts, Util.color(cancelText));
+        return makeItem("AnvilGUI.CancelItem", parts, legacyColor(cancelText));
     }
 }

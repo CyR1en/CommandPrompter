@@ -25,6 +25,7 @@
 package com.cyr1en.commandprompter.api;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -88,7 +89,7 @@ public class Dispatcher {
                                               @NotNull String[] perms) {
         var commandPrompter = (CommandPrompter) plugin;
         var logger = commandPrompter.getPluginLogger();
-
+        
         logger.debug("Dispatching command with permission attachment");
 
         var attachment = sender.addAttachment(plugin, ticks);

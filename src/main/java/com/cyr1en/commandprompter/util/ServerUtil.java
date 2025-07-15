@@ -31,15 +31,6 @@ public class ServerUtil {
         }
     }
 
-    public static boolean BUNGEE_CHAT_AVAILABLE() {
-        try {
-            Class.forName("net.md_5.bungee.api.ChatColor");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
     public static ServerType resolve() {
         return ServerType.resolve();
     }

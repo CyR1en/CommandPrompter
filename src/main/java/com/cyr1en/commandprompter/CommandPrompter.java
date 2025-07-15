@@ -40,7 +40,6 @@ import com.cyr1en.commandprompter.util.PluginMessenger;
 import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
-import com.cyr1en.kiso.utils.SRegex;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -49,7 +48,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
 
-import static com.cyr1en.commandprompter.util.MMUtil.mm;
+import static com.cyr1en.commandprompter.util.AdventureUtil.mm;
 
 public class CommandPrompter extends JavaPlugin {
 
@@ -146,7 +145,7 @@ public class CommandPrompter extends JavaPlugin {
             return;
         Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (updateChecker.newVersionAvailable())
-                logger.info(mm("<green>A new update is available! (%s)</green>", updateChecker.getCurrVersion().asString()));
+                logger.info(mm("<green>A new update is available! ({0})</green>", updateChecker.getCurrVersion().asString()));
             else
                 logger.info("No update was found.");
         });

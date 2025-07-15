@@ -1,10 +1,14 @@
 package com.cyr1en.commandprompter.commands;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+
+import com.cyr1en.commandprompter.prompt.ui.anvil.AnvilGUI;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.executors.CommandArguments;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.regex.Pattern;
 
@@ -20,6 +24,7 @@ public class MainCommand {
     public void register() {
         var command = new CommandAPICommand("commandprompter")
                 .withAliases("cmdp")
+                .withSubcommand(new TestCommand(plugin))
                 .withSubcommand(new Reload(plugin))
                 .withSubcommand(new Cancel(plugin))
                 .withSubcommand(new RebuildHeadCache(plugin));
@@ -100,6 +105,42 @@ public class MainCommand {
 
     }
 
+    public static class TestCommand extends CommandAPICommand {
 
+        private final CommandPrompter plugin;
+
+        public TestCommand(CommandPrompter plugin) {
+            super("test");
+            this.plugin = plugin;
+            withPermission("commandprompter.test");
+            executes(this::exec);
+        }
+
+        public void exec(CommandSender sender, CommandArguments args) {
+            var entity = (Player) sender;
+            new AnvilGUI.Builder()
+                    .onClose(stateSnapshot -> {
+                        stateSnapshot.getPlayer().sendMessage("You closed the inventory.");
+                    })
+                    .onClick((slot, stateSnapshot) -> { // Either use sync or async variant, not both
+                        if (slot != AnvilGUI.Slot.OUTPUT) {
+                            return Collections.emptyList();
+                        }
+
+                        if (stateSnapshot.getText().equalsIgnoreCase("you")) {
+                            stateSnapshot.getPlayer().sendMessage("You have magical powers!");
+                            return Arrays.asList(AnvilGUI.ResponseAction.close());
+                        } else {
+                            return Arrays.asList(AnvilGUI.ResponseAction.replaceInputText("Try again"));
+                        }
+                    })
+                    .preventClose()                                                    //prevents the inventory from being closed
+                    .text("What is the meaning of life?")                              //sets the text the GUI should start with
+                    .title("Enter your answer.")                                       //set the title of the GUI (only works in 1.14+)
+                    .plugin(plugin)                                          //set the plugin instance
+                    .open(entity);
+        }
+
+    }
 
 }

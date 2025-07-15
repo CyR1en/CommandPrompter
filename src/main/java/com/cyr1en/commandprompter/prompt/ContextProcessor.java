@@ -3,7 +3,7 @@ package com.cyr1en.commandprompter.prompt;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.commands.MainCommand.Cancel;
 
-import static com.cyr1en.commandprompter.util.MMUtil.mm;
+import static com.cyr1en.commandprompter.util.AdventureUtil.mm;
 
 public class ContextProcessor {
 

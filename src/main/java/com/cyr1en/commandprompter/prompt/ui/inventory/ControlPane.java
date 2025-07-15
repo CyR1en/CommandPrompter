@@ -3,13 +3,14 @@ package com.cyr1en.commandprompter.prompt.ui.inventory;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
+import com.cyr1en.commandprompter.prompt.ui.anvil.AnvilGUI;
+import com.cyr1en.commandprompter.util.ModelDataComponent;
 import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
 import com.github.stefvanschie.inventoryframework.gui.GuiItem;
 import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
 import com.github.stefvanschie.inventoryframework.pane.PaginatedPane;
 import com.github.stefvanschie.inventoryframework.pane.StaticPane;
-import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -19,6 +20,9 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
+
+@SuppressWarnings("UnstableApiUsage")
 public class ControlPane extends StaticPane {
     private static final int DEFAULT_PREV_LOC = 2;
     private static final int DEFAULT_NEXT_LOC = 6;
@@ -36,7 +40,8 @@ public class ControlPane extends StaticPane {
     private int cancelLoc;
     private int searchLoc;
 
-    public ControlPane(CommandPrompter plugin, PaginatedPane pane, ChestGui gui, PromptContext ctx, int numCols, PlayerUIPrompt playerUIPrompt) {
+    public ControlPane(CommandPrompter plugin, PaginatedPane pane, ChestGui gui, PromptContext ctx, int numCols,
+            PlayerUIPrompt playerUIPrompt) {
         super(0, numCols - 1, 9, 1);
         this.plugin = plugin;
         this.playerUIPrompt = playerUIPrompt;
@@ -117,13 +122,14 @@ public class ControlPane extends StaticPane {
                 return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
 
-            var input = Util.stripColor(stateSnapshot.getText());
+            var input = plain(stateSnapshot.getText());
             plugin.getPluginLogger().debug("Search: " + input);
 
             var heads = paginatedPane.getItems().stream().map(GuiItem::getItem).filter(item -> {
                 var meta = item.getItemMeta();
-                if (meta == null) return false;
-                var displayName = Util.stripColor(meta.getDisplayName());
+                if (meta == null)
+                    return false;
+                var displayName = plain(Objects.requireNonNull(meta.displayName()));
                 return displayName.toLowerCase().contains(input.toLowerCase());
             }).toList();
             paginatedPane.clear();
@@ -132,7 +138,7 @@ public class ControlPane extends StaticPane {
             return Collections.singletonList(AnvilGUI.ResponseAction.close());
         });
 
-        builder.title(Util.color(plugin.getPromptConfig().searchAnvilItemTitle()));
+        builder.title(plain(plugin.getPromptConfig().searchAnvilItemTitle()));
         builder.plugin(plugin);
         builder.itemLeft(getSearchLeftItem());
         builder.onClose(c -> playerUIPrompt.setSearching(false));
@@ -147,9 +153,10 @@ public class ControlPane extends StaticPane {
             return item;
         }
         var configText = plugin.getPromptConfig().searchAnvilItemText();
-        itemMeta.setDisplayName(Util.color(configText));
+        itemMeta.displayName(color(configText));
 
-        itemMeta.setCustomModelData(plugin.getPromptConfig().searchAnvilItemCustomModelData());
+        var data = ModelDataComponent.legacy(plugin.getPromptConfig().searchAnvilItemCustomModelData());
+        itemMeta.setCustomModelDataComponent(data);
 
         if (ServerUtil.isAtOrAbove("1.21.2"))
             itemMeta.setHideTooltip(true);
@@ -159,10 +166,15 @@ public class ControlPane extends StaticPane {
     }
 
     private void addItem(String name, ItemStack itemStack, int x, int customModelData,
-                         Consumer<InventoryClickEvent> consumer) {
+            Consumer<InventoryClickEvent> consumer) {
         var itemMeta = itemStack.getItemMeta();
-        Objects.requireNonNull(itemMeta).setDisplayName(Util.color(name));
-        itemMeta.setCustomModelData(customModelData == 0 ? null : customModelData);
+        Objects.requireNonNull(itemMeta).displayName(color(name));
+
+        var builder = ModelDataComponent.builder();
+        if (customModelData != 0)
+            builder.floatsFromInt(customModelData);
+        itemMeta.setCustomModelDataComponent(builder.build());
+
         itemStack.setItemMeta(itemMeta);
         addItem(new GuiItem(itemStack, consumer), x, 0);
     }

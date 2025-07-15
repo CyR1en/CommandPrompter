@@ -26,7 +26,9 @@ plugins {
     id "io.github.goooler.shadow" version "8.1.7"
     id 'java'
     id 'maven-publish'
+    id 'io.papermc.paperweight.userdev' version '2.0.0-beta.18'
 }
+
 
 compileJava.options.encoding = "UTF-8"
 compileTestJava.options.encoding = "UTF-8"
@@ -60,10 +62,13 @@ repositories {
     maven { url 'https://jitpack.io' }
     maven { url 'https://repo.glaremasters.me/repository/towny/' }
     maven { url 'https://repo.william278.net/releases' }
+    maven { url 'https://repo.opencollab.dev/main/' }
     flatDir { dirs 'libs' }
 }
 
 dependencies {
+    paperweight.paperDevBundle("1.21.7-R0.1-SNAPSHOT")
+
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
@@ -71,12 +76,13 @@ dependencies {
     implementation "dev.jorel:commandapi-bukkit-shade-mojang-mapped:10.1.1"
 
     // UI libs
-    implementation 'net.wesjd:anvilgui:1.10.6-SNAPSHOT'
+    //implementation 'net.wesjd:anvilgui:1.10.6-SNAPSHOT'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.2'
+    implementation "dev.triumphteam:triumph-gui:3.1.12"
     implementation 'de.rapha149.signgui:signgui:2.5.2'
 
-    compileOnly 'io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT'
     compileOnly 'org.openjdk.nashorn:nashorn-core:15.4'
+    compileOnly 'org.geysermc.geyser:api:2.7.0-SNAPSHOT'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
     compileOnly "net.kyori:adventure-text-serializer-plain:4.21.0"
     compileOnly 'me.clip:placeholderapi:2.11.6'
