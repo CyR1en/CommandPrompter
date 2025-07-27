@@ -66,10 +66,14 @@ public class ChatPrompt extends AbstractPrompt {
         var cancelText = makeCancelButton();
         if (parts.size() == 1) {
             getContext().getPromptedPlayer().sendMessage(color(prefix + parts.get(0)));
-            getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
+            if (!Arrays.equals(cancelText, new BaseComponent[0]))
+                getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
             return;
         }
         parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
+        getPlugin().getPluginLogger().debug("Cancel component length: " + cancelText.length);
+        if (Arrays.equals(cancelText, new BaseComponent[0]))
+            return;
         getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
     }
 
@@ -79,13 +83,17 @@ public class ChatPrompt extends AbstractPrompt {
             var msg = color(prefix + parts.get(0) + " ");
             var component = new ComponentBuilder().append(TextComponent.fromLegacy(msg));
             var cancelComponent = makeCancelButton();
-            if (cancelComponent.length > 0)
-                component.append(makeCancelButton());
+            if (!Arrays.equals(cancelComponent, new BaseComponent[0]))
+                component.append(cancelComponent);
             getContext().getPromptedPlayer().spigot().sendMessage(component.create());
             return;
         }
         parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
-        getContext().getPromptedPlayer().spigot().sendMessage(makeCancelButton(true));
+        var cancelComponent = makeCancelButton(true);
+        getPlugin().getPluginLogger().debug("Cancel component length: " + cancelComponent.length);
+        if (Arrays.equals(cancelComponent, new BaseComponent[0]))
+            return;
+        getContext().getPromptedPlayer().spigot().sendMessage(cancelComponent);
     }
 
     private BaseComponent[] makeCancelButton() {
