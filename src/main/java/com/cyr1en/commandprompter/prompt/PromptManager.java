@@ -67,7 +67,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private static final HashMap<Class<? extends Prompt>, Version> supportTable;
 
-    private static final Version LATEST = Version.parse("1.21.7");
+    private static final Version LATEST = Version.parse("1.21.8");
     // Arbitrary 10 version, that means this should work until minecraft v10 lol "any".
     private static final Version ANY = Version.parse("10");
 
@@ -75,7 +75,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         supportTable = new HashMap<>();
         supportTable.put(ChatPrompt.class, ANY);
         supportTable.put(AnvilPrompt.class, LATEST);
-        supportTable.put(PlayerUIPrompt.class, LATEST);
+        supportTable.put(PlayerUIPrompt.class, Version.parse("1.21.7"));
         supportTable.put(SignPrompt.class, LATEST);
     }
 
