@@ -100,7 +100,7 @@ public class PromptQueue extends LinkedList<Prompt> {
         } else if (!permissionAttachmentKey.isBlank()) {
             Dispatcher.dispatchWithAttachment(plugin, sender, getCompleteCommand(),
                     plugin.getConfiguration().permissionAttachmentTicks(),
-                    plugin.getConfiguration().getPermissionAttachment(permissionAttachmentKey));
+                    plugin.getConfiguration().getPermissionAttachment(getPermissionAttachmentKey()));
         } else
             Dispatcher.dispatchCommand(plugin, sender, getCompleteCommand());
 
