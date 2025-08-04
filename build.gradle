@@ -26,20 +26,22 @@ plugins {
     id "io.github.goooler.shadow" version "8.1.7"
     id 'java'
     id 'maven-publish'
+    id 'io.papermc.paperweight.userdev' version '2.0.0-beta.18'
 }
+
 
 compileJava.options.encoding = "UTF-8"
 compileTestJava.options.encoding = "UTF-8"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 15, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 3, minor: 0, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -50,7 +52,7 @@ version = pluginManifest.version.toString()
 
 repositories {
     mavenCentral()
-    maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
     maven { url 'https://libraries.minecraft.net/' }
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
@@ -60,16 +62,16 @@ repositories {
     maven { url 'https://jitpack.io' }
     maven { url 'https://repo.glaremasters.me/repository/towny/' }
     maven { url 'https://repo.william278.net/releases' }
+    maven { url 'https://repo.opencollab.dev/main/' }
     flatDir { dirs 'libs' }
 }
 
 dependencies {
+    paperweight.paperDevBundle("1.21.7-R0.1-SNAPSHOT")
+
     implementation 'com.cyr1en:kiso-utils:1.8-SNAPSHOT'
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
-    implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation "net.kyori:adventure-text-minimessage:4.21.0"
-    implementation 'org.openjdk.nashorn:nashorn-core:15.4'
 
     implementation "dev.jorel:commandapi-bukkit-shade:10.1.2"
 
@@ -78,11 +80,12 @@ dependencies {
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.2'
     implementation 'de.rapha149.signgui:signgui:2.5.4'
 
+    compileOnly 'org.openjdk.nashorn:nashorn-core:15.4'
+    compileOnly 'org.geysermc.geyser:api:2.7.0-SNAPSHOT'
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
     compileOnly "net.kyori:adventure-text-serializer-plain:4.21.0"
     compileOnly 'me.clip:placeholderapi:2.11.6'
     compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
-    compileOnly "org.spigotmc:spigot-api:1.21.6-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
     compileOnly 'de.hexaoxi:carbonchat-api:3.0.0-beta.26'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
@@ -102,6 +105,12 @@ configurations.implementation {
 
 tasks.named('jar').configure { enabled = true }
 
+tasks.shadowJar {
+    manifest {
+        attributes["paperweight-mappings-namespace"] = "mojang"
+    }
+}
+
 shadowJar {
     dependencies {
         exclude(dependency('com.mojang:brigadier'))
@@ -111,7 +120,6 @@ shadowJar {
     archiveClassifier.set('')
     archiveVersion.set(pluginManifest.version.getFullVersion())
 
-    //relocate 'net.kyori.adventure', 'com.cyr1en.adventure'
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
     relocate 'net.wesjd.anvilgui', 'com.cyr1en.anvilgui'
     relocate 'de.rapha149.signgui', 'com.cyr1en.signgui'
@@ -130,7 +138,7 @@ processResources {
                 'projectDescription': pluginManifest.description,
                 'projectEntry': pluginManifest.entry
         )
-        include 'plugin.yml'
+        include 'paper-plugin.yml'
     }
 }
 

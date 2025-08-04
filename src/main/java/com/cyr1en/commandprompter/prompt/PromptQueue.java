@@ -1,11 +1,11 @@
 package com.cyr1en.commandprompter.prompt;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginLogger;
 import com.cyr1en.commandprompter.api.Dispatcher;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
-import com.cyr1en.commandprompter.util.FormatUtil;
-import com.cyr1en.commandprompter.util.MMUtil;
+import com.cyr1en.commandprompter.util.AdventureUtil;
+import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
 
@@ -29,7 +29,7 @@ public class PromptQueue extends LinkedList<Prompt> {
     private final PluginLogger logger;
 
     public PromptQueue(String command, boolean isDelegate,
-                       String escapedRegex) {
+            String escapedRegex) {
         super();
         this.command = command;
         this.escapedRegex = escapedRegex;
@@ -57,13 +57,13 @@ public class PromptQueue extends LinkedList<Prompt> {
     }
 
     public String getCompleteCommand() {
-        command = FormatUtil.safeFormat(command, completed);
+        command = Util.format(command, completed);
         LinkedList<String> completedClone = new LinkedList<>(this.completed);
 
         // get all prompts that we have to replace in the command
         var sRegex = new SRegex();
         var prompts = sRegex.find(Pattern.compile(escapedRegex), command).getResultsList();
-        prompts = MMUtil.filterOutMiniMessageTags(prompts);
+        prompts = AdventureUtil.filterOutMiniMessageTags(prompts);
 
         for (String prompt : prompts) {
             if (completedClone.isEmpty())
@@ -152,11 +152,12 @@ public class PromptQueue extends LinkedList<Prompt> {
      *                    injected in this post command.
      */
     public record PostCommandMeta(String command, int[] promptIndex, int delayTicks, boolean isOnCancel,
-                                  Dispatcher.Type dispatcherType) {
+            Dispatcher.Type dispatcherType) {
         @Override
         public String toString() {
             return "PostCommandMeta{" + "command='" + command + '\'' + ", promptIndex=" + Arrays.toString(promptIndex)
-                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + ", dispatcherType=" + dispatcherType + '}';
+                    + ", delayTicks=" + delayTicks + ", isOnCancel=" + isOnCancel + ", dispatcherType=" + dispatcherType
+                    + '}';
         }
 
         public String makeAsCommand(LinkedList<String> promptAnswers) {

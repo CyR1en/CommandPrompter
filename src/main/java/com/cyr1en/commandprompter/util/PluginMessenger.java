@@ -1,6 +1,5 @@
-package com.cyr1en.commandprompter;
+package com.cyr1en.commandprompter.util;
 
-import com.cyr1en.commandprompter.util.Util;
 import org.bukkit.command.CommandSender;
 
 public class PluginMessenger {
@@ -16,8 +15,9 @@ public class PluginMessenger {
     }
 
     public void sendMessage(CommandSender sender, String message) {
-        if (message.isBlank()) return;
+        if (message.isBlank())
+            return;
         var whole = prefix + message;
-        sender.sendMessage(Util.color(whole));
+        sender.sendMessage(AdventureUtil.color(whole));
     }
 }

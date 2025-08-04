@@ -1,8 +1,8 @@
 package com.cyr1en.commandprompter.commands;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
-import com.cyr1en.commandprompter.PluginMessenger;
+import com.cyr1en.commandprompter.util.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginMessenger;
 import com.cyr1en.commandprompter.prompt.ContextProcessor;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.kiso.mc.I18N;

@@ -35,7 +35,6 @@ import com.cyr1en.commandprompter.util.Util;
 import com.github.stefvanschie.inventoryframework.gui.type.ChestGui;
 import com.github.stefvanschie.inventoryframework.pane.PaginatedPane;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -44,6 +43,8 @@ import org.bukkit.inventory.meta.SkullMeta;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 public class PlayerUIPrompt extends AbstractPrompt {
 
@@ -57,12 +58,12 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private boolean isSearching;
 
     public PlayerUIPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-                          List<PromptParser.PromptArgument> args) {
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
         var cfgSize = getPlugin().getPromptConfig().playerUISize();
         var parts = Arrays.asList(getPrompt().split("\\{br}"));
         size = Math.max((cfgSize - (cfgSize % 9)) / 9, 2);
-        gui = new ChestGui(size, color(parts.get(0)));
+        gui = new ChestGui(size, legacyColor(parts.get(0)));
         this.headCache = plugin.getHeadCache();
         vanishHook = plugin.getHookContainer().getVanishHook().get();
         this.promptKey = context.getPromptKey();
@@ -70,7 +71,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
     }
 
     private List<Player> getPlayersForHeads(List<CacheFilter> filters, Player p) {
-        if (filters.isEmpty()) return (List<Player>) Bukkit.getOnlinePlayers();
+        if (filters.isEmpty())
+            return (List<Player>) Bukkit.getOnlinePlayers();
 
         var pattern = Pattern.compile(headCache.makeFilteredPattern());
         getPlugin().getPluginLogger().debug("Pattern: " + pattern.pattern());
@@ -105,7 +107,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
         }
         // debug all cap groups
         for (int i = 0; i <= matcher.groupCount(); i++) {
-            getPlugin().getPluginLogger().debug("Group %d: %s", i, matcher.group(i));
+            getPlugin().getPluginLogger().debug("Group {0}: {1}", i, matcher.group(i));
         }
 
         var extractedFilters = new ArrayList<CacheFilter>();
@@ -113,7 +115,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
             var capGroup = getCapturingGroup(filter);
             getPlugin().getPluginLogger().debug("Capturing group: " + capGroup);
             var filterKey = matcher.group(capGroup);
-            if (Objects.isNull(filterKey)) continue;
+            if (Objects.isNull(filterKey))
+                continue;
             extractedFilters.add(filter.reConstruct(promptKey));
         }
         return extractedFilters;
@@ -121,8 +124,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
 
     private CacheFilter getFirstFilter(List<CacheFilter> filters) {
         var keyStripped = promptKey.replace("p:", "");
-        if (filters.isEmpty()) return null;
-        if (filters.size() == 1) return filters.get(0);
+        if (filters.isEmpty())
+            return null;
+        if (filters.size() == 1)
+            return filters.get(0);
 
         var firstFilter = filters.get(0);
         var idx = 0;
@@ -148,7 +153,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
         getPlugin().getPluginLogger().debug("Getting capturing group for filter: " + cacheFilter.getRegexKey());
         var idx = 2; // index starts at 2 because 0 is the whole match and 1 is just a blank.
         for (var filter : headCache.getFilters()) {
-            if (filter.equals(cacheFilter)) return idx;
+            if (filter.equals(cacheFilter))
+                return idx;
             idx = idx + filter.getCapGroupOffset() + 1;
         }
         return -1;
@@ -179,7 +185,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private List<ItemStack> prepareHeads(Player p) {
         getPlugin().getPluginLogger().debug("Preparing heads...");
         var filters = extractFilters();
-        var players = getPlayersForHeads(filters, p).stream().filter(player -> !vanishHook.isInvisible(player)).toList();
+        var players = getPlayersForHeads(filters, p).stream().filter(player -> !vanishHook.isInvisible(player))
+                .toList();
         var isSorted = getPlugin().getPromptConfig().sorted();
         var skulls = isSorted ? headCache.getHeadsSortedFor(players) : headCache.getHeadsFor(players);
         var clone = new ArrayList<>(skulls);
@@ -201,7 +208,8 @@ public class PlayerUIPrompt extends AbstractPrompt {
         var format = Objects.isNull(filter) ? config.skullNameFormat() : filter.getFormat(config);
         for (ItemStack head : heads) {
             var meta = (SkullMeta) head.getItemMeta();
-            if (Objects.isNull(meta)) continue;
+            if (Objects.isNull(meta))
+                continue;
             headCache.setDisplayName(meta, format);
             head.setItemMeta(meta);
         }
@@ -234,10 +242,10 @@ public class PlayerUIPrompt extends AbstractPrompt {
         if (Objects.isNull(e.getCurrentItem()))
             return;
         var name = Objects.requireNonNull(
-                        Objects.requireNonNull(Objects.requireNonNull((SkullMeta) (e.getCurrentItem()).getItemMeta()))
-                                .getOwningPlayer())
+                Objects.requireNonNull(Objects.requireNonNull((SkullMeta) (e.getCurrentItem()).getItemMeta()))
+                        .getOwningPlayer())
                 .getName();
-        name = Util.stripColor(name);
+        name = plain(name);
         var ctx = new PromptContext.Builder()
                 .setCommandSender(getContext().getCommandSender())
                 .setPromptedPlayer(getContext().getPromptedPlayer())

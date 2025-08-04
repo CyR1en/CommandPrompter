@@ -35,10 +35,11 @@ import com.cyr1en.commandprompter.listener.VanillaListener;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
+import com.cyr1en.commandprompter.util.PluginLogger;
+import com.cyr1en.commandprompter.util.PluginMessenger;
 import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.kiso.mc.I18N;
 import com.cyr1en.kiso.mc.UpdateChecker;
-import com.cyr1en.kiso.utils.SRegex;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -46,6 +47,8 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.mm;
 
 public class CommandPrompter extends JavaPlugin {
 
@@ -65,30 +68,31 @@ public class CommandPrompter extends JavaPlugin {
     private HeadCache headCache;
     private CommandAPIWrapper commandAPIWrapper;
 
-    @Override
-    public void onEnable() {
+    public CommandPrompter() {
         new Metrics(this, 5359);
         setupConfig();
         logger = new PluginLogger(this, "CommandPrompter");
         var serverType = ServerUtil.resolve();
         logger.debug("Server Name: " + serverType.name());
         logger.debug("Server Version: " + ServerUtil.version());
-
         i18n = new I18N(this, "CommandPrompter");
-
-        commandAPIWrapper = new CommandAPIWrapper(this);
-        commandAPIWrapper.load();
-        commandAPIWrapper.onEnable();
-        
         messenger = new PluginMessenger(config.promptPrefix());
+        commandAPIWrapper = new CommandAPIWrapper(this);
+        instance = this;
+    }
 
+    @Override
+    public void onLoad() {
+        commandAPIWrapper.load();
+    }
+
+    @Override
+    public void onEnable() {
+        commandAPIWrapper.onEnable();
         setupUpdater();
         initPromptSystem();
         setupCommands();
-
-        instance = this;
         Bukkit.getPluginManager().registerEvents(new CommandSendListener(this), this);
-
         Bukkit.getScheduler().runTaskLater(this, () -> {
             hookContainer = new HookContainer(this);
             hookContainer.initHooks();
@@ -141,8 +145,7 @@ public class CommandPrompter extends JavaPlugin {
             return;
         Bukkit.getServer().getScheduler().runTaskAsynchronously(this, () -> {
             if (updateChecker.newVersionAvailable())
-                logger.info(SRegex.ANSI_GREEN + "A new update is available! (" +
-                        updateChecker.getCurrVersion().asString() + ")" + SRegex.ANSI_RESET);
+                logger.info(mm("<green>A new update is available! ({0})</green>", updateChecker.getCurrVersion().asString()));
             else
                 logger.info("No update was found.");
         });

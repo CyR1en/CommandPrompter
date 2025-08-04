@@ -1,7 +1,6 @@
 package com.cyr1en.commandprompter.util;
 
 import com.cyr1en.commandprompter.CommandPrompter;
-import com.cyr1en.commandprompter.PluginLogger;
 import com.cyr1en.kiso.mc.Version;
 import com.google.common.base.Charsets;
 import com.google.common.io.CharStreams;
@@ -9,6 +8,7 @@ import net.md_5.bungee.api.ChatColor;
 
 import org.bukkit.Material;
 import org.bukkit.plugin.Plugin;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,18 +16,16 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
 
 public class Util {
-
-    public static String stripColor(String msg) {
-        return ChatColor.stripColor(color(msg));
-    }
 
     private static Optional<PluginLogger> getLogger() {
         if (CommandPrompter.getInstance() == null)
@@ -35,23 +33,8 @@ public class Util {
         return Optional.of(CommandPrompter.getInstance().getPluginLogger());
     }
 
-
-    public static String color(String msg) {
-        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE())
-            return org.bukkit.ChatColor.translateAlternateColorCodes('&', msg);
-
-        var supportedHex = ServerUtil.parsedVersion().isNewerThan(Version.parse("1.15.0"));
-        if (supportedHex) {
-            var pattern = Pattern.compile("#[a-fA-F0-9]{6}");
-            var matcher = pattern.matcher(msg);
-
-            while (matcher.find()) {
-                String color = msg.substring(matcher.start(), matcher.end());
-                msg = msg.replace(color, ChatColor.of(color) + "");
-                matcher = pattern.matcher(msg);
-            }
-        }
-        return ChatColor.translateAlternateColorCodes('&', msg);
+    public static String format(@NonNull String template, @Nullable Object... args) {
+        return MessageFormat.format(template, args);
     }
 
     public static Material getCheckedMaterial(String materialString, Material defaultMaterial) {
@@ -116,4 +99,5 @@ public class Util {
         }
     }
 
+    
 }

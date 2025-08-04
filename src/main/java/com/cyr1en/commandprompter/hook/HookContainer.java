@@ -6,11 +6,12 @@ import com.cyr1en.commandprompter.hook.hooks.*;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.IllegalPluginAccessException;
-import org.fusesource.jansi.Ansi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.mm;
 
 public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
@@ -33,11 +34,8 @@ public class HookContainer extends HashMap<Class<?>, Hook<?>> {
 
     @Override
     public Hook<?> put(Class<?> key, Hook<?> value) {
-
-        if (value.isHooked()) {
-            var prefix = new Ansi().fgRgb(153, 214, 90).a("✓").reset();
-            plugin.getPluginLogger().info(prefix + " " + key.getSimpleName() + " contained");
-        }
+        if (value.isHooked())
+            plugin.getPluginLogger().info(mm("<color:#35d65a>✓</color> {0} contained", key.getSimpleName()));
 
         return super.put(key, value);
     }

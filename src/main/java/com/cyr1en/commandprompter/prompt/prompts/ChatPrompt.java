@@ -29,104 +29,80 @@ import com.cyr1en.commandprompter.hook.hooks.CarbonChatHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
 import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
-import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.unsafe.PvtFieldMutator;
-import net.md_5.bungee.api.chat.*;
-import net.md_5.bungee.api.chat.hover.content.Text;
+
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
+
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.RegisteredListener;
-import org.fusesource.jansi.Ansi;
 
 import java.util.*;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 public class ChatPrompt extends AbstractPrompt {
 
     public ChatPrompt(CommandPrompter plugin, PromptContext context, String prompt,
-                      List<PromptParser.PromptArgument> args) {
+            List<PromptParser.PromptArgument> args) {
         super(plugin, context, prompt, args);
     }
 
     public void sendPrompt() {
         List<String> parts = Arrays.stream(getPrompt().split("\\{br}")).map(String::trim).toList();
-        if (ServerUtil.BUNGEE_CHAT_AVAILABLE())
-            sendWithChatAPI(parts);
-        else
-            sendWithDefault(parts);
+        send(parts);
     }
 
-    private void sendWithDefault(List<String> parts) {
-        var prefix = getPlugin().getConfiguration().promptPrefix();
-        var cancelText = makeCancelButton();
-        if (parts.size() == 1) {
-            getContext().getPromptedPlayer().sendMessage(color(prefix + parts.get(0)));
-            if (!Arrays.equals(cancelText, new BaseComponent[0]))
-                getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
-            return;
-        }
-        parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
-        getPlugin().getPluginLogger().debug("Cancel component length: " + cancelText.length);
-        if (Arrays.equals(cancelText, new BaseComponent[0]))
-            return;
-        getContext().getPromptedPlayer().spigot().sendMessage(cancelText);
-    }
-
-    private void sendWithChatAPI(List<String> parts) {
+    private void send(List<String> parts) {
         var prefix = getPlugin().getConfiguration().promptPrefix();
         if (parts.size() == 1) {
-            var msg = color(prefix + parts.get(0) + " ");
-            var component = new ComponentBuilder().append(TextComponent.fromLegacy(msg));
+            var msg = color(prefix + parts.getFirst() + " ");
             var cancelComponent = makeCancelButton();
-            if (!Arrays.equals(cancelComponent, new BaseComponent[0]))
-                component.append(cancelComponent);
-            getContext().getPromptedPlayer().spigot().sendMessage(component.create());
+            var component = cancelComponent.equals(Component.empty()) ? joinComponents(msg, cancelComponent) : msg;
+            getContext().getPromptedPlayer().sendMessage(component);
             return;
         }
         parts.forEach(part -> getContext().getPromptedPlayer().sendMessage(color(prefix + part)));
-        var cancelComponent = makeCancelButton(true);
-        getPlugin().getPluginLogger().debug("Cancel component length: " + cancelComponent.length);
-        if (Arrays.equals(cancelComponent, new BaseComponent[0]))
-            return;
-        getContext().getPromptedPlayer().spigot().sendMessage(cancelComponent);
+        getContext().getPromptedPlayer().sendMessage(makeCancelButton(true));
     }
 
-    private BaseComponent[] makeCancelButton() {
+    private Component makeCancelButton() {
         return makeCancelButton(false);
     }
 
-    private BaseComponent[] makeCancelButton(boolean addPrefix) {
-        if (!ServerUtil.BUNGEE_CHAT_AVAILABLE() || !getPlugin().getPromptConfig().sendCancelText())
-            return new BaseComponent[0];
+    private Component makeCancelButton(boolean addPrefix) {
+        if (!getPlugin().getPromptConfig().sendCancelText())
+            return Component.empty();
 
         var prefix = getPlugin().getConfiguration().promptPrefix();
         var cancelMessage = getPlugin().getPromptConfig().textCancelMessage();
         cancelMessage = addPrefix ? prefix + cancelMessage : cancelMessage;
         var hoverMessage = getPlugin().getPromptConfig().textCancelHoverMessage();
 
-        return new ComponentBuilder(TextComponent.fromLegacy(color(cancelMessage)))
-                .event(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/commandprompter cancel"))
-                .event(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(color(hoverMessage))))
-                .create();
+        return Component.text(cancelMessage)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/commandprompter cancel"))
+                .hoverEvent(HoverEvent.showText(Component.text(hoverMessage)));
     }
 
     public static void resolveListener(CommandPrompter plugin) {
         var container = plugin.getHookContainer();
         var ccHook = container.getHook(CarbonChatHook.class);
         ccHook.ifHooked((e) -> {
-                    var res = e.subscribe();
-                    if (!res) {
-                        registerDefault(plugin);
-                        plugin.getPluginLogger().info("Using default listener");
-                        return;
-                    }
-                    plugin.getPluginLogger().info("Using CarbonChat listener");
-                })
+            var res = e.subscribe();
+            if (!res) {
+                registerDefault(plugin);
+                plugin.getPluginLogger().info("Using default listener");
+                return;
+            }
+            plugin.getPluginLogger().info("Using CarbonChat listener");
+        })
                 .orElse(() -> {
                     registerDefault(plugin);
                     plugin.getPluginLogger().info("Using default listener");
@@ -148,17 +124,17 @@ public class ChatPrompt extends AbstractPrompt {
             this.manager = plugin.getPromptManager();
         }
 
-        public void onResponse(Player player, String msg, Cancellable event) {
+        public void onResponse(Player player, Component msgComponent, Cancellable event) {
             plugin.getPluginLogger().debug("Cancellable event: " + event.getClass().getSimpleName());
+            var msg = toLegacyColor(msgComponent);
             msg = msg.replace("§", "&");
             if (!manager.getPromptRegistry().inCommandProcess(player))
                 return;
             event.setCancelled(true);
-            var message = ChatColor.stripColor(
-                    ChatColor.translateAlternateColorCodes('&', msg));
+            var message = MiniMessage.miniMessage().deserialize(msg);
             var cancelKeyword = plugin.getConfiguration().cancelKeyword();
 
-            if (cancelKeyword.equalsIgnoreCase(message))
+            if (cancelKeyword.equalsIgnoreCase(plain(message)))
                 manager.cancel(player);
 
             var queue = manager.getPromptRegistry().get(player);
@@ -178,12 +154,10 @@ public class ChatPrompt extends AbstractPrompt {
     public static class DefaultListener implements Listener {
 
         private final PromptManager manager;
-        private final CommandPrompter plugin;
         private final ResponseHandler handler;
 
         public DefaultListener(PromptManager manager, CommandPrompter plugin) {
             this.manager = manager;
-            this.plugin = plugin;
             this.handler = new ResponseHandler(plugin);
         }
 
@@ -192,8 +166,8 @@ public class ChatPrompt extends AbstractPrompt {
         }
 
         @EventHandler(priority = EventPriority.LOWEST)
-        public void onChat(AsyncPlayerChatEvent event) {
-            var plain = event.getMessage();
+        public void onChat(AsyncChatEvent event) {
+            var plain = event.message();
             handler.onResponse(event.getPlayer(), plain, event);
         }
 
@@ -212,7 +186,7 @@ public class ChatPrompt extends AbstractPrompt {
             try {
                 priority = EventPriority.valueOf(configPriority);
             } catch (IllegalArgumentException ignore) {
-                logger.err("Could not set '%s' as priority for PromptResponseListener. Defaulted to '%s'",
+                logger.err("Could not set '{0}' as priority for PromptResponseListener. Defaulted to '{1}'",
                         configPriority, priority.name());
             }
             // Do nothing if current priority = config priority
@@ -224,9 +198,9 @@ public class ChatPrompt extends AbstractPrompt {
 
         private static synchronized void setPriority(CommandPrompter plugin, EventPriority newPriority) {
             var logger = plugin.getPluginLogger();
-            logger.debug("Setting PromptResponseListener priority from '%s' to '%s'",
+            logger.debug("Setting PromptResponseListener priority from '{0}' to '{1}'",
                     getCurrentEventPriority(plugin).name(), newPriority.name());
-            var handlerList = AsyncPlayerChatEvent.getHandlerList();
+            var handlerList = AsyncChatEvent.getHandlerList();
             try {
                 var handlerSlotsF = handlerList.getClass().getDeclaredField("handlerslots");
                 handlerSlotsF.setAccessible(true);
@@ -250,13 +224,12 @@ public class ChatPrompt extends AbstractPrompt {
                 throw new RuntimeException(e);
             }
 
-            logger.info("PromptResponsePriority is now '%s'",
-                    new Ansi().fgRgb(153, 214, 90).a(getCurrentEventPriority(plugin).name()));
+            logger.info(mm("PromptResponsePriority is now '{0}'", getCurrentEventPriority(plugin).name()));
             listAllRegisteredListeners(plugin);
         }
 
         private static EventPriority getCurrentEventPriority(CommandPrompter plugin) {
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+            for (RegisteredListener registeredListener : AsyncChatEvent.getHandlerList()
                     .getRegisteredListeners()) {
                 if (registeredListener.getPlugin().getName().equals(plugin.getName()))
                     return registeredListener.getPriority();
@@ -267,9 +240,9 @@ public class ChatPrompt extends AbstractPrompt {
         private static void listAllRegisteredListeners(CommandPrompter plugin) {
             var logger = plugin.getPluginLogger();
             logger.debug("Registered Listeners: ");
-            for (RegisteredListener registeredListener : AsyncPlayerChatEvent.getHandlerList()
+            for (RegisteredListener registeredListener : AsyncChatEvent.getHandlerList()
                     .getRegisteredListeners()) {
-                logger.debug("  - '%s'", registeredListener.getListener().getClass().getSimpleName());
+                logger.debug("  - '{0}'", registeredListener.getListener().getClass().getSimpleName());
                 logger.debug("      Priority: " + registeredListener.getPriority());
                 logger.debug("      Plugin: " + registeredListener.getPlugin().getName());
             }

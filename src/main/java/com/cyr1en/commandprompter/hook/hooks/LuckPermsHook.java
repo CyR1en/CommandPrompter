@@ -168,7 +168,7 @@ public class LuckPermsHook extends BaseHook implements FilterHook {
         @Override
         public List<Player> filter(Player relativePlayer) {
             var players = hook.getPlayersWithGroup(groupName);
-            hook.getPlugin().getPluginLogger().debug("Players: %s", players);
+            hook.getPlugin().getPluginLogger().debug("Players: {0}", players);
             return players;
         }
     }

@@ -30,7 +30,7 @@ import com.cyr1en.commandprompter.api.prompt.InputValidator;
 import com.cyr1en.commandprompter.api.prompt.Prompt;
 import com.cyr1en.commandprompter.hook.hooks.PapiHook;
 import com.cyr1en.commandprompter.prompt.validators.NoopValidator;
-import com.cyr1en.commandprompter.util.MMUtil;
+import com.cyr1en.commandprompter.util.AdventureUtil;
 import com.cyr1en.kiso.utils.SRegex;
 import org.bukkit.entity.Player;
 
@@ -78,7 +78,7 @@ public class PromptParser {
     public boolean isParsable(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
         if (plugin.getConfiguration().ignoreMiniMessage())
-            prompts = MMUtil.filterOutMiniMessageTags(prompts);
+            prompts = AdventureUtil.filterOutMiniMessageTags(prompts);
         return !prompts.isEmpty();
     }
 
@@ -99,7 +99,7 @@ public class PromptParser {
      */
     public int parsePrompts(PromptContext promptContext) {
         var prompts = getPrompts(promptContext);
-        prompts = MMUtil.filterOutMiniMessageTags(prompts);
+        prompts = AdventureUtil.filterOutMiniMessageTags(prompts);
 
         plugin.getPluginLogger().debug("Prompts: " + prompts);
 

@@ -31,14 +31,11 @@ import com.cyr1en.commandprompter.prompt.prompts.ChatPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.prompt.prompts.SignPrompt;
 import com.cyr1en.commandprompter.util.ServerUtil;
-import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.mc.Version;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
-import org.fusesource.jansi.Ansi;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -46,6 +43,8 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import static com.cyr1en.commandprompter.util.AdventureUtil.*;
 
 /**
  * Class that would manage all prompts.
@@ -99,17 +98,16 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         if (!supportTable.containsKey(value)) return null;
         var version = supportTable.get(value);
         var serverVersion = ServerUtil.parsedVersion();
-        plugin.getPluginLogger().debug("Server Version: " + serverVersion);
-        plugin.getPluginLogger().debug("Prompt Version: " + version);
+        plugin.getPluginLogger().debug("Server Version: {0}", serverVersion);
+        plugin.getPluginLogger().debug("Prompt Version: {0}", version);
 
         if (serverVersion.isNewerThan(version)) {
-            plugin.getPluginLogger().warn("Prompt %s is not supported on this server version", value.getSimpleName());
+            plugin.getPluginLogger().warn("Prompt {0} is not supported on this server version", value.getSimpleName());
             return null;
         }
 
         var ret = super.put(key, value);
-        plugin.getPluginLogger().info("Registered " +
-                new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()).reset());
+        plugin.getPluginLogger().info(mm("Registered <#99d65a>{0}", value.getSimpleName()));
         return ret;
     }
 
@@ -126,12 +124,12 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         var queue = promptRegistry.get(sender);
         if (queue.isEmpty() && !queue.containsPCM())
             return;
-        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
+        plugin.getPluginLogger().debug("PromptQueue for {0}: {1}", sender.getName(), promptRegistry.get(sender));
 
         if (!queue.isEmpty()) {
             var prompt = Objects.requireNonNull(queue.peek());
             Bukkit.getScheduler().runTaskLater(plugin, prompt::sendPrompt, 2L);
-            plugin.getPluginLogger().debug("Sent %s to %s", prompt.getClass().getSimpleName(), sender.getName());
+            plugin.getPluginLogger().debug("Sent {0} to {1}", prompt.getClass().getSimpleName(), sender.getName());
         } else if (queue.containsPCM()) {
             // This means queue is empty but contains PCM. If it does, we just dispatch it.
             dispatchQueue(sender, queue);
@@ -160,7 +158,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
             content = sanitize(content);
 
         getPromptRegistry().get(sender).addCompleted(content);
-        plugin.getPluginLogger().debug("PromptQueue for %s: %s", sender.getName(), promptRegistry.get(sender));
+        plugin.getPluginLogger().debug("PromptQueue for {0}: {1}", sender.getName(), promptRegistry.get(sender));
         if (promptRegistry.get(sender).isEmpty()) {
             dispatchQueue(sender, queue);
         } else
@@ -188,11 +186,11 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private void dispatchQueue(CommandSender sender, PromptQueue queue) {
         if (!promptRegistry.containsKey(sender)) {
-            plugin.getPluginLogger().err("No prompt queue found for %s", sender.getName());
+            plugin.getPluginLogger().err("No prompt queue found for {0}", sender.getName());
             return;
         }
 
-        plugin.getPluginLogger().debug("Dispatching for %s: %s", sender.getName(), queue.getCompleteCommand());
+        plugin.getPluginLogger().debug("Dispatching for {0}: {1}", sender.getName(), queue.getCompleteCommand());
         if (plugin.getConfiguration().showCompleted())
             plugin.getMessenger().sendMessage(sender, plugin.getI18N()
                     .getFormattedProperty("CompletedCommand", queue.getCompleteCommand()));
@@ -219,7 +217,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     private String sanitize(String input) {
         plugin.getPluginLogger().debug("Sanitizing input: " + input);
-        input = Util.stripColor(ChatColor.translateAlternateColorCodes('&', input));
+        input = plain(input);
         input = symbols.matcher(input).replaceAll("");
         plugin.getPluginLogger().debug("Sanitized input: " + input);
         return input;
@@ -256,7 +254,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         promptRegistry.unregister(sender);
         if (plugin.getConfiguration().showCancelled())
             plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
-        plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
+        plugin.getPluginLogger().debug("Command completion called for: {0}", sender.getName());
     }
 
     public void cancel(CommandSender sender) {
