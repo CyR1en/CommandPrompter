@@ -1,0 +1,18 @@
+plugins {
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.paperweight)
+}
+
+dependencies {
+    compileOnly project(':gui:sign:wrapper')
+    paperweight.paperDevBundle("1.21.8-R0.1-SNAPSHOT")
+}
+
+shadowJar {
+    archiveBaseName.set('CommandPrompter-Sign-1_21_R5')
+    archiveClassifier.set('')
+}
+
+artifacts {
+    archives shadowJar
+}

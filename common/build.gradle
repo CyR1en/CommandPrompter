@@ -1,0 +1,12 @@
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+repositories {
+    maven { url 'https://repo.cyr1en.com/snapshots' }
+}
+
+dependencies {
+    compileOnly('com.cyr1en:kiso-mc:1.8-SNAPSHOT')
+    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
+}

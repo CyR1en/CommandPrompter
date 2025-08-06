@@ -1,0 +1,7 @@
+[versions]
+shadow = '9.0.0-rc3'
+paperweight = '2.0.0-beta.18'
+
+[plugins]
+shadow = { id = 'com.gradleup.shadow', version.ref = 'shadow' }
+paperweight = { id = 'io.papermc.paperweight.userdev', version.ref = 'paperweight' }

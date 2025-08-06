@@ -1,0 +1,44 @@
+plugins {
+    alias(libs.plugins.shadow) apply false
+    alias(libs.plugins.paperweight) apply false
+}
+
+allprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'maven-publish'
+
+    afterEvaluate {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(21)
+            }
+        }
+    }
+
+    group = 'com.cyr1en'
+    version = '3.0.0-SNAPSHOT'
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
+    tasks.named('jar').configure { enabled = false }
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://repo.papermc.io/repository/maven-public/' }
+        maven { url 'https://repo.dmulloy2.net/repository/public/' }
+        maven { url 'https://repo.codemc.io/repository/maven-snapshots/' }
+        maven { url 'https://repo.codemc.io/repository/maven-public/' }
+        maven { url 'https://repo.extendedclip.com/content/repositories/placeholderapi/' }
+        maven { url 'https://jitpack.io' }
+        maven { url 'https://repo.glaremasters.me/repository/towny/' }
+        maven { url 'https://repo.william278.net/releases' }
+        maven { url 'https://repo.opencollab.dev/main/' }
+    }
+
+    dependencies {
+        compileOnly 'org.jetbrains:annotations:23.0.0'
+    }
+
+}

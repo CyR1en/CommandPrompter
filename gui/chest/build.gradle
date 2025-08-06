@@ -1,0 +1,20 @@
+plugins {
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.paperweight)
+}
+
+dependencies {
+    compileOnly project(':common')
+    paperweight.paperDevBundle("1.21.8-R0.1-SNAPSHOT")
+
+    compileOnly 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
+}
+
+shadowJar {
+    archiveBaseName.set('CommandPrompter-Chest')
+    archiveClassifier.set('')
+}
+
+artifacts {
+    archives shadowJar
+}
