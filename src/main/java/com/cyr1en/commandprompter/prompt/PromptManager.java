@@ -109,7 +109,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
         var ret = super.put(key, value);
         plugin.getPluginLogger().info("Registered " +
-                new Ansi().fgRgb(153, 214, 90).a(value.getSimpleName()).reset());
+                new Ansi().fgRgb(166, 218, 149).a(value.getSimpleName()).reset());
         return ret;
     }
 
