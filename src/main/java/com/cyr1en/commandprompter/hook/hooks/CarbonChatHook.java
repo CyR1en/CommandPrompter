@@ -46,7 +46,7 @@ public class CarbonChatHook extends BaseHook implements Listener {
         var cancel = getPlugin().getConfiguration().cancelKeyword();
 
         if (cancel.equalsIgnoreCase(serializedMsg)) {
-            promptManager.cancel(player);
+            promptManager.cancel(player, PromptManager.CancelReason.Manual);
             event.message(Component.empty());
             return;
         }

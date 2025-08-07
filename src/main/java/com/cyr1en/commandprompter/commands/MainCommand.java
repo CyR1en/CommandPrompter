@@ -1,6 +1,7 @@
 package com.cyr1en.commandprompter.commands;
 
 import com.cyr1en.commandprompter.CommandPrompter;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.executors.CommandArguments;
 import org.bukkit.command.CommandSender;
@@ -71,7 +72,7 @@ public class MainCommand {
                 return;
             }
 
-            plugin.getPromptManager().cancel(sender);
+            plugin.getPromptManager().cancel(sender, PromptManager.CancelReason.Manual);
         }
 
     }

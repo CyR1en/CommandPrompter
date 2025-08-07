@@ -116,7 +116,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void parse(PromptContext context) {
         var queueHash = promptParser.parsePrompts(context);
         var timeout = plugin.getConfiguration().promptTimeout();
-        scheduler.runTaskLater(plugin, () -> cancel(context.getPromptedPlayer(), queueHash), 20L * timeout);
+        scheduler.runTaskLater(plugin, () ->
+                cancel(context.getPromptedPlayer(), queueHash, CancelReason.Timeout), 20L * timeout);
     }
 
     public void sendPrompt(CommandSender sender) {
@@ -233,7 +234,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         return promptParser;
     }
 
-    public void cancel(CommandSender sender, int queueHash) {
+    public void cancel(CommandSender sender, int queueHash, CancelReason reason) {
         if (!promptRegistry.containsKey(sender))
             return;
         plugin.getPluginLogger().debug("queueHash: " + queueHash);
@@ -259,8 +260,8 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         plugin.getPluginLogger().debug("Command completion called for: %s", sender.getName());
     }
 
-    public void cancel(CommandSender sender) {
-        cancel(sender, -1);
+    public void cancel(CommandSender sender, CancelReason reason) {
+        cancel(sender, -1, reason);
     }
 
     public Pattern getArgumentPattern(String... additionalKeys) {
@@ -282,5 +283,13 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
 
     public CommandPrompter getPlugin() {
         return plugin;
+    }
+
+    public static enum CancelReason {
+        GUIExit,
+        GUIErr,
+        Manual,
+        Timeout,
+        BlankInput
     }
 }

@@ -27,6 +27,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.hook.hooks.VanishHook;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.prompt.ui.CacheFilter;
 import com.cyr1en.commandprompter.prompt.ui.HeadCache;
@@ -157,7 +158,7 @@ public class PlayerUIPrompt extends AbstractPrompt {
     private void send(Player p) {
         gui.setOnClose(e -> {
             if (!isSearching)
-                getPromptManager().cancel(p);
+                getPromptManager().cancel(p, PromptManager.CancelReason.Manual);
         });
 
         var skullPane = new PaginatedPane(0, 0, 9, size - 1);

@@ -159,7 +159,7 @@ public class ChatPrompt extends AbstractPrompt {
             var cancelKeyword = plugin.getConfiguration().cancelKeyword();
 
             if (cancelKeyword.equalsIgnoreCase(message))
-                manager.cancel(player);
+                manager.cancel(player, PromptManager.CancelReason.Manual);
 
             var queue = manager.getPromptRegistry().get(player);
             if (Objects.isNull(queue))
