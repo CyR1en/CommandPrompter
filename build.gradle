@@ -75,7 +75,7 @@ dependencies {
 
     // UI libs
     implementation 'net.wesjd:anvilgui:1.10.8-SNAPSHOT'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.2'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.3'
     implementation 'de.rapha149.signgui:signgui:2.5.4'
 
     compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
