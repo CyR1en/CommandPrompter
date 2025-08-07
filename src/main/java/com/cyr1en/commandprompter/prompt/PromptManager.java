@@ -237,23 +237,22 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
     public void cancel(CommandSender sender, int queueHash, CancelReason reason) {
         if (!promptRegistry.containsKey(sender))
             return;
+        plugin.getPluginLogger().debug("Canceling prompt queue for %s. (Reason: %s)", sender.getName(), reason.name());
         plugin.getPluginLogger().debug("queueHash: " + queueHash);
         plugin.getPluginLogger().debug("registryQueueHash: " + promptRegistry.get(sender).hashCode());
+
         if (queueHash != -1 && queueHash != promptRegistry.get(sender).hashCode())
             return;
-        var queue = promptRegistry.get(sender);
-        if (queue.containsPCM()) {
-            queue.getPostCommandMetas().forEach(pcm -> {
-                if (!pcm.isOnCancel())
-                    return;
 
-                if (pcm.delayTicks() > 0)
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> queue.execPCM(pcm, (Player) sender),
-                            pcm.delayTicks());
-                else
-                    queue.execPCM(pcm, (Player) sender);
+        var queue = promptRegistry.get(sender);
+        if (reason != CancelReason.Timeout && queue.containsPCM()) {
+            var filtered = queue.getPostCommandMetas().stream().filter(PromptQueue.PostCommandMeta::isOnCancel);
+            filtered.forEach(pcm -> {
+                plugin.getPluginLogger().debug("Dispatching PCM: %s", pcm);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> queue.execPCM(pcm, (Player) sender), pcm.delayTicks());
             });
         }
+
         promptRegistry.unregister(sender);
         if (plugin.getConfiguration().showCancelled())
             plugin.getMessenger().sendMessage(sender, plugin.getI18N().getProperty("PromptCancel"));
