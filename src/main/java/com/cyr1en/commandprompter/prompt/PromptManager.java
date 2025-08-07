@@ -75,7 +75,7 @@ public class PromptManager extends HashMap<String, Class<? extends Prompt>> {
         supportTable = new HashMap<>();
         supportTable.put(ChatPrompt.class, ANY);
         supportTable.put(AnvilPrompt.class, LATEST);
-        supportTable.put(PlayerUIPrompt.class, Version.parse("1.21.7"));
+        supportTable.put(PlayerUIPrompt.class, LATEST);
         supportTable.put(SignPrompt.class, LATEST);
     }
 
