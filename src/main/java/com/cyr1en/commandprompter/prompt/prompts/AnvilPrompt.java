@@ -33,7 +33,6 @@ import net.wesjd.anvilgui.AnvilGUI;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -43,6 +42,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.cyr1en.commandprompter.prompt.PromptManager.CancelReason;
 
 public class AnvilPrompt extends AbstractPrompt {
 
@@ -68,7 +69,7 @@ public class AnvilPrompt extends AbstractPrompt {
         builder.onClose(p -> {
             if (isComplete.get())
                 return;
-            getPromptManager().cancel(p.getPlayer());
+            getPromptManager().cancel(p.getPlayer(), CancelReason.GUIExit);
         });
 
         var promptText = getPlugin().getPromptConfig().promptMessage();
@@ -98,7 +99,7 @@ public class AnvilPrompt extends AbstractPrompt {
         builder.onClick((slot, stateSnapshot) -> {
             var cancelEnabled = getPlugin().getPromptConfig().enableCancelItem();
             if (slot == AnvilGUI.Slot.INPUT_RIGHT && cancelEnabled) {
-                getPromptManager().cancel(stateSnapshot.getPlayer());
+                getPromptManager().cancel(stateSnapshot.getPlayer(), CancelReason.Manual);
                 return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
 
@@ -109,7 +110,7 @@ public class AnvilPrompt extends AbstractPrompt {
                     ChatColor.translateAlternateColorCodes('&', stateSnapshot.getText()));
             var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
             if (cancelKeyword.equalsIgnoreCase(message)) {
-                getPromptManager().cancel(stateSnapshot.getPlayer());
+                getPromptManager().cancel(stateSnapshot.getPlayer(), CancelReason.Manual);
                 return Collections.singletonList(AnvilGUI.ResponseAction.close());
             }
 

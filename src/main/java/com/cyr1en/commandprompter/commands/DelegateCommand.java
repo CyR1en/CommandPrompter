@@ -85,7 +85,7 @@ public abstract class DelegateCommand extends ContextProcessor {
 
         public void doCommand(CommandSender sender, Player targetPlayer, String command, CommandArguments args) {
             var context = new PromptContext.Builder()
-                    .setCommandSender(targetPlayer)
+                    .setCommandSender(sender)
                     .setPromptedPlayer(targetPlayer)
                     .setContent(command)
                     .setConsoleDelegate(true)
@@ -120,7 +120,7 @@ public abstract class DelegateCommand extends ContextProcessor {
         @Override
         public void doCommand(CommandSender sender, Player targetPlayer, String command, CommandArguments args) {
             var context = new PromptContext.Builder()
-                    .setCommandSender(targetPlayer)
+                    .setCommandSender(sender)
                     .setPromptedPlayer(targetPlayer)
                     .setContent(command)
                     .setPaKey(args.getRaw("permission"))

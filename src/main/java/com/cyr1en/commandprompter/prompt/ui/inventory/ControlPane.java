@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.ui.inventory;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.prompts.PlayerUIPrompt;
 import com.cyr1en.commandprompter.util.ServerUtil;
 import com.cyr1en.commandprompter.util.Util;
@@ -92,7 +93,7 @@ public class ControlPane extends StaticPane {
         addItem(plugin.getPromptConfig().cancelText(), cancelIS, cancelLoc, cancelCMD,
                 c -> {
                     c.setCancelled(true);
-                    plugin.getPromptManager().cancel(ctx.getPromptedPlayer());
+                    plugin.getPromptManager().cancel(ctx.getPromptedPlayer(), PromptManager.CancelReason.Manual);
                     ((Player) ctx.getPromptedPlayer()).closeInventory();
                 });
 

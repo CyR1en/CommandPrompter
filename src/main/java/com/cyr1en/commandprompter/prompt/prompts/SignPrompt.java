@@ -2,6 +2,7 @@ package com.cyr1en.commandprompter.prompt.prompts;
 
 import com.cyr1en.commandprompter.CommandPrompter;
 import com.cyr1en.commandprompter.prompt.PromptContext;
+import com.cyr1en.commandprompter.prompt.PromptManager;
 import com.cyr1en.commandprompter.prompt.PromptParser;
 import com.cyr1en.commandprompter.util.Util;
 import com.cyr1en.kiso.utils.FastStrings;
@@ -53,7 +54,7 @@ public class SignPrompt extends AbstractPrompt {
             gui.open((Player) getContext().getPromptedPlayer());
         } catch (SignGUIVersionException e) {
             getPlugin().getPluginLogger().err("SignGUI version exception: " + e.getMessage());
-            getPromptManager().cancel(getContext().getPromptedPlayer());
+            getPromptManager().cancel(getContext().getPromptedPlayer(), PromptManager.CancelReason.GUIErr);
         }
     }
 
@@ -77,13 +78,13 @@ public class SignPrompt extends AbstractPrompt {
         // If the sign contains the same message as the prompt
         // we'll consider the command completion cancelled.
         if (response.isBlank()) {
-            getPromptManager().cancel(p);
+            getPromptManager().cancel(p, PromptManager.CancelReason.BlankInput);
             return Collections.emptyList();
         }
 
         var cancelKeyword = getPlugin().getConfiguration().cancelKeyword();
         if (cancelKeyword.equalsIgnoreCase(response)) {
-            getPromptManager().cancel(p);
+            getPromptManager().cancel(p, PromptManager.CancelReason.Manual);
             return Collections.emptyList();
         }
         var ctx = new PromptContext.Builder()

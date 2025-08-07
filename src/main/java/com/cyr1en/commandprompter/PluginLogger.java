@@ -23,16 +23,14 @@ public class PluginLogger {
         this.isFancy = plugin.getConfiguration().fancyLogger();
         this.debugMode = plugin.getConfiguration().debugMode();
 
-        // Spread love not war <3
-        normalGrad = new ColorGradient(new Color(101, 78, 163), new Color(234, 175, 200));
-
-        debugGrad = new ColorGradient(new Color(255, 96, 109), new Color(255, 195, 113));
+        normalGrad = new ColorGradient(new Color(198, 160, 246), new Color(138, 173, 244));
+        debugGrad = new ColorGradient(new Color(238, 153, 160), new Color(245, 169, 127));
 
         setPrefix(prefix);
     }
 
     public void setPrefix(String prefix) {
-        var sep = isFancy ? new Ansi().fgRgb(153, 214, 90).a(">>").reset().toString() : ">>";
+        var sep = isFancy ? new Ansi().fgRgb(166, 218, 149).a(">>").reset().toString() : ">>";
         var normal = isFancy ? makeGradient(prefix, normalGrad) : prefix;
         var debug = isFancy ? makeGradient(prefix + "-" + "Debug", debugGrad) : prefix + "-" + "Debug";
         this.prefix = String.format("%s %s ", normal, sep);
@@ -84,7 +82,7 @@ public class PluginLogger {
             msg = callerAvailable ? String.format("[%s] - %s", caller.getSimpleName(), msg)
                     : Objects.isNull(lastDebugClass) ? msg
                     : String.format("[%s?] - %s", lastDebugClass.getSimpleName(), msg);
-            var str = new Ansi().fgRgb(255, 195, 113).a(msg).reset().toString();
+            var str = new Ansi().fgRgb(238, 212, 159).a(msg).reset().toString();
             log(debugPrefix, Level.INFO, str, args);
         }
     }
