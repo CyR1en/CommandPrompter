@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Prompt Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompts", "post_commands"],
+  "properties": {
+    "prompts": {
+      "type": "array",
+      "description": "A list of prompts. Each item is exactly one of: chat_prompt or anvil_prompt.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "oneOf": [
+          { "$ref": "#/$defs/chatPromptWrapper" },
+          { "$ref": "#/$defs/anvilPromptWrapper" }
+        ]
+      }
+    },
+    "post_commands": {
+      "type": "array",
+      "description": "Commands executed after prompt flow events.",
+      "items": { "$ref": "#/$defs/postCommand" }
+    }
+  },
+  "$defs": {
+    "cancelBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["send", "message", "clickable", "hover_message"],
+      "properties": {
+        "send": { "type": "boolean", "description": "Whether to send the cancel indicator to the user." },
+        "message": { "type": "string", "minLength": 1, "description": "The cancel indicator text shown in chat." },
+        "clickable": { "type": "boolean", "description": "Whether the cancel indicator is clickable." },
+        "hover_message": { "type": "string", "minLength": 1, "description": "Tooltip shown when hovering over the cancel indicator." }
+      }
+    },
+
+    "chatPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "message", "cancel"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Unique identifier for this chat prompt." },
+        "message": { "type": "string", "minLength": 1, "description": "Chat message asking the user for input." },
+        "cancel": { "$ref": "#/$defs/cancelBehavior" }
+      }
+    },
+
+    "anvilPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "submit_label"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Unique identifier for this anvil prompt." },
+        "title": { "type": "string", "minLength": 1, "description": "UI title displayed to the user." },
+        "description": { "type": "string", "description": "Optional supporting text for the UI." },
+        "submit_label": { "type": "string", "minLength": 1, "description": "Label for the submit/confirm action." },
+        "cancel_label": { "type": "string", "default": "Cancel", "description": "Label for the cancel action." },
+        "close_on_submit": { "type": "boolean", "default": true, "description": "Whether to close the UI after submission." },
+        "allow_empty": { "type": "boolean", "default": false, "description": "Whether empty input is allowed." }
+      }
+    },
+
+    "chatPromptWrapper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chat_prompt"],
+      "properties": {
+        "chat_prompt": { "$ref": "#/$defs/chatPrompt" }
+      }
+    },
+
+    "anvilPromptWrapper": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anvil_prompt"],
+      "properties": {
+        "anvil_prompt": { "$ref": "#/$defs/anvilPrompt" }
+      }
+    },
+
+    "postCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "execution_policy", "execute_as", "delay"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Unique identifier for the post command." },
+        "command": { "type": "string", "minLength": 1, "description": "The command to execute." },
+        "execution_policy": {
+          "type": "string",
+          "enum": ["on_complete", "on_cancel"],
+          "description": "When the command should be executed."
+        },
+        "execute_as": {
+          "type": "string",
+          "enum": ["console", "player"],
+          "description": "Who executes the command."
+        },
+        "delay": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Delay in ticks (or desired unit) before execution."
+        }
+      }
+    }
+  }
+}
