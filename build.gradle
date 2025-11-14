@@ -33,13 +33,13 @@ compileTestJava.options.encoding = "UTF-8"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 PluginManifest pluginManifest = [
         name       : 'CommandPrompter',
-        version    : new Version(major: 2, minor: 15, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
+        version    : new Version(major: 2, minor: 16, patch: 0, fix: 0, classifier: 'SNAPSHOT'),
         author     : 'CyR1en',
         description: 'Making Commands More Interactive!',
         entry      : 'com.cyr1en.commandprompter.CommandPrompter'
@@ -50,7 +50,7 @@ version = pluginManifest.version.toString()
 
 repositories {
     mavenCentral()
-    maven { url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
     maven { url 'https://libraries.minecraft.net/' }
     maven { url 'https://repo.cyr1en.com/snapshots' }
     maven { url 'https://repo.dmulloy2.net/repository/public/' }
@@ -68,21 +68,22 @@ dependencies {
     implementation 'com.cyr1en:kiso-mc:1.8-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit:3.0.2'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '2.4.0'
-    implementation "net.kyori:adventure-text-minimessage:4.21.0"
+    implementation "net.kyori:adventure-text-minimessage:4.25.0"
     implementation 'org.openjdk.nashorn:nashorn-core:15.4'
 
-    implementation "dev.jorel:commandapi-bukkit-shade:10.1.2"
+    implementation("dev.jorel:commandapi-paper-shade:11.0.0")
 
     // UI libs
-    implementation 'net.wesjd:anvilgui:1.10.8-SNAPSHOT'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.3'
+    //implementation 'net.wesjd:anvilgui:1.10.9-SNAPSHOT'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.5'
     implementation 'de.rapha149.signgui:signgui:2.5.4'
 
-    compileOnly "net.kyori:adventure-text-serializer-legacy:4.21.0"
-    compileOnly "net.kyori:adventure-text-serializer-plain:4.21.0"
+    compileOnly "io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT"
+
+    compileOnly "net.kyori:adventure-text-serializer-legacy:4.25.0"
+    compileOnly "net.kyori:adventure-text-serializer-plain:4.25.0"
     compileOnly 'me.clip:placeholderapi:2.11.6'
     compileOnly 'com.palmergames.bukkit.towny:towny:0.100.3.0'
-    compileOnly "org.spigotmc:spigot-api:1.21.6-R0.1-SNAPSHOT"
     compileOnly 'com.github.LeonMangler:SuperVanish:6.2.18-3'
     compileOnly 'de.hexaoxi:carbonchat-api:3.0.0-beta.26'
     compileOnly 'com.github.mbax:VanishNoPacket:3.22'
@@ -90,6 +91,7 @@ dependencies {
     compileOnly 'net.luckperms:api:5.4'
     compileOnly 'net.william278.husktowns:husktowns-common:3.0.5'
     compileOnly 'com.github.LeonMangler:PremiumVanishAPI:2.9.0-4'
+
     // Local
     implementation fileTree(dir: 'libs', include: '*.jar')
     compileOnly fileTree(dir: 'libs/compileonly', include: '*.jar')
@@ -110,6 +112,10 @@ shadowJar {
     archiveBaseName.set("$project.name")
     archiveClassifier.set('')
     archiveVersion.set(pluginManifest.version.getFullVersion())
+
+    manifest {
+      attributes["paperweight-mappings-namespace"] = "mojang"
+    }
 
     //relocate 'net.kyori.adventure', 'com.cyr1en.adventure'
     relocate 'com.github.stefvanschie.inventoryframework', 'com.cyr1en.inventoryframework'
