@@ -75,8 +75,8 @@ dependencies {
 
     // UI libs
     //implementation 'net.wesjd:anvilgui:1.10.9-SNAPSHOT'
+    //implementation 'de.rapha149.signgui:signgui:2.5.4'
     implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.5'
-    implementation 'de.rapha149.signgui:signgui:2.5.4'
 
     compileOnly "io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT"
 
