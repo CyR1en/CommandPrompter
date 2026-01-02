@@ -71,12 +71,12 @@ dependencies {
     implementation "net.kyori:adventure-text-minimessage:4.25.0"
     implementation 'org.openjdk.nashorn:nashorn-core:15.4'
 
-    implementation("dev.jorel:commandapi-paper-shade:11.0.0")
+    implementation("dev.jorel:commandapi-paper-shade:11.1.0")
 
     // UI libs
     //implementation 'net.wesjd:anvilgui:1.10.9-SNAPSHOT'
     //implementation 'de.rapha149.signgui:signgui:2.5.4'
-    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.5'
+    implementation 'com.github.stefvanschie.inventoryframework:IF:0.11.6'
 
     compileOnly "io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT"
 
