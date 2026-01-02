@@ -9,7 +9,7 @@ import com.cyr1en.kiso.mc.I18N;
 import dev.jorel.commandapi.CommandAPICommand;
 import dev.jorel.commandapi.arguments.ArgumentSuggestions;
 import dev.jorel.commandapi.arguments.GreedyStringArgument;
-import dev.jorel.commandapi.arguments.PlayerArgument;
+import dev.jorel.commandapi.arguments.PlayerProfileArgument;
 import dev.jorel.commandapi.arguments.StringArgument;
 import dev.jorel.commandapi.executors.CommandArguments;
 import org.bukkit.command.CommandSender;
@@ -77,7 +77,7 @@ public abstract class DelegateCommand extends ContextProcessor {
         public void register() {
             new CommandAPICommand("consoledelegate")
                     .withPermission("commandprompter.consoledelegate")
-                    .withArguments(new PlayerArgument("target"))
+                    .withArguments(new PlayerProfileArgument("target"))
                     .withArguments(new GreedyStringArgument("command"))
                     .executesConsole(this::exec)
                     .register();
@@ -110,7 +110,7 @@ public abstract class DelegateCommand extends ContextProcessor {
 
             new CommandAPICommand("playerdelegate")
                     .withPermission("commandprompter.playerdelegate")
-                    .withArguments(new PlayerArgument("target"))
+                    .withArguments(new PlayerProfileArgument("target"))
                     .withArguments(permissionArg)
                     .withArguments(new GreedyStringArgument("command"))
                     .executesConsole(this::exec)

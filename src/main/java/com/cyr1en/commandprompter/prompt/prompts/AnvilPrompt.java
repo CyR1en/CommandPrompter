@@ -149,18 +149,16 @@ public class AnvilPrompt extends AbstractPrompt {
         else {
             meta.setDisplayName(parts.get(0));
 
-            meta.setDisplayName(parts.get(0));
-
             if (parts.size() > 1)
                 meta.setLore(parts.subList(1, parts.size()).stream().map(this::color).toList());
-
-            if (customModelData != 0)
-                meta.setCustomModelData(customModelData);
-
-            if (ServerUtil.isAtOrAbove("1.21.2")) {
-                meta.setHideTooltip(hideTooltips);
-            }
         }
+
+        if (ServerUtil.isAtOrAbove("1.21.2")) {
+            meta.setHideTooltip(hideTooltips);
+        }
+
+        if (customModelData != 0)
+            meta.setCustomModelData(customModelData);
 
         item.setItemMeta(meta);
         return item;
