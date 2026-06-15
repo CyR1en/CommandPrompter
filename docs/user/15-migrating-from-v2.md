@@ -58,6 +58,8 @@ You must update your old tags to the new prefix syntax.
 
 *(Note: In v3, if you leave a tag as just `<Reason>` with no key, it will default to a **Chat prompt**!)*
 
+To read more about it refer to [05-prompt-syntax.md](https://github.com/CyR1en/CommandPrompter/blob/version-3/docs/user/05-prompt-syntax.md)
+
 ## 6. Commands and Permissions
 
 The base plugin commands and all internal permissions have been renamed to match the modern Paper standard.
@@ -77,7 +79,8 @@ v3 also introduces new commands and permissions for delegation (`/consoledelegat
 1.  **Backup** your old CommandPrompter folder (just in case you need to reference your old prompts or messages).
 2.  **Delete** the old CommandPrompter `.jar` and folder.
 3.  **Install** the v3 `.jar` and start your server to generate the new `config.yml` and `prompt-config.yml`.
-4.  **Transfer** your old settings (like timeouts, prefixes, and custom messages) into the new `config.yml`.
-5.  **Review** your existing commands. Your old `<a:Prompt>` tags will still work, but consider upgrading them to `<d:Prompt>` to take advantage of the new Paper Dialog UI.
+4.  **Transfer** your old settings (like timeouts, prefixes, and custom messages) into the new configuration.
+5.  **Review** your existing commands. Your old `<-a Prompt>` tags will not work anymore, convert them to `<a:Prompt>`.
+6.  **Review** your existing permissions. 
 
 Need more help? Check out the [Troubleshooting](13-troubleshooting.md) guide or read through the [Quickstart](02-quickstart.md) to see the new v3 features in action!
