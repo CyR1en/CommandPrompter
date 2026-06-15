@@ -1,2 +1,13 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = "https://repo.papermc.io/repository/maven-public/" }
+    }
+}
+
 rootProject.name = 'CommandPrompter'
 
+include("prompt-core")
+include("prompt-paper")
+include("prompt-ui-api")
+include("prompt-ui-26.1")

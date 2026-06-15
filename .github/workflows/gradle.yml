@@ -21,11 +21,11 @@ jobs:
         uses: actions/setup-java@v2.5.0
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - name: Build with Gradle
         run: ./gradlew clean build
       - name: Upload artifact
-        uses: actions/upload-artifact@v2.3.1
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: CommandPrompter
           path: build/libs
@@ -41,7 +41,7 @@ jobs:
         uses: actions/setup-java@v2.5.0
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - name: Publish to Kakuno
         env:
           KAKUNO_USER: ${{ secrets.KAKUNO_USER }}

@@ -1,0 +1,35 @@
+name: CommandPrompterPaper
+version: '3.0.0'
+main: dev.cyr1en.promptpaper.CommandPrompter
+api-version: '26.1.2'
+description: Making Commands More Interactive!
+folia-supported: true
+bootstrapper: dev.cyr1en.promptpaper.CommandPrompterBootstrap
+
+dependencies:
+  server:
+    CarbonChat:     { load: AFTER, required: false }
+    SuperVanish:    { load: AFTER, required: false }
+    PremiumVanish:  { load: AFTER, required: false }
+    VanishNoPacket: { load: AFTER, required: false }
+    PlaceholderAPI: { load: AFTER, required: false }
+    LuckPerms:      { load: AFTER, required: false }
+    Towny:          { load: AFTER, required: false }
+    HuskTowns:      { load: AFTER, required: false }
+    WorldGuard:     { load: AFTER, required: false }
+
+permissions:
+  promptpaper.admin:
+    description: Master permission for CommandPrompter commands
+  promptpaper.reload:
+    description: Allows using /commandprompter reload
+  promptpaper.cancel:
+    description: Allows cancelling active prompts
+  promptpaper.version:
+    description: Allows using /commandprompter version
+  promptpaper.use:
+    description: Allows using prompt features
+  promptpaper.consoledelegate:
+    description: Allows using /consoledelegate
+  promptpaper.playerdelegate:
+    description: Allows using /playerdelegate

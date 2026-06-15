@@ -1,0 +1,93 @@
+package dev.cyr1en.promptpaper.screen;
+
+import dev.cyr1en.promptui.InputScreen;
+import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptui.ComponentUtil;
+
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import org.bukkit.entity.Player;
+
+/**
+ * Prompt screen that sends a chat message and captures the player's
+ * next chat input as the answer.
+ */
+public class ChatPromptScreen implements InputScreen {
+
+    private final CommandPrompter plugin;
+    private final Player player;
+    private final String displayText;
+    private Consumer<ScreenResult> callback;
+    private boolean open;
+
+    public ChatPromptScreen(CommandPrompter plugin, Player player, String displayText) {
+        this.plugin = plugin;
+        this.player = player;
+        this.displayText = displayText;
+    }
+
+    /**
+     * Sends the prompt text (with an optional clickable cancel link) to the player.
+     */
+    @Override
+    public void open() {
+        var prefix = plugin.getConfigLoader().getConfig().promptPrefix();
+        plugin.getPluginLogger().debug("Opening chat prompt for " + player.getName()
+                + " text=" + displayText);
+
+        var promptConfig = plugin.getConfigLoader().getPromptConfig();
+        Component cancelComponent = null;
+        if (promptConfig.sendCancelText()) {
+            var cancelMsg = promptConfig.textCancelMessage();
+            var hoverMsg = promptConfig.textCancelHoverMessage();
+            cancelComponent = ComponentUtil.mini(ComponentUtil.toMini(cancelMsg))
+                    .clickEvent(ClickEvent.clickEvent(ClickEvent.Action.RUN_COMMAND,
+                            ClickEvent.Payload.string("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword())))
+                    .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            ComponentUtil.mini(ComponentUtil.toMini(hoverMsg))));
+        }
+
+        var messageComponent = Objects.isNull(cancelComponent) ? ComponentUtil.mini(prefix + displayText)
+                : ComponentUtil.mini(prefix + displayText).append(cancelComponent);
+        player.sendMessage(messageComponent);
+        open = true;
+    }
+
+    @Override
+    public void close() {
+        if (!open) return;
+        open = false;
+        plugin.getPluginLogger().debug("Chat prompt closed for " + player.getName());
+    }
+
+    @Override
+    public boolean isOpen() {
+        return open;
+    }
+
+    @Override
+    public void onResult(Consumer<ScreenResult> callback) {
+        this.callback = callback;
+    }
+
+    /**
+     * Captures the player's next chat message and delivers it as the screen result.
+     */
+    void handleInput(String input) {
+        if (!open) {
+            plugin.getPluginLogger().debug("Chat input for " + player.getName() + " but screen not open");
+            return;
+        }
+        plugin.getPluginLogger().debug("Chat input from " + player.getName() + ": " + input);
+        open = false;
+        if (callback != null) {
+            callback.accept(ScreenResult.answer(input));
+        }
+    }
+}

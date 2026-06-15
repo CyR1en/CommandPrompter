@@ -2,6 +2,7 @@
 ### Gradle template
 .gradle
 /build/
+prompt-core/build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -102,3 +103,48 @@ gen### Java template
 hs_err_pid*
 
 bin/
+
+prompt-paper/build/
+prompt-ui-api/build/
+prompt-ui-26.1/build/
+
+# Paperweight runtime caches (regenerated on build)
+cache/
+versions/
+
+# Local test server artifacts (not for the repo)
+eula.txt
+server.properties
+logs/
+plugins/
+/paper-plugin.yml
+testserver/
+
+# Junie agent IDE config
+.junie/
+
+# Agent working notes (local-only)
+AGENTS.md
+
+.condegraph/
+.lcm/
+.reasonix/
+.stfolder/
+.codegraph/
+
+# CodeGraph data files
+# These are local to each machine and should not be committed
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Cache
+cache/
+
+# Logs
+*.log
+
+# Hook markers
+.dirty

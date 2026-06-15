@@ -1,4 +1,4 @@
-![](https://www.spigotmc.org/attachments/asset-4-png.679568/)
+![](https://files.gitbook.com/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FDaCb7lTXGFkT8XKPSg62%2Fuploads%2F7dP2oyXS2s5oc3AoU6KA%2FAsset%204.png?alt=media&token=fb70ddc2-4a5f-4f20-93b9-dff1aa3bf801)  
 # CommandPrompter
 [![](https://ci.cyr1en.com/job/CommandPrompter/badge/icon)](https://ci.cyr1en.com/job/CommandPrompter)
 [![](https://img.shields.io/badge/GitBook-documentation-brightgreen?logo=gitbook)](https://cyr1en.gitbook.io/commandprompter/)
@@ -20,7 +20,7 @@ Features:
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:
 
 #### Requirements
-* JDK 16 or newer
+* JDK 17 or newer
 * Git
 
 #### Compiling from source
@@ -32,12 +32,6 @@ cd CommandPrompter/
 
 ## Special Thanks To:
 <div align="Left">
-  <a href="https://www.jetbrains.com">
-    <img width="130" src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg" />
-  </a>
-
-  <p>This project was developed with the help of JetBrains' generous <a href="https://www.jetbrains.com/opensource/">Open Source License program</a>. Huge thanks to their continued support for open source development!</p>
-
   <a href="https://www.gitbook.com/">
     <img width="230" src="https://i.imgur.com/SIPKmzS.png">
   </a>
@@ -45,7 +39,7 @@ cd CommandPrompter/
   <p>This project owes a huge thanks to GitBook's fantastic <a href="https://docs.gitbook.com/account-management/plans/apply-for-the-non-profit-open-source-plan">Open Source License</a> and their amazing platform for creating beautiful and accessible documentation. Their dedication to open source and ease-of-use has been invaluable to this project's success!</p>
 
   <a href="https://lithiumhosting.com/">
-    <img width="100" src="https://lithiumhosting.com/billing/templates/lagom/assets/img/logo/logo_small_inverse.svg" />
+    <img width="230" src="https://lithiumhosting.com/lithiumv8/images/svg/logo_horizontal_light.svg" />
   </a>
 
   <p>Lithium Hosting's invaluable support by providing a server to facilitate development. Their dedication to open source and the developer community has been instrumental in making this project possible.</p>

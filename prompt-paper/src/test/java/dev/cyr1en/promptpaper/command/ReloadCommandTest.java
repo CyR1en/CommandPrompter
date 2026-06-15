@@ -1,0 +1,95 @@
+package dev.cyr1en.promptpaper.command;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.config.PaperConfigLoader;
+import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.screen.ScreenManager;
+import net.kyori.adventure.text.Component;
+import org.bukkit.command.CommandSender;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class ReloadCommandTest extends MockBukkitTest {
+
+    private ReloadCommand cmd;
+    private PromptEngine engine;
+    private ScreenManager screenManager;
+    private PaperConfigLoader loader;
+
+    @BeforeEach
+    void setUp() {
+        engine = mock(PromptEngine.class);
+        screenManager = mock(ScreenManager.class);
+        loader = mock(PaperConfigLoader.class);
+
+        when(plugin.getEngine()).thenReturn(engine);
+        when(plugin.getScreenManager()).thenReturn(screenManager);
+        when(plugin.getConfigLoader()).thenReturn(loader);
+
+        cmd = new ReloadCommand(plugin);
+    }
+
+    @Test
+    void reloadSuccessSendsSuccessMessage() {
+        doNothing().when(loader).reload();
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(loader, times(1)).reload();
+        verify(sender, times(1)).sendMessage(any(Component.class));
+    }
+
+    @Test
+    void reloadCancelsActiveSessionsBeforeReloading() {
+        var player = createPlayer("OnlinePlayer");
+        doNothing().when(loader).reload();
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(screenManager, times(1)).cancelAll(player);
+        verify(engine, times(1)).cancelAll();
+        verify(loader, times(1)).reload();
+    }
+
+    @Test
+    void reloadFailureSendsErrorMessage() {
+        doThrow(new RuntimeException("boom")).when(loader).reload();
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(sender, times(1)).sendMessage(any(Component.class));
+    }
+
+    @Test
+    void buildReturnsNonNullLiteralNode() {
+        assertNotNull(cmd.build());
+    }
+
+    @Test
+    void allowedRequiresPermission() {
+        var noPerm = mock(CommandSender.class);
+        when(noPerm.hasPermission("promptpaper.reload")).thenReturn(false);
+        assertFalse(cmd.allowed(noPerm));
+
+        var withPerm = mock(CommandSender.class);
+        when(withPerm.hasPermission("promptpaper.reload")).thenReturn(true);
+        assertTrue(cmd.allowed(withPerm));
+    }
+}
