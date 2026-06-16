@@ -43,7 +43,6 @@ dependencies {
     implementation(project(":prompt-core"))
     implementation(project(":prompt-ui-api"))
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
-    implementation("com.cyr1en:kiso-mc:1.8-SNAPSHOT")
     implementation("net.kyori:adventure-text-minimessage:4.26.1")
     implementation("net.kyori:adventure-text-serializer-legacy:4.26.1")
     implementation("org.bstats:bstats-bukkit:3.0.2")
@@ -259,14 +258,33 @@ fun stopServerIn(serverRoot: File) {
         return
     }
     println("Stopping paper process (if any) in $serverRoot …")
-    val proc = ProcessBuilder("bash", "-c", "pkill -f 'paper.*jar.*nogui' || true")
+    
+    try {
+        // Use jps to safely find and kill the exact java process, avoiding pkill quirks on macOS
+        val jps = ProcessBuilder("jps", "-l").start()
+        val output = jps.inputStream.bufferedReader().readText()
+        jps.waitFor()
+        
+        output.lines().forEach { line ->
+            if (line.contains("paper-") && line.contains(".jar")) {
+                val pid = line.substringBefore(" ").trim()
+                println("Found running paper server (PID: $pid), killing...")
+                ProcessBuilder("kill", "-9", pid).start().waitFor()
+            }
+        }
+    } catch (e: Exception) {
+        println("jps kill method failed, falling back to pkill: ${e.message}")
+    }
+
+    // Fallback: simple pkill without the complex regex that macOS often rejects
+    val proc = ProcessBuilder("bash", "-c", "pkill -9 -f 'paper-.*\\.jar' || true")
         .directory(serverRoot)
         .redirectErrorStream(true)
         .start()
     proc.inputStream.bufferedReader().use { print(it.readText()) }
     proc.waitFor()
-    // Give the JVM time to release the port and write a clean shutdown.
-    Thread.sleep(4000)
+    // Give the OS a moment to release file locks.
+    Thread.sleep(2000)
 }
 
 tasks.register("prepareServer") {
@@ -343,9 +361,8 @@ publishing {
     }
 }
 
-tasks.register("deploy") {
-    description = "Build the shadow JAR, ensure a Paper test server, deploy the plugin, and start it. " +
-        "Properties: -PpaperVersion=<v> -PpaperBuild=<n> -PpaperChannel=<c> -PtestServer=<path>."
+tasks.register("copyPlugin") {
+    description = "Copy the built paper shadow jar to the testserver plugins directory."
     group = "commandprompter"
 
     dependsOn(tasks.shadowJar, "prepareServer")
@@ -355,25 +372,35 @@ tasks.register("deploy") {
         val serverRoot = resolveServerRoot(version)
         val pluginsDir = File(serverRoot, "plugins").apply { mkdirs() }
 
-        stopServerIn(serverRoot)
-
         val shadowJarFile = tasks.shadowJar.get().archiveFile.get().asFile
         val dest = File(pluginsDir, shadowJarFile.name)
         if (dest.exists()) dest.delete()
         shadowJarFile.copyTo(dest, overwrite = true)
         println("Deployed ${shadowJarFile.name} → $dest")
+    }
+}
+
+tasks.register("startServer") {
+    description = "Start the Paper test server in the foreground. " +
+        "Properties: -PpaperVersion=<v> -PpaperBuild=<n> -PpaperChannel=<c> -PtestServer=<path>."
+    group = "commandprompter"
+
+    dependsOn("copyPlugin")
+
+    doLast {
+        val version = resolveVersionProperty()
+        val serverRoot = resolveServerRoot(version)
 
         val jar = (serverRoot.listFiles { f -> paperJarPattern.matches(f.name) } ?: emptyArray())
             .maxByOrNull { it.lastModified() }
             ?: error("No paper-*.jar in $serverRoot — did prepareServer run?")
-        println("Starting $jar (log: $serverRoot/server.log) …")
-        val script = "nohup java -jar \"" + jar.absolutePath + "\" -nogui > server.log 2>&1 &\n" +
-            "echo \"Started $jar (pid=$!)\""
-        val proc = ProcessBuilder("bash", "-c", script)
+        println("Starting $jar in $serverRoot …")
+        
+        val process = ProcessBuilder("java", "-jar", jar.name, "-nogui")
             .directory(serverRoot)
-            .redirectErrorStream(true)
+            .inheritIO()
             .start()
-        proc.inputStream.bufferedReader().use { print(it.readText()) }
-        proc.waitFor()
+            
+        process.waitFor()
     }
 }

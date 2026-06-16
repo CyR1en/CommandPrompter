@@ -1,7 +1,7 @@
 package dev.cyr1en.promptcore;
 
 /**
- * Reasons a {@link PromptSession} can be cancelled.
+ * Reasons a {@link dev.cyr1en.promptcore.session.PromptSession} can be cancelled.
  *
  * <p>{@link #MANUAL} — user explicitly cancelled (cancel keyword, button click).<br>
  * {@link #TIMEOUT} — session expired due to inactivity.<br>

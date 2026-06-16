@@ -1,5 +1,6 @@
 package dev.cyr1en.promptpaper.config;
 
+import dev.cyr1en.promptcore.config.RecordConfigLoader;
 import dev.cyr1en.promptpaper.CommandPrompter;
 
 /**
@@ -10,26 +11,23 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 public class PaperConfigLoader {
 
     private final CommandPrompter plugin;
-    private final ConfigurationManager configManager;
+    private final RecordConfigLoader configManager;
     private CommandPrompterConfig config;
     private PromptConfig promptConfig;
     private MessageConfig messageConfig;
 
     /**
      * Creates the loader and immediately loads all config files.
-     *
-     * @param plugin the owning plugin
      */
     public PaperConfigLoader(CommandPrompter plugin) {
         this.plugin = plugin;
-        this.configManager = new ConfigurationManager(plugin);
+        this.configManager = new RecordConfigLoader(plugin.getDataFolder());
         reload();
     }
 
-    /** Re-reads {@code config.yml} and {@code prompt-config.yml} from disk, replacing all cached records. */
     public void reload() {
         config = configManager.getConfig(CommandPrompterConfig.class);
-        plugin.getLogger().fine("config.yml loaded: timeout=" + config.promptTimeout()
+        plugin.getLogger().fine("config.yml loaded: " + config.promptPrefix()
                 + " debug=" + config.debugMode() + " fancy=" + config.fancyLogger());
         promptConfig = configManager.getConfig(PromptConfig.class);
         plugin.getLogger().fine("prompt-config.yml loaded: mappings="

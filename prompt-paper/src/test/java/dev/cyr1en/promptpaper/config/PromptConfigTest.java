@@ -3,18 +3,17 @@ package dev.cyr1en.promptpaper.config;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import com.cyr1en.kiso.mc.configuration.base.Config;
+import dev.cyr1en.promptcore.config.YamlDocument;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import java.util.List;
-import java.util.Map;
-import org.bukkit.configuration.ConfigurationSection;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class PromptConfigTest extends MockBukkitTest {
 
     private PromptConfig makeDefaultCfg() {
-        return new PromptConfig(mock(Config.class),
+        return new PromptConfig(mock(YamlDocument.class),
                 "%s", 0, 54, 256, 1,
                 "Feather", 0, 3, "&7◀◀ Previous",
                 "Feather", 0, 7, "Next ▶▶",
@@ -38,8 +37,8 @@ class PromptConfigTest extends MockBukkitTest {
 
     @Test
     void screenMappingsReturnsDefaultsWhenSectionMissing() {
-        var rawConfig = mock(Config.class);
-        when(rawConfig.getConfigurationSection("screen-mappings")).thenReturn(null);
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("screen-mappings")).thenReturn(Set.of());
 
         var cfg = new PromptConfig(rawConfig,
                 "%s", 0, 54, 256, 1,
@@ -69,13 +68,10 @@ class PromptConfigTest extends MockBukkitTest {
 
     @Test
     void screenMappingsReadsFromSection() {
-        var section = mock(ConfigurationSection.class);
-        when(section.getKeys(false)).thenReturn(java.util.Set.of("a", "s"));
-        when(section.getString("a")).thenReturn("ANVIL");
-        when(section.getString("s")).thenReturn("SIGN");
-
-        var rawConfig = mock(Config.class);
-        when(rawConfig.getConfigurationSection("screen-mappings")).thenReturn(section);
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("screen-mappings")).thenReturn(Set.of("a", "s"));
+        when(rawConfig.getString("screen-mappings.a")).thenReturn("ANVIL");
+        when(rawConfig.getString("screen-mappings.s")).thenReturn("SIGN");
 
         var cfg = new PromptConfig(rawConfig,
                 "%s", 0, 54, 256, 1,
@@ -140,7 +136,7 @@ class PromptConfigTest extends MockBukkitTest {
 
     @Test
     void dialogConfigCustomValuesPropagate() {
-        var cfg = new PromptConfig(mock(Config.class),
+        var cfg = new PromptConfig(mock(YamlDocument.class),
                 "%s", 0, 54, 256, 1,
                 "Feather", 0, 3, "&7◀◀ Previous",
                 "Feather", 0, 7, "Next ▶▶",
@@ -181,8 +177,8 @@ class PromptConfigTest extends MockBukkitTest {
 
     @Test
     void filterFormatDefaultsToPercentS() {
-        var rawConfig = mock(Config.class);
-        when(rawConfig.getConfigurationSection("PlayerUI.Filter-Format")).thenReturn(null);
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("PlayerUI.Filter-Format")).thenReturn(Set.of());
 
         var cfg = new PromptConfig(rawConfig,
                 "%s", 0, 54, 256, 1,

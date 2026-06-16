@@ -1,10 +1,10 @@
 package dev.cyr1en.promptpaper.config;
 
-import com.cyr1en.kiso.mc.configuration.base.Config;
-import dev.cyr1en.promptpaper.config.annotations.field.*;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigHeader;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigPath;
-import dev.cyr1en.promptpaper.config.annotations.type.Configuration;
+import dev.cyr1en.promptcore.config.YamlDocument;
+import dev.cyr1en.promptcore.config.annotations.field.*;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigHeader;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigPath;
+import dev.cyr1en.promptcore.config.annotations.type.Configuration;
 
 /**
  * User-facing message strings used by the prompt screens.
@@ -16,7 +16,7 @@ import dev.cyr1en.promptpaper.config.annotations.type.Configuration;
 @ConfigPath("config.yml")
 @ConfigHeader({"Command PrompterPaper", "Messages", "Configuration"})
 public record MessageConfig(
-        Config rawConfig,
+        YamlDocument rawConfig,
 
         @ConfigNode
         @NodeName("Messages.Prompt-Cancelled")

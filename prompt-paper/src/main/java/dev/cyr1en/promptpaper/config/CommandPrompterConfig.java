@@ -1,10 +1,12 @@
 package dev.cyr1en.promptpaper.config;
 
-import dev.cyr1en.promptpaper.config.annotations.field.*;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigHeader;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigPath;
-import dev.cyr1en.promptpaper.config.annotations.type.Configuration;
-import com.cyr1en.kiso.mc.configuration.base.Config;
+import dev.cyr1en.promptcore.config.annotations.field.*;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigHeader;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigPath;
+import dev.cyr1en.promptcore.config.annotations.type.Configuration;
+import dev.cyr1en.promptcore.config.annotations.type.SectionComment;
+import dev.cyr1en.promptcore.config.annotations.type.SectionComments;
+import dev.cyr1en.promptcore.config.YamlDocument;
 import java.util.List;
 import java.util.Set;
 
@@ -18,8 +20,16 @@ import java.util.Set;
 @Configuration
 @ConfigPath("config.yml")
 @ConfigHeader({"Command PrompterPaper", "Configuration"})
+@SectionComments({
+    @SectionComment(path = "Permission-Attachment", comments = {
+        "Permission Attachment Config"
+    }),
+    @SectionComment(path = "Permission-Attachment.Permissions", comments = {
+        "Permissions to temporarily attach to the player."
+    })
+})
 public record CommandPrompterConfig(
-        Config rawConfig,
+        YamlDocument rawConfig,
 
         @ConfigNode
         @NodeName("Prompt-Prefix")
@@ -100,7 +110,7 @@ public record CommandPrompterConfig(
         @ConfigNode
         @NodeName("Permission-Attachment.ticks")
         @NodeDefault("1")
-        @NodeComment({"Permission Attachment Config", "",
+        @NodeComment({
                 "ticks - Set how long (in ticks) should the",
                 "        permission attachment persist."})
         int permissionAttachmentTicks,
@@ -110,14 +120,13 @@ public record CommandPrompterConfig(
         @NodeDefault("bukkit.command.gamemode, " +
                 "essentials.gamemode.survival," +
                 "essentials.gamemode.creative")
-        @NodeComment({"Permissions to temporarily attach to the player.",
-                "Usage: /playerdelegate <player> GAMEMODE <command>"})
+        @NodeComment({
+                "Usage - /playerdelegate <player> GAMEMODE <command>"})
         List<String> attachmentPermissions
-
 ) implements AliasedSection {
 
     @Override
-    public Config rawConfig() {
+    public YamlDocument rawConfig() {
         return rawConfig;
     }
 
@@ -128,10 +137,10 @@ public record CommandPrompterConfig(
      * @return permission strings, or an empty array if the key is absent
      */
     public String[] getPermissionAttachment(String key) {
-        var section = rawConfig.getConfigurationSection("Permission-Attachment.Permissions");
-        if (section == null) return new String[0];
-        var keyExist = section.getKeys(false).contains(key);
-        return keyExist ? section.getStringList(key).toArray(String[]::new) : new String[0];
+        var configKeys = rawConfig.getKeys("Permission-Attachment.Permissions");
+        if (configKeys.isEmpty()) return new String[0];
+        var keyExist = configKeys.contains(key);
+        return keyExist ? rawConfig.getList("Permission-Attachment.Permissions." + key).stream().map(Object::toString).toArray(String[]::new) : new String[0];
     }
 
     /**
@@ -140,9 +149,9 @@ public record CommandPrompterConfig(
      * @return key names including a synthetic {@code "NONE"} entry
      */
     public String[] getPermissionKeys() {
-        var section = rawConfig.getConfigurationSection("Permission-Attachment.Permissions");
-        if (section == null) return new String[]{"NONE"};
-        var keys = new java.util.HashSet<>(section.getKeys(false));
+        var configKeys = rawConfig.getKeys("Permission-Attachment.Permissions");
+        if (configKeys.isEmpty()) return new String[]{"NONE"};
+        var keys = new java.util.HashSet<>(configKeys);
         keys.add("NONE");
         return keys.toArray(String[]::new);
     }

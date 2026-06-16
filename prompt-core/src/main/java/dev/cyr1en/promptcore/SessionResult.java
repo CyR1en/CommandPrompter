@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The assembled output of a completed {@link PromptSession}.
+ * The assembled output of a completed {@link dev.cyr1en.promptcore.session.PromptSession}.
  *
  * <p>Contains the final command string (with prompt tags replaced by answers) and any post-command
  * metas that should be dispatched. Cancelled sessions produce onCancelCmds; completed sessions

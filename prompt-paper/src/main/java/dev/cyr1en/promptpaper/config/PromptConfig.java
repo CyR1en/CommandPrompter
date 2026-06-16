@@ -1,11 +1,12 @@
 package dev.cyr1en.promptpaper.config;
 
-import dev.cyr1en.promptpaper.config.annotations.field.*;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigHeader;
-import dev.cyr1en.promptpaper.config.annotations.type.ConfigPath;
-import dev.cyr1en.promptpaper.config.annotations.type.Configuration;
-import com.cyr1en.kiso.mc.configuration.base.Config;
-import com.cyr1en.kiso.mc.configuration.base.ConfigManager;
+import dev.cyr1en.promptcore.config.annotations.field.*;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigHeader;
+import dev.cyr1en.promptcore.config.annotations.type.ConfigPath;
+import dev.cyr1en.promptcore.config.annotations.type.Configuration;
+import dev.cyr1en.promptcore.config.annotations.type.SectionComment;
+import dev.cyr1en.promptcore.config.annotations.type.SectionComments;
+import dev.cyr1en.promptcore.config.YamlDocument;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.sub.*;
 import dev.cyr1en.promptpaper.validation.*;
@@ -29,20 +30,39 @@ import org.bukkit.entity.Player;
 @Configuration
 @ConfigPath("prompt-config.yml")
 @ConfigHeader({"Prompts", "Configuration"})
+@SectionComments({
+    @SectionComment(path = "PlayerUI", comments = {"PlayerUI formatting"}),
+    @SectionComment(path = "AnvilGUI", comments = {"AnvilUI formatting"}),
+    @SectionComment(path = "AnvilGUI.Item", comments = {"The Left item to place on the Anvil GUI"}),
+    @SectionComment(path = "AnvilGUI.ResultItem", comments = {"The Result item to place on the Anvil GUI"}),
+    @SectionComment(path = "AnvilGUI.CancelItem", comments = {"The Cancel item to place on the Anvil GUI"}),
+    @SectionComment(path = "TextPrompt", comments = {"Text Prompt Config"}),
+    @SectionComment(path = "SignUI", comments = {"Sign UI Settings"}),
+    @SectionComment(path = "Input-Validation", comments = {"Input Validation"}),
+    @SectionComment(path = "DialogUI", comments = {
+        "Dialog UI Settings",
+        "",
+        "Used by the <d:...> prompt tag.",
+        "No filter / unknown filter -> text field (single-line or multi-line).",
+        "Available kinds",
+        "  <d:num[a,b]:Display>, <d:num[a,b,s]:Display>, <d:num[a,b,s,i]:Display>",
+        "  <d:choice[opt1,opt2,...]:Display> - single-select dropdown",
+        "Compound form split sub-tags with ' && ' inside a single <d:...> block",
+        "  <d:choice[set,add]:Sub && d:num[0,24]:Value>",
+        "  renders ONE dialog with TWO input rows; block-level flags (-ds, -iv:alias, ...)",
+        "  apply to the whole block."
+    }),
+    @SectionComment(path = "DialogUI.Confirm-Button", comments = {"submit / dismiss button label+tooltip."}),
+    @SectionComment(path = "DialogUI.Cancel-Button", comments = {"submit / dismiss button label+tooltip."})
+})
 public record PromptConfig(
-        Config rawConfig,
+        YamlDocument rawConfig,
 
         // ============================== Player UI ==============================
         @ConfigNode
         @NodeName("PlayerUI.Skull-Name-Format")
         @NodeDefault("&6%s")
-        @NodeComment({"PlayerUI formatting", "",
-                "Skull-Name-Format - The display name format for the player heads",
-                "Size - the size of the UI (multiple of 9, between 18-54)",
-                "Cache-Size - Size for the head cache",
-                "Cache-Delay - Delay in ticks after the player joins before their head gets cached",
-                "Sorted - Should the player heads be sorted?",
-                "Empty-Message - Message to be displayed when the head cache is empty"})
+        @NodeComment({"The display name format for the player heads"})
         String skullNameFormat,
 
         @ConfigNode
@@ -53,17 +73,20 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("PlayerUI.Size")
         @NodeDefault("54")
+        @NodeComment({"the size of the UI (multiple of 9, between 18-54)"})
         int playerUISize,
 
         @ConfigNode
         @NodeName("PlayerUI.Cache-Size")
         @NodeDefault("256")
+        @NodeComment({"Size for the head cache"})
         int cacheSize,
 
         @ConfigNode
         @NodeName("PlayerUI.Cache-Delay")
         @NodeDefault("1")
         @IntegerConstraint(min = 0, max = 2400)
+        @NodeComment({"Delay in ticks after the player joins before their head gets cached"})
         int cacheDelay,
 
         @ConfigNode
@@ -169,11 +192,13 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("PlayerUI.Sorted")
         @NodeDefault("false")
+        @NodeComment({"Should the player heads be sorted?"})
         boolean sorted,
 
         @ConfigNode
         @NodeName("PlayerUI.Empty-Message")
         @NodeDefault("&cNo players found!")
+        @NodeComment({"Message to be displayed when the head cache is empty"})
         String emptyMessage,
 
         @ConfigNode
@@ -190,30 +215,25 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.Enable-Title")
         @NodeDefault("true")
-        @NodeComment({"AnvilUI formatting", "",
-                "Enable-Title - Show the first line of the prompt (if with {br}) as title of Anvil GUI",
-                "Enable-Cancel-Item - Show a cancel item on the right slot input slot.",
-                "Item - The Left item to place on the Anvil GUI",
-                "Enchanted - Do you want the item enchanted?",
-                "ResultItem - The Result item to place on the Anvil GUI",
-                "Hide-Tooltips - Hide tooltips of item (1.21.2 OR ABOVE)",
-                "Custom-Title - If title is enabled, and if custom title is not empty, use this instead",
-                "Prompt-Message - The message to be displayed on the Anvil GUI"})
+        @NodeComment({"Show the first line of the prompt (if with {br}) as title of Anvil GUI"})
         boolean enableTitle,
 
         @ConfigNode
         @NodeName("AnvilGUI.Custom-Title")
         @NodeDefault("")
+        @NodeComment({"If title is enabled, and if custom title is not empty, use this instead"})
         String customTitle,
 
         @ConfigNode
         @NodeName("AnvilGUI.Prompt-Message")
         @NodeDefault("")
+        @NodeComment({"The message to be displayed on the Anvil GUI"})
         String promptMessage,
 
         @ConfigNode
         @NodeName("AnvilGUI.Enable-Cancel-Item")
         @NodeDefault("false")
+        @NodeComment({"Show a cancel item on the right slot input slot."})
         boolean enableCancelItem,
 
         @ConfigNode
@@ -224,6 +244,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.Item.HideTooltips")
         @NodeDefault("false")
+        @NodeComment({"Hide tooltips of item (1.21.2 OR ABOVE)"})
         boolean itemHideTooltips,
 
         @ConfigNode
@@ -234,6 +255,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.Item.Enchanted")
         @NodeDefault("false")
+        @NodeComment({"Do you want the item enchanted?"})
         boolean itemAnvilEnchanted,
 
         @ConfigNode
@@ -244,6 +266,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.ResultItem.HideTooltips")
         @NodeDefault("false")
+        @NodeComment({"Hide tooltips of item (1.21.2 OR ABOVE)"})
         boolean resultItemHideTooltips,
 
         @ConfigNode
@@ -254,6 +277,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.ResultItem.Enchanted")
         @NodeDefault("false")
+        @NodeComment({"Do you want the item enchanted?"})
         boolean resultItemAnvilEnchanted,
 
         @ConfigNode
@@ -264,6 +288,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.CancelItem.HideTooltips")
         @NodeDefault("false")
+        @NodeComment({"Hide tooltips of item (1.21.2 OR ABOVE)"})
         boolean cancelItemHideTooltips,
 
         @ConfigNode
@@ -274,6 +299,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("AnvilGUI.CancelItem.Enchanted")
         @NodeDefault("false")
+        @NodeComment({"Do you want the item enchanted?"})
         boolean cancelItemAnvilEnchanted,
 
         @ConfigNode
@@ -285,36 +311,38 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("TextPrompt.Clickable-Cancel")
         @NodeDefault("true")
-        @NodeComment({"Text Prompt Config", "",
-                "Clickable-Cancel - Enable clickable cancel",
-                "Cancel-Message - Clickable text message",
-                "Cancel-Hover-Message - Message to show when a player hovers over the clickable cancel message.",
-                "Response-Listener-Priority - Change the priority of the response listener",
-                "Available Priority - DEFAULT, LOW, LOWEST, NORMAL, HIGH, HIGHEST"})
+        @NodeComment({"Enable clickable cancel"})
         boolean sendCancelText,
 
         @ConfigNode
         @NodeName("TextPrompt.Cancel-Message")
         @NodeDefault("&7[&c&l✘&7]")
+        @NodeComment({"Clickable text message"})
         String textCancelMessage,
 
         @ConfigNode
         @NodeName("TextPrompt.Cancel-Hover-Message")
         @NodeDefault("&7Click here to cancel command completion")
+        @NodeComment({"Message to show when a player hovers over the clickable cancel message."})
         String textCancelHoverMessage,
 
         @ConfigNode
         @NodeName("TextPrompt.Response-Listener-Priority")
         @NodeDefault("DEFAULT")
+        @NodeComment({
+                "Change the priority of the response listener",
+                "Available Priority - DEFAULT, LOW, LOWEST, NORMAL, HIGH, HIGHEST"
+        })
         String responseListenerPriority,
 
         // ============================== Sign UI ==============================
         @ConfigNode
         @NodeName("SignUI.Input-Field-Location")
         @NodeDefault("bottom")
-        @NodeComment({"Sign UI Settings", "",
-                "Input-Field-Location - Which line should the answer be read from.",
-                "Valid locations: top, top-aggregate, bottom, bottom-aggregate"})
+        @NodeComment({
+                "Which line should the answer be read from.",
+                "Valid locations - top, top-aggregate, bottom, bottom-aggregate"
+        })
         String inputFieldLocation,
 
         @ConfigNode
@@ -327,13 +355,13 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("Input-Validation.Integer-Sample.Alias")
         @NodeDefault("is")
-        @NodeComment({"Input Validation", "", "Alias - The alias of the input validation",
-                "Regex - Regex to use for the input validation"})
+        @NodeComment({"The alias of the input validation"})
         String intSampleAlias,
 
         @ConfigNode
         @NodeName("Input-Validation.Integer-Sample.Regex")
         @NodeDefault("^\\d+")
+        @NodeComment({"Regex to use for the input validation"})
         String intSampleRegex,
 
         @ConfigNode
@@ -344,11 +372,13 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("Input-Validation.Alpha-Sample.Alias")
         @NodeDefault("ss")
+        @NodeComment({"The alias of the input validation"})
         String strSampleAlias,
 
         @ConfigNode
         @NodeName("Input-Validation.Alpha-Sample.Regex")
         @NodeDefault("[A-Za-z ]+")
+        @NodeComment({"Regex to use for the input validation"})
         String strSampleRegex,
 
         @ConfigNode
@@ -360,26 +390,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("DialogUI.Title")
         @NodeDefault("Prompt")
-        @NodeComment({"Dialog UI Settings", "",
-                "Used by the <d:...> prompt tag.",
-                "No filter / unknown filter -> text field (single-line or multi-line).",
-                "Available kinds:",
-                "  <d:num[a,b]:Display>, <d:num[a,b,s]:Display>, <d:num[a,b,s,i]:Display>",
-                "  <d:choice[opt1,opt2,...]:Display> - single-select dropdown",
-                "Compound form: split sub-tags with ' && ' inside a single <d:...> block:",
-                "  <d:choice[set,add]:Sub && d:num[0,24]:Value>",
-                "  renders ONE dialog with TWO input rows; block-level flags (-ds, -iv:alias, ...)",
-                "  apply to the whole block.",
-                "Title - the dialog window title.",
-                "Confirm-Button / Cancel-Button - submit / dismiss button label+tooltip.",
-                "Defaults.Text.MaxLength - max chars for text input.",
-                "Defaults.Text.Multiline - allow multi-line text input.",
-                "Defaults.Text.MultilineMaxLines - line cap when multiline is true.",
-                "Defaults.Number.Min/Max/Step/Initial - defaults for the <d:num...> variant.",
-                "      Initial is optional; if omitted, uses (min + max) / 2.",
-                "Defaults.Tab.MaxButtons - threshold for the <d:tab:Display> form. When the",
-                "      completion count is at or below this number, the dialog shows a button",
-                "      grid (one per completion). Above this, it falls back to a text input."})
+        @NodeComment({"the dialog window title."})
         String dialogTitle,
 
         @ConfigNode
@@ -406,17 +417,20 @@ public record PromptConfig(
         @NodeName("DialogUI.Defaults.Text.MaxLength")
         @NodeDefault("256")
         @IntegerConstraint(min = 1, max = 8192)
+        @NodeComment({"max chars for text input."})
         int dialogTextMaxLength,
 
         @ConfigNode
         @NodeName("DialogUI.Defaults.Text.Multiline")
         @NodeDefault("false")
+        @NodeComment({"allow multi-line text input."})
         boolean dialogTextMultiline,
 
         @ConfigNode
         @NodeName("DialogUI.Defaults.Text.MultilineMaxLines")
         @NodeDefault("4")
         @IntegerConstraint(min = 1, max = 16)
+        @NodeComment({"line cap when multiline is true."})
         int dialogTextMultilineMaxLines,
 
         @ConfigNode
@@ -429,6 +443,7 @@ public record PromptConfig(
         @ConfigNode
         @NodeName("DialogUI.Defaults.Number.Min")
         @NodeDefault("0")
+        @NodeComment({"defaults for the <d:num...> variant.", "Initial is optional; if omitted, uses (min + max) / 2."})
         float dialogNumberMin,
 
         @ConfigNode
@@ -445,6 +460,9 @@ public record PromptConfig(
         @NodeName("DialogUI.Defaults.Tab.MaxButtons")
         @NodeDefault("5")
         @IntegerConstraint(min = 1, max = 256)
+        @NodeComment({"threshold for the <d:tab:Display> form. When the",
+                "completion count is at or below this number, the dialog shows a button",
+                "grid (one per completion). Above this, it falls back to a text input."})
         int dialogTabMaxButtons
 
 ) implements AliasedSection {
@@ -459,11 +477,11 @@ public record PromptConfig(
      */
     public Map<String, ScreenType> getScreenMappings() {
         var map = new HashMap<String, ScreenType>();
-        var section = rawConfig.getConfigurationSection("screen-mappings");
-        if (section != null) {
-            for (var key : section.getKeys(false)) {
+        var keys = rawConfig.getKeys("screen-mappings");
+        if (!keys.isEmpty()) {
+            for (var key : keys) {
                 try {
-                    var val = section.getString(key);
+                    var val = rawConfig.getString("screen-mappings." + key);
                     if (val == null) continue;
                     map.put(key, ScreenType.valueOf(val.toUpperCase()));
                 } catch (Exception e) {
@@ -598,13 +616,13 @@ public record PromptConfig(
      * @return a {@code %s} placeholder format string
      */
     public String getFilterFormat(String key) {
-        var section = rawConfig.getConfigurationSection("PlayerUI.Filter-Format");
-        if (section == null) return "%s";
-        return section.getString(key, "%s");
+        var keys = rawConfig.getKeys("PlayerUI.Filter-Format");
+        if (keys.isEmpty()) return "%s";
+        String val = rawConfig.getString("PlayerUI.Filter-Format." + key); return val != null ? val : "%s";
     }
 
     @Override
-    public Config rawConfig() {
+    public YamlDocument rawConfig() {
         return rawConfig;
     }
 

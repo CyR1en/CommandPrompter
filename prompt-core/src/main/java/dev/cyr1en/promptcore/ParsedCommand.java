@@ -58,8 +58,7 @@ public record ParsedCommand(
   }
 
   /**
-   * Build a "partial command" string suitable for Brigadier parsing at the current prompt
-   * position.
+   * Build a "partial command" string suitable for Brigadier parsing at the current prompt position.
    *
    * <p>The first {@code answers.size()} prompt tags are replaced by their answers. For the first
    * <b>unanswered single tag</b> (and any tokens after it in the template), the command is
@@ -68,15 +67,15 @@ public record ParsedCommand(
    * current tag have not been "typed" yet from the user's perspective and would otherwise push the
    * cursor to a position with no completions.
    *
-   * <p>Compound tags (e.g. {@code <d:choice:set && d:num[0,24]:Value>}) keep the legacy
-   * replacement behavior: the whole compound is replaced with sub-answers joined by spaces, with
-   * empty sub-answers at the end producing a trailing space. {@code d:tab} is rejected in compound
-   * tags by the parser, so this branch is unreachable for tab completion and the legacy behavior is
+   * <p>Compound tags (e.g. {@code <d:choice:set && d:num[0,24]:Value>}) keep the legacy replacement
+   * behavior: the whole compound is replaced with sub-answers joined by spaces, with empty
+   * sub-answers at the end producing a trailing space. {@code d:tab} is rejected in compound tags
+   * by the parser, so this branch is unreachable for tab completion and the legacy behavior is
    * preserved.
    *
-   * <p>When all tags are answered (e.g. {@link dev.cyr1en.promptcore.session.PromptSession#finish}),
-   * the loop processes every tag and the truncation branch is never reached — the result is the
-   * fully-assembled command.
+   * <p>When all tags are answered (e.g. {@link
+   * dev.cyr1en.promptcore.session.PromptSession#finish}), the loop processes every tag and the
+   * truncation branch is never reached — the result is the fully-assembled command.
    *
    * <p>Unanswered tags are removed (not left as raw markup) so Brigadier does not see {@code
    * <d:...>} tokens it cannot parse. Post-command metas ({@code <! ...>} / {@code <!! ...>}) are
@@ -105,9 +104,7 @@ public record ParsedCommand(
           parts.add(answerIdx < answers.size() ? answers.get(answerIdx) : "");
           answerIdx++;
         }
-        var joined = parts.stream()
-            .filter(p -> !p.isEmpty())
-            .collect(Collectors.joining(" "));
+        var joined = parts.stream().filter(p -> !p.isEmpty()).collect(Collectors.joining(" "));
         command = command.replace(tag.rawTag(), joined);
       } else {
         String replacement = answerIdx < answers.size() ? answers.get(answerIdx) : "";
