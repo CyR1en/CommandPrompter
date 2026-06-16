@@ -21,6 +21,7 @@ import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -194,10 +195,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
     private Dialog buildTabFallbackDialog(int completionCount) {
         var title = ComponentUtil.mini(effectiveTitle());
-        var notice = ComponentUtil.mini(completionCount == 0
-                ? "<yellow>No options available, enter argument manually.</yellow>"
-                : "<yellow>Too many options (" + completionCount
-                        + "), enter argument manually.</yellow>");
+        var i18n = plugin.getConfigLoader().getI18n();
+        Component notice = completionCount == 0
+                ? i18n.get("dialog.no_options", player)
+                : i18n.get("dialog.too_many_options",
+                        player,
+                        Placeholder.of("count", String.valueOf(completionCount)));
         var label = Component.text(tag.displayText());
         var textConstraints = DialogConstraints.from(null, dialogConfig);
         var input = DialogInputBuilder.buildText(textConstraints, label, "answer");

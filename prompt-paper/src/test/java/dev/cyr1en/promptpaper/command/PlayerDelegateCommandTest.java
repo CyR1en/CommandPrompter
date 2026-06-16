@@ -2,18 +2,23 @@ package dev.cyr1en.promptpaper.command;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.CommandPrompterConfig;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
+import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.screen.ScreenManager.DispatchMode;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -35,6 +40,12 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
         when(config.getPermissionKeys())
                 .thenReturn(new String[]{"GAMEMODE", "NONE"});
 
+        var delegateI18n = mock(PaperI18n.class);
+        when(delegateI18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
+                .thenReturn(Component.text("Unknown permission key."));
+        when(delegateI18n.get(eq("command.delegate.unknown_permission"), any(Player.class), any(Placeholder[].class)))
+                .thenReturn(Component.text("Unknown permission key."));
+        when(loader.getI18n()).thenReturn(delegateI18n);
         when(loader.getConfig()).thenReturn(config);
 
         when(plugin.getScreenManager()).thenReturn(screenManager);

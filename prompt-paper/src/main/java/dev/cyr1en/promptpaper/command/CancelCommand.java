@@ -6,7 +6,6 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptpaper.CommandPrompter;
-import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.command.CommandSender;
@@ -45,16 +44,16 @@ public class CancelCommand extends PromptCommand implements Command<CommandSourc
      * a polite message. Extracted for direct unit testing.
      */
     public void executeCancel(CommandSender sender) {
+        var i18n = plugin.getConfigLoader().getI18n();
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(
-                    ComponentUtil.mini("<red>Only players can cancel prompts.</red>"));
+            sender.sendMessage(i18n.get("command.error.players_only"));
             return;
         }
         if (!plugin.getEngine().hasActiveSession(player)) {
-            player.sendMessage(ComponentUtil.mini("<red>You have no active prompt.</red>"));
+            player.sendMessage(i18n.get("command.cancel.no_active_prompt"));
             return;
         }
         plugin.getEngine().cancel(player, CancelReason.MANUAL);
-        player.sendMessage(ComponentUtil.mini("<yellow>Prompt cancelled.</yellow>"));
+        player.sendMessage(i18n.get("prompt.cancelled"));
     }
 }

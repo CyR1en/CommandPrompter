@@ -5,9 +5,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
@@ -82,8 +82,11 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
         var config = plugin.getConfigLoader().getConfig();
         var perms = config.getPermissionAttachment(permKey);
         if (perms.length == 0) {
-            sender.sendMessage(
-                    ComponentUtil.mini("<red>Unknown permission key: " + permKey + "</red>"));
+            var senderPlayer = sender instanceof Player p ? p : null;
+            sender.sendMessage(plugin.getConfigLoader().getI18n().get(
+                    "command.delegate.unknown_permission",
+                    senderPlayer,
+                    Placeholder.of("key", permKey)));
             return Command.SINGLE_SUCCESS;
         }
         plugin.getPluginLogger().info(sender.getName()

@@ -225,7 +225,7 @@ public class PlayerUIScreen implements InputScreen {
         plugin.getPluginLogger().debug("PlayerUI search started for " + player.getName());
         open = false;
         player.closeInventory();
-        player.sendMessage(ComponentUtil.mini("<gold>Type your search term in chat.</gold>"));
+        player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
 
         var listener = new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)

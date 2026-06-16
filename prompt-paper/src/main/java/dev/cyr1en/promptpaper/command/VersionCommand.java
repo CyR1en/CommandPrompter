@@ -4,11 +4,12 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
-import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 import java.util.List;
 
@@ -44,7 +45,11 @@ public class VersionCommand extends PromptCommand implements Command<CommandSour
      */
     public void sendVersion(CommandSender sender) {
         var version = plugin.getPluginMeta().getVersion();
-        sender.sendMessage(ComponentUtil.mini("<gold>CommandPrompterPaper v" + version + "</gold>"));
+        var player = sender instanceof Player p ? p : null;
+        sender.sendMessage(plugin.getConfigLoader().getI18n().get(
+                "command.version",
+                player,
+                Placeholder.of("version", version)));
         plugin.getPluginLogger().debug("Version check by " + sender.getName());
     }
 }

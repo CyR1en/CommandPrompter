@@ -4,8 +4,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
-import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.command.CommandSender;
@@ -62,9 +62,11 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             if (cfg != null) {
                 plugin.getPluginLogger().reload(cfg);
             }
-            sender.sendMessage(ComponentUtil.mini("<green>Configuration reloaded.</green>"));
+            sender.sendMessage(plugin.getConfigLoader().getI18n().get("command.reload.success"));
         } catch (Exception e) {
-            sender.sendMessage(ComponentUtil.mini("<red>Failed to reload: " + e.getMessage() + "</red>"));
+            sender.sendMessage(plugin.getConfigLoader().getI18n().get(
+                    "command.reload.failed",
+                    Placeholder.of("error", e.getMessage() != null ? e.getMessage() : "")));
         }
     }
 }

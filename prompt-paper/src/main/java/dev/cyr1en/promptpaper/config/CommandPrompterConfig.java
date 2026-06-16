@@ -122,7 +122,16 @@ public record CommandPrompterConfig(
                 "essentials.gamemode.creative")
         @NodeComment({
                 "Usage - /playerdelegate <player> GAMEMODE <command>"})
-        List<String> attachmentPermissions
+        List<String> attachmentPermissions,
+
+        @ConfigNode
+        @NodeName("Locale")
+        @NodeDefault("en_US")
+        @NodeComment({"Language locale for plugin messages (e.g. en_US, es_ES).",
+                "Bundled locales are loaded from the plugin JAR.",
+                "Custom overrides go in plugins/CommandPrompter/locales/"})
+        String locale
+
 ) implements AliasedSection {
 
     @Override

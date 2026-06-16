@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -112,8 +113,7 @@ public class ScreenManager {
             plugin.getPluginLogger().warn("Player " + player.getName()
                     + " initiated a prompt containing a non-compound tag with a TITLE filter: "
                     + tag.rawTag());
-            player.sendMessage(ComponentUtil.mini(
-                    "<red>Invalid prompt configuration: TITLE filter cannot be used on a non-compound tag.</red>"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter"));
             cancelAll(player);
             return;
         }
@@ -192,7 +192,7 @@ public class ScreenManager {
 
         if (result.cancelled()) {
             engine.cancel(player, CancelReason.GUI_EXIT);
-            player.sendMessage(ComponentUtil.mini(plugin.getConfigLoader().getMessageConfig().promptCancelled()));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
             return;
         }
 
@@ -274,7 +274,7 @@ public class ScreenManager {
      * and custom validator. Sub-tag-level constraints are ignored.
      */
     private boolean validateSubAnswer(Player player, String answer, PromptTag subTag, PromptTag block) {
-        var messages = plugin.getConfigLoader().getMessageConfig();
+        var i18n = plugin.getConfigLoader().getI18n();
         switch (block.type()) {
             case INTEGER -> {
                 try {
@@ -282,7 +282,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(ComponentUtil.mini(messages.invalidInteger()));
+                    player.sendMessage(i18n.get("validation.invalid_integer"));
                     return false;
                 }
             }
@@ -290,7 +290,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(ComponentUtil.mini(messages.invalidString()));
+                    player.sendMessage(i18n.get("validation.invalid_string"));
                     return false;
                 }
             }
@@ -328,7 +328,7 @@ public class ScreenManager {
      * and custom validator alias.
      */
     private boolean validateAnswer(Player player, String answer, PromptTag tag) {
-        var messages = plugin.getConfigLoader().getMessageConfig();
+        var i18n = plugin.getConfigLoader().getI18n();
         switch (tag.type()) {
             case INTEGER -> {
                 try {
@@ -336,7 +336,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(ComponentUtil.mini(messages.invalidInteger()));
+                    player.sendMessage(i18n.get("validation.invalid_integer"));
                     return false;
                 }
             }
@@ -344,7 +344,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(ComponentUtil.mini(messages.invalidString()));
+                    player.sendMessage(i18n.get("validation.invalid_string"));
                     return false;
                 }
             }
@@ -400,7 +400,10 @@ public class ScreenManager {
                     } catch (Exception e) {
                         var msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
                         plugin.getPluginLogger().info("Command dispatch failed: " + msg);
-                        player.sendMessage(ComponentUtil.mini("<red>Command failed: " + msg + "</red>"));
+                        player.sendMessage(plugin.getConfigLoader().getI18n().get(
+                                "prompt.error.command_failed",
+                                player,
+                                Placeholder.of("message", msg != null ? msg : "")));
                     }
                 }, null);
             }
@@ -492,7 +495,7 @@ public class ScreenManager {
             if (session.isPresent() && session.get().isActive()) {
                 plugin.getPluginLogger().debug("Timeout triggered for " + player.getName());
                 cancelAll(player);
-                player.sendMessage(ComponentUtil.mini(plugin.getConfigLoader().getMessageConfig().promptTimedOut()));
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out"));
             }
         }, timeoutSecs * 20L);
         timeoutTasks.put(player.getUniqueId(), task);

@@ -6,6 +6,7 @@ import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.PluginHook;
 import dev.cyr1en.promptpaper.hook.hooks.ChatListenerHook;
+import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.listener.ChatPromptListener;
 import dev.cyr1en.promptpaper.listener.CommandSendListener;
 import dev.cyr1en.promptpaper.listener.PlayerCommandListener;
@@ -58,7 +59,9 @@ public class CommandPrompter extends JavaPlugin implements Listener {
             this.pluginLogger = new PluginLogger(this);
             this.configLoader = new PaperConfigLoader(this);
             pluginLogger.reload(configLoader.getConfig());
-            pluginLogger.debug("Config loaded, debugMode=" + configLoader.getConfig().debugMode());
+            pluginLogger.debug("Config loaded, debugMode=" + configLoader.getConfig().debugMode()
+                    + " locale=" + configLoader.getConfig().locale());
+            pluginLogger.debug("I18n initialized for locale=" + configLoader.getConfig().locale());
 
             var scheduler = new PaperScheduler(this);
             pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");
@@ -148,4 +151,5 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     public ScreenManager getScreenManager() { return screenManager; }
     public HeadCache getHeadCache() { return headCache; }
     public HookContainer getHookContainer() { return hookContainer; }
+    public PaperI18n getI18n() { return configLoader.getI18n(); }
 }
