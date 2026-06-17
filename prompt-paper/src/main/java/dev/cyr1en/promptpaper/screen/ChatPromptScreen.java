@@ -22,14 +22,16 @@ public class ChatPromptScreen implements InputScreen {
 
     private final CommandPrompter plugin;
     private final Player player;
+    private final dev.cyr1en.promptpaper.preset.ChatPrompt chatPrompt;
     private final String displayText;
     private Consumer<ScreenResult> callback;
     private boolean open;
 
-    public ChatPromptScreen(CommandPrompter plugin, Player player, String displayText) {
+    public ChatPromptScreen(CommandPrompter plugin, Player player, dev.cyr1en.promptpaper.preset.ChatPrompt chatPrompt) {
         this.plugin = plugin;
         this.player = player;
-        this.displayText = displayText;
+        this.chatPrompt = chatPrompt;
+        this.displayText = chatPrompt.promptText();
     }
 
     /**
@@ -43,14 +45,32 @@ public class ChatPromptScreen implements InputScreen {
 
         var promptConfig = plugin.getConfigLoader().getPromptConfig();
         Component cancelComponent = null;
-        if (promptConfig.sendCancelText()) {
-            var cancelMsg = promptConfig.textCancelMessage();
-            var hoverMsg = promptConfig.textCancelHoverMessage();
-            cancelComponent = ComponentUtil.mini(ComponentUtil.toMini(cancelMsg))
-                    .clickEvent(ClickEvent.clickEvent(ClickEvent.Action.RUN_COMMAND,
-                            ClickEvent.Payload.string("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword())))
-                    .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                            ComponentUtil.mini(ComponentUtil.toMini(hoverMsg))));
+        
+        boolean sendCancel = promptConfig.sendCancelText();
+        boolean isClickable = promptConfig.sendCancelText();
+        String cancelMsg = promptConfig.textCancelMessage();
+        String hoverMsg = promptConfig.textCancelHoverMessage();
+        
+        if (chatPrompt.cancel() != null && !chatPrompt.id().startsWith("inline-")) {
+            sendCancel = chatPrompt.cancel().send();
+            isClickable = chatPrompt.cancel().clickable();
+            if (chatPrompt.cancel().message() != null && !chatPrompt.cancel().message().isBlank()) {
+                cancelMsg = chatPrompt.cancel().message();
+            }
+            if (chatPrompt.cancel().hoverMessage() != null && !chatPrompt.cancel().hoverMessage().isBlank()) {
+                hoverMsg = chatPrompt.cancel().hoverMessage();
+            }
+        }
+
+        if (sendCancel) {
+            var builder = ComponentUtil.mini(cancelMsg);
+            if (isClickable) {
+                builder = builder.clickEvent(ClickEvent.clickEvent(ClickEvent.Action.RUN_COMMAND,
+                                ClickEvent.Payload.string("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword())))
+                        .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                ComponentUtil.mini(hoverMsg)));
+            }
+            cancelComponent = builder;
         }
 
         var messageComponent = Objects.isNull(cancelComponent) ? ComponentUtil.mini(prefix + displayText)

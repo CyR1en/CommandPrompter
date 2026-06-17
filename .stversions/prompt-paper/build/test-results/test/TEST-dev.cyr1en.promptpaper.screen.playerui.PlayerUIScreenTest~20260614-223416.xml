@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreenTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:12.274Z" hostname="Mac.lan" time="0.028">
+  <properties/>
+  <testcase name="constructorStoresTag()" classname="dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreenTest" time="0.018"/>
+  <testcase name="closeWithoutOpenIsNoop()" classname="dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreenTest" time="0.004"/>
+  <testcase name="onResultStoresCallback()" classname="dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreenTest" time="0.003"/>
+  <testcase name="isOpenReturnsFalseInitially()" classname="dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreenTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

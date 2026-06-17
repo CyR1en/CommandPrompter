@@ -1,0 +1,69 @@
+<h2>The Paper-Native Dialog Schema</h2>
+<p class="subtitle">This structure exactly mirrors the Paper Dialog API builder pattern.</p>
+
+<div class="split" style="display: flex; gap: 20px;">
+  <!-- Left Side: JSON Schema -->
+  <div class="mockup" style="flex: 1;">
+    <div class="mockup-header" style="background: #333; padding: 5px 10px; font-family: monospace; border-radius: 4px 4px 0 0;">JSON Preset Example</div>
+    <div class="mockup-body" style="padding: 15px; background: #1e1e1e; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto; border-radius: 0 0 4px 4px; color: #d4d4d4;">
+{
+  "type": "dialog",
+  "id": "player_picker",
+  "title": "Select Target",
+
+  <span style="color: #60a5fa;">"base"</span>: {
+    "body": [
+      { "type": "plain_message", "content": "Who should receive the item?" },
+      { "type": "item", "material": "DIAMOND", "amount": 1 }
+    ],
+    "inputs": [
+      { "label": "Amount", "type": "number", "constraints": [1, 64] }
+    ]
+  },
+
+  <span style="color: #4ade80;">"dialog_type"</span>: {
+    "type": "multi_action",
+    "columns": 3,
+    "actions_source": "tab_completion",
+    "exit_action": { "label": "Cancel", "tooltip": "Close without saving" }
+  }
+}</div>
+  </div>
+
+  <!-- Right Side: Java API Equivalent -->
+  <div class="mockup" style="flex: 1;">
+    <div class="mockup-header" style="background: #333; padding: 5px 10px; font-family: monospace; border-radius: 4px 4px 0 0;">Maps directly to Paper API</div>
+    <div class="mockup-body" style="padding: 15px; background: #1e1e1e; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto; border-radius: 0 0 4px 4px; color: #d4d4d4;">
+Dialog.create(factory -> factory.empty()
+
+  <span style="color: #60a5fa;">// 1. Builds the DialogBase</span>
+  .base(DialogBase.builder(title)
+    .body(List.of(
+      DialogBody.plainMessage(msg),
+      DialogBody.item(itemStack)
+    ))
+    .inputs(List.of(
+      DialogInputBuilder.buildNumber(...)
+    ))
+    .build())
+
+  <span style="color: #4ade80;">// 2. Applies the DialogType</span>
+  .type(DialogType.multiAction(
+    tabCompletions, 
+    exitAction, 
+    3 // columns
+  ))
+);</div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>Confirmation Type Variant</h3>
+  <p>If the <code>dialog_type</code> is changed to <code>confirmation</code>, the schema swaps the multi-action keys for the exact parameters Paper expects:</p>
+  <div style="padding: 10px; background: #1e1e1e; font-family: monospace; font-size: 13px; white-space: pre; border-radius: 4px; color: #d4d4d4;">
+  "dialog_type": {
+    "type": "confirmation",
+    "confirm_action": { "label": "Accept" },
+    "cancel_action": { "label": "Decline" }
+  }</div>
+</div>

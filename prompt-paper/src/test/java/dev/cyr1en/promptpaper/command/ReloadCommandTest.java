@@ -15,6 +15,7 @@ import dev.cyr1en.promptpaper.config.CommandPrompterConfig;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;
+import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
@@ -27,12 +28,14 @@ class ReloadCommandTest extends MockBukkitTest {
     private PromptEngine engine;
     private ScreenManager screenManager;
     private PaperConfigLoader loader;
+    private PresetRegistry registry;
 
     @BeforeEach
     void setUp() {
         engine = mock(PromptEngine.class);
         screenManager = mock(ScreenManager.class);
         loader = mock(PaperConfigLoader.class);
+        registry = mock(PresetRegistry.class);
 
         var reloadI18n = mock(PaperI18n.class);
         when(reloadI18n.get("command.reload.success"))
@@ -45,6 +48,7 @@ class ReloadCommandTest extends MockBukkitTest {
         when(plugin.getEngine()).thenReturn(engine);
         when(plugin.getScreenManager()).thenReturn(screenManager);
         when(plugin.getConfigLoader()).thenReturn(loader);
+        when(plugin.getPresetRegistry()).thenReturn(registry);
 
         cmd = new ReloadCommand(plugin);
     }
@@ -59,6 +63,7 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(loader, times(1)).reload();
+        verify(registry, times(1)).reload();
         verify(sender, times(1)).sendMessage(any(Component.class));
     }
 
@@ -75,6 +80,7 @@ class ReloadCommandTest extends MockBukkitTest {
         verify(screenManager, times(1)).cancelAll(player);
         verify(engine, times(1)).cancelAll();
         verify(loader, times(1)).reload();
+        verify(registry, times(1)).reload();
     }
 
     @Test
@@ -86,6 +92,41 @@ class ReloadCommandTest extends MockBukkitTest {
 
         cmd.executeReload(sender);
 
+        verify(sender, times(1)).sendMessage(any(Component.class));
+    }
+
+    @Test
+    void reloadSucceedsEvenWhenRegistryIsNull() {
+        // Defensive: a fresh / early reload where the registry has not yet been wired should
+        // still succeed for the config side. The reload command must not NPE.
+        doNothing().when(loader).reload();
+        when(plugin.getPresetRegistry()).thenReturn(null);
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(loader, times(1)).reload();
+        verify(sender, times(1)).sendMessage(any(Component.class));
+    }
+
+    @Test
+    void presetRegistryFailureSurfacesAsReloadError() {
+        // If the preset reload blows up, the user must see the failure message and the
+        // configLoader.reload() call must have happened first.
+        doNothing().when(loader).reload();
+        doThrow(new PresetRegistry.PresetLoadException("bad json", new RuntimeException()))
+                .when(registry).reload();
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(loader, times(1)).reload();
+        verify(registry, times(1)).reload();
+        // Exactly one error message is sent; success message must not be sent.
         verify(sender, times(1)).sendMessage(any(Component.class));
     }
 

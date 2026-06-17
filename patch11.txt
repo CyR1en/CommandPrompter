@@ -1,0 +1,16 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/CommandPrompter.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/CommandPrompter.java
+@@ -67,10 +67,10 @@
+ 
+             this.presetRegistry = new PresetRegistry(this);
+             this.presetRegistry.reload();
+-            pluginLogger.debug("PresetRegistry loaded: prompts=" + presetRegistry.promptCount()
+-                    + " postCommands=" + presetRegistry.postCommandCount());
+             var presetMsg = "Loaded presets: <green>" + presetRegistry.promptCount() + " prompts</green>, <gold>" + 
+                     presetRegistry.postCommandCount() + " post commands</gold>";
+-            pluginLogger.info(dev.cyr1en.promptui.ComponentUtil.miniToLegacy(presetMsg));
++            pluginLogger.info(presetMsg);
++            pluginLogger.debug("Loaded prompt IDs: " + String.join(", ", presetRegistry.getPromptIds()));
++            pluginLogger.debug("Loaded post-command IDs: " + String.join(", ", presetRegistry.getPostCommandIds()));
+ 
+             var scheduler = new PaperScheduler(this);

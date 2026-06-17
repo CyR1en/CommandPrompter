@@ -5,6 +5,7 @@ import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.util.Scheduler;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,7 +42,22 @@ public class PromptEngine {
      * prompting feature, distinct from the per-command permissions checked
      * by the command system.
      *
+     * <h2>Fail-fast on missing presets</h2>
+     *
+     * <p>If the parsed command references any preset prompts ({@code <@id>}) or
+     * preset post-commands ({@code <!@id>}), this method queries the plugin's
+     * {@code PresetRegistry} for each id. If any id is unknown, the session is
+     * <b>not</b> created; a localized error message is sent to the player and a
+     * severe warning is logged with the full list of missing ids and the original
+     * command line. This is the spec-mandated fail-fast behavior — under no
+     * circumstance is the literal tag passed to the underlying command.
+     *
+     * <p>The fail-fast check runs <i>before</i> the {@code hasPrompts()} check so a
+     * command that contains only missing-preset post-commands (no prompt tags) is
+     * still rejected.
+     *
      * @return the parsed command with prompts, or empty if no prompts were found
+     *     (or the command was rejected by the fail-fast check)
      */
     public Optional<ParsedCommand> intercept(Player player, String commandLine) {
         var config = plugin.getConfigLoader().getConfig();
@@ -51,14 +67,64 @@ public class PromptEngine {
             return Optional.empty();
         }
         var parsed = parser.parse(commandLine);
+
+        // Fail-fast: any unresolved preset id aborts the entire command flow,
+        // even if the command has no prompt tags (e.g. only <!@missing>).
+        // The listener cancels the PlayerCommandPreprocessEvent when the
+        // command had tag form and the engine returned empty for a permission
+        // / fail-fast reason.
+        var missingPrompts = findMissingPromptPresets(parsed);
+        var missingPostCmds = findMissingPostCommandPresets(parsed);
+        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty()) {
+            failFastMissingPresets(player, commandLine, missingPrompts, missingPostCmds);
+            return Optional.empty();
+        }
+
         if (!parsed.hasPrompts()) {
             plugin.getPluginLogger().debug("No prompts in command from " + player.getName());
             return Optional.empty();
         }
+
+        if (hasActiveSession(player)) {
+            plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            return Optional.empty();
+        }
+
+        if (hasActiveSession(player)) {
+            plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            return Optional.empty();
+        }
+
         sessions.put(player.getUniqueId(), PromptSession.start(player.getUniqueId().toString(), parsed));
         plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
                 + " prompts for " + player.getName());
         return Optional.of(parsed);
+    }
+
+    /**
+     * Whether the given command line contains at least one tag (prompt or PCM). Useful for
+     * callers that need to distinguish "no tag form at all" from "had tag form but
+     * parsing returned empty for some reason" — for example, the fail-fast path that
+     * must cancel the underlying command dispatch.
+     */
+    public boolean commandHasTagForm(String commandLine) {
+        return parser.hasTagForm(commandLine);
+    }
+
+    /**
+     * Whether the given command line contains at least one <b>preset reference</b>
+     * ({@code <@id>} or {@code <!@id>}). The listener uses this to decide whether
+     * to cancel the {@link org.bukkit.event.player.PlayerCommandPreprocessEvent}
+     * even when no prompt session was started — the literal preset tag must never
+     * reach the underlying command dispatcher.
+     */
+    public boolean hasPresetReferences(String commandLine) {
+        if (!parser.hasTagForm(commandLine)) return false;
+        var parsed = parser.parse(commandLine);
+        return parsed.promptTags().stream().anyMatch(PromptTag::isPreset)
+                || parsed.postCmds().stream().anyMatch(PostCommandMeta::isPreset);
     }
 
     /**
@@ -153,38 +219,146 @@ public class PromptEngine {
 
     /**
      * Dispatches post-completion or on-cancel commands (PCMs) from a session result.
-     * Commands with a positive delay are scheduled; others run synchronously.
+     *
+     * <p>Each PCM is routed through {@link PostCommandResolver}, which:
+     *
+     * <ul>
+     *   <li>Resolves preset references ({@code <!@id>}) against the
+     *       {@code PresetRegistry}.
+     *   <li>Filters by the preset's {@code executionPolicy} (or, for legacy
+     *       PCMs, by the parser's {@code onCancel} hint, which is already
+     *       aligned with the session state via the pre-filtered
+     *       {@code onCompleteCmds} / {@code onCancelCmds} lists).
+     *   <li>Resolves session-scoped placeholders ({@code {player}},
+     *       {@code {input}}, {@code {input:N}}, PAPI {@code %…%}).
+     *   <li>Schedules the dispatch with the preset's / legacy delay via the
+     *       Folia-safe {@link Scheduler}.
+     * </ul>
+     *
+     * <p>Commands with a positive delay are scheduled; others run synchronously.
      */
     public void dispatchPCMs(Player player, SessionResult result, boolean wasCancelled) {
         var pcms = wasCancelled ? result.onCancelCmds() : result.onCompleteCmds();
         plugin.getPluginLogger().debug("Dispatching " + pcms.size() + " PCMs for "
                 + player.getName() + " (cancelled=" + wasCancelled + ")");
+        var resolver = new PostCommandResolver(plugin);
         for (var pcm : pcms) {
-            Runnable task = () -> executePCM(player, pcm);
-            if (pcm.delayTicks() > 0) {
-                scheduler.runLater(task, pcm.delayTicks());
-            } else {
-                scheduler.runSync(task);
+            var resolved = resolver.resolve(player, pcm, wasCancelled, result.answers());
+            if (resolved.isEmpty()) {
+                plugin.getPluginLogger().debug(
+                        "PCM filtered out: raw=" + pcm.command()
+                                + " preset=" + pcm.isPreset()
+                                + " onCancel=" + pcm.onCancel());
+                continue;
             }
+            schedule(player, resolved.get());
+        }
+    }
+
+    /** Schedules a single resolved post-command for execution. */
+    private void schedule(Player player, PostCommandResolver.Resolved resolved) {
+        Runnable task = () -> executeResolved(player, resolved);
+        if (resolved.delayTicks() > 0) {
+            plugin.getPluginLogger().debug(
+                    "Scheduling PCM: source=" + resolved.sourceId()
+                            + " preset=" + resolved.preset()
+                            + " delay=" + resolved.delayTicks() + "t"
+                            + " target=" + resolved.executeAs()
+                            + " cmd=" + resolved.command());
+            scheduler.runLater(task, resolved.delayTicks());
+        } else {
+            plugin.getPluginLogger().debug(
+                    "Dispatching PCM: source=" + resolved.sourceId()
+                            + " preset=" + resolved.preset()
+                            + " target=" + resolved.executeAs()
+                            + " cmd=" + resolved.command());
+            scheduler.runSync(task);
         }
     }
 
     /**
-     * Executes a single post-command meta against the appropriate command sender
-     * (console, player, or passthrough → console).
+     * Dispatches a resolved post-command to the appropriate command sender.
+     * {@link dev.cyr1en.promptpaper.preset.ExecuteAs#CONSOLE} routes through
+     * the server console; {@link dev.cyr1en.promptpaper.preset.ExecuteAs#PLAYER}
+     * uses the player.
      */
-    private void executePCM(Player player, PostCommandMeta pcm) {
-        if (pcm.command().isEmpty()) {
-            plugin.getPluginLogger().debug("Empty PCM command, skipping");
-            return;
-        }
-        var sender = switch (pcm.dispatchTarget()) {
+    private void executeResolved(Player player, PostCommandResolver.Resolved resolved) {
+        var sender = switch (resolved.executeAs()) {
             case CONSOLE -> plugin.getServer().getConsoleSender();
             case PLAYER -> player;
-            case PASSTHROUGH -> player;
         };
-        plugin.getPluginLogger().debug("Executing PCM: target=" + pcm.dispatchTarget()
-                + " cmd=" + pcm.command());
-        plugin.getServer().dispatchCommand(sender, pcm.command());
+        plugin.getServer().dispatchCommand(sender, resolved.command());
+    }
+
+    // ------------------------------------------------------------------
+    // Preset validation (fail-fast)
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns the list of preset prompt ids that appear in {@code parsed} but are not
+     * registered in the plugin's {@code PresetRegistry}. Order matches the order of
+     * occurrence in the parsed command.
+     */
+    private List<String> findMissingPromptPresets(ParsedCommand parsed) {
+        var registry = plugin.getPresetRegistry();
+        if (registry == null) {
+            // No registry wired (e.g. very early startup). Treat all preset refs as
+            // missing so the player sees a clear error instead of a silent pass.
+            return parsed.promptTags().stream()
+                    .filter(PromptTag::isPreset)
+                    .map(PromptTag::displayText)
+                    .toList();
+        }
+        return parsed.promptTags().stream()
+                .filter(PromptTag::isPreset)
+                .map(PromptTag::displayText)
+                .filter(id -> registry.getPrompt(id).isEmpty())
+                .toList();
+    }
+
+    /**
+     * Returns the list of preset post-command ids that appear in {@code parsed} but are
+     * not registered in the plugin's {@code PresetRegistry}. Order matches the order of
+     * occurrence in the parsed command.
+     */
+    private List<String> findMissingPostCommandPresets(ParsedCommand parsed) {
+        var registry = plugin.getPresetRegistry();
+        if (registry == null) {
+            return parsed.postCmds().stream()
+                    .filter(PostCommandMeta::isPreset)
+                    .map(PostCommandMeta::command)
+                    .toList();
+        }
+        return parsed.postCmds().stream()
+                .filter(PostCommandMeta::isPreset)
+                .map(PostCommandMeta::command)
+                .filter(id -> registry.getPostCommand(id).isEmpty())
+                .toList();
+    }
+
+    /**
+     * Logs a severe warning to the console and sends a localized error message to the
+     * player when a command references one or more unknown preset ids. Per the spec, the
+     * command must not be executed and the player must be told why.
+     */
+    private void failFastMissingPresets(
+            Player player,
+            String commandLine,
+            List<String> missingPrompts,
+            List<String> missingPostCmds) {
+        var all = new java.util.ArrayList<String>();
+        if (!missingPrompts.isEmpty()) {
+            all.add("prompts=" + missingPrompts);
+        }
+        if (!missingPostCmds.isEmpty()) {
+            all.add("post-commands=" + missingPostCmds);
+        }
+        var summary = String.join(", ", all);
+        plugin.getPluginLogger().err(
+                "Fail-fast: command from " + player.getName()
+                        + " references unknown preset(s) [" + summary
+                        + "] — command NOT executed. Raw: " + commandLine);
+        var i18n = plugin.getConfigLoader().getI18n();
+        player.sendMessage(i18n.get("command.error.missing_preset"));
     }
 }

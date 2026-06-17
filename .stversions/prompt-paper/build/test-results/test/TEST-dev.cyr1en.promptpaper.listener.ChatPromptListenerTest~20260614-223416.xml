@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:11.997Z" hostname="Mac.lan" time="0.022">
+  <properties/>
+  <testcase name="priorityDefaultsToLowest()" classname="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" time="0.007"/>
+  <testcase name="invalidPriorityFallsBackToLowest()" classname="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" time="0.003"/>
+  <testcase name="priorityParsesHigh()" classname="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" time="0.005"/>
+  <testcase name="nullPriorityFallsBackToLowest()" classname="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" time="0.002"/>
+  <testcase name="chatEventWithNoChatScreenIsNotCancelled()" classname="dev.cyr1en.promptpaper.listener.ChatPromptListenerTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

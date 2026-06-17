@@ -50,7 +50,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
         lenient().when(promptConfig.searchColumn()).thenReturn(9);
         lenient().when(promptConfig.searchText()).thenReturn("&6Search");
 
-        screen = new PlayerUIScreen(plugin, player, tag);
+        screen = new PlayerUIScreen(plugin, player, tag, null);
         resultRef = new AtomicReference<>();
         screen.onResult(resultRef::set);
     }
@@ -68,7 +68,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
 
     @Test
     void onResultStoresCallback() {
-        var screen2 = new PlayerUIScreen(plugin, createPlayer(), tag);
+        var screen2 = new PlayerUIScreen(plugin, createPlayer(), tag, null);
         screen2.onResult(result -> {});
         assertNotNull(screen2);
     }

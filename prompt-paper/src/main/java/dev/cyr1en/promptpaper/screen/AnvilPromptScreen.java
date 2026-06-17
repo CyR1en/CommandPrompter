@@ -17,8 +17,11 @@ import org.bukkit.entity.Player;
  */
 public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
 
-    public AnvilPromptScreen(CommandPrompter plugin, Player player, String displayText, List<ScreenProvider> providers) {
-        super(plugin, player, displayText, providers);
+    private final dev.cyr1en.promptpaper.preset.AnvilPrompt anvilPrompt;
+
+    public AnvilPromptScreen(CommandPrompter plugin, Player player, dev.cyr1en.promptpaper.preset.AnvilPrompt anvilPrompt, List<ScreenProvider> providers) {
+        super(plugin, player, anvilPrompt.promptText(), providers);
+        this.anvilPrompt = anvilPrompt;
     }
 
     /**
@@ -58,23 +61,68 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
 
     private Map<String, String> buildConfig(PromptConfig cfg) {
         var config = new HashMap<String, String>();
-        config.put("enableTitle", String.valueOf(cfg.enableTitle()));
-        config.put("customTitle", cfg.customTitle());
-        config.put("promptMessage", cfg.promptMessage());
-        config.put("enableCancelItem", String.valueOf(cfg.enableCancelItem()));
-        config.put("anvilItem", cfg.anvilItem());
+        
+        boolean isPreset = anvilPrompt != null && !anvilPrompt.id().startsWith("inline-");
+
+        if (isPreset) {
+            config.put("enableTitle", "true");
+            config.put("customTitle", anvilPrompt.title());
+        } else {
+            config.put("enableTitle", String.valueOf(cfg.enableTitle()));
+            config.put("customTitle", cfg.customTitle());
+        }
+
+        if (isPreset) {
+            config.put("promptMessage", anvilPrompt.leftButton().buttonText());
+        } else {
+            config.put("promptMessage", cfg.promptMessage());
+        }
+
+        if (isPreset) {
+            config.put("enableCancelItem", String.valueOf(anvilPrompt.rightButton().show()));
+        } else {
+            config.put("enableCancelItem", String.valueOf(cfg.enableCancelItem()));
+        }
+
+        if (isPreset) {
+            config.put("anvilItem", anvilPrompt.leftButton().buttonIcon());
+        } else {
+            config.put("anvilItem", cfg.anvilItem());
+        }
         config.put("itemHideTooltips", String.valueOf(cfg.itemHideTooltips()));
-        config.put("itemCustomModelData", String.valueOf(cfg.itemCustomModelData()));
+        
+        if (isPreset) {
+            config.put("itemCustomModelData", String.valueOf(anvilPrompt.leftButton().customModelData()));
+        } else {
+            config.put("itemCustomModelData", String.valueOf(cfg.itemCustomModelData()));
+        }
         config.put("itemAnvilEnchanted", String.valueOf(cfg.itemAnvilEnchanted()));
+
         config.put("anvilResultItem", cfg.anvilResultItem());
         config.put("resultItemHideTooltips", String.valueOf(cfg.resultItemHideTooltips()));
         config.put("resultItemCustomModelData", String.valueOf(cfg.resultItemCustomModelData()));
         config.put("resultItemAnvilEnchanted", String.valueOf(cfg.resultItemAnvilEnchanted()));
-        config.put("anvilCancelItem", cfg.anvilCancelItem());
+
+        if (isPreset) {
+            config.put("anvilCancelItem", anvilPrompt.rightButton().buttonIcon());
+        } else {
+            config.put("anvilCancelItem", cfg.anvilCancelItem());
+        }
         config.put("cancelItemHideTooltips", String.valueOf(cfg.cancelItemHideTooltips()));
-        config.put("cancelItemCustomModelData", String.valueOf(cfg.cancelItemCustomModelData()));
+        
+        if (isPreset) {
+            config.put("cancelItemCustomModelData", String.valueOf(anvilPrompt.rightButton().customModelData()));
+        } else {
+            config.put("cancelItemCustomModelData", String.valueOf(cfg.cancelItemCustomModelData()));
+        }
         config.put("cancelItemAnvilEnchanted", String.valueOf(cfg.cancelItemAnvilEnchanted()));
-        config.put("cancelItemHoverText", cfg.cancelItemHoverText());
+        
+        if (isPreset) {
+            config.put("cancelItemHoverText", anvilPrompt.rightButton().buttonHoverText());
+        } else {
+            config.put("cancelItemHoverText", cfg.cancelItemHoverText());
+        }
+
         config.put("displayText", displayText);
         return config;
     }

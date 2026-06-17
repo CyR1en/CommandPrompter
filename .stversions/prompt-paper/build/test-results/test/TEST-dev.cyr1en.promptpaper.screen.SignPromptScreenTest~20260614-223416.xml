@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:12.129Z" hostname="Mac.lan" time="0.046">
+  <properties/>
+  <testcase name="openWithEmptyProvidersFallsBackToChat()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.007"/>
+  <testcase name="handleResultWithAnswerFiresCallback()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.005"/>
+  <testcase name="handleResultWithCancelFiresCallback()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.004"/>
+  <testcase name="handleResultWithMultiArgExtractsValues()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.002"/>
+  <testcase name="handleResultWithoutOpenIsNoop()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.002"/>
+  <testcase name="handleResultWithCancelKeywordReturnsCancel()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.003"/>
+  <testcase name="constructorStoresValues()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.002"/>
+  <testcase name="handleResultNonMultiArgPreservesInput()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.003"/>
+  <testcase name="openWithValidProviderDelegates()" classname="dev.cyr1en.promptpaper.screen.SignPromptScreenTest" time="0.017"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

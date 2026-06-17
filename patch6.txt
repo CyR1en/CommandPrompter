@@ -1,0 +1,11 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/util/PluginLogger.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/util/PluginLogger.java
+@@ -44,7 +44,7 @@
+ 
+     public PluginLogger(CommandPrompter plugin) {
+         this.plugin = plugin;
+-        this.componentLogger = plugin.getComponentLogger();
++        this.componentLogger = ComponentLogger.logger("");
+         isFancy = true;
+         debugMode = false;
+         rebuildPrefixes("[Prompter]");

@@ -1,0 +1,89 @@
+{
+  "prompts": [
+    {
+      "type": "chat",
+      "id": "reason_prompt",
+      "prompt_text": "Please enter a reason:",
+      "sanitize": true,
+      "cancel": {
+        "send": true,
+        "message": "<gray>[<red><bold>✘</bold><gray>]</gray>",
+        "clickable": false,
+        "hover_message": "Action aborted"
+      }
+    },
+    {
+      "type": "anvil",
+      "id": "rename_item_prompt",
+      "title": "Rename your item",
+      "prompt_text": "New Name",
+      "sanitize": false,
+      "left_button": {
+        "show": true,
+        "button_text": "Cancel",
+        "button_icon": "BARRIER",
+        "button_hover_text": "Click to cancel",
+        "custom_model_data": 0
+      },
+      "right_button": {
+        "show": true,
+        "button_text": "Confirm",
+        "button_icon": "PAPER",
+        "button_hover_text": "Click to confirm",
+        "custom_model_data": 0
+      }
+    },
+    {
+      "type": "sign",
+      "id": "pin_prompt",
+      "prompt_text": "Enter your 4 digit PIN:",
+      "sanitize": true,
+      "default_lines": [
+        "^^^^^^^",
+        "Enter PIN",
+        "=======",
+        ""
+      ]
+    },
+    {
+      "type": "dialog",
+      "id": "ban_form",
+      "title": "Ban Player",
+      "sanitize": true,
+      "base": {
+        "inputs": [
+          {
+            "label": "Reason",
+            "input_type": "choice",
+            "constraints": ["Hacking", "Spam", "Toxicity"]
+          },
+          {
+            "label": "Duration (Days)",
+            "input_type": "number",
+            "constraints": [1, 365]
+          }
+        ]
+      },
+      "dialog_type": {
+        "type": "confirmation",
+        "confirm_action": { "label": "Confirm" },
+        "cancel_action": { "label": "Cancel" }
+      }
+    }
+  ],
+  "post_commands": [
+    {
+      "id": "log_reason",
+      "command": "discord broadcast {player} punished {input:1} for: {input:2}",
+      "execution_policy": "on_complete",
+      "execute_as": "console"
+    },
+    {
+      "id": "refund_fee",
+      "command": "eco give {player} 100",
+      "execution_policy": "on_cancel",
+      "execute_as": "console",
+      "delay_ticks": 20
+    }
+  ]
+}

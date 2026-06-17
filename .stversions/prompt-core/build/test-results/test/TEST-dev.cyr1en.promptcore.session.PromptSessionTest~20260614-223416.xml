@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptcore.session.PromptSessionTest" tests="35" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:08:41.191Z" hostname="Mac.lan" time="0.015">
+  <properties/>
+  <testcase name="cancel_onAlreadyCancelled_throws()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.002"/>
+  <testcase name="finish_noPCMs()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.001"/>
+  <testcase name="sanitize_nullReturnsNull()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="startWithoutPrompts_completed()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="sanitize_stripsColorCodes()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_onCompletedSession_throws()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="startWithPrompts_awaitingInput()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.001"/>
+  <testcase name="finish_withMultipleAnswers()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="currentPrompt_emptyWhenNoPrompts()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="sanitize_stripsSymbols()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_completesSession()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.001"/>
+  <testcase name="finish_idempotent()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.002"/>
+  <testcase name="submitAnswer_returnsNewSession()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="finish_assemblesCommand()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="finish_cancelled_returnsOnCancelPCMs()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="sessionWithoutPrompts_finishesImmediately()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="equals_differentiatesSessionsByRemaining()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.002"/>
+  <testcase name="finish_preservesPCMDispatchTarget()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="sanitize_emptyReturnsEmpty()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="cancel_onCompletedSession_throws()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="finish_preservesPCMDelay()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="pcmQueue_isNotSharedBetweenSessions()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_storesAllAnswers()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="finish_withoutCompleting_throws()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.001"/>
+  <testcase name="currentPrompt_returnsFirst()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="finish_withPCM_resolvesReferences()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_advancesToNextPrompt()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_skipsSanitizationWhenDisabled()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="submitAnswer_appliesSanitizationByDefault()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="cancel_returnsCancelledState()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="sanitize_stripsMixed()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="immutable_sessionNotAffectedBySubsequentOperations()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="equals_ignoresAnswerOrder()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.001"/>
+  <testcase name="currentIndex_startsAtZero()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <testcase name="cancel_onActiveSession_works()" classname="dev.cyr1en.promptcore.session.PromptSessionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Jun 14, 2026 12:08:41 PM dev.cyr1en.promptcore.session.PromptSession lambda$resolvePCMReferences$0
+WARNING: Unresolved PCM reference {0} in command: msg {0}
+]]></system-err>
+</testsuite>

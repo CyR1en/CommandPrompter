@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.listener;
 
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,15 +16,29 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
  * is not dispatched until all prompts are answered.
  * Commands in the {@code ignored-commands} config list and the plugin's own
  * commands are excluded from interception.
+ *
+ * <h2>Fail-fast cancel</h2>
+ *
+ * <p>When a command contains a tag form (any {@code <…>}) and the player has the
+ * {@code promptpaper.use} permission (or permission checks are disabled), the
+ * event is <b>unconditionally cancelled</b> — even if the engine did not start a
+ * session. This is the only way the fail-fast path (unknown preset id) can keep
+ * the literal tag out of the underlying command dispatcher, per the spec.
  */
 public class PlayerCommandListener implements Listener {
 
     private final CommandPrompter plugin;
     private final ScreenManager screenManager;
+    private final PromptEngine engine;
 
     public PlayerCommandListener(CommandPrompter plugin, ScreenManager screenManager) {
+        this(plugin, screenManager, plugin.getEngine());
+    }
+
+    public PlayerCommandListener(CommandPrompter plugin, ScreenManager screenManager, PromptEngine engine) {
         this.plugin = plugin;
         this.screenManager = screenManager;
+        this.engine = engine;
     }
 
     /**
@@ -65,10 +80,32 @@ public class PlayerCommandListener implements Listener {
         }
 
         var commandLine = message.startsWith("/") ? message.substring(1) : message;
-        screenManager.startSession(player, commandLine);
-        if (screenManager.hasActiveScreen(player)) {
-            plugin.getPluginLogger().debug("Session started, cancelling event");
-            event.setCancelled(true);
+
+        // Cancel the event for any command that has a tag form AND either a
+        // session is about to start, OR the command references a preset
+        // (so the literal <@id>/<!@id> markup is never dispatched). Legacy
+        // commands with only non-preset PCMs (e.g. <!log>) pass through
+        // unchanged to preserve existing behavior.
+        if (engine != null && engine.commandHasTagForm(commandLine)) {
+            var allowedToUse = !config.enablePermission() || player.hasPermission("promptpaper.use");
+            if (allowedToUse) {
+                screenManager.startSession(player, commandLine);
+                if (screenManager.hasActiveScreen(player) || engine.hasPresetReferences(commandLine)) {
+                    plugin.getPluginLogger().debug("Command had prompts/presets, cancelling event");
+                    event.setCancelled(true);
+                }
+            } else {
+                plugin.getPluginLogger().debug("Command had tag form but player "
+                        + player.getName() + " lacks promptpaper.use, not cancelling");
+            }
+        } else if (screenManager.hasActiveScreen(player)) {
+            // Backward-compat: non-tag-form command while a screen is already open
+            // should still let startSession observe it (no-op) and we keep the
+            // existing cancel-on-hasScreen behavior.
+            screenManager.startSession(player, commandLine);
+            if (screenManager.hasActiveScreen(player)) {
+                event.setCancelled(true);
+            }
         }
     }
 }

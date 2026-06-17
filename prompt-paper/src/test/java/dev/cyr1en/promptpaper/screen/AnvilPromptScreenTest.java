@@ -30,7 +30,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     @Test
     void constructorStoresValues() {
         var player = createPlayer();
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         assertNotNull(screen);
         assertFalse(screen.isOpen());
     }
@@ -38,7 +38,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     @Test
     void openWithEmptyProvidersFallsBackToChat() {
         var player = createPlayer();
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         screen.open();
         assertTrue(screen.isOpen());
     }
@@ -51,7 +51,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
         when(mockProvider.createAnvil(any(CommandPrompter.class), any(), anyString()))
                 .thenReturn(mockAnvil);
 
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", List.of(mockProvider));
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), List.of(mockProvider));
         screen.open();
 
         assertTrue(screen.isOpen());
@@ -61,7 +61,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithAnswerFiresCallback() {
         var player = createPlayer();
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -75,7 +75,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithCancelFiresCallback() {
         var player = createPlayer();
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -89,7 +89,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     void handleResultWithCancelKeywordReturnsCancel() {
         var player = createPlayer();
         when(config.cancelKeyword()).thenReturn("cancel");
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -102,7 +102,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithoutOpenIsNoop() {
         var player = createPlayer();
-        var screen = new AnvilPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
 

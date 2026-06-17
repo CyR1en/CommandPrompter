@@ -1,5 +1,6 @@
 package dev.cyr1en.promptpaper.screen;
 
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.PromptTag;
@@ -36,17 +37,17 @@ public class ScreenManager {
 
     private final CommandPrompter plugin;
     private final PromptEngine engine;
-    private final ScreenRouter router;
+    private final PromptFactory factory;
     private final Scheduler scheduler;
     private final Map<UUID, InputScreen> activeScreens;
     private final Map<UUID, CancellableTask> timeoutTasks;
     private final Map<UUID, DispatchMode> dispatchModes;
     private final Map<UUID, String> attachmentKeys;
 
-    public ScreenManager(CommandPrompter plugin, PromptEngine engine, ScreenRouter router, Scheduler scheduler) {
+    public ScreenManager(CommandPrompter plugin, PromptEngine engine, PromptFactory factory, Scheduler scheduler) {
         this.plugin = plugin;
         this.engine = engine;
-        this.router = router;
+        this.factory = factory;
         this.scheduler = scheduler;
         this.activeScreens = new ConcurrentHashMap<>();
         this.timeoutTasks = new ConcurrentHashMap<>();
@@ -135,9 +136,10 @@ public class ScreenManager {
                 tag.sanitize(),
                 tag.validatorAlias(),
                 tag.type(),
-                tag.subTags());
+                tag.subTags(),
+                tag.preset());
         var context = buildCompletionContext(player, resolvedTag);
-        var screen = router.create(player, resolvedTag, context);
+        var screen = factory.createFromTag(player, resolvedTag, context);
         plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
                 + " key=" + tag.key() + " screen=" + screen.getClass().getSimpleName());
         activeScreens.put(player.getUniqueId(), screen);
@@ -303,11 +305,7 @@ public class ScreenManager {
             if (!valid) {
                 var msg = validator.messageOnFail();
                 if (!msg.isBlank()) {
-                    if (msg.contains("&")) {
-                        player.sendMessage(ComponentUtil.mini(toMini(msg)));
-                    } else {
-                        player.sendMessage(ComponentUtil.mini(msg));
-                    }
+                    player.sendMessage(ComponentUtil.mini(msg));
                 }
                 return false;
             }
@@ -360,21 +358,12 @@ public class ScreenManager {
             if (!valid) {
                 var msg = validator.messageOnFail();
                 if (!msg.isBlank()) {
-                    if (msg.contains("&")) {
-                        player.sendMessage(ComponentUtil.mini(toMini(msg)));
-                    } else {
-                        player.sendMessage(ComponentUtil.mini(msg));
-                    }
+                    player.sendMessage(ComponentUtil.mini(msg));
                 }
                 return false;
             }
         }
         return true;
-    }
-
-    private static String toMini(String legacy) {
-        var component = LegacyComponentSerializer.legacyAmpersand().deserialize(legacy);
-        return ComponentUtil.serialize(component);
     }
 
     /**

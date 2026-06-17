@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper;
 import dev.cyr1en.promptpaper.command.CommandRegistrar;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.PluginHook;
 import dev.cyr1en.promptpaper.hook.hooks.ChatListenerHook;
@@ -10,8 +11,8 @@ import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.listener.ChatPromptListener;
 import dev.cyr1en.promptpaper.listener.CommandSendListener;
 import dev.cyr1en.promptpaper.listener.PlayerCommandListener;
+import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import dev.cyr1en.promptpaper.screen.ScreenRouter;
 import dev.cyr1en.promptpaper.screen.playerui.HeadCache;
 import dev.cyr1en.promptpaper.util.PaperScheduler;
 import dev.cyr1en.promptpaper.util.PluginLogger;
@@ -43,6 +44,8 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     private ScreenManager screenManager;
     private HeadCache headCache;
     private HookContainer hookContainer;
+    private PresetRegistry presetRegistry;
+    private PromptFactory promptFactory;
 
     /**
      * Initializes all plugin subsystems: config, scheduler, engine, screen
@@ -63,14 +66,22 @@ public class CommandPrompter extends JavaPlugin implements Listener {
                     + " locale=" + configLoader.getConfig().locale());
             pluginLogger.debug("I18n initialized for locale=" + configLoader.getConfig().locale());
 
+            this.presetRegistry = new PresetRegistry(this);
+            this.presetRegistry.reload();
+            var presetMsg = "Loaded presets: <green>" + presetRegistry.promptCount() + " prompts</green>, <gold>" +
+                    presetRegistry.postCommandCount() + " post commands</gold>";
+            pluginLogger.info(presetMsg);
+            pluginLogger.debug("Loaded prompt IDs: " + String.join(", ", presetRegistry.getPromptIds()));
+            pluginLogger.debug("Loaded post-command IDs: " + String.join(", ", presetRegistry.getPostCommandIds()));
+
             var scheduler = new PaperScheduler(this);
             pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");
             this.engine = new PromptEngine(this, scheduler);
             pluginLogger.debug("PromptEngine initialized");
 
-            var router = new ScreenRouter(this);
-            this.screenManager = new ScreenManager(this, engine, router, scheduler);
-            pluginLogger.debug("ScreenManager initialized");
+            this.promptFactory = new PromptFactory(this);
+            this.screenManager = new ScreenManager(this, engine, promptFactory, scheduler);
+            pluginLogger.debug("ScreenManager initialized (factory: providers=" + promptFactory.providerCount() + ")");
 
             this.headCache = new HeadCache(this, scheduler);
             getServer().getPluginManager().registerEvents(headCache, this);
@@ -151,5 +162,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     public ScreenManager getScreenManager() { return screenManager; }
     public HeadCache getHeadCache() { return headCache; }
     public HookContainer getHookContainer() { return hookContainer; }
+    public PresetRegistry getPresetRegistry() { return presetRegistry; }
+    public PromptFactory getPromptFactory() { return promptFactory; }
     public PaperI18n getI18n() { return configLoader.getI18n(); }
 }

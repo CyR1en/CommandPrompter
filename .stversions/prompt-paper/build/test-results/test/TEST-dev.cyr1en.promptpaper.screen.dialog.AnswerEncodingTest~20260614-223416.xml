@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:12.176Z" hostname="Mac.lan" time="0.002">
+  <properties/>
+  <testcase name="encodeEmptyListIsJustWrappers()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.001"/>
+  <testcase name="decodeMissingLeadingRecordSeparatorReturnsNull()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodeNeverProducesTrailingUnitSeparator()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodePreservesEmptyStringAnswers()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="decodeMissingTrailingRecordSeparatorReturnsNull()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodeSingleIsIdentity()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.001"/>
+  <testcase name="decodeNullPayloadReturnsEmptyList()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="decodeRoundTripPreservesEmptyString()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodeDecodeRoundTripsArbitraryContent()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodeTwoAnswersUsesUnitSeparator()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="decodeEmptyPayloadReturnsEmptyList()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="decodeWrongCountReturnsNull()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="encodeThreeAnswersHasTwoSeparators()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <testcase name="decodeValidPayloadSplits()" classname="dev.cyr1en.promptpaper.screen.dialog.AnswerEncodingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

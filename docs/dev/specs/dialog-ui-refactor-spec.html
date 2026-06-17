@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialog Prompt UI Refactor & Schema Migration Spec</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; max-width: 1000px; margin: 0 auto; padding: 2rem; color: #333; }
+        h1 { color: #1a1a1a; border-bottom: 2px solid #eaeaea; padding-bottom: 0.5rem; }
+        h2 { color: #2c3e50; margin-top: 2.5rem; border-bottom: 1px solid #eaeaea; padding-bottom: 0.3rem; }
+        h3 { color: #34495e; margin-top: 1.5rem; }
+        code:not(.hljs) { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.9em; }
+        pre { border-radius: 8px; font-size: 0.9em; margin: 1.5rem 0; background: #1e1e1e; padding: 15px; color: #d4d4d4; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 1.5rem 0; font-size: 0.95em; }
+        th, td { border: 1px solid #e0e0e0; padding: 0.75rem; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .note { background: #e0f2fe; border-left: 4px solid #3b82f6; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffe066; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+    </style>
+</head>
+<body>
+    <h1>Dialog Prompt UI Refactor & Schema Migration Spec</h1>
+    <p><strong>Date:</strong> 2026-06-16</p>
+    
+    <h2>1. Overview</h2>
+    <p>
+        This document outlines the architectural refactor of the <strong>Dialog UI subsystem</strong>. 
+        It integrates the newly brainstormed expressive Dialog Schema directly into the plugin's unified <strong>Prompt Factory</strong> 
+        architecture defined in <code>docs/dev/specs/preset-configuration-spec.html</code>.
+    </p>
+    <p>
+        By moving to this schema, both <strong>Preset Prompts</strong> and <strong>Inline Prompts</strong> are funnelled through the exact 
+        same JSON-driven instantiation pipeline, directly mirroring Paper's native <code>DialogBase</code> and <code>DialogType</code> builders.
+    </p>
+
+    <h2>2. Architecture Mapping</h2>
+    <p>The JSON structure strictly segregates the configuration into two objects that correspond to Paper's API surface:</p>
+    <ul>
+        <li><code>base</code>: Maps to <code>DialogBase.builder()</code>. Holds the text/item body components and the input widgets.</li>
+        <li><code>dialog_type</code>: Maps to <code>DialogType</code>. Defines the layout rule (multi-action grid or confirmation prompt).</li>
+    </ul>
+
+    <h2>3. Updated JSON Schema Integration</h2>
+    <p>
+        This overrides and replaces the legacy <code>dialogPrompt</code> definition found in the master preset configuration.
+        The new definition fully supports expressive elements like custom body text, multi-action grids, static buttons, and strict validation.
+    </p>
+
+<pre><code class="language-json">"$defs": {
+  "actionButton": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["label"],
+    "properties": {
+      "label": { "type": "string", "minLength": 1 },
+      "tooltip": { "type": "string" },
+      "return": { "type": "string" }
+    }
+  },
+  "dialogTypeConfig": {
+    "type": "object",
+    "required": ["type"],
+    "properties": {
+      "type": { "type": "string", "enum": ["multi_action", "confirmation"] }
+    },
+    "allOf": [
+      {
+        "if": { "properties": { "type": { "const": "multi_action" } } },
+        "then": {
+          "required": ["columns"],
+          "properties": {
+            "columns": { "type": "integer", "minimum": 1 },
+            "actions": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/actionButton" }
+            },
+            "actions_source": { "type": "string", "const": "tab_completion" },
+            "exit_action": { "$ref": "#/$defs/actionButton" }
+          },
+          "oneOf": [
+            { "required": ["actions"] },
+            { "required": ["actions_source"] }
+          ]
+        }
+      },
+      {
+        "if": { "properties": { "type": { "const": "confirmation" } } },
+        "then": {
+          "required": ["confirm_action"],
+          "properties": {
+            "confirm_action": { "$ref": "#/$defs/actionButton" },
+            "cancel_action": { "$ref": "#/$defs/actionButton" }
+          }
+        }
+      }
+    ]
+  },
+  "dialogPrompt": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["type", "id", "title", "dialog_type"],
+    "properties": {
+      "type": { "const": "dialog" },
+      "id": { "type": "string", "minLength": 1 },
+      "title": { "type": "string" },
+      "sanitize": { "type": "boolean", "default": true },
+      "base": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "enum": ["plain_message", "item"] },
+                "content": { "type": "string" },
+                "material": { "type": "string" },
+                "amount": { "type": "integer", "minimum": 1 }
+              }
+            }
+          },
+          "inputs": { 
+            "type": "array", 
+            "items": { "$ref": "#/$defs/dialogRow" } 
+          }
+        }
+      },
+      "dialog_type": { "$ref": "#/$defs/dialogTypeConfig" }
+    }
+  }
+}</code></pre>
+
+    <h2>4. Inline Syntax Translation Strategy</h2>
+    <p>
+        To preserve the <strong>Single Source of Truth</strong> model, inline prompts are not instantiated directly. 
+        Instead, the <code>CommandLineParser</code> will parse the inline string (e.g., <code>&lt;d:num[1,64]:Amount&gt;</code>) and 
+        generate a <strong>transient JSON structure</strong> in memory. This transient JSON is then handed to the <code>PromptFactory</code>.
+    </p>
+
+    <h3>Rule 1: Standard Single-Row & Compound Inputs</h3>
+    <p>
+        Tags using <code>text</code>, <code>num</code>, or <code>choice</code> filters map into the <code>base.inputs</code> array. 
+        They automatically assume a <code>confirmation</code> dialog type with default button labels sourced from <code>prompt-config.yml</code>.
+    </p>
+    <table>
+        <tr>
+            <th>Inline Syntax</th>
+            <th>Transient JSON Mapping Result</th>
+        </tr>
+        <tr>
+            <td><code>&lt;d:choice[A,B]:Select&gt;</code></td>
+            <td>
+<pre><code class="language-json">{
+  "type": "dialog",
+  "id": "inline-uuid",
+  "title": "Command Prompter",
+  "base": {
+    "inputs": [ { "label": "Select", "input_type": "choice", "constraints": ["A", "B"] } ]
+  },
+  "dialog_type": {
+    "type": "confirmation",
+    "confirm_action": { "label": "Confirm" }
+  }
+}</code></pre>
+            </td>
+        </tr>
+    </table>
+
+    <h3>Rule 2: Tab-Completion (Multi-Action)</h3>
+    <p>
+        If the inline tag uses the <code>d:tab</code> filter, the parser maps it to the <code>multi_action</code> dialog type. 
+        Crucially, the <code>T</code> parameter (displayText) is mapped to the Dialog's <strong>title</strong>.
+    </p>
+    <table>
+        <tr>
+            <th>Inline Syntax</th>
+            <th>Transient JSON Mapping Result</th>
+        </tr>
+        <tr>
+            <td><code>&lt;d:tab:Player&gt;</code></td>
+            <td>
+<pre><code class="language-json">{
+  "type": "dialog",
+  "id": "inline-uuid",
+  "title": "Player", // Mapped directly from T
+  "dialog_type": {
+    "type": "multi_action",
+    "columns": 2, // Fetched from prompt-config.yml defaults
+    "actions_source": "tab_completion",
+    "exit_action": { "label": "Cancel" } // Fetched from config defaults
+  }
+}</code></pre>
+            </td>
+        </tr>
+    </table>
+
+    <h3>Rule 3: Virtual Title Tags</h3>
+    <p>
+        The legacy <code>&lt;d:title:Custom Title && d:text:Reason&gt;</code> behavior is cleanly preserved. 
+        If a <code>d:title</code> sub-tag is detected during parsing, it overrides the root <code>title</code> field in the transient JSON before being stripped from the <code>inputs</code> array.
+    </p>
+
+    <h2>5. Validation & Fallback Rules</h2>
+    <div class="note">
+        <strong>Constraint:</strong> A <code>multi_action</code> dialog strictly requires either <code>actions</code> or <code>actions_source</code>.
+        The Gson Deserializer must throw an <code>IllegalArgumentException</code> if both are provided, or if neither are provided.
+    </div>
+    <div class="warning">
+        <strong>Tab Fallback:</strong> If <code>actions_source: tab_completion</code> returns zero completions, or exceeds the threshold (<code>MaxButtons</code>), 
+        the Factory gracefully degrades the UI. It will internally swap the <code>multi_action</code> layout for a <code>confirmation</code> layout, 
+        inject a fallback text input into <code>base.inputs</code>, and use the title as the input label.
+    </div>
+
+    <!-- Highlight.js Initialization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

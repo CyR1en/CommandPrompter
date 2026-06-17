@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.SmokeTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:10.397Z" hostname="Mac.lan" time="0.962">
+  <properties/>
+  <testcase name="schedulerRunsSyncInline()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.641"/>
+  <testcase name="playerCanBeCreated()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.29"/>
+  <testcase name="formatUtilWorksWithoutBukkit()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.005"/>
+  <testcase name="schedulerRunLaterReturnsCancellable()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.008"/>
+  <testcase name="schedulerRunLaterAdvancesWithTicks()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.005"/>
+  <testcase name="mockBukkitServerIsRunning()" classname="dev.cyr1en.promptpaper.SmokeTest" time="0.006"/>
+  <system-out><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
+]]></system-out>
+  <system-err><![CDATA[WARNING: A Java agent has been loaded dynamically (/Users/cyr1en/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.18.8/ed5c6c9b3a146b4aa376df3b6770d6cabed20482/byte-buddy-agent-1.18.8.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+[12:25:11 WARNING]: Consider using runTaskLater instead of scheduleSyncDelayTask
+[12:25:11 WARNING]: Consider using runTaskLater instead of scheduleSyncDelayTask
+]]></system-err>
+</testsuite>

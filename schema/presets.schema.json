@@ -1,0 +1,231 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CommandPrompter JSON Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompts", "post_commands"],
+  "properties": {
+    "prompts": {
+      "type": "array",
+      "description": "A list of prompt configurations using the 'type' discriminator.",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          { "$ref": "#/$defs/chatPrompt" },
+          { "$ref": "#/$defs/anvilPrompt" },
+          { "$ref": "#/$defs/playerUiPrompt" },
+          { "$ref": "#/$defs/signPrompt" },
+          { "$ref": "#/$defs/dialogPrompt" }
+        ]
+      }
+    },
+    "post_commands": {
+      "type": "array",
+      "description": "Commands executed after prompt flow events.",
+      "items": { "$ref": "#/$defs/postCommand" }
+    }
+  },
+  "$defs": {
+    "cancelBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["send", "message", "clickable", "hover_message"],
+      "properties": {
+        "send": { "type": "boolean" },
+        "message": { "type": "string", "minLength": 1 },
+        "clickable": { "type": "boolean" },
+        "hover_message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "anvilButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["show", "button_text", "button_icon", "button_hover_text", "custom_model_data"],
+      "properties": {
+        "show": { "type": "boolean" },
+        "button_text": { "type": "string", "minLength": 1 },
+        "button_icon": { "type": "string", "minLength": 1 },
+        "button_hover_text": { "type": "string", "minLength": 1 },
+        "custom_model_data": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "uiButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["show", "slot", "button_text", "button_icon", "button_hover_text", "custom_model_data"],
+      "properties": {
+        "show": { "type": "boolean" },
+        "slot": { "type": "integer", "minimum": 0, "maximum": 53 },
+        "button_text": { "type": "string", "minLength": 1 },
+        "button_icon": { "type": "string", "minLength": 1 },
+        "button_hover_text": { "type": "string", "minLength": 1 },
+        "custom_model_data": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "chatPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text", "cancel"],
+      "properties": {
+        "type": { "const": "chat" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "cancel": { "$ref": "#/$defs/cancelBehavior" }
+      }
+    },
+    "anvilPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "title", "prompt_text", "left_button", "right_button"],
+      "properties": {
+        "type": { "const": "anvil" },
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "left_button": { "$ref": "#/$defs/anvilButton" },
+        "right_button": { "$ref": "#/$defs/anvilButton" }
+      }
+    },
+    "playerUiPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text"],
+      "properties": {
+        "type": { "const": "player_ui" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "filter": { "type": "string" },
+        "cancel_button": { "$ref": "#/$defs/uiButton" },
+        "previous_button": { "$ref": "#/$defs/uiButton" },
+        "next_button": { "$ref": "#/$defs/uiButton" }
+      }
+    },
+    "signPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text"],
+      "properties": {
+        "type": { "const": "sign" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "default_lines": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "maxItems": 4
+        }
+      }
+    },
+    "postCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "execution_policy", "execute_as"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "execution_policy": { "type": "string", "enum": ["on_complete", "on_cancel"] },
+        "execute_as": { "type": "string", "enum": ["console", "player"] },
+        "delay_ticks": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "dialogRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "input_type"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "input_type": { "type": "string", "enum": ["text", "number", "choice"] },
+        "constraints": { 
+          "type": "array",
+          "items": { "type": ["string", "number"] }
+        }
+      }
+    },
+    "actionButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "tooltip": { "type": "string" },
+        "return": { "type": "string" }
+      }
+    },
+    "dialogTypeConfig": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["multi_action", "confirmation"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "multi_action" } } },
+          "then": {
+            "required": ["columns"],
+            "properties": {
+              "columns": { "type": "integer", "minimum": 1 },
+              "actions": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/actionButton" }
+              },
+              "actions_source": { "type": "string", "const": "tab_completion" },
+              "exit_action": { "$ref": "#/$defs/actionButton" }
+            },
+            "oneOf": [
+              { "required": ["actions"] },
+              { "required": ["actions_source"] }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "confirmation" } } },
+          "then": {
+            "required": ["confirm_action"],
+            "properties": {
+              "confirm_action": { "$ref": "#/$defs/actionButton" },
+              "cancel_action": { "$ref": "#/$defs/actionButton" }
+            }
+          }
+        }
+      ]
+    },
+    "dialogPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "title", "dialog_type"],
+      "properties": {
+        "type": { "const": "dialog" },
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "base": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["plain_message", "item"] },
+                  "content": { "type": "string" },
+                  "material": { "type": "string" },
+                  "amount": { "type": "integer", "minimum": 1 }
+                }
+              }
+            },
+            "inputs": { 
+              "type": "array", 
+              "items": { "$ref": "#/$defs/dialogRow" } 
+            }
+          }
+        },
+        "dialog_type": { "$ref": "#/$defs/dialogTypeConfig" }
+      }
+    }
+  }
+}

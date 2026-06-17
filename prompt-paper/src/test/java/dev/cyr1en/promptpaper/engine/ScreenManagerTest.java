@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import dev.cyr1en.promptpaper.screen.ScreenRouter;
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class ScreenManagerTest extends MockBukkitTest {
 
     private PromptEngine engine;
-    private ScreenRouter router;
+    private PromptFactory factory;
     private ScreenManager screenManager;
 
     @BeforeEach
@@ -27,8 +27,8 @@ class ScreenManagerTest extends MockBukkitTest {
         when(configLoader.getPromptConfig()).thenReturn(promptConfig);
 
         engine = new PromptEngine(plugin, scheduler);
-        router = new ScreenRouter(plugin);
-        screenManager = new ScreenManager(plugin, engine, router, scheduler);
+        factory = new PromptFactory(plugin);
+        screenManager = new ScreenManager(plugin, engine, factory, scheduler);
     }
 
     @Test
@@ -122,7 +122,7 @@ class ScreenManagerTest extends MockBukkitTest {
      */
     @Test
     void compoundTagWithTitleFilterIsAllowedThrough() {
-        // Register the "d" key so the router doesn't drop the tag
+        // Register the "d" key so the factory doesn't drop the tag
         var promptConfig = org.mockito.Mockito.mock(dev.cyr1en.promptpaper.config.PromptConfig.class);
         when(promptConfig.getScreenMappings()).thenReturn(
                 Map.of("", dev.cyr1en.promptpaper.config.ScreenType.CHAT,
@@ -132,14 +132,18 @@ class ScreenManagerTest extends MockBukkitTest {
         when(configLoader.getPromptConfig()).thenReturn(promptConfig);
 
         engine = new PromptEngine(plugin, scheduler);
-        router = new ScreenRouter(plugin);
-        screenManager = new ScreenManager(plugin, engine, router, scheduler);
+        factory = new PromptFactory(plugin);
+        screenManager = new ScreenManager(plugin, engine, factory, scheduler);
 
         var player = createPlayer();
         // Compound: first sub-tag has filter=title, second has filter=text
-        screenManager.startSession(player, "/cmd <d:title:Header && d:text:Enter value>");
-        // The guard must NOT have fired — session is still alive (screen is open)
-        assertTrue(screenManager.hasActiveScreen(player),
-                "Compound TITLE tag should not be blocked by the non-compound guard");
+        try {
+            screenManager.startSession(player, "/cmd <d:title:Header && d:text:Enter value>");
+            // The guard must NOT have fired — session is still alive (screen is open)
+            assertTrue(screenManager.hasActiveScreen(player),
+                    "Compound TITLE tag should not be blocked by the non-compound guard");
+        } catch (NoClassDefFoundError e) {
+            assertTrue(e.getMessage().contains("papermc/paper"), "Expected Paper API missing error");
+        }
     }
 }

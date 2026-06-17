@@ -109,6 +109,16 @@ public class CommandLineParser {
         config);
   }
 
+  /**
+   * Whether the raw command string contains at least one tag (prompt or PCM). Used by callers that
+   * need to distinguish "no tag form at all" from "had tag form but parsing returned empty for some
+   * reason" — for example, the fail-fast path in the engine.
+   */
+  public boolean hasTagForm(String rawCommand) {
+    if (rawCommand == null || rawCommand.isBlank()) return false;
+    return tagPattern.matcher(rawCommand).find();
+  }
+
   private boolean isPCM(String content) {
     return pcmPrefix.matcher(content).find();
   }
@@ -139,6 +149,22 @@ public class CommandLineParser {
 
     content = content.trim();
 
+    // Preset post-command reference: <!@id> (with onCancel/delay already stripped above).
+    // The id is everything after the leading @ up to the first space.
+    if (content.startsWith("@")) {
+      var id = content.substring(1);
+      var space = id.indexOf(' ');
+      if (space >= 0) id = id.substring(0, space);
+      id = id.trim();
+      if (!id.isEmpty()) {
+        LOG.fine("Preset PCM: id=" + id + " onCancel=" + onCancel + " delay=" + delay);
+        postCmds.add(
+            new PostCommandMeta(id, new int[0], delay, onCancel, DispatchTarget.PASSTHROUGH, true));
+        return;
+      }
+      // @ with no id falls through to legacy handling.
+    }
+
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
     var targetMatcher = pcmTarget.matcher(content);
@@ -166,10 +192,30 @@ public class CommandLineParser {
             indices.stream().mapToInt(Integer::intValue).toArray(),
             delay,
             onCancel,
-            target));
+            target,
+            false));
   }
 
   private void parsePromptTag(String rawContent, String fullTag, List<PromptTag> promptTags) {
+    // Preset prompt reference: <@id>. The id is everything after the leading @
+    // up to the first space. The id is stored in `displayText` and the `preset`
+    // flag is set; the screen type is resolved later from the PresetRegistry.
+    if (rawContent.startsWith("@")) {
+      var id = rawContent.substring(1);
+      var space = id.indexOf(' ');
+      if (space >= 0) id = id.substring(0, space);
+      id = id.trim();
+      if (!id.isEmpty()) {
+        LOG.fine("Preset prompt tag: id=" + id);
+        promptTags.add(
+            new PromptTag(
+                fullTag, "", null, id, true, null, PromptTag.AnswerType.NONE, List.of(), true));
+        return;
+      }
+      // @ with no id falls through to legacy handling.
+    }
+
+    // Compound dialog form: a single `<d:... && d:...>` block containing one or more
     // Compound dialog form: a single `<d:... && d:...>` block containing one or more
     // `&&`-separated sub-tags. The block renders as one dialog with N input rows.
     // The first sub-tag's `key` becomes the compound tag's key (for screen routing).
@@ -243,7 +289,7 @@ public class CommandLineParser {
 
     promptTags.add(
         new PromptTag(
-            fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of()));
+            fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false));
   }
 
   /**
@@ -327,7 +373,8 @@ public class CommandLineParser {
             + " type="
             + type);
     promptTags.add(
-        new PromptTag(fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags));
+        new PromptTag(
+            fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags, false));
   }
 
   /**
@@ -372,7 +419,7 @@ public class CommandLineParser {
             .replace(config.escape() + config.closing(), config.closing())
             .trim();
     return new PromptTag(
-        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of());
+        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false);
   }
 
   private String extractValidator(String content) {

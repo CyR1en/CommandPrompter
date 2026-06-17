@@ -1,0 +1,61 @@
+<h2>Revised: Full 1-to-1 Mapping + Helpers</h2>
+<p class="subtitle">The schema now explicitly supports the <code>actions</code> array for static buttons, alongside the <code>actions_source</code> helper.</p>
+
+<div class="split" style="display: flex; gap: 20px;">
+  <!-- Left Side: JSON Schema Example -->
+  <div class="mockup" style="flex: 1;">
+    <div class="mockup-header" style="background: #333; padding: 5px 10px; font-family: monospace; border-radius: 4px 4px 0 0;">JSON Preset: Static + Dynamic</div>
+    <div class="mockup-body" style="padding: 15px; background: #1e1e1e; font-family: monospace; font-size: 13px; white-space: pre; overflow-x: auto; border-radius: 0 0 4px 4px; color: #d4d4d4;">
+{
+  "type": "dialog",
+  "id": "gamemode_picker",
+  "title": "Select Gamemode",
+
+  "base": {
+    "body": [
+      { "type": "plain_message", "content": "Choose a gamemode or use tab for custom:" }
+    ]
+    <span style="color: #9ca3af;">// inputs array omitted (optional)</span>
+  },
+
+  "dialog_type": {
+    "type": "multi_action",
+    "columns": 2,
+
+    <span style="color: #60a5fa;">// 1-to-1 API Mapping: Static Buttons</span>
+    <span style="color: #4ade80;">"actions"</span>: [
+      { 
+        "label": "Survival", 
+        "tooltip": "Standard gameplay",
+        "return": "0" <span style="color: #9ca3af;">// The answer text (optional)</span>
+      },
+      { 
+        "label": "Creative",
+        "return": "1" 
+      }
+    ],
+
+    <span style="color: #60a5fa;">// Helper Key: Dynamic Buttons</span>
+    <span style="color: #4ade80;">"actions_source"</span>: "tab_completion",
+
+    "exit_action": { "label": "Cancel" }
+  }
+}</div>
+  </div>
+
+  <!-- Right Side: Spec Details -->
+  <div class="mockup" style="flex: 1;">
+    <div class="mockup-header" style="background: #333; padding: 5px 10px; font-family: monospace; border-radius: 4px 4px 0 0;">Schema Behaviors</div>
+    <div class="mockup-body" style="padding: 15px; background: #1e1e1e; font-family: monospace; font-size: 13px; white-space: pre-wrap; overflow-x: auto; border-radius: 0 0 4px 4px; color: #d4d4d4;">
+<strong style="color: #60a5fa;">The ActionButton Model:</strong>
+Each button object requires a <code>label</code>.
+• <code>tooltip</code> (optional): Displays on hover.
+• <code>return</code> (optional): The string sent to the command when clicked. If omitted, the <code>label</code> is used as the answer.
+
+<strong style="color: #60a5fa;">Combining Static and Dynamic:</strong>
+If both <code>actions</code> and <code>actions_source</code> are defined, the system will render the static buttons first, then append the dynamic tab-completions after them in the grid.
+
+<strong style="color: #60a5fa;">Validation Rules:</strong>
+Paper API requires at least 1 action. The schema will validate that either the <code>actions</code> array is non-empty, OR an <code>actions_source</code> is provided.</div>
+  </div>
+</div>

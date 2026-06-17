@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.validation.RegexValidatorTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:12.474Z" hostname="Mac.lan" time="0.001">
+  <properties/>
+  <testcase name="nonMatchingInputReturnsFalse()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.001"/>
+  <testcase name="inputPlayerReturnsNullWhenNone()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="messageOnFailReturnsConfiguredValue()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="validatorTypeCanBeSetToOr()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="validatorTypeDefaultsToAnd()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="nullPatternReturnsFalse()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="matchingInputReturnsTrue()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="nullInputReturnsFalse()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <testcase name="aliasReturnsConfiguredValue()" classname="dev.cyr1en.promptpaper.validation.RegexValidatorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

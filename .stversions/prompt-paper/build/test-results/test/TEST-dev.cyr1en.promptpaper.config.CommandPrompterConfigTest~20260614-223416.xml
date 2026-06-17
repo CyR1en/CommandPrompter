@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.config.CommandPrompterConfigTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:11.628Z" hostname="Mac.lan" time="0.042">
+  <properties/>
+  <testcase name="getPermissionKeysReturnsAvailableKeys()" classname="dev.cyr1en.promptpaper.config.CommandPrompterConfigTest" time="0.037"/>
+  <testcase name="getPermissionAttachmentReturnsConfiguredKeys()" classname="dev.cyr1en.promptpaper.config.CommandPrompterConfigTest" time="0.002"/>
+  <testcase name="getPermissionKeysReturnsNoneWhenSectionMissing()" classname="dev.cyr1en.promptpaper.config.CommandPrompterConfigTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

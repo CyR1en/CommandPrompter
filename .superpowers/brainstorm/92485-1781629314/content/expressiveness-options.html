@@ -1,0 +1,49 @@
+<h2>How expressive do we want the inline syntax to be?</h2>
+<p class="subtitle">Currently, tags look like <code>&lt;d:tab[5]:Player&gt;</code>. To add layout control (titles, columns, exits), we have a few paths.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Key-Value Attributes (Inline)</h3>
+      <p>Expand the bracket syntax to support named parameters.</p>
+      <div class="mockup" style="margin-top: 10px; padding: 10px; background: #1e1e1e; border-radius: 4px; font-family: monospace;">
+        /tp &lt;d:tab[cols=3, title="Select Player", exit="Cancel"]:Player&gt;
+      </div>
+      <div class="pros-cons" style="margin-top: 10px;">
+        <div class="pros" style="margin-bottom: 5px;"><span style="color: #4ade80;">+</span> Great for quick, one-off commands</div>
+        <div class="cons"><span style="color: #f87171;">-</span> Gets very long and hard to type in Minecraft chat</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Preset-Driven (Config Files)</h3>
+      <p>Move layout design into JSON/YAML, keeping commands tiny.</p>
+      <div class="mockup" style="margin-top: 10px; padding: 10px; background: #1e1e1e; border-radius: 4px; font-family: monospace;">
+        /tp &lt;@player_picker&gt;
+      </div>
+      <div class="pros-cons" style="margin-top: 10px;">
+        <div class="pros" style="margin-bottom: 5px;"><span style="color: #4ade80;">+</span> Cleanest commands, unlimited design potential</div>
+        <div class="cons"><span style="color: #f87171;">-</span> Requires server admins to edit files outside the game</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>The Hybrid Approach</h3>
+      <p>Keep simple args inline, but allow preset overrides.</p>
+      <div class="mockup" style="margin-top: 10px; padding: 10px; background: #1e1e1e; border-radius: 4px; font-family: monospace;">
+        /tp &lt;@player_picker[cols=4]:Player&gt;
+      </div>
+      <div class="pros-cons" style="margin-top: 10px;">
+        <div class="pros" style="margin-bottom: 5px;"><span style="color: #4ade80;">+</span> Best of both worlds</div>
+        <div class="cons"><span style="color: #f87171;">-</span> Most complex to parse and implement</div>
+      </div>
+    </div>
+  </div>
+</div>

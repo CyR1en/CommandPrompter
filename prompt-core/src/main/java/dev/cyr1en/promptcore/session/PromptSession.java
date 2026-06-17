@@ -288,11 +288,13 @@ public final class PromptSession {
             + userId
             + ": assembled="
             + command
+            + " answers="
+            + answers.size()
             + " onComplete="
             + onComplete.size()
             + " onCancel="
             + onCancel.size());
-    return new SessionResult(command, onComplete, onCancel);
+    return new SessionResult(command, new java.util.ArrayList<>(answers), onComplete, onCancel);
   }
 
   // --- Internal ---
@@ -321,7 +323,8 @@ public final class PromptSession {
                   pcm.answerIndices(),
                   pcm.delayTicks(),
                   pcm.onCancel(),
-                  pcm.dispatchTarget());
+                  pcm.dispatchTarget(),
+                  pcm.preset());
             })
         .toList();
   }

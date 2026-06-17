@@ -18,7 +18,7 @@ class ChatPromptScreenTest extends MockBukkitTest {
     void setUpScreen() {
         var player = createPlayer("TestPlayer");
         lenient().when(promptConfig.sendCancelText()).thenReturn(false);
-        screen = new ChatPromptScreen(plugin, player, "Enter value:");
+        screen = new ChatPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.ChatPrompt("chat", "inline-test", "Enter value:", new dev.cyr1en.promptpaper.preset.CancelBehavior(false, "", false, ""), true));
         resultRef = new AtomicReference<>();
         screen.onResult(resultRef::set);
     }

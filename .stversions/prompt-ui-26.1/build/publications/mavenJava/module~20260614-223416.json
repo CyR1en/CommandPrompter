@@ -1,0 +1,69 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "dev.cyr1en",
+    "module": "prompt-ui-26.1",
+    "version": "3.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.5.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 25,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "prompt-ui-26.1-3.0.0.jar",
+          "url": "prompt-ui-26.1-3.0.0.jar",
+          "size": 17538,
+          "sha512": "e8c243056c213c4f6d0bc9ad11836f4ca47dd3a81ffd3dec804c4531720cec085035d571d3710ca0057ab7e7e32468a374f615add176251bd7221098c477906f",
+          "sha256": "d134b5de54743d13b6adf89b05e556600fea25c7a1fec89422aee67fd661b0b3",
+          "sha1": "7143108187b1e414193ba417e13b57f668034e62",
+          "md5": "0018bc087323925f8e96ba49a6e9c206"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 25,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "dev.cyr1en",
+          "module": "prompt-core",
+          "version": {
+            "requires": "3.0.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "prompt-ui-26.1-3.0.0.jar",
+          "url": "prompt-ui-26.1-3.0.0.jar",
+          "size": 17538,
+          "sha512": "e8c243056c213c4f6d0bc9ad11836f4ca47dd3a81ffd3dec804c4531720cec085035d571d3710ca0057ab7e7e32468a374f615add176251bd7221098c477906f",
+          "sha256": "d134b5de54743d13b6adf89b05e556600fea25c7a1fec89422aee67fd661b0b3",
+          "sha1": "7143108187b1e414193ba417e13b57f668034e62",
+          "md5": "0018bc087323925f8e96ba49a6e9c206"
+        }
+      ]
+    }
+  ]
+}

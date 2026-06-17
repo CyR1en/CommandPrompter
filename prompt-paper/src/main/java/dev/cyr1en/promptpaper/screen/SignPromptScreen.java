@@ -21,9 +21,11 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
 
     private String[] promptLines;
     private boolean multiArg;
+    private final dev.cyr1en.promptpaper.preset.SignPrompt signPrompt;
 
-    public SignPromptScreen(CommandPrompter plugin, Player player, String displayText, List<ScreenProvider> providers) {
-        super(plugin, player, displayText, providers);
+    public SignPromptScreen(CommandPrompter plugin, Player player, dev.cyr1en.promptpaper.preset.SignPrompt signPrompt, List<ScreenProvider> providers) {
+        super(plugin, player, signPrompt.promptText(), providers);
+        this.signPrompt = signPrompt;
     }
 
     /**
@@ -37,12 +39,21 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
         this.multiArg = Arrays.stream(parts).anyMatch(p -> p.matches("[\\S]+:"));
         var config = buildConfig(promptConfig);
 
-        int lines = Math.min(parts.length, multiArg ? 4 : 3);
-        var arranged = arrangeLines(parts, lines, promptConfig.inputFieldLocation());
+        String[] arranged;
+        if (signPrompt != null && !signPrompt.id().startsWith("inline-") && !signPrompt.defaultLines().isEmpty()) {
+            arranged = new String[4];
+            Arrays.fill(arranged, "");
+            for (int i = 0; i < Math.min(4, signPrompt.defaultLines().size()); i++) {
+                arranged[i] = signPrompt.defaultLines().get(i);
+            }
+        } else {
+            int lines = Math.min(parts.length, multiArg ? 4 : 3);
+            arranged = arrangeLines(parts, lines, promptConfig.inputFieldLocation());
+        }
         this.promptLines = arranged;
 
         plugin.getPluginLogger().debug("Opening sign prompt for " + player.getName()
-                + " multiArg=" + multiArg + " lines=" + lines
+                + " multiArg=" + multiArg
                 + " location=" + promptConfig.inputFieldLocation());
 
         for (var provider : providers) {

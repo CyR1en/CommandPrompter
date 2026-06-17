@@ -1,0 +1,27 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/preset/PresetRegistry.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/preset/PresetRegistry.java
+@@ -13,6 +13,7 @@
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Optional;
++import java.util.Set;
+ import org.bukkit.plugin.java.JavaPlugin;
+ 
+ /**
+@@ -139,6 +140,16 @@
+     return postCommands.size();
+   }
+ 
++  /** Returns an unmodifiable set of all registered prompt ids. */
++  public Set<String> getPromptIds() {
++    return prompts.keySet();
++  }
++
++  /** Returns an unmodifiable set of all registered post-command ids. */
++  public Set<String> getPostCommandIds() {
++    return postCommands.keySet();
++  }
++
+   /** The on-disk file this registry reads from. */
+   public File getPromptsFile() {
+     return promptsFile;

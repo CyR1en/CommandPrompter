@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.config.ScreenRouterTest" tests="8" skipped="3" failures="0" errors="0" timestamp="2026-06-14T18:25:11.683Z" hostname="Mac.lan" time="0.02">
+  <properties/>
+  <testcase name="createsDialogScreenForBoolFilter()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.0">
+    <skipped/>
+  </testcase>
+  <testcase name="createsPlayerScreenForPlayerMapping()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.004"/>
+  <testcase name="createsAnvilScreenForAnvilMapping()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.005"/>
+  <testcase name="unknownKeyFallsBackToChat()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.003"/>
+  <testcase name="createsChatScreenForChatMapping()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.003"/>
+  <testcase name="createsSignScreenForSignMapping()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.004"/>
+  <testcase name="createsDialogScreenForNumFilter()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.0">
+    <skipped/>
+  </testcase>
+  <testcase name="createsDialogScreenForDialogMapping()" classname="dev.cyr1en.promptpaper.config.ScreenRouterTest" time="0.0">
+    <skipped/>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[[12:25:11 INFO]: No GUI screen providers found — GUI prompts will fall back to chat.
+[12:25:11 INFO]: No GUI screen providers found — GUI prompts will fall back to chat.
+[12:25:11 INFO]: No GUI screen providers found — GUI prompts will fall back to chat.
+[12:25:11 INFO]: No GUI screen providers found — GUI prompts will fall back to chat.
+[12:25:11 INFO]: No GUI screen providers found — GUI prompts will fall back to chat.
+]]></system-err>
+</testsuite>

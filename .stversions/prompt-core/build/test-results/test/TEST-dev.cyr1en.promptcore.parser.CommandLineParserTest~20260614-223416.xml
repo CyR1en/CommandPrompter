@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptcore.parser.CommandLineParserTest" tests="58" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:08:41.146Z" hostname="Mac.lan" time="0.042">
+  <properties/>
+  <testcase name="specialCharsInText()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="mixedPromptsAndPCMs()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_displayWithBrackets()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="pcmCombined()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmWithDelay()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="keyedPromptWithFilter()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmCount()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="mixedEscapedAndReal()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="escapedTagIsNotMatched()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmOnComplete()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_textExplicit()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_deprecationWarningSkippedForNonDialogKey()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="disableSanitization()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="rawTagPreservesOriginalFormat()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_boolDefault()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="escapeInsidePromptIsLiteral()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="validatorAliasWithText()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmWithMultipleAnswerRefs()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_textMinMax()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="unifiedDialogForm_boolInitialTrue()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_numberFullSpec()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmOnCancel()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmWithConsoleTarget()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="keyWithoutColon()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="promptWithTextBeforeAndAfter()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_deprecationWarningFiresForLegacyForm()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.007"/>
+  <testcase name="noPrompts()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="intTypeFlag()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="pcmWithPlayerTarget()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="unifiedDialogForm_displayPreservesKeyword()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_flagsCombined()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_noFilterDefaultsToText()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="singleKeyedPrompt()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="validatorAlias()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="keyedPromptWithComplexFilter()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="onCancelPCMs()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="nullInput()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_legacyTrailingKindIsPlainDisplay()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="singleChatPrompt()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_caseInsensitive()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="emptyString()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="emptyTag()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="[1] &lt;! msg&gt;, msg, false, 0, PASSTHROUGH, []" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.005"/>
+  <testcase name="[2] &lt;!! msg&gt;, msg, true, 0, PASSTHROUGH, []" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="[3] &lt;!:20 msg&gt;, msg, false, 20, PASSTHROUGH, []" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="[4] &lt;! msg @console&gt;, msg, false, 0, CONSOLE, []" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="[5] &lt;! msg @player&gt;, msg, false, 0, PLAYER, []" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="[6] &lt;! ban {0}&gt;, ban {0}, false, 0, PASSTHROUGH, [0]" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="[7] &lt;! calc {0} {1}&gt;, calc {0} {1}, false, 0, PASSTHROUGH, [0, 1]" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="[8] &lt;!!:50 warn {0} @console&gt;, warn {0}, true, 50, CONSOLE, [0]" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="onCompletePCMs()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="promptCount()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="multiplePrompts()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="hasPrompts()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="unifiedDialogForm_numberMinMax()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.001"/>
+  <testcase name="unifiedDialogForm_boolInitialFalse()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="strTypeFlag()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <testcase name="combinedFlags()" classname="dev.cyr1en.promptcore.parser.CommandLineParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Jun 14, 2026 12:08:41 PM dev.cyr1en.promptcore.parser.CommandLineParser warnIfTrailingKind
+WARNING: Deprecated trailing-kind dialog syntax in '<d:Title bool>'. Use the unified form '<d:kind[constraints]:display>'. The trailing form is no longer parsed; the prompt will be a text field.
+Jun 14, 2026 12:08:41 PM dev.cyr1en.promptcore.parser.CommandLineParser warnIfTrailingKind
+WARNING: Deprecated trailing-kind dialog syntax in '<d:Title bool>'. Use the unified form '<d:kind[constraints]:display>'. The trailing form is no longer parsed; the prompt will be a text field.
+]]></system-err>
+</testsuite>

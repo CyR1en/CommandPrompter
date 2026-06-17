@@ -34,7 +34,7 @@ public abstract class AbstractWrapperPromptScreen implements InputScreen {
      */
     protected InputScreen fallbackToChat() {
         plugin.getPluginLogger().debug("Falling back to chat prompt for " + player.getName());
-        var fallback = new ChatPromptScreen(plugin, player, displayText);
+        var fallback = new ChatPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.ChatPrompt("chat", "inline-fallback", displayText, new dev.cyr1en.promptpaper.preset.CancelBehavior(false, "", false, ""), true));
         fallback.onResult(this::handleResult);
         return fallback;
     }

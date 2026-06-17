@@ -1,0 +1,14 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/factory/PromptFactory.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/factory/PromptFactory.java
+@@ -144,6 +144,11 @@
+    */
+   public InputScreen createFromTag(Player player, PromptTag tag, DialogCompletionContext context) {
+     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
++    if (tag.isPreset()) {
++      var def = plugin.getPresetRegistry().getPrompt(tag.displayText())
++          .orElseThrow(() -> new IllegalStateException("Preset prompt not found: " + tag.displayText()));
++      return create(player, def, context);
++    }
+     if ("d".equals(tag.key()) || tag.isCompound()) {
+       // Dialog: pass the original tag through. The dialog screen consumes
+       // PromptTag directly, and round-tripping through JSON would lose

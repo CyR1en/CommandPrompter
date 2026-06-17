@@ -1,0 +1,60 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "dev.cyr1en",
+    "module": "prompt-core",
+    "version": "3.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.5.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 25,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "prompt-core-3.0.0.jar",
+          "url": "prompt-core-3.0.0.jar",
+          "size": 24319,
+          "sha512": "cbe15619b68dcd5f9b91730850c1053c52082064de5ff0d7e6c19da5eb3a266d7e81315df36c7e7b794f0496a0556c575138abdfb3f1708a476b6e9ff0bc432f",
+          "sha256": "76ce7f2e90de64681586634aa804c12efce7eefe4e615ca7e7c0778b40a378f2",
+          "sha1": "51131d648133e664de0243d1e29998969d9cdb74",
+          "md5": "5cfa93d7dd886ccb669c395d8cb9ef82"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 25,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "prompt-core-3.0.0.jar",
+          "url": "prompt-core-3.0.0.jar",
+          "size": 24319,
+          "sha512": "cbe15619b68dcd5f9b91730850c1053c52082064de5ff0d7e6c19da5eb3a266d7e81315df36c7e7b794f0496a0556c575138abdfb3f1708a476b6e9ff0bc432f",
+          "sha256": "76ce7f2e90de64681586634aa804c12efce7eefe4e615ca7e7c0778b40a378f2",
+          "sha1": "51131d648133e664de0243d1e29998969d9cdb74",
+          "md5": "5cfa93d7dd886ccb669c395d8cb9ef82"
+        }
+      ]
+    }
+  ]
+}

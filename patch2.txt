@@ -1,0 +1,11 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/CommandPrompter.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/CommandPrompter.java
+@@ -69,6 +69,8 @@
+             this.presetRegistry.reload();
+             pluginLogger.debug("PresetRegistry loaded: prompts=" + presetRegistry.promptCount()
+                     + " postCommands=" + presetRegistry.postCommandCount());
++            pluginLogger.info("Loaded presets: <green>" + presetRegistry.promptCount() + " prompts</green>, <gold>" + 
++                    presetRegistry.postCommandCount() + " post commands</gold>");
+ 
+             var scheduler = new PaperScheduler(this);
+             pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");

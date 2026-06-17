@@ -17,6 +17,7 @@ import dev.cyr1en.promptpaper.testutil.MockScheduler;
 import dev.cyr1en.promptpaper.util.PluginLogger;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.logger.slf4j.ComponentLogger;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,7 @@ public class MockBukkitTest {
         when(plugin.getServer()).thenReturn(server);
         when(plugin.getName()).thenReturn("CommandPrompterPaper");
         when(plugin.getLogger()).thenReturn(Logger.getLogger("CommandPrompterPaper"));
+        when(plugin.getComponentLogger()).thenReturn(ComponentLogger.logger("CommandPrompterPaper"));
         when(plugin.isEnabled()).thenReturn(true);
 
         config = mock(CommandPrompterConfig.class);

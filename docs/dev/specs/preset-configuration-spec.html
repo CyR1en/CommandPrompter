@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CommandPrompter Configuration & Prompt Factory Specification</title>
+    
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; max-width: 1000px; margin: 0 auto; padding: 2rem; color: #333; }
+        h1 { color: #1a1a1a; border-bottom: 2px solid #eaeaea; padding-bottom: 0.5rem; }
+        h2 { color: #2c3e50; margin-top: 2.5rem; border-bottom: 1px solid #eaeaea; padding-bottom: 0.3rem; }
+        h3 { color: #34495e; margin-top: 1.5rem; }
+        code:not(.hljs) { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.9em; }
+        pre { border-radius: 8px; font-size: 0.9em; margin: 1.5rem 0; }
+        table { border-collapse: collapse; width: 100%; margin: 1.5rem 0; font-size: 0.95em; }
+        th, td { border: 1px solid #e0e0e0; padding: 0.75rem; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .note { background: #e7f5ff; border-left: 4px solid #339af0; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffe066; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+        .highlight { font-weight: bold; color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <h1>CommandPrompter Configuration & Prompt Factory Spec</h1>
+    
+    <h2>1. Overview</h2>
+    <p>This specification defines the unified JSON-based configuration and object-generation system for <strong>CommandPrompter</strong>. It enables administrators to create reusable definitions for prompts and post-commands.</p>
+
+    <h2>2. System Architecture: The Prompt Factory</h2>
+    <p>This JSON schema serves as the foundational data model for the <strong>Prompt Factory</strong>. The architecture guarantees a single source of truth for prompt instantiation:</p>
+    <ul>
+        <li><strong>Preset Prompts</strong>: Pre-defined in the JSON configuration, instantiated by their <code>id</code>.</li>
+        <li><strong>Inline Prompts</strong>: Traditional string-based inline prompts (e.g., <code>&lt;prompt_text&gt;</code>) will be internally parsed and translated into this JSON format <em>first</em>.</li>
+        <li><strong>The Factory</strong>: Reads the JSON definition and produces the runtime Prompt object. This ensures inline prompts and preset prompts share identical capabilities and underlying logic.</li>
+    </ul>
+
+    <h2>3. Architectural Migration Plan</h2>
+    <p>Transitioning from the legacy <code>PromptTag</code> and <code>ScreenRouter</code> system to the robust <code>PromptFactory</code> pipeline requires specific architectural refactoring.</p>
+
+    <h3>3.1 Current State Limitations</h3>
+    <p>Currently, prompt construction is strictly <strong>Tag-driven</strong> and heavily hardcoded:</p>
+    <ul>
+        <li><strong>Parsing:</strong> The regex parser extracts inline tags (e.g., <code>&lt;a:Why?&gt;</code>) and creates a <code>PromptTag</code> object, which stores minimal flat data (just the <code>key</code> and <code>displayText</code>).</li>
+        <li><strong>Routing:</strong> <code>ScreenRouter.java</code> reads the tag's key, looks it up in a basic config map, and decides the <code>ScreenType</code>.</li>
+        <li><strong>Construction:</strong> The router calls hardcoded constructors like <code>new AnvilPromptScreen(plugin, player, tag.displayText())</code>. All UI components (buttons, icons, layouts) are rigidly hardcoded inside the screen classes.</li>
+    </ul>
+
+    <h3>3.2 Required Codebase Changes</h3>
+    <p>To implement the JSON Prompt Factory, the architecture must shift from passing a flat <code>PromptTag</code> to passing a rich Data Model (<code>PromptDefinition</code>).</p>
+    <ul>
+        <li><strong>Refactor Screen Constructors:</strong> The <code>InputScreen</code> implementations (e.g., <code>ChatPromptScreen</code>, <code>AnvilPromptScreen</code>) must be updated to accept the JSON data models (e.g., <code>AnvilPromptDef</code>) rather than plain strings. Internal logic must be rewritten to dynamically map the JSON's <code>cancelBehavior</code> and <code>button_icon</code>s instead of using hardcoded values.</li>
+        <li><strong>Introduce the Transient JSON Generator:</strong> When the parser detects an inline prompt (<code>&lt;a:Enter Name&gt;</code>), it must generate an ephemeral <code>AnvilPromptDef</code> model (assigning it a transient UUID and injecting default button layouts) and pass it to the factory, instead of a <code>PromptTag</code>.</li>
+        <li><strong>Implement Registry Lookup:</strong> When the parser detects a preset tag (<code>&lt;@preset_id&gt;</code>), it queries the <code>PresetRegistry</code> to fetch the predefined <code>PromptDefinition</code>.</li>
+        <li><strong>Transform ScreenRouter into PromptFactory:</strong> The existing <code>ScreenRouter</code> logic is to be replaced by the <code>PromptFactory</code>. The factory receives the normalized <code>PromptDefinition</code>, pattern-matches its type, and constructs the appropriate screen using the full JSON definition.</li>
+        <li><strong>Attach Post-Command Pipeline:</strong> A new listener must be attached to the prompt flow session to read the <code>PostCommand</code> array, parse placeholders, and dispatch execution based on the completion or cancellation state.</li>
+    </ul>
+
+    <h3>3.3 Legacy Inline Prompt Conversion Pipeline</h3>
+    <p>To achieve a true "Single Source of Truth" via the Prompt Factory, the existing inline prompt syntax (e.g., <code>&lt;a:Enter Name? -ds&gt;</code>) will not be deprecated, but it will no longer execute directly. Instead, it will be mapped into the JSON structure at runtime before instantiation.</p>
+    <ul>
+        <li><strong>Type Resolution:</strong> The parser reads the prefix key (e.g., <code>a:</code>) and selects the corresponding JSON <code>type</code> discriminator (e.g., <code>anvil</code>). If no key is provided, it defaults to <code>chat</code>.</li>
+        <li><strong>ID Generation:</strong> Since the JSON schema requires an <code>id</code>, the parser generates a transient UUID (e.g., <code>inline-5f3a...</code>) for the inline prompt.</li>
+        <li><strong>Data Mapping:</strong> The parsed <code>displayText</code> is injected into the <code>prompt_text</code> field. The <code>-ds</code> flag sets <code>sanitize</code> to false.</li>
+        <li><strong>Default Injection:</strong> Missing required JSON fields are populated using global default values defined in the plugin's main <code>config.yml</code>.</li>
+        <li><strong>Factory Injection:</strong> The completed transient JSON object is passed to the <code>PromptFactory</code>.</li>
+    </ul>
+
+    <h2>4. Tag Resolution Syntax</h2>
+    <p>When executing commands via CommandPrompter, presets are injected using the following syntax:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Syntax</th>
+                <th>Example</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Prompt Preset</strong></td>
+                <td><code>&lt;@id&gt;</code></td>
+                <td><code>/give &lt;@target_player&gt; &lt;@item_amount&gt;</code></td>
+            </tr>
+            <tr>
+                <td><strong>Post-Command Preset</strong></td>
+                <td><code>&lt;!@id&gt;</code></td>
+                <td><code>/tp spawn &lt;!@notify_admin&gt;</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>5. Granular Component Specifications</h2>
+    
+    <h3>5.1 Prompts</h3>
+    <p>A prompt defines an interactive UI or chat sequence requesting input from the player.</p>
+    <div class="note"><strong>Discriminator Pattern:</strong> All prompts are defined as objects in the array and use the <code>type</code> field to determine their implementation. All prompts include a <code>sanitize</code> boolean (default: true) which determines if color codes and formatting symbols should be stripped from the player's input.</div>
+
+    <h4>Chat Prompt (<code>"type": "chat"</code>)</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>type</code></td><td>String</td><td>Must be exactly <code>chat</code>.</td></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier for the factory and <code>&lt;@id&gt;</code> resolution.</td></tr>
+        <tr><td><code>prompt_text</code></td><td>String</td><td>The text displayed to the player requesting input.</td></tr>
+        <tr><td><code>cancel</code></td><td>Object</td><td>Defines behavior when the player types the cancellation keyword. Includes <code>send</code>, <code>message</code>, <code>clickable</code>, and <code>hover_message</code>.</td></tr>
+        <tr><td><code>sanitize</code></td><td>Boolean</td><td>Whether to strip color codes from input.</td></tr>
+    </table>
+
+    <h4>Anvil Prompt (<code>"type": "anvil"</code>)</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>type</code></td><td>String</td><td>Must be exactly <code>anvil</code>.</td></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier.</td></tr>
+        <tr><td><code>title</code></td><td>String</td><td>Inventory title of the Anvil GUI.</td></tr>
+        <tr><td><code>prompt_text</code></td><td>String</td><td>Default text placed in the Anvil text field.</td></tr>
+        <tr><td><code>left_button</code> / <code>right_button</code></td><td>Object</td><td>Items placed in the anvil slots. Requires <code>show</code>, <code>button_text</code>, <code>button_icon</code>, <code>button_hover_text</code>, and <code>custom_model_data</code>.</td></tr>
+        <tr><td><code>sanitize</code></td><td>Boolean</td><td>Whether to strip color codes from input.</td></tr>
+    </table>
+
+    <h4>Player UI Prompt (<code>"type": "player_ui"</code>)</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>type</code></td><td>String</td><td>Must be exactly <code>player_ui</code>.</td></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier.</td></tr>
+        <tr><td><code>prompt_text</code></td><td>String</td><td>Inventory title requesting player selection.</td></tr>
+        <tr><td><code>filter</code></td><td>String</td><td>Optional logic to filter displayed players.</td></tr>
+        <tr><td><code>cancel_button</code> / <code>previous_button</code> / <code>next_button</code></td><td>Object</td><td>Pagination and control buttons. Requires <code>slot</code>, <code>show</code>, <code>button_icon</code>, etc.</td></tr>
+        <tr><td><code>sanitize</code></td><td>Boolean</td><td>Whether to strip color codes from input.</td></tr>
+    </table>
+
+    <h4>Sign Prompt (<code>"type": "sign"</code>)</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>type</code></td><td>String</td><td>Must be exactly <code>sign</code>.</td></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier.</td></tr>
+        <tr><td><code>prompt_text</code></td><td>String</td><td>Message sent to the player explaining what to write.</td></tr>
+        <tr><td><code>default_lines</code></td><td>Array[String]</td><td>Up to 4 lines of text pre-filled on the sign GUI.</td></tr>
+        <tr><td><code>sanitize</code></td><td>Boolean</td><td>Whether to strip color codes from input.</td></tr>
+    </table>
+
+    <h4>Dialog Prompt (<code>"type": "dialog"</code>)</h4>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>type</code></td><td>String</td><td>Must be exactly <code>dialog</code>.</td></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier.</td></tr>
+        <tr><td><code>title</code></td><td>String</td><td>Inventory title of the Dialog GUI.</td></tr>
+        <tr><td><code>base</code></td><td>Object</td><td>Defines the <code>body</code> (plain messages, items) and <code>inputs</code> (text, number, choice).</td></tr>
+        <tr><td><code>dialog_type</code></td><td>Object</td><td>Defines the layout: <code>multi_action</code> (with columns, actions, or tab_completion) or <code>confirmation</code>.</td></tr>
+        <tr><td><code>sanitize</code></td><td>Boolean</td><td>Whether to strip color codes from input globally.</td></tr>
+    </table>
+
+    <h3>5.2 Post-Commands</h3>
+    <p>Post-commands define side-effects triggered after the lifecycle of a prompt flow session completes or is cancelled.</p>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>id</code></td><td>String</td><td>Unique identifier for <code>&lt;!@id&gt;</code> resolution.</td></tr>
+        <tr><td><code>command</code></td><td>String</td><td>The raw command to execute (without the leading slash).</td></tr>
+        <tr><td><code>execution_policy</code></td><td>Enum</td><td>When to trigger: <code>on_complete</code> or <code>on_cancel</code>.</td></tr>
+        <tr><td><code>execute_as</code></td><td>Enum</td><td>Context of execution: <code>console</code> or <code>player</code>.</td></tr>
+        <tr><td><code>delay_ticks</code></td><td>Integer</td><td>(Optional) Delay in server ticks before execution. Defaults to <code>0</code>.</td></tr>
+    </table>
+
+    <h2>6. Implementation Rules & Edge Cases</h2>
+    <p>To ensure a robust implementation, the Prompt Factory and parser must adhere to the following behavioral rules:</p>
+
+    <h3>6.1 Inline Prompt ID Generation</h3>
+    <p>Because the JSON schema explicitly requires an <code>id</code>, inline prompts (which do not have explicit IDs defined by the user) must automatically generate an ephemeral identifier during the parsing phase. <strong>Solution:</strong> The parser should generate a transient UUID (e.g., <code>inline-&lt;uuid&gt;</code>) and assign it to the JSON definition before passing it to the Factory. This ensures the Factory logic remains strictly uniform without requiring schema exemptions.</p>
+
+    <h3>6.2 Post-Command Placeholders (Session Scope)</h3>
+    <p>Post-commands are rendered useless if they cannot reference the data captured during the prompt flow. Furthermore, post-commands operate at the <strong>Session Level</strong>, meaning a single command string may have triggered multiple distinct prompts. <strong>Solution:</strong> The <code>command</code> string must parse the following indexed variables immediately prior to execution:</p>
+    <ul>
+        <li><code>{input}</code> or <code>{input:1}</code>: The string value resolved from the <em>first</em> prompt in the command sequence.</li>
+        <li><code>{input:2}</code>, <code>{input:3}</code>, etc.: The string values resolved from subsequent prompts in the command sequence.</li>
+        <li><code>{player}</code>: The name of the player who triggered the prompt flow.</li>
+        <li><em>PlaceholderAPI (PAPI) Support</em>: Standard <code>%...%</code> PAPI placeholders should be parsed relative to the executing player.</li>
+    </ul>
+
+    <h3>6.3 Material Icons Parsing</h3>
+    <p>The <code>button_icon</code> field in UI components is defined as a String. <strong>Solution:</strong> This string must strictly map to valid Bukkit <code>Material</code> enum names (case-insensitive, e.g., <code>DIAMOND_SWORD</code> or <code>minecraft:stone</code>). If an invalid material is provided, the factory should default to a fallback material (e.g., <code>PAPER</code>) and log a non-fatal warning to the server console rather than crashing the prompt.</p>
+
+    <h3>6.4 Missing or Invalid Tag Resolution</h3>
+    <p>If a player triggers a command that contains an unresolved tag (e.g., <code>/give &lt;@non_existent_id&gt;</code>). <strong>Solution:</strong> The system must <strong>Fail Fast</strong>. The command flow must be immediately cancelled. The plugin should send a localized error message to the user (e.g., <em>"Configuration error: A required prompt is missing."</em>) and log a severe warning to the console detailing the missing ID. Under no circumstances should the literal tag be passed to the underlying command.</p>
+
+    <h3>6.5 Caching and Hot-Reloading</h3>
+    <p>Disk I/O should not occur during command execution. <strong>Solution:</strong> The <code>presets.json</code> file must be read, validated against the schema, and fully cached into memory during the plugin's <code>onEnable()</code> phase. To apply JSON updates without restarting the server, the plugin must support a <code>/commandprompter reload</code> command that flushes the factory cache and rebuilds it from disk.</p>
+
+    <h2>7. Implementation Scopes</h2>
+    <p>The development of this feature is divided into 5 clear scopes to allow structured and parallel implementation.</p>
+    
+    <h3>Scope 1: Data Models & Deserialization</h3>
+    <ul>
+        <li>Create Java Record/POJO classes for <code>ChatPrompt</code>, <code>AnvilPrompt</code>, <code>PlayerUIPrompt</code>, <code>SignPrompt</code>, <code>DialogPrompt</code>, and <code>PostCommand</code>.</li>
+        <li>Implement JSON deserialization logic using the <code>type</code> field discriminator pattern to map to the correct implementation.</li>
+        <li>Implement Bukkit <code>Material</code> mapping logic and fallback defaults.</li>
+    </ul>
+
+    <h3>Scope 2: Configuration Management & Caching</h3>
+    <ul>
+        <li>Create the <code>PresetRegistry</code> to hold loaded configurations in memory.</li>
+        <li>Implement the plugin startup logic (reading and parsing <code>presets.json</code>).</li>
+        <li>Implement the <code>/commandprompter reload</code> behavior for safe, runtime cache rebuilding.</li>
+    </ul>
+
+    <h3>Scope 3: The Prompt Factory</h3>
+    <ul>
+        <li>Build the <code>PromptFactory</code> class that receives a JSON data model and instantiates a functional runtime <code>Prompt</code> object.</li>
+        <li>Implement ephemeral UUID assignment (<code>inline-&lt;uuid&gt;</code>) for translating legacy inline prompts into the factory pipeline.</li>
+    </ul>
+
+    <h3>Scope 4: Command Tag Resolution & Interception</h3>
+    <ul>
+        <li>Update regex parsers to detect and isolate <code>&lt;@id&gt;</code> and <code>&lt;!@id&gt;</code>.</li>
+        <li>Implement the fail-fast flow cancellation and error-logging when an ID does not exist in the <code>PresetRegistry</code>.</li>
+    </ul>
+
+    <h3>Scope 5: Post-Command Execution Engine</h3>
+    <ul>
+        <li>Build the queue attached to prompt flow sessions to track pending post-commands.</li>
+        <li>Implement pre-execution placeholder parsing (<code>{input:1}</code>, <code>{player}</code>, and PAPI).</li>
+        <li>Implement the dispatcher supporting <code>execute_as</code> context switching and Bukkit/Folia-safe <code>delay_ticks</code> scheduling.</li>
+    </ul>
+
+    <h2>8. Out of Scope & Module Boundaries</h2>
+    <p>The following items are explicitly excluded from this specification and implementation phase:</p>
+    <ul>
+        <li><strong>Module Strictness:</strong> To maintain clean domain boundaries, pure JSON definition mapping, UI-concept Records (Anvil, Sign), and Bukkit Material fallback logic MUST reside in the <code>prompt-paper</code> module. The <code>prompt-core</code> module must remain completely agnostic to game-specific components and dependencies.</li>
+        <li><strong>Input Validation logic:</strong> Native input validators (Regex checking, online player validation) have been removed from the schema and are not supported natively by the factory.</li>
+        <li><strong>Database Integration:</strong> Configurations will strictly reside in flat file formats (JSON). No database (SQL/Redis) sync features will be built for preset storage.</li>
+        <li><strong>Per-Prompt Permission Nodes:</strong> The presets do not check if a player has permission to see or use a specific prompt. Permissions should be enforced on the root command that triggers the prompt flow.</li>
+        <li><strong>GUI Framework Implementation:</strong> The factory will rely entirely on the existing CommandPrompter UI abstraction layer (<code>prompt-ui-api</code>). No new inventory API mechanics are to be developed.</li>
+    </ul>
+
+    <h2>9. Official JSON Schema</h2>
+    <p>The following schema defines the strict structural requirements for the <code>presets.json</code> configuration file, utilizing a discriminator pattern (<code>"type"</code>) rather than nested object wrappers for clean Java deserialization.</p>
+
+<pre><code class="language-json">{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CommandPrompter JSON Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["prompts", "post_commands"],
+  "properties": {
+    "prompts": {
+      "type": "array",
+      "description": "A list of prompt configurations using the 'type' discriminator.",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          { "$ref": "#/$defs/chatPrompt" },
+          { "$ref": "#/$defs/anvilPrompt" },
+          { "$ref": "#/$defs/playerUiPrompt" },
+          { "$ref": "#/$defs/signPrompt" },
+          { "$ref": "#/$defs/dialogPrompt" }
+        ]
+      }
+    },
+    "post_commands": {
+      "type": "array",
+      "description": "Commands executed after prompt flow events.",
+      "items": { "$ref": "#/$defs/postCommand" }
+    }
+  },
+  "$defs": {
+    "cancelBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["send", "message", "clickable", "hover_message"],
+      "properties": {
+        "send": { "type": "boolean" },
+        "message": { "type": "string", "minLength": 1 },
+        "clickable": { "type": "boolean" },
+        "hover_message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "anvilButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["show", "button_text", "button_icon", "button_hover_text", "custom_model_data"],
+      "properties": {
+        "show": { "type": "boolean" },
+        "button_text": { "type": "string", "minLength": 1 },
+        "button_icon": { "type": "string", "minLength": 1 },
+        "button_hover_text": { "type": "string", "minLength": 1 },
+        "custom_model_data": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "uiButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["show", "slot", "button_text", "button_icon", "button_hover_text", "custom_model_data"],
+      "properties": {
+        "show": { "type": "boolean" },
+        "slot": { "type": "integer", "minimum": 0, "maximum": 53 },
+        "button_text": { "type": "string", "minLength": 1 },
+        "button_icon": { "type": "string", "minLength": 1 },
+        "button_hover_text": { "type": "string", "minLength": 1 },
+        "custom_model_data": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "chatPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text", "cancel"],
+      "properties": {
+        "type": { "const": "chat" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "cancel": { "$ref": "#/$defs/cancelBehavior" }
+      }
+    },
+    "anvilPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "title", "prompt_text", "left_button", "right_button"],
+      "properties": {
+        "type": { "const": "anvil" },
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "left_button": { "$ref": "#/$defs/anvilButton" },
+        "right_button": { "$ref": "#/$defs/anvilButton" }
+      }
+    },
+    "playerUiPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text"],
+      "properties": {
+        "type": { "const": "player_ui" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "filter": { "type": "string" },
+        "cancel_button": { "$ref": "#/$defs/uiButton" },
+        "previous_button": { "$ref": "#/$defs/uiButton" },
+        "next_button": { "$ref": "#/$defs/uiButton" }
+      }
+    },
+    "signPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "prompt_text"],
+      "properties": {
+        "type": { "const": "sign" },
+        "id": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "default_lines": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "maxItems": 4
+        }
+      }
+    },
+    "postCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "execution_policy", "execute_as"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "command": { "type": "string", "minLength": 1 },
+        "execution_policy": { "type": "string", "enum": ["on_complete", "on_cancel"] },
+        "execute_as": { "type": "string", "enum": ["console", "player"] },
+        "delay_ticks": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "dialogRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "input_type"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "input_type": { "type": "string", "enum": ["text", "number", "choice"] },
+        "constraints": { 
+          "type": "array",
+          "items": { "type": ["string", "number"] }
+        }
+      }
+    },
+    "actionButton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "tooltip": { "type": "string" },
+        "return": { "type": "string" }
+      }
+    },
+    "dialogTypeConfig": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["multi_action", "confirmation"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "multi_action" } } },
+          "then": {
+            "required": ["columns"],
+            "properties": {
+              "columns": { "type": "integer", "minimum": 1 },
+              "actions": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/actionButton" }
+              },
+              "actions_source": { "type": "string", "const": "tab_completion" },
+              "exit_action": { "$ref": "#/$defs/actionButton" }
+            },
+            "oneOf": [
+              { "required": ["actions"] },
+              { "required": ["actions_source"] }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "confirmation" } } },
+          "then": {
+            "required": ["confirm_action"],
+            "properties": {
+              "confirm_action": { "$ref": "#/$defs/actionButton" },
+              "cancel_action": { "$ref": "#/$defs/actionButton" }
+            }
+          }
+        }
+      ]
+    },
+    "dialogPrompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "title", "dialog_type"],
+      "properties": {
+        "type": { "const": "dialog" },
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "sanitize": { "type": "boolean", "default": true },
+        "base": {
+          "type": "object",
+          "properties": {
+            "body": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["plain_message", "item"] },
+                  "content": { "type": "string" },
+                  "material": { "type": "string" },
+                  "amount": { "type": "integer", "minimum": 1 }
+                }
+              }
+            },
+            "inputs": { 
+              "type": "array", 
+              "items": { "$ref": "#/$defs/dialogRow" } 
+            }
+          }
+        },
+        "dialog_type": { "$ref": "#/$defs/dialogTypeConfig" }
+      }
+    }
+  }
+}</code></pre>
+
+    <h2>10. Valid JSON Configuration Example</h2>
+    <p>The following is a fully valid JSON document that strictly adheres to the discriminator-based schema above. Notice how the array objects use the <code>type</code> field to define themselves, and constraints are strongly typed arrays.</p>
+
+<pre><code class="language-json">{
+  "prompts": [
+    {
+      "type": "chat",
+      "id": "reason_prompt",
+      "prompt_text": "Please enter a reason:",
+      "sanitize": true,
+      "cancel": {
+        "send": true,
+        "message": "Cancelled reason input.",
+        "clickable": false,
+        "hover_message": "Action aborted"
+      }
+    },
+    {
+      "type": "anvil",
+      "id": "rename_item_prompt",
+      "title": "Rename your item",
+      "prompt_text": "New Name",
+      "sanitize": false,
+      "left_button": {
+        "show": true,
+        "button_text": "Cancel",
+        "button_icon": "BARRIER",
+        "button_hover_text": "Click to cancel",
+        "custom_model_data": 0
+      },
+      "right_button": {
+        "show": true,
+        "button_text": "Confirm",
+        "button_icon": "PAPER",
+        "button_hover_text": "Click to confirm",
+        "custom_model_data": 0
+      }
+    },
+    {
+      "type": "sign",
+      "id": "pin_prompt",
+      "prompt_text": "Enter your 4 digit PIN:",
+      "sanitize": true,
+      "default_lines": [
+        "^^^^^^^",
+        "Enter PIN",
+        "=======",
+        ""
+      ]
+    },
+    {
+      "type": "dialog",
+      "id": "ban_form",
+      "title": "Ban Player",
+      "sanitize": true,
+      "base": {
+        "body": [
+          { "type": "plain_message", "content": "Select a reason and duration:" }
+        ],
+        "inputs": [
+          {
+            "label": "Reason",
+            "input_type": "choice",
+            "constraints": ["Hacking", "Spam", "Toxicity"]
+          },
+          {
+            "label": "Duration (Days)",
+            "input_type": "number",
+            "constraints": [1, 365]
+          }
+        ]
+      },
+      "dialog_type": {
+        "type": "confirmation",
+        "confirm_action": { "label": "Confirm Ban" },
+        "cancel_action": { "label": "Cancel" }
+      }
+    }
+  ],
+  "post_commands": [
+    {
+      "id": "log_reason",
+      "command": "discord broadcast {player} punished {input:1} for: {input:2}",
+      "execution_policy": "on_complete",
+      "execute_as": "console"
+    },
+    {
+      "id": "refund_fee",
+      "command": "eco give {player} 100",
+      "execution_policy": "on_cancel",
+      "execute_as": "console",
+      "delay_ticks": 20
+    }
+  ]
+}</code></pre>
+
+    <!-- Highlight.js Initialization Script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

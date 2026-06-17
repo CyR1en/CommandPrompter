@@ -30,6 +30,7 @@ public class PlayerUIScreen implements InputScreen {
     private final CommandPrompter plugin;
     private final Player player;
     private final PromptTag tag;
+    private final dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt;
     private Consumer<ScreenResult> callback;
     private ChestGui gui;
     private PaginatedPane headPane;
@@ -37,10 +38,11 @@ public class PlayerUIScreen implements InputScreen {
     private boolean open;
     private org.bukkit.event.Listener searchListener;
 
-    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag) {
+    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag, dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt) {
         this.plugin = plugin;
         this.player = player;
         this.tag = tag;
+        this.puiPrompt = puiPrompt;
         this.currentHeads = new ArrayList<>();
     }
 
@@ -191,25 +193,59 @@ public class PlayerUIScreen implements InputScreen {
     private StaticPane buildControlPane(PromptConfig cfg) {
         var control = new StaticPane(9, 1);
 
-        control.addItem(buildItem(cfg.previousItem(), cfg.previousCustomModelData(),
-                cfg.previousText(), event -> {
-                    headPane.previous();
-                    gui.update();
-                }), cfg.previousColumn() - 1, 0);
+        boolean isPreset = puiPrompt != null && !puiPrompt.id().startsWith("inline-");
 
-        control.addItem(buildItem(cfg.nextItem(), cfg.nextCustomModelData(),
-                cfg.nextText(), event -> {
-                    headPane.next();
-                    gui.update();
-                }), cfg.nextColumn() - 1, 0);
+        if (isPreset && puiPrompt.previousButton() != null) {
+            if (puiPrompt.previousButton().show()) {
+                control.addItem(buildItem(puiPrompt.previousButton().buttonIcon(), puiPrompt.previousButton().customModelData(),
+                        puiPrompt.previousButton().buttonText(), event -> {
+                            headPane.previous();
+                            gui.update();
+                        }), puiPrompt.previousButton().slot(), 0);
+            }
+        } else {
+            control.addItem(buildItem(cfg.previousItem(), cfg.previousCustomModelData(),
+                    cfg.previousText(), event -> {
+                        headPane.previous();
+                        gui.update();
+                    }), cfg.previousColumn() - 1, 0);
+        }
 
-        control.addItem(buildItem(cfg.cancelItem(), cfg.cancelCustomModelData(),
-                cfg.cancelText(), event -> {
-                    close();
-                    if (callback != null) {
-                        callback.accept(ScreenResult.cancel());
-                    }
-                }), cfg.cancelColumn() - 1, 0);
+        if (isPreset && puiPrompt.nextButton() != null) {
+            if (puiPrompt.nextButton().show()) {
+                control.addItem(buildItem(puiPrompt.nextButton().buttonIcon(), puiPrompt.nextButton().customModelData(),
+                        puiPrompt.nextButton().buttonText(), event -> {
+                            headPane.next();
+                            gui.update();
+                        }), puiPrompt.nextButton().slot(), 0);
+            }
+        } else {
+            control.addItem(buildItem(cfg.nextItem(), cfg.nextCustomModelData(),
+                    cfg.nextText(), event -> {
+                        headPane.next();
+                        gui.update();
+                    }), cfg.nextColumn() - 1, 0);
+        }
+
+        if (isPreset && puiPrompt.cancelButton() != null) {
+            if (puiPrompt.cancelButton().show()) {
+                control.addItem(buildItem(puiPrompt.cancelButton().buttonIcon(), puiPrompt.cancelButton().customModelData(),
+                        puiPrompt.cancelButton().buttonText(), event -> {
+                            close();
+                            if (callback != null) {
+                                callback.accept(ScreenResult.cancel());
+                            }
+                        }), puiPrompt.cancelButton().slot(), 0);
+            }
+        } else {
+            control.addItem(buildItem(cfg.cancelItem(), cfg.cancelCustomModelData(),
+                    cfg.cancelText(), event -> {
+                        close();
+                        if (callback != null) {
+                            callback.accept(ScreenResult.cancel());
+                        }
+                    }), cfg.cancelColumn() - 1, 0);
+        }
 
         control.addItem(buildItem(cfg.searchItem(), cfg.searchCustomModelData(),
                 cfg.searchText(), event -> startSearch()), cfg.searchColumn() - 1, 0);

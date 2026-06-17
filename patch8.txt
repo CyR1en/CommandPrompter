@@ -1,0 +1,13 @@
+--- prompt-paper/src/main/java/dev/cyr1en/promptpaper/util/PluginLogger.java
++++ prompt-paper/src/main/java/dev/cyr1en/promptpaper/util/PluginLogger.java
+@@ -31,8 +31,8 @@
+ 
+     // MiniMessage gradient definitions (replaces the old per-character
+     // ANSI ColorGradient generator).
+-    private static final String NORMAL_GRADIENT = "#c6a0f6:#8aadf4";
+-    private static final String DEBUG_GRADIENT = "#ee99a0:#f5a97f";
++    private static final String NORMAL_GRADIENT = "#654ea3:#eaafc8";
++    private static final String DEBUG_GRADIENT = "#ff606d:#ffc371";
+ 
+     private final CommandPrompter plugin;
+     private final ComponentLogger componentLogger;

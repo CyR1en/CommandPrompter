@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.cyr1en.promptpaper.engine.PromptEngineTest" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:11.746Z" hostname="Mac.lan" time="0.198">
+  <properties/>
+  <testcase name="hasActiveSessionReturnsFalseForNoSession()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.001"/>
+  <testcase name="submitWithMultiplePromptsReturnsEmptyUntilLast()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.002"/>
+  <testcase name="getSessionReturnsEmptyForInactive()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.002"/>
+  <testcase name="submitWithSinglePromptReturnsResult()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.001"/>
+  <testcase name="interceptWithoutPromptsReturnsEmpty()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.002"/>
+  <testcase name="interceptWithPromptsReturnsParsedCommand()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.001"/>
+  <testcase name="getSessionReturnsSessionForActive()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.001"/>
+  <testcase name="interceptWithEmptyStringCreatesNoSession()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.002"/>
+  <testcase name="submitWithoutSessionReturnsEmpty()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.001"/>
+  <testcase name="interceptSkipsParseWhenEnablePermissionTrueAndPlayerLacksPromptPaperUse()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.175"/>
+  <testcase name="interceptProceedsWhenEnablePermissionTrueAndPlayerHasPromptPaperUse()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.004"/>
+  <testcase name="cancelRemovesActiveSession()" classname="dev.cyr1en.promptpaper.engine.PromptEngineTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -32,7 +32,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void constructorStoresValues() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter:", java.util.List.of(), true), emptyProviders);
         assertNotNull(screen);
         assertFalse(screen.isOpen());
     }
@@ -40,7 +40,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void openWithEmptyProvidersFallsBackToChat() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter:", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter:", java.util.List.of(), true), emptyProviders);
         screen.open();
         assertTrue(screen.isOpen());
     }
@@ -53,7 +53,7 @@ class SignPromptScreenTest extends MockBukkitTest {
         when(mockProvider.createSign(any(CommandPrompter.class), any(), any()))
                 .thenReturn(mockSign);
 
-        var screen = new SignPromptScreen(plugin, player, "Enter:", List.of(mockProvider));
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter:", java.util.List.of(), true), List.of(mockProvider));
         screen.open();
 
         assertTrue(screen.isOpen());
@@ -63,7 +63,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithAnswerFiresCallback() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter value", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -76,7 +76,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithCancelFiresCallback() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter value", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -90,7 +90,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     void handleResultWithCancelKeywordReturnsCancel() {
         var player = createPlayer();
         when(config.cancelKeyword()).thenReturn("cancel");
-        var screen = new SignPromptScreen(plugin, player, "Enter value", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -103,7 +103,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithoutOpenIsNoop() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter value", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
 
@@ -114,7 +114,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultWithMultiArgExtractsValues() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "name:{br}age:{br}email:", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "name:{br}age:{br}email:", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();
@@ -128,7 +128,7 @@ class SignPromptScreenTest extends MockBukkitTest {
     @Test
     void handleResultNonMultiArgPreservesInput() {
         var player = createPlayer();
-        var screen = new SignPromptScreen(plugin, player, "Enter value{br}Confirm", emptyProviders);
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value{br}Confirm", java.util.List.of(), true), emptyProviders);
         var resultRef = new AtomicReference<ScreenResult>();
         screen.onResult(resultRef::set);
         screen.open();

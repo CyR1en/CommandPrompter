@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Report: Dialog UI Refactor & Preset Integration</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; max-width: 1000px; margin: 0 auto; padding: 2rem; color: #333; }
+        h1 { color: #1a1a1a; border-bottom: 2px solid #eaeaea; padding-bottom: 0.5rem; }
+        h2 { color: #2c3e50; margin-top: 2.5rem; border-bottom: 1px solid #eaeaea; padding-bottom: 0.3rem; }
+        h3 { color: #34495e; margin-top: 1.5rem; }
+        code { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.9em; }
+        pre { border-radius: 8px; font-size: 0.9em; margin: 1.5rem 0; background: #1e1e1e; padding: 15px; color: #d4d4d4; overflow-x: auto; }
+        table { border-collapse: collapse; width: 100%; margin: 1.5rem 0; font-size: 0.95em; }
+        th, td { border: 1px solid #e0e0e0; padding: 0.75rem; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .note { background: #e7f5ff; border-left: 4px solid #339af0; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+        .success { background: #d1fae5; border-left: 4px solid #10b981; padding: 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>Developer Report: Dialog UI Refactor & Preset Integration</h1>
+    <p><strong>Date:</strong> 2026-06-16</p>
+    <p><strong>Status:</strong> Completed & Integrated</p>
+
+    <div class="success">
+        <strong>Executive Summary:</strong> The Dialog UI subsystem has been completely refactored to utilize a JSON-driven data model that maps 1-to-1 with the PaperMC Dialog API. This new architecture was seamlessly integrated into the recently developed <strong>Preset Configurations</strong> system, establishing a "Single Source of Truth" for both preset and inline prompts via the <code>PromptFactory</code>.
+    </div>
+
+    <h2>1. Motivation & The Problem</h2>
+    <p>
+        Previously, CommandPrompter's dialogs were driven entirely by inline tags (e.g., <code>&lt;d:tab[5]:Player&gt;</code>). 
+        While concise, this approach severely limited expressiveness. The Paper Dialog API supports rich features like custom body text, item icons, multi-action button grids, and custom exit buttons. 
+        Attempting to cram all these layout configurations into a single inline string would have resulted in an unreadable, overly complex syntax.
+    </p>
+    <p>
+        Furthermore, the original implementation of <code>&lt;d:tab:T&gt;</code> used <code>T</code> as the input label rather than the Dialog Title, which was counter-intuitive for a full-screen UI picker.
+    </p>
+
+    <h2>2. Integration with Preset Configurations</h2>
+    <p>
+        To solve the expressiveness problem, the Dialog schema was integrated directly into the new <strong>Preset Configurations</strong> system (<code>presets.json</code>).
+    </p>
+    <p>
+        The Preset system uses a discriminator pattern (<code>"type"</code>) to parse different prompt definitions (chat, anvil, sign, etc.). We introduced the <code>"type": "dialog"</code> discriminator, allowing server admins to define highly expressive dialogs in JSON and trigger them in-game using the preset syntax: <code>&lt;@preset_id&gt;</code>.
+    </p>
+    
+    <h3>The 1-to-1 Paper API Mapping</h3>
+    <p>The JSON schema was designed to perfectly mirror Paper's builder pattern:</p>
+    <ul>
+        <li><strong><code>base</code>:</strong> Maps to <code>DialogBase.builder()</code>. It accepts an array of <code>body</code> elements (plain messages, items) and <code>inputs</code> (text, number, choice).</li>
+        <li><strong><code>dialog_type</code>:</strong> Maps to <code>DialogType</code>. It supports <code>confirmation</code> (with custom confirm/cancel buttons) and <code>multi_action</code> (with columns, static actions, dynamic tab completions, and exit buttons).</li>
+    </ul>
+
+    <h2>3. The "Single Source of Truth" Pipeline</h2>
+    <p>
+        A major architectural goal was to ensure that <strong>Inline Prompts</strong> and <strong>Preset Prompts</strong> do not use separate UI rendering logic. 
+        To achieve this, we implemented the <strong>Transient JSON Translation Strategy</strong>.
+    </p>
+    
+    <h3>How it works:</h3>
+    <ol>
+        <li>The <code>CommandLineParser</code> extracts an inline tag like <code>&lt;d:tab:Select Player&gt;</code>.</li>
+        <li>Instead of passing this raw tag to the UI, the <code>InlineTagMapper</code> intercepts it.</li>
+        <li>The mapper generates a <strong>transient JSON <code>DialogPrompt</code> object</strong> in memory.
+            <ul>
+                <li>For <code>d:tab:T</code>, it sets <code>dialog_type.type = "multi_action"</code>, <code>actions_source = "tab_completion"</code>, and maps <code>T</code> directly to the <code>title</code> field.</li>
+                <li>For standard inputs (<code>d:text</code>, <code>d:num</code>), it places them in <code>base.inputs</code> and sets the type to <code>confirmation</code>.</li>
+            </ul>
+        </li>
+        <li>This transient JSON object is passed to the <code>PromptFactory</code>, exactly as if it had been loaded from <code>presets.json</code>.</li>
+    </ol>
+    <p>This guarantees that the <code>DialogPromptScreen</code> only ever has to understand one data model: the JSON <code>DialogPrompt</code> record.</p>
+
+    <h2>4. UI Implementation & Fallback Logic</h2>
+    <p>
+        The <code>DialogPromptScreen.java</code> class was heavily refactored to consume the new JSON models.
+    </p>
+    
+    <h3>Dynamic Tab Completions</h3>
+    <p>
+        When the JSON model specifies <code>"actions_source": "tab_completion"</code>, the UI dynamically fetches completions via the <code>TabCompletionService</code>. 
+        These completions are mapped into <code>ActionButton</code> objects and appended to the grid <em>after</em> any static <code>actions</code> defined in the JSON. This allows admins to mix static buttons (e.g., "Survival", "Creative") with dynamic player names in the same grid.
+    </p>
+
+    <h3>Graceful Degradation (The Fallback)</h3>
+    <p>
+        If a <code>multi_action</code> dialog relies on tab completions, but the server returns 0 completions, or the number of completions exceeds the configured <code>MaxButtons</code> threshold, the UI gracefully degrades:
+    </p>
+    <ul>
+        <li>It abandons the <code>multi_action</code> layout.</li>
+        <li>It switches to a <code>confirmation</code> layout.</li>
+        <li>It injects a localized warning message into the <code>body</code> (e.g., "Too many options, please type manually").</li>
+        <li>It injects a standard text input field so the user isn't soft-locked.</li>
+    </ul>
+
+    <h2>5. Strict Validation</h2>
+    <p>
+        To prevent configuration errors, strict validation was added to the <code>PromptDefinitionDeserializer</code>. 
+        If a user defines a <code>multi_action</code> dialog, the deserializer enforces a strict <code>oneOf</code> rule: the config MUST contain either an <code>actions</code> array (static buttons) OR an <code>actions_source</code> string (dynamic buttons). Providing both without one, or providing neither, throws an immediate <code>IllegalArgumentException</code> during plugin startup, failing fast and protecting the UI from invalid states.
+    </p>
+
+    <h2>6. Conclusion</h2>
+    <p>
+        The Dialog UI refactor successfully bridges the gap between simple inline commands and highly expressive UI design. By leveraging the Preset Configurations system and the Transient JSON translation strategy, CommandPrompter now fully supports the PaperMC Dialog API without sacrificing the ease of use of its legacy inline syntax.
+    </p>
+
+</body>
+</html>

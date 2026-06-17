@@ -62,6 +62,17 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             if (cfg != null) {
                 plugin.getPluginLogger().reload(cfg);
             }
+            // Reload the prompt/post-command preset cache. A failure here aborts the whole
+            // reload and rolls back the visible state to the previous cache.
+            var registry = plugin.getPresetRegistry();
+            if (registry != null) {
+                registry.reload();
+                var presetMsg = "Loaded presets: <green>" + registry.promptCount() + " prompts</green>, <gold>" +
+                        registry.postCommandCount() + " post commands</gold>";
+                plugin.getPluginLogger().info(presetMsg);
+                plugin.getPluginLogger().debug("Loaded prompt IDs: " + String.join(", ", registry.getPromptIds()));
+                plugin.getPluginLogger().debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
+            }
             sender.sendMessage(plugin.getConfigLoader().getI18n().get("command.reload.success"));
         } catch (Exception e) {
             sender.sendMessage(plugin.getConfigLoader().getI18n().get(

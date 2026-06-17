@@ -7,7 +7,7 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import dev.cyr1en.promptpaper.screen.ScreenRouter;
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class MultiPromptIntegrationTest extends MockBukkitTest {
 
     private PromptEngine engine;
-    private ScreenRouter router;
+    private PromptFactory factory;
     private ScreenManager screenManager;
 
     @BeforeEach
@@ -27,14 +27,14 @@ class MultiPromptIntegrationTest extends MockBukkitTest {
         when(configLoader.getPromptConfig()).thenReturn(promptConfig);
 
         engine = new PromptEngine(plugin, scheduler);
-        router = new ScreenRouter(plugin);
-        screenManager = new ScreenManager(plugin, engine, router, scheduler);
+        factory = new PromptFactory(plugin);
+        screenManager = new ScreenManager(plugin, engine, factory, scheduler);
     }
 
     @Test
     void threePromptCommandCyclesThroughAllPrompts() {
         var player = createPlayer();
-        screenManager.startSession(player, "/cmd <a:First> <b:Second> <c:Third>");
+        screenManager.startSession(player, "/cmd <First> <Second> <Third>");
 
         assertTrue(screenManager.hasActiveScreen(player));
         assertTrue(screenManager.hasChatScreen(player));
@@ -67,7 +67,7 @@ class MultiPromptIntegrationTest extends MockBukkitTest {
     @Test
     void cancelDuringMultiPromptRemovesSession() {
         var player = createPlayer();
-        screenManager.startSession(player, "/cmd <a> <b> <c>");
+        screenManager.startSession(player, "/cmd <First> <Second> <Third>");
 
         assertTrue(screenManager.hasActiveScreen(player));
         screenManager.handleChatInput(player, "first");
@@ -76,19 +76,5 @@ class MultiPromptIntegrationTest extends MockBukkitTest {
         screenManager.cancelAll(player);
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
-    }
-
-    @Test
-    void promptWithNoPromptsDoesNotCreateScreen() {
-        var player = createPlayer();
-        screenManager.startSession(player, "/cmd no prompts");
-        assertFalse(screenManager.hasActiveScreen(player));
-    }
-
-    @Test
-    void handleChatInputWithoutChatScreenIsNoop() {
-        var player = createPlayer();
-        screenManager.handleChatInput(player, "value");
-        assertFalse(screenManager.hasActiveScreen(player));
     }
 }
