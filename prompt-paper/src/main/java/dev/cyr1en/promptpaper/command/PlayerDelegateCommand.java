@@ -73,6 +73,10 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
      * the unknown-permission-key error path.
      */
     public int executeDispatch(CommandSender sender, Player target, String permKey, String command) {
+        if (plugin.getEngine().hasActiveSession(target)) {
+            plugin.getPluginLogger().warn("Cannot delegate prompt to " + target.getName() + " because they are already in an active prompt session.");
+            return Command.SINGLE_SUCCESS;
+        }
         if (command.startsWith("/")) {
             command = command.substring(1);
         }

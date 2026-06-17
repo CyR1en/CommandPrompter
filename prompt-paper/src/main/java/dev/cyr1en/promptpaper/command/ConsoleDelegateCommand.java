@@ -67,6 +67,10 @@ public class ConsoleDelegateCommand extends PromptCommand implements Command<Com
      * {@code %target_player%} is replaced with the target player's name.
      */
     public void startSession(String senderName, Player target, String command) {
+        if (plugin.getEngine().hasActiveSession(target)) {
+            plugin.getPluginLogger().warn("Cannot delegate prompt to " + target.getName() + " because they are already in an active prompt session.");
+            return;
+        }
         if (command.startsWith("/")) {
             command = command.substring(1);
         }

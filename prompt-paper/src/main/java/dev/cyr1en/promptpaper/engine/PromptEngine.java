@@ -91,12 +91,6 @@ public class PromptEngine {
             return Optional.empty();
         }
 
-        if (hasActiveSession(player)) {
-            plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
-            return Optional.empty();
-        }
-
         sessions.put(player.getUniqueId(), PromptSession.start(player.getUniqueId().toString(), parsed));
         plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
                 + " prompts for " + player.getName());

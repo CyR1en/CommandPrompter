@@ -7,7 +7,7 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import dev.cyr1en.promptpaper.screen.ScreenRouter;
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class DelegateCommandsIntegrationTest extends MockBukkitTest {
 
     private PromptEngine engine;
-    private ScreenRouter router;
+    private PromptFactory factory;
     private ScreenManager screenManager;
 
     @BeforeEach
@@ -27,8 +27,8 @@ class DelegateCommandsIntegrationTest extends MockBukkitTest {
         when(configLoader.getPromptConfig()).thenReturn(promptConfig);
 
         engine = new PromptEngine(plugin, scheduler);
-        router = new ScreenRouter(plugin);
-        screenManager = new ScreenManager(plugin, engine, router, scheduler);
+        factory = new PromptFactory(plugin);
+        screenManager = new ScreenManager(plugin, engine, factory, scheduler);
     }
 
     @Test

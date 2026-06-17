@@ -23,8 +23,10 @@ class ConsoleDelegateCommandTest extends MockBukkitTest {
     void setUp() {
         screenManager = mock(ScreenManager.class);
         var loader = mock(PaperConfigLoader.class);
+        var engine = mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
         when(plugin.getScreenManager()).thenReturn(screenManager);
         when(plugin.getConfigLoader()).thenReturn(loader);
+        when(plugin.getEngine()).thenReturn(engine);
         cmd = new ConsoleDelegateCommand(plugin);
     }
 

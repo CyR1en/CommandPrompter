@@ -48,6 +48,9 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
         when(loader.getI18n()).thenReturn(delegateI18n);
         when(loader.getConfig()).thenReturn(config);
 
+        var engine = mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
+        when(plugin.getEngine()).thenReturn(engine);
+
         when(plugin.getScreenManager()).thenReturn(screenManager);
         when(plugin.getConfigLoader()).thenReturn(loader);
 
