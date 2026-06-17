@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="dev.cyr1en.promptpaper.command.VersionCommandTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-06-14T18:25:11.609Z" hostname="Mac.lan" time="0.019">
-  <properties/>
-  <testcase name="sendsVersionToSender()" classname="dev.cyr1en.promptpaper.command.VersionCommandTest" time="0.015"/>
-  <testcase name="allowedRequiresPermission()" classname="dev.cyr1en.promptpaper.command.VersionCommandTest" time="0.002"/>
-  <testcase name="buildReturnsNonNullLiteralNode()" classname="dev.cyr1en.promptpaper.command.VersionCommandTest" time="0.002"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

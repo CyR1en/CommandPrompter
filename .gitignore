@@ -148,3 +148,17 @@ cache/
 
 # Hook markers
 .dirty
+.stversions/
+/.superpowers/
+
+# Eclipse / VS Code Java Language Server
+.project
+.classpath
+.settings/
+.factorypath
+
+# Syncthing
+.stversions/
+
+# Superpowers
+.superpowers/
