@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- The Enclosed Terminal Window (Minimal Window Frame + Prompt) -->
+  
+  <!-- Window Frame -->
+  <rect x="64" y="64" width="384" height="384" rx="40" fill="none" stroke="currentColor" stroke-width="24" />
+  
+  <!-- Window Control Dots -->
+  <g fill="currentColor">
+    <circle cx="128" cy="120" r="12" />
+    <circle cx="168" cy="120" r="12" />
+    <circle cx="208" cy="120" r="12" />
+  </g>
+  
+  <!-- Terminal Prompt Group -->
+  <g fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Chevron '>' -->
+    <path d="M 160,210 L 250,280 L 160,350" />
+  </g>
+  
+  <!-- Pill Cursor '_' -->
+  <rect x="290" y="328" width="60" height="32" rx="16" fill="currentColor" />
+</svg>

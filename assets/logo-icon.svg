@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Rich Emerald Green to Teal Gradient -->
+    <linearGradient id="icon-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#0F766E" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for the White Logo -->
+    <filter id="logo-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#042F1A" flood-opacity="0.3" />
+    </filter>
+
+    <!-- App Icon Bevel (Inner Border Highlight) -->
+    <linearGradient id="bevel-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. App Icon Base (Squircle) -->
+  <rect width="512" height="512" rx="112" fill="url(#icon-bg)" />
+
+  <!-- 2. Bevel Highlight Overlay (Inner Border) -->
+  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="url(#bevel-grad)" stroke-width="12" />
+
+  <!-- 3. Logo (Centered with Drop Shadow) -->
+  <g transform="translate(64, 64) scale(0.75)" color="#FFFFFF" filter="url(#logo-shadow)">
+    <!-- Window Frame -->
+    <rect x="64" y="64" width="384" height="384" rx="40" fill="none" stroke="currentColor" stroke-width="24" />
+    
+    <!-- Window Control Dots -->
+    <g fill="currentColor">
+      <circle cx="128" cy="120" r="12" />
+      <circle cx="168" cy="120" r="12" />
+      <circle cx="208" cy="120" r="12" />
+    </g>
+    
+    <!-- Terminal Prompt Group -->
+    <g fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Chevron '>' -->
+      <path d="M 160,210 L 250,280 L 160,350" />
+    </g>
+    
+    <!-- Pill Cursor '_' -->
+    <rect x="290" y="328" width="60" height="32" rx="16" fill="currentColor" />
+  </g>
+</svg>

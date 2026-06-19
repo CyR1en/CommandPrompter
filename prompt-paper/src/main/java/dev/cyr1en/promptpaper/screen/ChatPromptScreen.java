@@ -73,9 +73,15 @@ public class ChatPromptScreen implements InputScreen {
             cancelComponent = builder;
         }
 
-        var messageComponent = Objects.isNull(cancelComponent) ? ComponentUtil.mini(prefix + displayText)
-                : ComponentUtil.mini(prefix + displayText).append(cancelComponent);
-        player.sendMessage(messageComponent);
+        var lines = displayText.split("\\{br\\}");
+        for (int i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var linePrefix = (i == 0) ? prefix : "";
+            var lineCancel = (i == lines.length - 1) ? cancelComponent : null;
+            var lineComponent = Objects.isNull(lineCancel) ? ComponentUtil.mini(linePrefix + line)
+                    : ComponentUtil.mini(linePrefix + line).append(lineCancel);
+            player.sendMessage(lineComponent);
+        }
         open = true;
     }
 

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0B0F19" />
+    </linearGradient>
+
+    <!-- Bottom Accent Neon Gradient -->
+    <linearGradient id="neon-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FF87" />
+      <stop offset="100%" stop-color="#60EFFF" />
+    </linearGradient>
+
+    <!-- Subtle Dot Grid Pattern -->
+    <pattern id="dot-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="16" cy="16" r="1.5" fill="#FFFFFF" opacity="0.05" />
+    </pattern>
+  </defs>
+
+  <!-- 1. Background Card -->
+  <rect width="1200" height="400" fill="url(#bg-grad)" />
+  <rect width="1200" height="400" fill="url(#dot-grid)" />
+
+  <!-- 2. Bottom Accent Line -->
+  <rect y="392" width="1200" height="8" fill="url(#neon-grad)" />
+
+  <!-- 3. Logo (Left Side) -->
+  <g transform="translate(180, 72) scale(0.5)" color="#FFFFFF">
+    <!-- Window Frame -->
+    <rect x="64" y="64" width="384" height="384" rx="40" fill="none" stroke="currentColor" stroke-width="24" />
+    
+    <!-- Window Control Dots -->
+    <g fill="currentColor">
+      <circle cx="128" cy="120" r="12" />
+      <circle cx="168" cy="120" r="12" />
+      <circle cx="208" cy="120" r="12" />
+    </g>
+    
+    <!-- Terminal Prompt Group -->
+    <g fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Chevron '>' -->
+      <path d="M 160,210 L 250,280 L 160,350" />
+    </g>
+    
+    <!-- Pill Cursor '_' -->
+    <rect x="290" y="328" width="60" height="32" rx="16" fill="currentColor" />
+  </g>
+
+  <!-- 4. Typography (Right Side) -->
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <!-- Title -->
+    <text x="460" y="190" font-size="64" font-weight="800" fill="#FFFFFF" letter-spacing="-2px">CommandPrompter</text>
+    
+    <!-- Tagline / Subtitle -->
+    <text x="460" y="245" font-size="20" font-weight="400" fill="#94A3B8">Transform static commands into interactive experiences.</text>
+  </g>
+</svg>

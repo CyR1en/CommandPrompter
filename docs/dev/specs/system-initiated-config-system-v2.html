@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specification: CommandPrompter Web Preset Editor v2</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --heading-color: #58a6ff;
+            --code-bg: #161b22;
+            --border-color: #30363d;
+            --accent: #238636;
+            --warn: #d29922;
+            --danger: #f85149;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        h1, h2, h3, h4 { color: var(--heading-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+        h1 { font-size: 2em; margin-bottom: 0.5em; }
+        h2 { margin-top: 2.5rem; }
+        p, li { font-size: 1rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: rgba(110,118,129,0.4);
+            padding: 0.2em 0.4em;
+            border-radius: 6px;
+            font-size: 85%;
+        }
+        pre {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            overflow: auto;
+        }
+        pre code { background-color: transparent; padding: 0; }
+        .sequence-step {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-left: 4px solid var(--heading-color);
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+        .note {
+            background-color: rgba(35, 134, 54, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .warning {
+            background-color: rgba(210, 153, 34, 0.1);
+            border-left: 4px solid var(--warn);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .danger {
+            background-color: rgba(248, 81, 73, 0.1);
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; margin-bottom: 1rem; }
+        th, td { border: 1px solid var(--border-color); padding: 8px 12px; text-align: left; vertical-align: top; }
+        th { background-color: var(--code-bg); }
+        .mermaid {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+        .risk-low { color: var(--accent); }
+        .risk-med { color: var(--warn); }
+        .risk-high { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<h1>Spec: CommandPrompter Web Preset Editor v2</h1>
+<p><strong>Author:</strong> Ethan Bacurio (Cyrien)<br>
+    <strong>Version:</strong> 2.0.0<br>
+    <strong>Supersedes:</strong> <code>system-initiated-config-system.html</code> (v1)<br>
+    <strong>Target Plugin:</strong> CommandPrompterPaper v3.0.0 (<code>dev.cyr1en.promptpaper</code>)<br>
+    <strong>Reference Architecture:</strong> LuckPerms <code>/lp editor</code> (bytebin + bytesocks), with improvements</p>
+
+<h2>1. Executive Summary</h2>
+<p>This revision specifies a web-based editor for CommandPrompter's <code>presets.json</code> (the Prompt Factory config defined in <code>preset-configuration-spec.html</code>). The admin edits presets in a browser with a live in-game preview, then applies changes to the game server without a restart.</p>
+<p>The architecture is <strong>outbound-only</strong>: the plugin makes an outbound WSS connection to a hardcoded public relay endpoint. No inbound ports on the game server. No Redis credentials or internal service addresses in user config. The relay is a dumb pipe &mdash; it routes signed, encrypted frames between plugin and browser. It stores nothing. Security is end-to-end between plugin and browser.</p>
+<p>Key improvements over the LuckPerms reference and v1:</p>
+<ul>
+    <li><strong>End-to-end encryption</strong> &mdash; the relay never sees plaintext presets (which may contain <code>execute_as: console</code> post-commands).</li>
+    <li><strong>Risk-tiered apply</strong> &mdash; routine edits auto-apply; console-command edits require in-game confirmation with a diff preview.</li>
+    <li><strong>Ed25519 signatures</strong> &mdash; deterministic nonce, no ECDSA nonce-reuse risk.</li>
+    <li><strong>256-bit token</strong> &mdash; single identifier for the WSS channel and initial encryption key.</li>
+    <li><strong>Session persistence</strong> &mdash; survives plugin restart; admin doesn't lose work.</li>
+    <li><strong>Single unified relay</strong> &mdash; one service, one endpoint, one failure mode (vs. LuckPerms' bytebin + bytesocks).</li>
+    <li><strong>Local fallback</strong> &mdash; works with zero network connectivity.</li>
+    <li><strong>Plugin-side schema validation</strong> &mdash; defense in depth against malformed payloads.</li>
+    <li><strong>Structured audit trail</strong> &mdash; queryable JSONL log of every apply.</li>
+</ul>
+
+<h2>2. System Architecture</h2>
+
+<h3>2.1 Components</h3>
+<table>
+    <thead><tr><th>Component</th><th>Role</th><th>Stack</th></tr></thead>
+    <tbody>
+    <tr>
+        <td>CommandPrompter Plugin</td>
+        <td>Outbound client. Serializes <code>PresetRegistry</code>, encrypts, opens WSS, pushes encrypted presets to the browser, receives signed change-requests, classifies risk, writes disk, reloads.</td>
+        <td>Java (JDK 21+/25), <code>java.net.http.WebSocket</code> (zero new deps), <code>java.security.*</code> for crypto</td>
+    </tr>
+    <tr>
+        <td>Relay Service</td>
+        <td>Stateless WSS channel relay. Routes signed, encrypted frames between plugin and browser on the same channel. Stores nothing. Never decrypts, never validates, never authenticates.</td>
+        <td>Node.js (Fastify + ws) or Go. In-memory channel map only.</td>
+    </tr>
+    <tr>
+        <td>Editor SPA</td>
+        <td>Browser app. Connects to WSS, decrypts presets with token-derived key, renders schema-driven form + live preview, encrypts edits, sends signed change-requests over WSS.</td>
+        <td>Vue 3 or React + Vite. Web Crypto API for X25519/Ed25519/AES-GCM.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>2.2 Architecture Diagram</h3>
+<pre class="mermaid">
+flowchart TD
+    subgraph PluginSide["Plugin Server outbound only"]
+        CP["CommandPrompter Plugin"]
+        EP["editor endpoints classpath resource"]
+    end
+    subgraph RelaySide["Relay Service public endpoint"]
+        WS["WSS Channel Relay"]
+    end
+    subgraph BrowserSide["Admin Browser"]
+        SPA["Editor SPA"]
+        Crypto["Web Crypto API"]
+    end
+    EP -->|"hardcoded url"| CP
+    CP -->|"WSS signed encrypted frames"| WS
+    SPA -->|"WSS signed encrypted frames"| WS
+    WS -->|"route frames"| CP
+    WS -->|"route frames"| SPA
+    Crypto --> SPA
+</pre>
+
+<h3>2.3 End-to-End Sequence</h3>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Admin
+    participant P as Plugin
+    participant R as Relay
+    participant B as Browser
+    A->>P: commandprompter editor
+    P->>P: generate token and keypairs
+    P->>R: WSS connect to channel
+    P-->>A: private link with token
+    A->>B: open editor URL
+    B->>R: WSS connect to channel
+    B->>P: HELLO with browser pubkeys
+    P-->>A: trust prompt if new browser
+    A->>P: trusteditor nonce
+    P->>B: HELLO REPLY accepted
+    P->>B: push encrypted presets
+    B->>B: decrypt and render editor
+    B->>B: admin edits with live preview
+    B->>P: change request signed and encrypted
+    P->>P: decrypt validate classify risk
+    P->>P: write disk and reload
+    P-->>A: presets updated
+</pre>
+
+<h2>3. CommandPrompter Integration</h2>
+
+<h3>3.1 Command &amp; Permission</h3>
+<table>
+    <thead><tr><th>Surface</th><th>Value</th><th>Notes</th></tr></thead>
+    <tbody>
+    <tr><td>Command</td><td><code>/commandprompter editor</code> (<code>/cmdp editor</code>)</td><td>Player-only. Generates session, prints clickable link.</td></tr>
+    <tr><td>Permission</td><td><code>promptpaper.editor</code></td><td>Under master <code>promptpaper.admin</code>. Registered in <code>paper-plugin.yml</code>.</td></tr>
+    <tr><td>Trust command</td><td><code>/commandprompter trusteditor &lt;nonce&gt;</code></td><td>Hidden. First-browser trust prompt. Not in help output. Also accepts <code>clear</code> to reset the trust store.</td></tr>
+    <tr><td>Export command</td><td><code>/commandprompter export</code></td><td>Local fallback. Writes current presets to <code>presets-export.json</code>.</td></tr>
+    <tr><td>Import command</td><td><code>/commandprompter import &lt;file&gt;</code></td><td>Local fallback. Loads presets from a local file.</td></tr>
+    </tbody>
+</table>
+
+<h3>3.2 Config Surface</h3>
+<p>The only user-facing config is a single boolean in <code>config.yml</code>:</p>
+<pre><code>Web-Editor:
+  Enabled: true</code></pre>
+<p>No URLs, no Redis, no server addresses. When <code>false</code>, the editor subcommand is a no-op.</p>
+
+<h3>3.3 Hardcoded Endpoints</h3>
+<p>Endpoint URLs live in a classpath resource, not in user config:</p>
+<pre><code>// prompt-paper/src/main/resources/editor-endpoints.properties
+relay.url=https://config.cyr1en.dev
+editor.url=https://config.cyr1en.dev/editor</code></pre>
+<p>For self-hosters: an optional override file at <code>plugins/CommandPrompterPaper/editor-endpoints.override.properties</code> takes precedence over the classpath resource. This is a dev/self-host mechanism, not documented in the user config reference.</p>
+
+<h3>3.4 Module Boundary</h3>
+<div class="note">
+    All new code lands in <code>prompt-paper</code>. <code>prompt-core</code> stays agnostic of HTTP, WebSocket, crypto sessions, and Bukkit/Paper components. The relay client, crypto, session store, and editor command belong in <code>prompt-paper</code>.
+</div>
+
+<h2>4. Cryptography &amp; Authentication</h2>
+<p>The security model has three layers: <strong>end-to-end encryption</strong> (confidentiality), <strong>Ed25519 signatures</strong> (authenticity), and <strong>browser-fingerprint trust</strong> (first-connection authorization). The relay is untrusted &mdash; it sees only ciphertext and opaque signed frames.</p>
+
+<h3>4.1 Session Token</h3>
+<p>The plugin generates a 256-bit token: <code>base64url(SecureRandom.getBytes(32))</code> &mdash; 43 characters, ~4.3&times;10<sup>77</sup> keyspace. This single value serves two roles:</p>
+<table>
+    <thead><tr><th>Role</th><th>How</th></tr></thead>
+    <tbody>
+    <tr><td>WSS channel id</td><td>The relay routes frames on channel <code>/ws/{token}</code>. Plugin and browser join the same channel.</td></tr>
+    <tr><td>Initial encryption key material</td><td><code>K_initial = HKDF-SHA256(ikm=token, salt="cmdp-e2e-v1", info="initial-transport")</code> &rarr; 32-byte AES-256-GCM key. Used to encrypt the initial preset push before the key exchange completes.</td></tr>
+    </tbody>
+</table>
+<p>The token is delivered out-of-band via a private in-game chat message. The relay sees the channel id (which <em>is</em> the token) but cannot derive the AES key from it without the HKDF salt/info constants (which are in the plugin and browser code, not on the relay).</p>
+
+<h3>4.2 End-to-End Encryption</h3>
+<p>Two phases: initial (token-derived key) and session (X25519 ECDH-derived key for forward secrecy).</p>
+
+<h4>Phase 1: Initial Transport (before handshake)</h4>
+<ol>
+    <li>Plugin derives <code>K_initial</code> from the token via HKDF.</li>
+    <li>Plugin encrypts the serialized <code>PresetConfig</code>: <code>AES-256-GCM(K_initial, plaintext, nonce=random-12-bytes, aad=token)</code>.</li>
+    <li>Plugin opens WSS to <code>{relay.url}/ws/{token}</code> and waits for the browser to join.</li>
+    <li>When the browser connects and the trust handshake completes, the plugin pushes the encrypted presets as a single WSS frame.</li>
+    <li>Browser derives the same <code>K_initial</code> from the token in the URL and decrypts.</li>
+</ol>
+
+<h4>Phase 2: Session Transport (after handshake, forward secrecy)</h4>
+<pre class="mermaid">
+sequenceDiagram
+    participant P as Plugin
+    participant B as Browser
+    participant R as Relay
+    P->>R: WSS connect to channel
+    B->>R: WSS connect to channel
+    B->>P: HELLO with X25519 pubkey and Ed25519 pubkey
+    P->>P: verify session and check trust
+    P->>B: HELLO REPLY with plugin X25519 pubkey
+    P->>B: push encrypted presets with K initial
+    Note over P,B: both derive ECDH shared secret
+    Note over P,B: K session equals HKDF of shared secret
+    Note over P,B: all future frames use K session
+</pre>
+<ol>
+    <li>Plugin generates an X25519 keypair: <code>(priv_x25519_p, pub_x25519_p)</code>.</li>
+    <li>Browser generates an X25519 keypair: <code>(priv_x25519_b, pub_x25519_b)</code>.</li>
+    <li>Both exchange X25519 public keys via the signed HELLO frames (see &sect;4.3).</li>
+    <li>Shared secret: <code>SS = X25519(priv_x25519_p, pub_x25519_b) = X25519(priv_x25519_b, pub_x25519_p)</code>.</li>
+    <li>Session key: <code>K_session = HKDF-SHA256(ikm=SS, salt=token, info="session-transport")</code> &rarr; 32 bytes.</li>
+    <li>All subsequent frames (edited presets, follow-up sessions) are encrypted with <code>K_session</code>. The initial <code>K_initial</code> is retired.</li>
+</ol>
+
+<h4>Nonce Management</h4>
+<p>AES-256-GCM requires that each (key, nonce) pair is used exactly once &mdash; nonce reuse with the same key is catastrophic. The scheme is counter-based with role-prefixed counters to guarantee no collision between plugin and browser:</p>
+<table>
+    <thead><tr><th>Phase</th><th>Key</th><th>Nonce scheme</th><th>Counter range</th></tr></thead>
+    <tbody>
+    <tr><td>Initial (<code>K_initial</code>)</td><td>Token-derived</td><td>Random 12-byte nonce per frame. Only one frame is sent under <code>K_initial</code> (the initial presets push), so collision probability is zero by construction.</td><td>N/A (single use)</td></tr>
+    <tr><td>Session (<code>K_session</code>)</td><td>ECDH-derived</td><td>64-bit counter, big-endian, zero-padded to 12 bytes. Plugin uses even counters (0, 2, 4...); browser uses odd counters (1, 3, 5...). Counter increments per encrypted frame sent.</td><td>Plugin: even. Browser: odd. Wraps at 2<sup>64</sup> (infeasible for config-edit traffic).</td></tr>
+    </tbody>
+</table>
+<p>Each side tracks its own send counter in memory for the session. Counters are not sent in the frame &mdash; the receiver tracks its own receive counter per sender. If a frame arrives with an unexpected counter (gap or regression), the receiver rejects it with <code>change-response {state: "rejected", reason: "nonce_out_of_order"}</code> and closes the channel &mdash; this indicates either a bug or a replay attack.</p>
+<div class="note">
+    <strong>Forward secrecy:</strong> If the token is later compromised (e.g., from a browser history leak), past sessions encrypted with <code>K_session</code> cannot be decrypted &mdash; the X25519 ephemeral keys are gone. Only the initial upload (encrypted with <code>K_initial</code>) would be vulnerable, and it contains the <em>original</em> presets, not the edits.
+</div>
+
+<h3>4.3 Ed25519 Frame Signatures</h3>
+<p>Every WSS frame is signed by the sender's Ed25519 private key and verified by the receiver against the sender's known public key. Ed25519 uses deterministic nonce derivation &mdash; no nonce-reuse vulnerability (unlike ECDSA P-256). The <code>msg</code> field contains the AES-256-GCM ciphertext of the inner JSON message; the receiver decrypts before verifying the signature. The one exception is <code>hello</code>, which is MAC'd (not signed) because no peer key is known yet &mdash; see &sect;4.4.</p>
+<pre><code>// Frame envelope (JSON, sent as WSS text)
+{
+  "msg": "&lt;AES-256-GCM ciphertext, base64&gt;",
+  "sig": "&lt;base64(Ed25519.sign(privKey, msg_ciphertext))&gt;",
+  "nonce": "&lt;base64(12-byte AES-GCM nonce)&gt;"
+}</code></pre>
+<table>
+    <thead><tr><th>Key</th><th>Generated by</th><th>Lifetime</th><th>Stored</th></tr></thead>
+    <tbody>
+    <tr><td>Plugin Ed25519 keypair</td><td>Plugin, at session creation</td><td>Per-session (in-memory)</td><td>Not persisted &mdash; regenerated each session</td></tr>
+    <tr><td>Browser Ed25519 keypair</td><td>Browser, on first visit</td><td>Persistent</td><td>IndexedDB (or localStorage fallback)</td></tr>
+    </tbody>
+</table>
+<p>The plugin's Ed25519 public key is embedded in the initial encrypted presets frame (inside the ciphertext, readable only by the browser). The browser's Ed25519 public key is sent in the HELLO frame. After the trust handshake (&sect;4.4), both sides know each other's public key and verify every subsequent frame.</p>
+
+<h3>4.4 Browser-Fingerprint Trust</h3>
+<p>First connection from a browser requires in-game admin approval. Subsequent connections from the same browser are auto-trusted.</p>
+<ol>
+    <li>Browser sends HELLO frame containing: <code>{nonce, sessionId, browser, publicKey: Ed25519, x25519PublicKey, mac: HMAC-SHA256(K_initial, sessionId || publicKey || x25519PublicKey)}</code>. The MAC is keyed by <code>K_initial</code>, which the relay does not have &mdash; this proves the sender knows the token without revealing it, and prevents a malicious relay from substituting its own keys (MITM). The HELLO is the one frame allowed without an Ed25519 signature (no peer key is known yet), but the MAC binds it to the token-holder.</li>
+    <li>Plugin verifies the MAC against <code>K_initial</code>. If it fails, the plugin rejects the connection and closes the channel &mdash; the sender doesn't know the token.</li>
+    <li>Plugin checks its trust store for <code>SHA-256(browser Ed25519 public key)</code>.</li>
+    <li>If <strong>trusted</strong> &rarr; send <code>HELLO_REPLY {state: "accepted", x25519PublicKey: plugin}</code> (signed with the plugin's Ed25519 key, MAC'd with <code>K_initial</code>), proceed with X25519 key exchange.</li>
+    <li>If <strong>untrusted</strong> &rarr; send <code>HELLO_REPLY {state: "untrusted"}</code> (signed + MAC'd). Plugin prompts admin in-game: <em>"Untrusted browser (&lt;user-agent&gt;) wants to connect &mdash; /commandprompter trusteditor &lt;nonce&gt;"</em>.</li>
+    <li>Admin types <code>/commandprompter trusteditor &lt;nonce&gt;</code>. Plugin stores <code>SHA-256(browser Ed25519 pubkey)</code> in trust store, sends <code>HELLO_REPLY {state: "accepted", ...}</code>.</li>
+    <li>If <strong>rejected</strong> (different key from an already-connected browser on this session) &rarr; send <code>HELLO_REPLY {state: "rejected"}</code>, close socket.</li>
+</ol>
+<p><strong>Trust store:</strong> <code>plugins/CommandPrompterPaper/.editor-truststore.json</code> &mdash; a JSON file mapping <code>playerUUID &rarr; [SHA-256(browser pubkey), ...]</code>. Persisted across restarts. An admin can clear trust with <code>/commandprompter trusteditor clear</code>.</p>
+
+<h3>4.5 Identifier Roles</h3>
+<table>
+    <thead><tr><th>Identifier</th><th>Identifies</th><th>Lifetime</th><th>Job</th></tr></thead>
+    <tbody>
+    <tr><td><strong>Token</strong> (256-bit)</td><td>The edit session</td><td>Per-session; channel closed on disconnect; 60s idle timeout (refreshed by ping frames)</td><td>WSS channel id + initial encryption key material. The sole session identifier &mdash; no separate server-id needed for routing.</td></tr>
+    <tr><td><strong>initiated_by</strong> (player UUID)</td><td>The admin who started the session</td><td>Per-session</td><td>In-game routing for trust prompt and high-risk confirmation. Stored inside the encrypted payload.</td></tr>
+    <tr><td><strong>Ed25519 public keys</strong></td><td>The plugin and browser identities</td><td>Plugin: per-session. Browser: persistent.</td><td>Authenticate every WSS frame. Browser key is the trust fingerprint.</td></tr>
+    <tr><td><strong>X25519 public keys</strong></td><td>Ephemeral key exchange</td><td>Per-session</td><td>Establish forward-secret session encryption key via ECDH.</td></tr>
+    </tbody>
+</table>
+
+<h3>4.6 Frame Protocol</h3>
+<p>Every WSS text frame uses the envelope structure from &sect;4.3: <code>{msg, sig, nonce}</code>. The <code>msg</code> field is the AES-256-GCM ciphertext of an inner JSON message. After decryption, the inner JSON contains a <code>type</code> field and type-specific payload. The relay sees only the ciphertext envelope &mdash; it cannot read the message type or payload.</p>
+<table>
+    <thead><tr><th>Type</th><th>Direction</th><th>Encryption</th><th>Signature</th><th>Payload</th><th>Purpose</th></tr></thead>
+    <tbody>
+    <tr><td><code>hello</code></td><td>Browser &rarr; Plugin</td><td><code>K_initial</code></td><td>None (MAC only &mdash; no peer key known yet)</td><td><code>{nonce, sessionId, browser, publicKey: Ed25519, x25519PublicKey, mac}</code></td><td>Browser identity + key exchange initiation. MAC prevents relay MITM.</td></tr>
+    <tr><td><code>hello_reply</code></td><td>Plugin &rarr; Browser</td><td><code>K_initial</code></td><td>Plugin Ed25519</td><td><code>{state: "accepted"|"untrusted"|"rejected", x25519PublicKey}</code></td><td>Trust decision + plugin X25519 public key for ECDH.</td></tr>
+    <tr><td><code>presets_push</code></td><td>Plugin &rarr; Browser</td><td><code>K_initial</code> (first push) or <code>K_session</code> (post-apply re-push)</td><td>Plugin Ed25519</td><td><code>{presets: PresetConfig, pluginEd25519Pub, pluginX25519Pub}</code></td><td>Initial or follow-up preset delivery. The first push carries the plugin's public keys inside the ciphertext.</td></tr>
+    <tr><td><code>change_request</code></td><td>Browser &rarr; Plugin</td><td><code>K_session</code></td><td>Browser Ed25519</td><td><code>{presets: PresetConfig}</code></td><td>Apply request with edited presets. The presets are plaintext at the message level &mdash; the envelope encryption (<code>K_session</code>) provides confidentiality.</td></tr>
+    <tr><td><code>change_response</code></td><td>Plugin &rarr; Browser</td><td><code>K_session</code></td><td>Plugin Ed25519</td><td><code>{state: "applied"|"rejected", reason?, errors?}</code></td><td>Apply result. <code>reason</code> present on rejection: <code>signature_invalid</code>, <code>schema_invalid</code>, <code>reload_failed</code>, <code>nonce_out_of_order</code>, <code>confirmation_timeout</code>, <code>confirmation_cancelled</code>.</td></tr>
+    <tr><td><code>confirm_pending</code></td><td>Plugin &rarr; Browser</td><td><code>K_session</code></td><td>Plugin Ed25519</td><td><code>{riskTier: "high", commands: [...], timeoutSecs: 60}</code></td><td>Notifies browser that a high-risk apply is awaiting in-game confirmation. Browser shows "Awaiting confirmation" state.</td></tr>
+    <tr><td><code>ping</code></td><td>Plugin &rarr; Relay</td><td>N/A &mdash; WebSocket protocol-level ping (opcode 0x9), not a text frame</td><td>N/A</td><td>N/A (WebSocket control frame)</td><td>Prevents WSS idle timeout (every 10s). Handled natively by the relay's WebSocket library &mdash; not routed to the browser, not inspectable. The relay auto-replies with a pong (opcode 0xA).</td></tr>
+    <tr><td><code>pong</code></td><td>Browser &rarr; Plugin</td><td><code>K_session</code></td><td>Browser Ed25519</td><td><code>{}</code></td><td>Optional application-level heartbeat. Browser may send during long idle edits to keep its side of the channel alive. Distinct from the WebSocket protocol-level pong &mdash; this is a text frame routed through the relay.</td></tr>
+    </tbody>
+</table>
+<div class="note">
+    <strong>Frame ordering:</strong> WSS guarantees in-order delivery per connection. The relay routes frames in the order received. No sequence numbers are needed &mdash; the counter-based nonce scheme (&sect;4.2 Nonce Management) implicitly enforces ordering on encrypted frames.
+</div>
+<h2>5. Relay Service</h2>
+<p>A single unified WSS relay. The relay is a <strong>dumb pipe</strong>: it routes signed, encrypted frames between plugin and browser on the same channel. It stores nothing &mdash; no paste store, no TTL, no persistence layer. It never decrypts, validates, or authenticates. It can be compromised without exposing preset contents or enabling forged applies.</p>
+
+<h3>5.1 API Surface</h3>
+<table>
+    <thead><tr><th>Endpoint</th><th>Method</th><th>Request</th><th>Response</th><th>Notes</th></tr></thead>
+    <tbody>
+    <tr>
+        <td><code>/ws/{token}</code></td>
+        <td>GET (Upgrade)</td>
+        <td><code>Upgrade: websocket</code></td>
+        <td>WSS connection on channel <code>{token}</code></td>
+        <td>Routes text frames between connected clients on the same channel. Max 2 clients per channel (plugin + browser). Third client is rejected with <code>4003 "channel full"</code>.</td>
+    </tr>
+    <tr>
+        <td><code>/</code> + static</td>
+        <td>GET</td>
+        <td>&mdash;</td>
+        <td>SPA static assets</td>
+        <td>The relay also serves the editor SPA's built static files. One container, one port.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>5.2 WSS Relay Rules</h3>
+<ul>
+    <li><strong>Max clients per channel:</strong> 2. The first client is the plugin; the second is the browser. A third connection attempt is rejected with <code>4003 "channel full"</code>.</li>
+    <li><strong>Frame format:</strong> text frames only (JSON). Binary frames are rejected.</li>
+    <li><strong>Max frame size:</strong> 5 MB. Presets JSON is typically &lt;100 KB, but the full 5 MB ceiling accommodates large preset documents. The relay buffers one frame per channel (2 clients) &mdash; memory pressure is trivial.</li>
+    <li><strong>Idle timeout:</strong> 60s without any frame &rarr; close with <code>4001 "idle"</code>. The plugin sends ping frames every 10s to keep the channel alive.</li>
+    <li><strong>No storage:</strong> the relay holds no state between frames. When both clients disconnect, the channel is gone. There is no paste to expire, no key to evict, no persistence layer to operate.</li>
+</ul>
+
+<h3>5.3 Rate Limiting &amp; Abuse Prevention</h3>
+<table>
+    <thead><tr><th>Surface</th><th>Limit</th><th>Enforcement</th></tr></thead>
+    <tbody>
+    <tr><td>WSS connections</td><td>5 concurrent per source IP</td><td>Reject with 4003</td></tr>
+    <tr><td>WSS messages per channel</td><td>100 per minute</td><td>Close with 4003</td></tr>
+    <tr><td>WSS frame size</td><td>5 MB max</td><td>Close with 4009 "message too big"</td></tr>
+    </tbody>
+</table>
+<div class="note">
+    The relay cannot distinguish the plugin from an attacker (no pre-shared secret). Rate limits prevent flooding. The 256-bit token makes session-guessing infeasible. E2E encryption means a compromised relay gains nothing but ciphertext. Signed frames mean a compromised relay cannot forge applies.
+</div>
+
+<h2>6. Live In-Game Preview</h2>
+<p>The editor renders a live HTML/CSS mock of the Minecraft client UI next to each prompt form. As the admin edits fields, the preview re-renders in real time (debounced). The preview is a static mock &mdash; it does not connect to a running server.</p>
+<table>
+    <thead><tr><th>Prompt <code>type</code></th><th>Preview rendering</th></tr></thead>
+    <tbody>
+    <tr><td><code>chat</code></td><td>Chat-window mock. Shows <code>prompt_text</code> as an incoming message. Renders the clickable cancel control with hover tooltip. Reflects <code>cancel.clickable</code> and <code>cancel.send</code>.</td></tr>
+    <tr><td><code>anvil</code></td><td>3-slot anvil inventory mock (left, right, result). Renders <code>left_button</code>/<code>right_button</code> icons with labels. Title bar shows <code>title</code>; rename field shows <code>prompt_text</code>. Honors <code>show</code> and <code>custom_model_data</code>.</td></tr>
+    <tr><td><code>sign</code></td><td>Sign texture with 4 lines. <code>default_lines</code> pre-filled; <code>prompt_text</code> shown as instruction above. Editing a <code>default_lines</code> entry re-renders the line immediately.</td></tr>
+    <tr><td><code>dialog</code></td><td>Paper Dialog window mock. Title bar, <code>base.body</code> entries (plain messages as text, items as material icons), one input row per <code>base.inputs</code> entry (text field, number slider, choice dropdown). Action area reflects <code>dialog_type</code> (confirmation buttons or multi-action grid).</td></tr>
+    <tr><td><code>player_ui</code></td><td>Chest-GUI mock sized to <code>PlayerUI.Size</code>. Paginated player-head grid with <code>cancel_button</code>, <code>previous_button</code>, <code>next_button</code> at their <code>slot</code> positions. Title shows <code>prompt_text</code>.</td></tr>
+    </tbody>
+</table>
+<h3>6.1 Post-Command Preview &amp; RCE Severity</h3>
+<p>Post-commands render as a <strong>resolved-command card</strong>: the <code>command</code> string with <code>{input:N}</code>/<code>{player}</code> placeholders as chips, plus badges for <code>execution_policy</code>, <code>execute_as</code>, and <code>delay_ticks</code>.</p>
+<div class="danger">
+    <strong>RCE severity:</strong> A <code>post_command</code> with <code>execute_as: console</code> runs as the server console with <code>{input}</code> substitution. A compromised session can inject <code>op &lt;attacker&gt;</code> or <code>stop</code>. The preview renders console commands with a red warning badge. This severity is why risk-tiered apply (&sect;8) gates console-command edits behind in-game confirmation.
+</div>
+<h3>6.2 Material &amp; Color Rendering</h3>
+<ul>
+    <li><strong>Materials:</strong> <code>button_icon</code>/<code>material</code> strings map to Minecraft item textures via a bundled sprite atlas. Invalid materials fall back to <code>PAPER</code> with a warning badge (matches the plugin's factory fallback).</li>
+    <li><strong>Color:</strong> <code>prompt_text</code>, labels, and body content may contain legacy <code>&amp;</code>-codes and MiniMessage tags. The preview parses both and renders styled HTML.</li>
+</ul>
+
+<h2>7. Sequence of Operations</h2>
+
+<div class="sequence-step">
+    <h3>Phase 1: Session Initiation (In-Game)</h3>
+    <ol>
+        <li>Admin types <code>/commandprompter editor</code>. Requires <code>promptpaper.editor</code>. If <code>Web-Editor.Enabled</code> is <code>false</code>, short-circuits with <em>"Web editor is disabled."</em></li>
+        <li>Plugin generates 256-bit token: <code>base64url(SecureRandom.getBytes(32))</code>.</li>
+        <li>Plugin generates Ed25519 keypair (signing) and X25519 keypair (ECDH) for this session.</li>
+        <li>Plugin serializes in-memory <code>PresetRegistry</code> via <code>PresetGson.presetGson()</code> into a <code>PresetConfig</code> document. Binds <code>initiated_by</code> (admin UUID) and plugin Ed25519/X25519 public keys into the payload.</li>
+        <li>Plugin derives <code>K_initial</code> from the token via HKDF. Encrypts the payload with AES-256-GCM.</li>
+        <li>Plugin opens WSS to <code>{relay.url}/ws/{token}</code>. Sends a ping every 10s to keep alive. Waits for the browser to join.</li>
+        <li>Plugin persists the session to <code>.editor-sessions.json</code> (survives restart &mdash; see &sect;9.3).</li>
+        <li>Plugin sends a <strong>private message</strong> to the admin with the editor URL: <code>{editor.url}?t={token}</code>. Never broadcast.</li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 2: Browser Loading &amp; Crypto Handshake</h3>
+    <ol>
+        <li>Browser opens <code>{editor.url}?t={token}</code>. SPA reads the token from the query param. The SPA derives the WSS URL from its own origin (<code>wss://{window.location.host}/ws/{token}</code>) &mdash; no separate relay URL config needed since the SPA is served by the relay itself.</li>
+        <li>SPA derives <code>K_initial</code> from the token (same HKDF parameters as the plugin).</li>
+        <li>SPA opens WSS to <code>wss://{window.location.host}/ws/{token}</code>. Sends HELLO frame: <code>{nonce, sessionId: token, browser: navigator.userAgent, publicKey: Ed25519, x25519PublicKey}</code>.</li>
+        <li>Plugin checks trust store for <code>SHA-256(browser Ed25519 pubkey)</code>:
+            <ul>
+                <li><strong>Trusted</strong> &rarr; sends <code>HELLO_REPLY {state: "accepted", x25519PublicKey: plugin}</code>. Both sides derive <code>K_session</code> via X25519 ECDH + HKDF. SPA switches to <code>K_session</code> for all future frames.</li>
+                <li><strong>Untrusted</strong> &rarr; sends <code>HELLO_REPLY {state: "untrusted"}</code>. Plugin prompts admin in-game with nonce and browser user-agent. Admin types <code>/commandprompter trusteditor &lt;nonce&gt;</code>. Plugin stores the key hash, sends <code>HELLO_REPLY {state: "accepted", ...}</code>. Key exchange proceeds.</li>
+            </ul>
+        </li>
+        <li>Plugin pushes the encrypted presets as a single WSS frame (encrypted with <code>K_initial</code>). SPA decrypts, parses the <code>PresetConfig</code> + embedded plugin public keys, and validates against the JSON schema. On failure, shows a schema-error screen and stops.</li>
+        <li>SPA renders the two-pane editor: schema-driven form (left) + live preview (right).</li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 3: Editing &amp; Diff Preview</h3>
+    <ol>
+        <li>Admin edits presets. Live preview re-renders on every field change (debounced 200ms).</li>
+        <li>SPA validates continuously against the schema. "Apply" button is disabled while errors are present.</li>
+        <li>SPA computes a structured diff against the original document: added/removed/changed presets and post-commands, with field-level detail.</li>
+        <li>SPA shows the diff in a review panel. For <code>post_commands</code> with <code>execute_as: console</code>, the full command string is displayed with a red RCE badge.</li>
+        <li>Admin clicks "Apply". SPA encrypts the edited document with <code>K_session</code> and sends a signed <code>change_request</code> frame over WSS: <code>{type: "change_request", presets: PresetConfig}</code>. The envelope encryption handles confidentiality &mdash; the presets are plaintext at the message level.</li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 4: Risk-Tiered Apply</h3>
+    <p>The plugin receives the change-request frame, decrypts it with <code>K_session</code>, validates the presets against the schema, classifies the risk, and applies &mdash; with or without in-game confirmation depending on the risk tier. See &sect;8 for the full classification and apply paths.</p>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 5: Plugin Ingestion (Hot-Reload)</h3>
+    <ol>
+        <li>Plugin writes the validated JSON to <code>plugins/CommandPrompterPaper/presets.json</code> on disk.</li>
+        <li>Plugin calls <code>PresetRegistry.reload()</code>. Re-reads the file, rebuilds immutable prompt/post-command maps keyed by <code>id</code>, atomically swaps via <code>volatile</code> reference. On <code>PresetLoadException</code>, previous cache is preserved and the admin is notified.</li>
+        <li>Disk write and cache swap are dispatched on the Folia scheduler (region/global). The WSS listener never mutates shared state on its IO thread.</li>
+        <li>Plugin logs the apply to the audit trail (&sect;10.3).</li>
+        <li>Plugin sends a signed <code>change-response</code> frame: <code>{state: "applied"}</code>. The plugin then pushes the post-apply state as a new encrypted frame so the browser can continue editing without re-initiating.</li>
+        <li>Plugin sends a success message to the admin: <em>"Presets updated via Web Editor."</em></li>
+        <li>Plugin keeps the WSS channel open for continued editing. The session is removed from <code>.editor-sessions.json</code> only when the channel closes (both sides disconnect or idle timeout).</li>
+    </ol>
+</div>
+
+<h2>8. Risk-Tiered Apply</h2>
+<p>Not every edit needs in-game confirmation. Routine edits (prompt text, UI labels) auto-apply for convenience. Edits that can execute console commands require the admin to review and confirm in-game. The classification is computed from the diff at the plugin side &mdash; the frontend's risk indicator is advisory only.</p>
+
+<h3>8.1 Risk Classification</h3>
+<pre class="mermaid">
+flowchart TD
+    CR["Change request received"] --> DC["Decrypt and validate schema"]
+    DC --> DF["Compute diff against original"]
+    DF --> CL["Classify risk tier"]
+    CL -->|"low"| AU["Auto apply"]
+    CL -->|"medium"| AN["Auto apply with in game notification"]
+    CL -->|"high"| CF["In game confirmation required"]
+    CF -->|"confirmed"| WR["Write disk and reload"]
+    CF -->|"timeout or cancel"| DR["Drop pending apply"]
+    AU --> WR
+    AN --> WR
+    WR --> AL["Log to audit trail"]
+    AL --> DN["Send change response"]
+    DR --> DN
+</pre>
+
+<table>
+    <thead><tr><th>Tier</th><th>Trigger (from diff)</th><th>Apply path</th><th>Examples</th></tr></thead>
+    <tbody>
+    <tr>
+        <td class="risk-low"><strong>Low</strong></td>
+        <td>Changes only to display fields: <code>prompt_text</code>, <code>title</code>, <code>cancel.message</code>, <code>cancel.hover_message</code>, button labels/tooltips, <code>sanitize</code>, <code>default_lines</code>, dialog <code>body</code> content, input labels/constraints.</td>
+        <td>Auto-apply. Plugin writes disk + reloads immediately. No in-game prompt.</td>
+        <td>Changing prompt text from "Enter name:" to "Enter your name:"</td>
+    </tr>
+    <tr>
+        <td class="risk-med"><strong>Medium</strong></td>
+        <td>Structural changes: adding/removing presets, changing <code>type</code> discriminator, changing <code>filter</code>, changing <code>dialog_type.type</code>, changing <code>actions_source</code>, adding/removing non-console <code>post_commands</code>.</td>
+        <td>Auto-apply with in-game notification. Plugin sends a chat message: <em>"Presets updated via Web Editor (3 added, 1 removed)."</em> No confirmation required.</td>
+        <td>Adding a new chat prompt preset; changing a dialog from confirmation to multi_action</td>
+    </tr>
+    <tr>
+        <td class="risk-high"><strong>High</strong></td>
+        <td>Any <code>post_command</code> with <code>execute_as: console</code> that is added or modified. This is the RCE surface.</td>
+        <td>In-game confirmation required. Plugin shows a review prompt with the exact command strings. Admin must click [Confirm] within 60s. See &sect;8.2.</td>
+        <td>Adding <code>{"command": "op {player}", "execute_as": "console"}</code>; changing a console post-command's command string</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>8.2 High-Risk Confirmation Flow</h3>
+<ol>
+    <li>Plugin identifies the high-risk changes from the diff and extracts the exact <code>command</code> strings from every added/modified console <code>post_command</code>.</li>
+    <li>Plugin resolves the confirmation audience: the <code>initiated_by</code> player if online on this server; otherwise any online player with <code>promptpaper.editor</code>. If no qualifying player is online, the pending apply is <strong>held</strong> (not dropped) and re-delivered on the next qualifying <code>PlayerJoinEvent</code>, until the pending TTL (300s) expires.</li>
+    <li>Plugin shows a <strong>hardcoded chat/dialog primitive</strong> (never a CommandPrompter preset &mdash; must render even if <code>presets.json</code> is corrupted): <em>"Web editor wants to apply N changes, including M console commands: [Review] [Confirm] [Cancel]"</em>.</li>
+    <li>[Review] paginates the exact command strings in chat. [Confirm] proceeds. [Cancel] drops. 60s timeout drops.</li>
+    <li>On confirm, plugin <strong>re-checks <code>promptpaper.editor</code></strong> at click time (in case it was revoked). Records <code>confirmed_by</code> UUID in the audit log (separate from <code>initiated_by</code>).</li>
+    <li>Plugin writes disk + reloads. Sends <code>change-response {state: "applied"}</code> to the browser.</li>
+</ol>
+<div class="note">
+    <strong>One in-flight pending apply per server.</strong> A second <code>/apply</code> supersedes the first: the plugin cancels the old confirm prompt and shows the latest. No more than one confirm prompt is ever outstanding per server.
+</div>
+
+<h3>8.3 Diff Preview</h3>
+<p>The diff is shown in the browser <em>before</em> the admin clicks Apply, and again in-game for high-risk confirms. The browser diff is structured:</p>
+<pre><code>{
+  "added_prompts": [{"id": "new_prompt", "type": "chat"}],
+  "removed_prompts": [{"id": "old_prompt"}],
+  "changed_prompts": [{"id": "ban_form", "fields": ["dialog_type.type"]}],
+  "added_post_commands": [{"id": "log_reason", "execute_as": "console",
+    "command": "discord broadcast {player} punished {input:1}"}],
+  "removed_post_commands": [],
+  "changed_post_commands": []
+}</code></pre>
+<p>Console <code>post_commands</code> in the diff are rendered with the full command string and a red RCE badge, both in the browser diff panel and in the in-game review.</p>
+
+<h2>9. Fallback Modes</h2>
+<p>Two modes of operation, selected automatically based on connectivity. Each mode degrades gracefully.</p>
+
+<h3>9.1 Live Mode (default)</h3>
+<p>WSS relay is reachable. Full bidirectional communication. One-click apply with risk-tiered confirmation. This is the primary mode described in &sect;7.</p>
+
+<h3>9.2 Local Mode (relay completely unreachable)</h3>
+<p>If the relay is down or the server has no internet access:</p>
+<ol>
+    <li><code>/commandprompter editor</code> detects relay unreachability (WSS connect fails or times out after 5s). Plugin informs the admin: <em>"Relay unreachable. Use local export/import mode."</em></li>
+    <li>Admin runs <code>/commandprompter export</code>. Plugin writes the current presets to <code>plugins/CommandPrompterPaper/presets-export.json</code> (plaintext, no encryption &mdash; it's a local file).</li>
+    <li>Admin edits <code>presets-export.json</code> manually or with a local JSON editor.</li>
+    <li>Admin runs <code>/commandprompter import presets-export.json</code>. Plugin validates against <code>presets.schema.json</code>, classifies risk, and applies (with confirmation if high-risk).</li>
+</ol>
+
+<h3>9.3 Session Persistence Across Restarts</h3>
+<p>Sessions are persisted to <code>plugins/CommandPrompterPaper/.editor-sessions.json</code> on creation and removed on channel close. On plugin startup:</p>
+<ol>
+    <li>Plugin loads the session map from disk.</li>
+    <li>For each live session, the plugin reopens the WSS connection to <code>{relay.url}/ws/{token}</code>.</li>
+    <li>If the browser reconnects (its tab is still open or reopened), the trust store is persisted so the browser's fingerprint is still recognized. The plugin pushes the current presets again and editing resumes.</li>
+    <li>If the browser doesn't reconnect within the idle timeout (60s), the channel closes and the session is removed. The admin is notified on next join: <em>"Your web editor session expired (server restarted). Run /commandprompter editor to start a new one."</em></li>
+</ol>
+
+<h2>10. Security &amp; Edge Cases</h2>
+
+<h3>10.1 Threat Model</h3>
+<table>
+    <thead><tr><th>Threat</th><th>Status</th><th>Detail</th></tr></thead>
+    <tbody>
+    <tr><td>Token brute-forcing</td><td>Solved</td><td>256-bit token. 4.3&times;10<sup>77</sup> keyspace. Infeasible.</td></tr>
+    <tr><td>Token in transit</td><td>Solved</td><td>HTTPS/WSS encrypts the channel. Token is in a URL query param &mdash; see leakage mitigations below.</td></tr>
+    <tr><td>Compromised relay reads presets</td><td>Solved</td><td>E2E encryption (AES-256-GCM). Relay routes only ciphertext frames &mdash; it stores nothing. Even a compromised relay operator cannot read preset contents.</td></tr>
+    <tr><td>Compromised relay forges an apply</td><td>Solved</td><td>Ed25519 signatures on every WSS frame. Relay cannot sign frames &mdash; it doesn't have either party's private key. Forged frames are rejected.</td></tr>
+    <tr><td>Token leaked via URL (history, logs, Referer)</td><td>Mitigated</td><td>Private in-game send only. Relay strips <code>?t=</code> from access logs. SPA sets <code>Referrer-Policy: no-referrer</code>. Forward secrecy limits damage to the initial preset push only.</td></tr>
+    <tr><td>Trusted browser compromised</td><td>Mitigated</td><td>Risk-tiered apply (&sect;8). A compromised trusted browser can stage edits but cannot force high-risk (console-command) edits to disk without in-game confirmation.</td></tr>
+    <tr><td>Replay of a leaked token</td><td>Mitigated</td><td>The token enables channel access and decrypts the initial preset push (encrypted with <code>K_initial</code>). However, subsequent frames are encrypted with <code>K_session</code> (ECDH-derived), which the token alone cannot derive &mdash; forward secrecy protects post-handshake traffic. The attacker would also need the browser's Ed25519 private key to sign frames. Channel idle timeout (60s) limits the window.</td></tr>
+    <tr><td>Relay DoS (flood fake sessions)</td><td>Mitigated</td><td>Rate limiting per IP (&sect;5.3). 256-bit token makes guessing infeasible. E2E encryption means fake sessions contain ciphertext the attacker can't read either.</td></tr>
+    <tr><td>Malformed payload reaches disk</td><td>Solved</td><td>Plugin-side schema validation against <code>presets.schema.json</code> before writing to disk. Defense in depth &mdash; the browser validates too, but the plugin doesn't trust the browser.</td></tr>
+    <tr><td>RCE via console post-commands</td><td>Mitigated</td><td>High-risk tier requires in-game confirmation with diff preview showing exact command strings. Hardcoded confirm primitive renders even if presets are corrupted.</td></tr>
+    </tbody>
+</table>
+
+<h3>10.2 Mitigation Stack</h3>
+<table>
+    <thead><tr><th>#</th><th>Mitigation</th><th>Where</th></tr></thead>
+    <tbody>
+    <tr><td>1</td><td><strong>E2E encryption</strong> (AES-256-GCM, X25519 forward secrecy) &mdash; relay sees only ciphertext</td><td>Plugin + Browser (Web Crypto API)</td></tr>
+    <tr><td>2</td><td><strong>Ed25519 signed frames</strong> &mdash; relay cannot forge applies</td><td>Plugin + Browser</td></tr>
+    <tr><td>3</td><td><strong>Browser-fingerprint trust</strong> &mdash; first-connection in-game prompt; subsequent auto-trust</td><td>Plugin (trust store) + in-game command</td></tr>
+    <tr><td>4</td><td><strong>Risk-tiered apply</strong> &mdash; console-command edits require in-game confirmation with diff</td><td>Plugin (diff classifier + confirm primitive)</td></tr>
+    <tr><td>5</td><td><strong>256-bit token</strong> &mdash; high entropy, 60s idle timeout (refreshed by ping frames)</td><td>Plugin (generation) + Relay (idle timeout enforcement)</td></tr>
+    <tr><td>6</td><td><strong>Plugin-side schema validation</strong> &mdash; rejects malformed payloads before disk</td><td>Plugin (<code>presets.schema.json</code>)</td></tr>
+    <tr><td>7</td><td><strong>Leakage-path reduction</strong> &mdash; private chat send, log stripping, <code>Referrer-Policy: no-referrer</code></td><td>Plugin + Relay + SPA</td></tr>
+    <tr><td>8</td><td><strong>Structured audit trail</strong> &mdash; JSONL log of every apply with initiator, confirmer, risk tier, diff summary</td><td>Plugin (<code>.editor-audit.jsonl</code>)</td></tr>
+    <tr><td>9</td><td><strong>Proxy-level auth</strong> &mdash; Nginx access list / Cloudflare Access in front of the relay (deployment choice)</td><td>Deployment (Nginx / Cloudflare)</td></tr>
+    </tbody>
+</table>
+
+<h3>10.3 Audit Trail</h3>
+<p>Every apply is logged to <code>plugins/CommandPrompterPaper/.editor-audit.jsonl</code> (append-only, JSON Lines):</p>
+<pre><code>{"ts":"2026-06-17T12:00:00Z","action":"session.create","initiated_by":"f5a3e2c1-...","token_hash":"sha256:...","mode":"live"}
+{"ts":"2026-06-17T12:05:00Z","action":"trust.add","initiated_by":"f5a3e2c1-...","browser_key_hash":"sha256:..."}
+{"ts":"2026-06-17T12:10:00Z","action":"apply","initiated_by":"f5a3e2c1-...","confirmed_by":"f5a3e2c1-...","risk_tier":"high","diff":{"added":1,"removed":0,"changed":2},"mode":"live"}</code></pre>
+<p>When <code>initiated_by</code> and <code>confirmed_by</code> differ, the log shows a delegation. The <code>token_hash</code> is SHA-256 of the token (not the token itself) for forensic reference without storing the credential.</p>
+
+<h3>10.4 Edge Case Matrix</h3>
+<table>
+    <thead><tr><th>Case</th><th>Handling</th></tr></thead>
+    <tbody>
+    <tr><td><strong>Initiator disconnects before high-risk confirm</strong></td><td>Pending apply is held (300s pending TTL). Re-delivered on the initiator's <code>PlayerJoinEvent</code>, or any <code>promptpaper.editor</code> holder may confirm (delegation).</td></tr>
+    <tr><td><strong>Initiator on a different backend (proxied fleet)</strong></td><td>Confirm is delivered on the server being edited. Initiator must join that server, or another editor confirms. Cross-server routing via plugin messaging is out of scope (&sect;12).</td></tr>
+    <tr><td><strong>No qualifying player online for high-risk confirm</strong></td><td>Pending apply held until a qualifying player joins or pending TTL expires. Browser status: "awaiting confirmation, no eligible player online."</td></tr>
+    <tr><td><strong>Multiple pending applies (same session)</strong></td><td>One in-flight per server. Second <code>/apply</code> supersedes: cancels the first confirm prompt, shows the latest. No stale apply can land.</td></tr>
+    <tr><td><strong>Permission revoked between create and confirm</strong></td><td>Plugin re-checks <code>promptpaper.editor</code> at confirm-click time. If revoked, confirm is denied; pending apply remains for another eligible holder.</td></tr>
+    <tr><td><strong>Confirm prompt vs. corrupted presets</strong></td><td>Confirm prompt is a hardcoded chat/dialog primitive, never a CommandPrompter preset. Renders independently of <code>PresetRegistry</code> state.</td></tr>
+    <tr><td><strong>Server restart mid-pending</strong></td><td>Session persistence (&sect;9.3): session map reloaded from disk. Plugin reopens WSS. If the browser reconnects within the idle timeout, editing resumes. If not, admin is notified on next join.</td></tr>
+    <tr><td><strong>Confirm-prompt spam</strong></td><td>One in-flight pending apply per server. New apply replaces (and cancels) the old prompt. Session creation rate-limited per player.</td></tr>
+    <tr><td><strong>Initiator in an active prompt session</strong></td><td>Confirm is a primitive chat click, not a CommandPrompter prompt session. Does not enter the session state machine. The reload (which cancels active sessions) only happens after a confirm click.</td></tr>
+    <tr><td><strong>Relay WSS blocked by firewall</strong></td><td>Fallback to local mode (&sect;9.2). <code>/commandprompter export</code> + manual edit + <code>/commandprompter import</code>. No intermediate HTTPS-only mode &mdash; the relay is WSS-only.</td></tr>
+    <tr><td><strong>Relay completely unreachable</strong></td><td>Fallback to local mode (&sect;9.2). <code>/commandprompter export</code> + manual edit + <code>/commandprompter import</code>.</td></tr>
+    <tr><td><strong>Browser reconnect after plugin restart</strong></td><td>Session persistence (&sect;9.3). Plugin reopens WSS. Trust store is persisted, so the browser's fingerprint is recognized. Plugin pushes current presets again. If the browser doesn't reconnect within the idle timeout, session is dropped with a notification.</td></tr>
+    <tr><td><strong>Browser doesn't support Web Crypto API</strong></td><td>SPA detects missing Web Crypto and shows an error: "Your browser does not support the required cryptography APIs. Use a modern browser (Chrome 80+, Firefox 75+, Safari 14+)."</td></tr>
+    <tr><td><strong>Signature verification failure (tampered frame)</strong></td><td>Plugin drops the frame, logs a warning, and sends <code>change-response {state: "rejected", reason: "signature_invalid"}</code>. The session remains open &mdash; the browser can retry.</td></tr>
+    <tr><td><strong>Schema validation failure at plugin side</strong></td><td>Plugin rejects the apply, sends <code>change-response {state: "rejected", reason: "schema_invalid", errors: [...]}</code>. Browser shows the field-level errors. No disk write.</td></tr>
+    <tr><td><strong>Browser private key lost (IndexedDB cleared)</strong></td><td>Browser generates a new Ed25519 keypair. Plugin doesn't recognize the new key &rarr; trust prompt re-triggered. Admin re-confirms with <code>/commandprompter trusteditor &lt;nonce&gt;</code>. Old key hash remains in trust store (harmless; can be cleared with <code>/commandprompter trusteditor clear</code>).</td></tr>
+    <tr><td><strong>WSS channel idle timeout mid-edit</strong></td><td>Relay closes the channel after 60s of no frames. Plugin detects the close, notifies the admin: "Session expired (idle timeout). Run /commandprompter editor to start a new one." Browser shows "Session expired" and disables editing.</td></tr>
+    <tr><td><strong>Network partition during apply</strong></td><td>If the change-request frame doesn't reach the plugin (WSS dropped mid-frame), the browser detects the disconnect and shows "Connection lost, retrying." The plugin never received the frame, so no partial apply. If the plugin crashes after receiving the frame but before disk write, the change is lost &mdash; the browser can resend on reconnect.</td></tr>
+    <tr><td><strong>Browser tab closed mid-edit</strong></td><td>WSS disconnects. Plugin detects the disconnect, starts a 60s grace timer. If the browser reconnects within 60s (tab reopen), editing resumes. After 60s, the plugin closes the channel and the session is removed.</td></tr>
+    <tr><td><strong>Concurrent sessions from same server</strong></td><td>Allowed. Each session has its own token and WSS channel. The plugin supports multiple concurrent editor sessions (one per admin). Each session's apply is independent.</td></tr>
+    <tr><td><strong>High-risk edit with offline initiator and no other editor online</strong></td><td>Pending apply held until pending TTL (300s) expires, then dropped. Browser status: "confirmation timed out, no eligible player online." Admin must re-initiate and re-apply when online.</td></tr>
+    <tr><td><strong>Failed reload after apply</strong></td><td><code>PresetRegistry.reload()</code> throws <code>PresetLoadException</code>, previous cache preserved. Plugin sends <code>change-response {state: "rejected", reason: "reload_failed"}</code>. Browser shows the error. The disk file may be in a bad state &mdash; the admin should check <code>presets.json</code> manually or use <code>/commandprompter reload</code> after fixing.</td></tr>
+    <tr><td><strong>Plugin WSS drops transiently (browser still connected)</strong></td><td>Browser detects the disconnect and shows "Plugin disconnected, waiting for reconnect..." The plugin's session persistence (&sect;9.3) reopens the WSS channel. When the plugin rejoins, it pushes the current presets again. The browser's in-progress edits are preserved in memory; the admin can re-apply after the plugin reconnects. If the plugin doesn't reconnect within 60s, the browser shows "Plugin unreachable" and disables Apply.</td></tr>
+    <tr><td><strong>Relay restart mid-session</strong></td><td>Both WSS connections drop. The relay has no state &mdash; the channel is gone. The plugin's session persistence (&sect;9.3) reopens WSS to <code>/ws/{token}</code>; the channel is recreated. The browser's WSS reconnect logic (automatic retry with backoff) rejoins the same channel. The plugin pushes current presets again. Editing resumes. The trust store is persisted, so no re-trust needed. If the relay is down for &gt;60s, the browser gives up and shows "Relay unreachable."</td></tr>
+    </tbody>
+</table>
+
+<h2>11. Implementation Strategy</h2>
+
+<h3>11.1 Repository Layout</h3>
+<table>
+    <thead><tr><th>Repo</th><th>Contents</th><th>Build</th><th>Deploy</th></tr></thead>
+    <tbody>
+    <tr>
+        <td><code>CyR1en/CommandPrompter</code> <em>(existing)</em></td>
+        <td>Plugin Java/Gradle modules + <code>schema/presets.schema.json</code> (source of truth) + <code>editor-endpoints.properties</code> (classpath)</td>
+        <td>Gradle shadow JAR</td>
+        <td>Jenkins CI &rarr; plugin JAR</td>
+    </tr>
+    <tr>
+        <td><code>CyR1en/CommandPrompter-web</code> <em>(new)</em></td>
+        <td>Relay service + editor SPA (web monorepo)</td>
+        <td>pnpm workspaces + turborepo</td>
+        <td>Docker image via GitHub Actions</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>11.2 Schema Contract</h3>
+<p><code>schema/presets.schema.json</code> (already exists in the plugin repo) is the machine-readable contract. The web repo's <code>packages/schema</code> pins a version and generates TS types via <code>json-schema-to-typescript</code>. The relay service uses it for nothing (it's a dumb pipe). The SPA uses the types for form rendering. The plugin uses the schema for validation at apply time (&sect;10 mitigation 6). A schema bump = plugin release + web repo version bump.</p>
+
+<h3>11.3 Plugin Repo Changes</h3>
+<p>All new code in <code>prompt-paper</code>. <code>prompt-core</code> untouched.</p>
+<table>
+    <thead><tr><th>Change</th><th>Location</th><th>Notes</th></tr></thead>
+    <tbody>
+    <tr><td>Relay client</td><td><code>prompt-paper</code> (new package <code>dev.cyr1en.promptpaper.editor</code>)</td><td>JDK <code>WebSocket</code> for WSS. Zero new dependencies for transport and crypto (all via <code>java.net.http</code> + <code>java.security.*</code>).</td></tr>
+    <tr><td>Crypto</td><td><code>prompt-paper</code> (<code>editor.crypto</code>)</td><td>Ed25519 keygen/sign/verify, X25519 ECDH, HKDF-SHA256, AES-256-GCM, HMAC-SHA256. All via <code>java.security.*</code> &mdash; no external crypto library.</td></tr>
+    <tr><td>Editor command</td><td><code>prompt-paper</code> Brigadier tree</td><td><code>/commandprompter editor</code>, <code>trusteditor</code>, <code>export</code>, <code>import</code>. <code>promptpaper.editor</code> permission in <code>paper-plugin.yml</code>.</td></tr>
+    <tr><td>Session store</td><td><code>prompt-paper</code> (<code>editor.store</code>)</td><td>In-memory <code>ConcurrentHashMap</code> + <code>.editor-sessions.json</code> persistence. Trust store at <code>.editor-truststore.json</code>.</td></tr>
+    <tr><td>Risk classifier</td><td><code>prompt-paper</code> (<code>editor.risk</code>)</td><td>Computes diff, classifies into low/medium/high based on <code>post_commands</code> with <code>execute_as: console</code>.</td></tr>
+    <tr><td>Confirm primitive</td><td><code>prompt-paper</code></td><td>Hardcoded chat/dialog click handler. Not a preset. Re-checks <code>promptpaper.editor</code> at click time.</td></tr>
+    <tr><td>Schema validator</td><td><code>prompt-paper</code></td><td>Validates decrypted payload against <code>presets.schema.json</code> before disk write. Uses <code>networknt/json-schema-validator</code> &mdash; the <strong>one shaded dependency</strong> the editor adds. Transport and crypto are zero-dep (JDK only); schema validation is the sole external library.</td></tr>
+    <tr><td>Audit logger</td><td><code>prompt-paper</code></td><td>Appends JSONL to <code>.editor-audit.jsonl</code>.</td></tr>
+    <tr><td>Config key</td><td><code>CommandPrompterConfig.java</code></td><td><code>Web-Editor.Enabled</code> boolean (<code>@ConfigNode</code>, default <code>true</code>).</td></tr>
+    <tr><td>Classpath resource</td><td><code>prompt-paper/src/main/resources/editor-endpoints.properties</code></td><td>Hardcoded relay + editor URLs. Optional disk override at <code>plugins/CommandPrompterPaper/editor-endpoints.override.properties</code>.</td></tr>
+    </tbody>
+</table>
+
+<h3>11.4 Web Repo Structure</h3>
+<pre><code>CommandPrompter-web/
+  packages/
+    schema/              pinned presets.schema.json + generated TS types
+  apps/
+    relay/               WSS relay + static asset serving
+    frontend/            SPA: schema-driven form + live preview + Web Crypto
+  pnpm-workspace.yaml
+  turbo.json</code></pre>
+<table>
+    <thead><tr><th>Package</th><th>Stack</th><th>Role</th></tr></thead>
+    <tbody>
+    <tr><td><code>packages/schema</code></td><td><code>json-schema-to-typescript</code></td><td>TS types for the SPA. Pinned schema version.</td></tr>
+    <tr><td><code>apps/relay</code></td><td>Node.js (Fastify + <code>ws</code>)</td><td>WSS channel relay + static asset serving for the SPA. In-memory channel map only &mdash; no storage, no TTL, no persistence. One process, one port. Rate limiting. No auth &mdash; dumb pipe.</td></tr>
+    <tr><td><code>apps/frontend</code></td><td>Vue 3 or React + Vite</td><td>Two-pane editor with live preview. Web Crypto API for X25519/Ed25519/AES-GCM. <code>Referrer-Policy: no-referrer</code>. IndexedDB for browser keypair persistence.</td></tr>
+    </tbody>
+</table>
+
+<h3>11.5 Deployment Topology</h3>
+<p><strong>Plugin:</strong> existing Jenkins CI, no change.</p>
+<p><strong>Web:</strong> GitHub Actions builds a single Docker image containing the relay + SPA static assets. One container, one port, behind Nginx Proxy Manager. The relay serves the SPA at <code>/</code> and the WSS endpoint at <code>/ws/</code>. No separate backend process &mdash; the relay is the backend.</p>
+<div class="note">
+    <strong>Infrastructure:</strong> The relay container is the only public-facing service. Nginx exposes it on 443. Proxy-level auth (access list, basic auth, or Cloudflare Access) is recommended in front (&sect;10 mitigation 9). No Redis or database exposure &mdash; the relay stores nothing.
+</div>
+
+<h3>11.6 CI/CD Boundaries</h3>
+<table>
+    <thead><tr><th>Repo</th><th>Trigger</th><th>Output</th></tr></thead>
+    <tbody>
+    <tr><td><code>CommandPrompter</code></td><td>Push to <code>development</code>; tag release</td><td>Shadow JAR (Jenkins) + schema asset on GitHub release</td></tr>
+    <tr><td><code>CommandPrompter-web</code></td><td>Push to <code>main</code>; PR</td><td>Docker image (GitHub Actions). CI checks pinned schema version against latest plugin release; fails on drift.</td></tr>
+    </tbody>
+</table>
+
+<h2>12. Out of Scope</h2>
+<ul>
+    <li><strong><code>config.yml</code> / <code>prompt-config.yml</code> editing:</strong> This editor is scoped to <code>presets.json</code> only. Runtime settings continue to be edited on disk via <code>/commandprompter reload</code>.</li>
+    <li><strong>Locale <code>.properties</code> files:</strong> Managed on disk under <code>plugins/CommandPrompterPaper/locales/</code> (see <code>2026-06-15-i18n-system-design.md</code>).</li>
+    <li><strong>Cross-server confirm routing:</strong> Confirm is delivered on the server being edited. BungeeCord/Velocity plugin-messaging routing is out of scope. The initiator must join the target server, or another editor confirms.</li>
+    <li><strong>Live Minecraft connection for preview:</strong> The preview is a static HTML/CSS mock. It does not connect to a running server or render real player heads.</li>
+    <li><strong>Per-preset permission nodes:</strong> Permissions are enforced on the root command that triggers the prompt flow, not in the editor (per <code>preset-configuration-spec.html</code>).</li>
+    <li><strong>Relay-level authentication:</strong> The relay is a dumb pipe with no auth. Security is end-to-end (E2E encryption + signatures + trust). Proxy-level auth is a deployment choice, not a relay feature.</li>
+    <li><strong>Multi-admin concurrent editing on the same session:</strong> One browser per session (max 2 WSS clients: plugin + browser). Multiple admins edit via separate sessions.</li>
+</ul>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+
+</body>
+</html>

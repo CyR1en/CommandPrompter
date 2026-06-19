@@ -72,4 +72,41 @@ class ChatPromptScreenTest extends MockBukkitTest {
         assertNull(resultRef.get());
         assertNotNull(secondRef.get());
     }
+
+    @Test
+    void openWithLineBreaksSendsSeparateMessages() {
+        var testPlayer = createPlayer("MultiLinePlayer");
+        var chatPrompt = new dev.cyr1en.promptpaper.preset.ChatPrompt(
+                "chat", "inline-test", "Line 1{br}Line 2{br}Line 3",
+                new dev.cyr1en.promptpaper.preset.CancelBehavior(false, "", false, ""), true);
+        var multiScreen = new ChatPromptScreen(plugin, testPlayer, chatPrompt);
+
+        multiScreen.open();
+
+        assertEquals("[Prompter] Line 1", testPlayer.nextMessage());
+        assertEquals("Line 2", testPlayer.nextMessage());
+        assertEquals("Line 3", testPlayer.nextMessage());
+        assertNull(testPlayer.nextMessage());
+    }
+
+    @Test
+    void openWithLineBreaksAndCancelSendsSeparateMessagesWithCancelOnLast() {
+        var testPlayer = createPlayer("MultiLineCancelPlayer");
+        lenient().when(promptConfig.sendCancelText()).thenReturn(true);
+        lenient().when(promptConfig.textCancelMessage()).thenReturn(" (Cancel)");
+        lenient().when(promptConfig.textCancelHoverMessage()).thenReturn("Click to cancel");
+
+        var chatPrompt = new dev.cyr1en.promptpaper.preset.ChatPrompt(
+                "chat", "inline-test", "Line 1{br}Line 2",
+                new dev.cyr1en.promptpaper.preset.CancelBehavior(true, " (Cancel)", false, "Click to cancel"), true);
+        var multiScreen = new ChatPromptScreen(plugin, testPlayer, chatPrompt);
+
+        multiScreen.open();
+
+        assertEquals("[Prompter] Line 1", testPlayer.nextMessage());
+        String lastMsg = testPlayer.nextMessage();
+        assertTrue(lastMsg.contains("Line 2"));
+        assertTrue(lastMsg.contains("Cancel"));
+        assertFalse(lastMsg.contains("[Prompter]"));
+    }
 }

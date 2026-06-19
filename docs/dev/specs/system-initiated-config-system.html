@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specification: CommandPrompter Server-Initiated Web Preset Editor</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --heading-color: #58a6ff;
+            --code-bg: #161b22;
+            --border-color: #30363d;
+            --accent: #238636;
+            --warn: #d29922;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        h1, h2, h3 { color: var(--heading-color); border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+        h1 { font-size: 2em; margin-bottom: 0.5em; }
+        p, li { font-size: 1rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: rgba(110,118,129,0.4);
+            padding: 0.2em 0.4em;
+            border-radius: 6px;
+            font-size: 85%;
+        }
+        pre {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            overflow: auto;
+        }
+        pre code { background-color: transparent; padding: 0; }
+        .sequence-step {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-left: 4px solid var(--heading-color);
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+        .note {
+            background-color: rgba(35, 134, 54, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .warning {
+            background-color: rgba(210, 153, 34, 0.1);
+            border-left: 4px solid var(--warn);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; margin-bottom: 1rem; }
+        th, td { border: 1px solid var(--border-color); padding: 8px 12px; text-align: left; vertical-align: top; }
+        th { background-color: var(--code-bg); }
+        .mermaid {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Spec: CommandPrompter Server-Initiated Web Preset Editor</h1>
+<p><strong>Author:</strong> Ethan Bacurio (Cyrien)<br>
+    <strong>Version:</strong> 1.1.0<br>
+    <strong>Target Plugin:</strong> CommandPrompterPaper v3.0.0 (<code>dev.cyr1en.promptpaper</code>)<br>
+    <strong>Target Environment:</strong> Dockerized Homelab, Nginx Proxy Manager, Central Redis instance</p>
+
+<h2>1. Executive Summary &amp; Context</h2>
+<p>This document specifies a web-based editor for <strong>CommandPrompter's <code>presets.json</code></strong> &mdash; the JSON configuration that drives the Prompt Factory (see <code>preset-configuration-spec.html</code>). Server administrators author and edit reusable prompt definitions and post-commands in a browser, with a <strong>live in-game preview</strong> that renders exactly how each prompt will appear to a player, then push the result back to the game server without a restart.</p>
+<p>The editor targets a distributed fleet of Paper servers ($S_0 \dots S_n$). To avoid hosting HTTP/WebSocket servers on individual game instances and bypassing complex inbound port-forwarding, the system uses a <strong>Server-Initiated Session</strong> model: a central Redis container is the sole middleware for state management and bidirectional communication between the game servers and a centralized Web Application. Redis is an <strong>opt-in soft dependency</strong>; when no Redis connection is configured, <code>/commandprompter editor</code> reports that the web editor is disabled and the plugin otherwise behaves exactly as today.</p>
+
+<h2>2. System Architecture</h2>
+<ul>
+    <li><strong>CommandPrompter Paper Plugin (Java):</strong> Acts as a Redis client. On demand it serializes the in-memory <code>PresetRegistry</code> contents via <code>PresetGson</code>, pushes the JSON into a session key, and subscribes to a dedicated Pub/Sub channel to receive edited presets. Runs on Paper 1.21.4+ (API <code>26.1.2</code>) and is Folia-safe &mdash; all main-thread mutations are scheduled via the region/global scheduler.</li>
+    <li><strong>Central Redis Server:</strong> Stores temporary session states (Key-Value) and routes live updates (Pub/Sub). Entirely internal to the Docker network.</li>
+    <li><strong>Web Backend (Node.js/Python):</strong> A stateless API that bridges the SPA frontend with Redis. Exposes endpoints to retrieve a session and push mutations.</li>
+    <li><strong>Web Frontend (Vue.js/React SPA):</strong> Served behind Nginx. Parses the <code>presets.json</code> payload, renders a schema-driven form editor for the <code>prompts</code> and <code>post_commands</code> arrays, and renders a <strong>live in-game preview</strong> alongside each prompt form (see &sect;5).</li>
+</ul>
+
+<h3>2.1 End-to-End Sequence</h3>
+<pre class="mermaid">
+sequenceDiagram
+    participant Admin as Admin ingame
+    participant Plugin as CommandPrompter Plugin
+    participant Redis as Redis
+    participant Web as Web App
+    Admin->>Plugin: run commandprompter editor
+    Plugin->>Plugin: generate token and bind admin uuid
+    Plugin->>Redis: SETEX session key TTL 300
+    Plugin-->>Admin: private chat link with session token
+    Admin->>Web: open editor behind proxy auth
+    Web->>Redis: GET session key
+    Redis-->>Web: presets JSON
+    Web-->>Admin: render form and live preview
+    Admin->>Web: save and apply
+    Web->>Redis: SETEX session key new JSON
+    Web->>Redis: PUBLISH notify channel pending apply
+    Redis-->>Plugin: pubsub delivery
+    Plugin-->>Admin: show confirm prompt in game
+    Admin->>Plugin: confirm apply
+    Plugin->>Plugin: write presets.json and reload registry
+    Plugin->>Redis: DEL session key
+    Plugin-->>Admin: presets updated via web editor
+</pre>
+
+<h2>3. CommandPrompter Integration</h2>
+<p>The web editor is exposed as a new subcommand on the existing Brigadier <code>/commandprompter</code> tree (alias <code>/cmdp</code>), consistent with the commands documented in <code>docs/user/03-commands.md</code>.</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Surface</th>
+        <th>Value</th>
+        <th>Notes</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Command</td>
+        <td><code>/commandprompter editor</code> (<code>/cmdp editor</code>)</td>
+        <td>Player-only. Generates a session and prints a clickable chat link.</td>
+    </tr>
+    <tr>
+        <td>Permission</td>
+        <td><code>promptpaper.editor</code></td>
+        <td>New node, gated under the master <code>promptpaper.admin</code>. Registered in <code>paper-plugin.yml</code>.</td>
+    </tr>
+    <tr>
+        <td>Edited artifact</td>
+        <td><code>presets.json</code></td>
+        <td>Located at <code>&lt;plugin.getDataFolder()&gt;/presets.json</code> (i.e. <code>plugins/CommandPrompterPaper/presets.json</code>). Defined by <code>PresetRegistry.FILE_NAME</code>.</td>
+    </tr>
+    <tr>
+        <td>In-memory source</td>
+        <td><code>PresetRegistry</code></td>
+        <td>The single source of truth for preset lookups at runtime. The editor serializes its current contents; on apply, the plugin writes disk and calls <code>PresetRegistry.reload()</code>.</td>
+    </tr>
+    <tr>
+        <td>Serialization</td>
+        <td><code>PresetGson.presetGson()</code></td>
+        <td>Gson configured with <code>PromptDefinitionDeserializer</code> (the <code>type</code>-discriminator), pretty-printing, HTML-escaping disabled. The same instance is used for read and write so the round-trip is lossless.</td>
+    </tr>
+    <tr>
+        <td>Schema</td>
+        <td><code>PresetConfig</code> record</td>
+        <td>Root model: <code>prompts</code> (List&lt;PromptDefinition&gt;) and <code>post_commands</code> (List&lt;PostCommand&gt;). Either list may be absent and coerces to empty.</td>
+    </tr>
+    <tr>
+        <td>Prompt hierarchy</td>
+        <td><code>PromptDefinition</code></td>
+        <td>Subtypes: <code>ChatPrompt</code>, <code>AnvilPrompt</code>, <code>PlayerUiPrompt</code>, <code>SignPrompt</code>, <code>DialogPrompt</code>. Discriminated by the <code>type</code> field per <code>preset-configuration-spec.html</code>.</td>
+    </tr>
+    <tr>
+        <td>Tag resolution</td>
+        <td><code>&lt;@id&gt;</code> / <code>&lt;!@id&gt;</code></td>
+        <td>Prompt presets resolve via <code>PresetRegistry.getPrompt(id)</code>; post-commands via <code>getPostCommand(id)</code>. The editor must keep ids unique (the registry warns on duplicates, keeping the last).</td>
+    </tr>
+    <tr>
+        <td>Server identity</td>
+        <td><code>Server-Id</code> (new <code>config.yml</code> key)</td>
+        <td>Each Paper instance declares a unique, stable id (e.g. <code>survival-01</code>). It is the <strong>Pub/Sub routing key</strong> &mdash; the web backend reads it from the session payload to decide which <code>cmdp:notify:&lt;server_id&gt;</code> channel to publish to. <strong>Resolution (option C):</strong> if unset, the plugin generates a stable UUID once, persists it to <code>plugins/CommandPrompterPaper/.server-id</code>, and reuses it across restarts (warning on boot that the readable name is missing). This guarantees uniqueness and stability even when the admin does nothing, while still allowing a human-readable name when set. Two servers must never share a <code>Server-Id</code> &mdash; doing so makes both subscribe to the same channel and silently overwrite each other's presets.</td>
+    </tr>
+    <tr>
+        <td>Redis connection</td>
+        <td>New <code>Redis</code> section in <code>config.yml</code></td>
+        <td><code>host</code>, <code>port</code>, <code>password</code>, <code>enabled</code>. When <code>enabled: false</code> (default), the editor subcommand is a no-op and no Redis client is started.</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="note">
+    <strong>Module boundary:</strong> The Redis client, session serializer, and Pub/Sub listener belong in <code>prompt-paper</code> (Paper-specific, game-thread aware). <code>prompt-core</code> must remain agnostic of Redis and of Bukkit/Paper components, preserving the existing module split described in <code>preset-configuration-spec.html</code>.
+</div>
+
+<h2>4. Redis Data Structures &amp; Namespaces</h2>
+<p>Redis is used for Session Storage and Event Routing. All keys and channels share a <code>cmdp:</code> prefix to avoid collisions with other plugins or services on the shared Redis instance. Per-server isolation is enforced by embedding the <code>Server-Id</code> in the Pub/Sub channel name.</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Redis Key / Channel</th>
+        <th>Type</th>
+        <th>Purpose &amp; TTL</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>cmdp:session:&lt;token&gt;</code></td>
+        <td>String (JSON)</td>
+        <td>Stores the active <code>presets.json</code> snapshot, its associated <code>Server-Id</code>, and the <code>initiated_by</code> admin UUID. <strong>TTL: 300s (5 minutes, idle)</strong> &mdash; refreshed on each save; deleted on successful apply (single-use).</td>
+    </tr>
+    <tr>
+        <td><code>cmdp:notify:&lt;server_id&gt;</code></td>
+        <td>Pub/Sub Channel</td>
+        <td>The dedicated channel the specific Paper server subscribes to on boot for live preset updates.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>Identifier Roles: Token vs Server-Id</h3>
+<p>The system uses two distinct identifiers with separate jobs. Confusing them breaks either security or routing.</p>
+<table>
+    <thead>
+    <tr><th>Identifier</th><th>Identifies</th><th>Lifetime</th><th>Where it lives</th><th>Job</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><strong>Token</strong></td>
+        <td>The edit <em>session</em> (one edit transaction)</td>
+        <td>Per-session; expires with the 300s idle TTL; deleted on successful apply (single-use)</td>
+        <td>Redis key <code>cmdp:session:&lt;token&gt;</code> and the <code>?session=</code> URL param</td>
+        <td>Opaque lookup handle. The web backend uses it to <code>GET</code> the session payload. Carries no routing info &mdash; it must be cryptographically random to resist brute-forcing, so routing can't be encoded into it.</td>
+    </tr>
+    <tr>
+        <td><strong>Server-Id</strong></td>
+        <td>The <em>destination</em> Minecraft server</td>
+        <td>Stable, per-server; persists across restarts</td>
+        <td>Inside the session payload (<code>server_id</code> field) and the Pub/Sub channel name <code>cmdp:notify:&lt;server_id&gt;</code></td>
+        <td>Pub/Sub routing key. The stateless web backend reads it from the payload it just fetched with the token, then publishes to <code>cmdp:notify:&lt;server_id&gt;</code>. Only the server subscribed to that channel receives the update.</td>
+    </tr>
+    </tbody>
+</table>
+<p>The routing chain is: <strong>token</strong> (in URL) &rarr; <code>GET</code> session &rarr; read <strong>server_id</strong> from payload &rarr; <code>PUBLISH cmdp:notify:&lt;server_id&gt;</code>. The token fetches; the server-id routes. The stateless backend design depends on having both &mdash; the token alone can't tell the backend where to publish.</p>
+<div class="note">
+    <strong>Why not one global channel?</strong> A single <code>cmdp:notify</code> channel that every server subscribes to (filtering by a field in the message) would break isolation at the transport layer: every server would receive and parse every edit from every other server. Per-server channels make isolation architectural &mdash; server A cannot receive server B's edit because A never subscribed to B's channel.
+</div>
+
+<h3>Example Session Payload (Value of <code>cmdp:session:xY7v9Pq2Lz5aB1cW</code>)</h3>
+<p>The <code>presets</code> object is exactly the <code>PresetConfig</code> structure &mdash; the same document that lives in <code>presets.json</code> on disk. The frontend validates and renders it against the JSON schema in <code>preset-configuration-spec.html</code> (&sect;9). The example below is a trimmed version of the canonical example in that spec.</p>
+<pre><code>{
+  "server_id": "survival-01",
+  "initiated_by": "f5a3e2c1-...",
+  "plugin_version": "3.0.0",
+  "generated_at": 1718582400,
+  "presets": {
+    "prompts": [
+      {
+        "type": "chat",
+        "id": "reason_prompt",
+        "prompt_text": "Please enter a reason:",
+        "sanitize": true,
+        "cancel": {
+          "send": true,
+          "message": "Cancelled reason input.",
+          "clickable": false,
+          "hover_message": "Action aborted"
+        }
+      },
+      {
+        "type": "anvil",
+        "id": "rename_item_prompt",
+        "title": "Rename your item",
+        "prompt_text": "New Name",
+        "sanitize": false,
+        "left_button": {
+          "show": true,
+          "button_text": "Cancel",
+          "button_icon": "BARRIER",
+          "button_hover_text": "Click to cancel",
+          "custom_model_data": 0
+        },
+        "right_button": {
+          "show": true,
+          "button_text": "Confirm",
+          "button_icon": "PAPER",
+          "button_hover_text": "Click to confirm",
+          "custom_model_data": 0
+        }
+      },
+      {
+        "type": "dialog",
+        "id": "ban_form",
+        "title": "Ban Player",
+        "sanitize": true,
+        "base": {
+          "body": [
+            { "type": "plain_message", "content": "Select a reason and duration:" }
+          ],
+          "inputs": [
+            { "label": "Reason", "input_type": "choice", "constraints": ["Hacking", "Spam", "Toxicity"] },
+            { "label": "Duration (Days)", "input_type": "number", "constraints": [1, 365] }
+          ]
+        },
+        "dialog_type": {
+          "type": "confirmation",
+          "confirm_action": { "label": "Confirm Ban" },
+          "cancel_action": { "label": "Cancel" }
+        }
+      }
+    ],
+    "post_commands": [
+      {
+        "id": "log_reason",
+        "command": "discord broadcast {player} punished {input:1} for: {input:2}",
+        "execution_policy": "on_complete",
+        "execute_as": "console"
+      }
+    ]
+  }
+}</code></pre>
+
+<div class="warning">
+    <strong>Validation before apply:</strong> The Web Backend must validate the mutated document against the official JSON schema (<code>preset-configuration-spec.html</code> &sect;9) before publishing. Invalid documents are rejected with a 400 and a field-level error list, so a malformed edit never reaches the game server. This mirrors the plugin's own fail-fast behavior for unresolved tags (&sect;6.4 of the preset spec).
+</div>
+
+<h2>5. Live In-Game Preview</h2>
+<p>The defining feature of the editor is a <strong>live preview</strong> rendered next to each prompt form. As the admin edits fields, the preview updates in real time to show exactly what the player will see in-game. The preview is a faithful HTML/CSS mock of the Minecraft client UI &mdash; it is <em>not</em> a live connection to the server. It reuses the same field values the form is editing, so what you see is what the Prompt Factory will produce.</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Prompt <code>type</code></th>
+        <th>Preview rendering</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>chat</code></td>
+        <td>A Minecraft chat-window mock. Shows <code>prompt_text</code> as an incoming chat message. Renders the clickable cancel control (<code>cancel.message</code>, e.g. <code>[&c&l✘]</code>) with its <code>hover_message</code> tooltip, and a simulated player input line. Reflects <code>cancel.clickable</code> and <code>cancel.send</code>.</td>
+    </tr>
+    <tr>
+        <td><code>anvil</code></td>
+        <td>An Anvil GUI mock: a 3-slot inventory row (left input, right input, result). The left slot renders the <code>left_button.button_icon</code> material with <code>button_text</code> as the item name; the right slot renders <code>right_button</code> the same way. The title bar shows <code>title</code>; the rename text field shows <code>prompt_text</code>. Honors each button's <code>show</code> flag and <code>custom_model_data</code> (rendered as a tooltip tag).</td>
+    </tr>
+    <tr>
+        <td><code>sign</code></td>
+        <td>A Sign GUI mock: a sign texture with 4 lines. <code>default_lines</code> are pre-filled on the sign; <code>prompt_text</code> is shown as the instruction message above the sign. Editing a <code>default_lines</code> entry re-renders the corresponding sign line immediately.</td>
+    </tr>
+    <tr>
+        <td><code>dialog</code></td>
+        <td>A Paper Dialog window mock. Renders the <code>title</code> in the title bar, <code>base.body</code> entries (plain messages as text, <code>item</code> bodies as material icons), and one input row per <code>base.inputs</code> entry: <code>text</code> as a text field (with multiline hint), <code>number</code> as a slider bounded by <code>constraints</code>, <code>choice</code> as a dropdown of <code>constraints</code>. The action area reflects <code>dialog_type</code>: <code>confirmation</code> shows <code>confirm_action</code>/<code>cancel_action</code> buttons; <code>multi_action</code> shows the action button grid (or a tab-completion placeholder when <code>actions_source</code> is <code>tab_completion</code>).</td>
+    </tr>
+    <tr>
+        <td><code>player_ui</code></td>
+        <td>A chest-GUI mock sized to the configured <code>PlayerUI.Size</code>. Renders a paginated grid of player-head items using <code>Skull-Name-Format</code>, with the <code>cancel_button</code>, <code>previous_button</code>, and <code>next_button</code> control items placed at their <code>slot</code> positions (icons from <code>button_icon</code>, labels from <code>button_text</code>). The title shows <code>prompt_text</code>.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>5.1 Post-Command Preview</h3>
+<p>Post-commands have no visual in-game UI, so their preview is a <strong>resolved-command card</strong>: for each <code>post_command</code>, the editor shows the <code>command</code> string with session-scope placeholders (<code>{input:1}</code>, <code>{input:2}</code>, <code>{player}</code>) highlighted as chips, plus badges for <code>execution_policy</code> (<code>on_complete</code> / <code>on_cancel</code>), <code>execute_as</code> (<code>console</code> / <code>player</code>), and <code>delay_ticks</code>. This mirrors the placeholder semantics in &sect;6.2 of <code>preset-configuration-spec.html</code>.</p>
+<div class="warning">
+    <strong>Severity:</strong> A <code>post_command</code> with <code>execute_as: console</code> runs as the server console with <code>{input}</code> substitution. This is the highest-impact field in the editor &mdash; a compromised session can inject arbitrary console commands (e.g. <code>op &lt;attacker&gt;</code>, <code>stop</code>). The preview card renders <code>execute_as: console</code> commands with a red warning badge so the admin sees the blast radius at a glance. This severity is the reason the in-game confirmation gate (&sect;7.2, mitigation 1) is mandatory.
+</div>
+
+<h3>5.2 Material &amp; Color Rendering</h3>
+<ul>
+    <li><strong>Materials:</strong> <code>button_icon</code> / <code>material</code> strings map to Minecraft item textures via a bundled sprite atlas (or a headless item-render service). Invalid materials fall back to <code>PAPER</code> and show a warning badge, matching the plugin's factory fallback (&sect;6.3 of the preset spec).</li>
+    <li><strong>Color &amp; formatting:</strong> <code>prompt_text</code>, button labels, and body content may contain legacy ampersand codes (<code>&amp;c</code>) and MiniMessage tags (<code>&lt;red&gt;...&lt;/red&gt;</code>). The preview parses both and renders them as styled HTML so the admin sees true colors and gradients.</li>
+</ul>
+
+<h2>6. Sequence of Operations</h2>
+
+<div class="sequence-step">
+    <h3>Phase 1: Session Initiation (In-Game)</h3>
+    <p>The administrator logs into a specific backend server (e.g., $S_1$ with <code>Server-Id: survival-01</code>) and initiates the flow.</p>
+    <ol>
+        <li>Admin types <code>/commandprompter editor</code> (or <code>/cmdp editor</code>) in chat. The command requires <code>promptpaper.editor</code>.</li>
+        <li>If Redis is disabled in <code>config.yml</code>, the plugin short-circuits with <em>"Web editor is disabled (Redis not configured)."</em> and stops.</li>
+        <li>The plugin generates a cryptographically secure, 16-character alphanumeric token (e.g., <code>xY7v9Pq2Lz5aB1cW</code>) and binds the initiating admin's Minecraft UUID into the session payload as <code>initiated_by</code> (used for audit and in-game confirmation routing).</li>
+        <li>The plugin serializes the current in-memory <code>PresetRegistry</code> contents into a <code>PresetConfig</code> document using <code>PresetGson.presetGson()</code>. This is the single source of truth &mdash; disk is not re-read, so unsaved in-memory state is what the admin edits.</li>
+        <li>The plugin executes a Redis command to store the session: <br>
+            <code>SETEX cmdp:session:xY7v9Pq2Lz5aB1cW 300 '{"server_id": "survival-01", "initiated_by": "&lt;uuid&gt;", "presets": {...}}'</code>
+        </li>
+        <li>The plugin outputs a clickable URL to the admin as a <strong>private message</strong> (never broadcast to other players): <br>
+            <code>https://config.cyr1en.dev/editor?session=xY7v9Pq2Lz5aB1cW</code>
+        </li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 2: Frontend Loading &amp; State Hydration</h3>
+    <p>The administrator clicks the link and opens the web application.</p>
+    <ol>
+        <li>The SPA reads the <code>?session=</code> query parameter from the URL.</li>
+        <li>Frontend makes a REST/HTTP GET request to the Web Backend: <code>GET /api/session/xY7v9Pq2Lz5aB1cW</code>.</li>
+        <li>Web Backend queries Redis: <code>GET cmdp:session:xY7v9Pq2Lz5aB1cW</code>.</li>
+        <li>If the key exists, the backend returns the JSON to the frontend. If it is expired/missing, it returns a 404 (Session Expired).</li>
+        <li>The frontend validates the <code>presets</code> object against the official JSON schema, then renders a two-pane editor: a schema-driven form on the left (one section per prompt in <code>prompts</code>, one per entry in <code>post_commands</code>, with add/remove/reorder controls), and the live in-game preview on the right (per &sect;5).</li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 3: Live Editing &amp; Staging a Pending Apply</h3>
+    <p>The administrator modifies the presets in the browser and stages the changes. The web backend does <strong>not</strong> force the edit onto disk &mdash; it publishes a <em>pending</em> apply that the admin must confirm in-game (Phase 4). This is the core anti-hijack control: an attacker holding only the token can stage a payload in Redis but cannot force it onto disk without the admin's authenticated Minecraft session.</p>
+    <ol>
+        <li>As the admin edits any field, the live preview re-renders immediately (debounced). The frontend validates continuously against the schema and disables "Save &amp; Apply" while errors are present.</li>
+        <li>Admin clicks "Save &amp; Apply". Frontend makes an HTTP POST/PUT request to the Web Backend with the mutated document: <br>
+            <code>POST /api/session/xY7v9Pq2Lz5aB1cW/apply</code>
+        </li>
+        <li>Web Backend re-validates the document against the JSON schema. On failure it returns 400 with field-level errors and does not touch Redis.</li>
+        <li>Web Backend fetches the session from Redis to verify validity and extract the target <code>server_id</code> and <code>initiated_by</code>.</li>
+        <li>Web Backend updates the Redis session key with the new state (refreshing the TTL so an active editing session does not expire mid-edit):<br>
+            <code>SETEX cmdp:session:xY7v9Pq2Lz5aB1cW 300 '&lt;new_json&gt;'</code>
+        </li>
+        <li>Web Backend publishes a <strong>pending apply</strong> to the game server via Pub/Sub. The message includes the <code>initiated_by</code> UUID so the plugin knows which player to prompt for confirmation:<br>
+            <code>PUBLISH cmdp:notify:survival-01 '{"pending": true, "initiated_by": "&lt;uuid&gt;", "presets": {...}}'</code>
+        </li>
+        <li>The frontend transitions to an "Awaiting in-game confirmation" state and may poll <code>GET /api/session/xY7v9Pq2Lz5aB1cW/status</code> for the outcome.</li>
+    </ol>
+</div>
+
+<div class="sequence-step">
+    <h3>Phase 4: In-Game Confirmation &amp; Hot-Reload</h3>
+    <p>The Paper server gates the disk write behind an in-game confirmation. This is the second factor &mdash; the already-authenticated Minecraft session &mdash; that closes the hijack-to-RCE gap. The confirm is delivered on the server being edited; the audience is the <code>initiated_by</code> player if present, falling back to any online player with <code>promptpaper.editor</code> on that server (see &sect;7.4 for the full edge-case matrix).</p>
+    <ol>
+        <li>Because <code>survival-01</code> subscribed to <code>cmdp:notify:survival-01</code> on boot, its Redis listener thread instantly receives the pending-apply message.</li>
+        <li>The plugin parses the JSON on an asynchronous thread and validates it with <code>PresetGson.presetGson()</code> into a <code>PresetConfig</code>. If parsing fails, the plugin logs a severe warning, leaves the existing <code>PresetRegistry</code> cache intact, and notifies the admin &mdash; the server is never left without presets.</li>
+        <li>The plugin stores the pending apply in memory with a <strong>pending TTL of 300s</strong> (separate from the session TTL) and resolves the confirm audience: first the <code>initiated_by</code> player if online on <code>survival-01</code>; otherwise any online player on <code>survival-01</code> holding <code>promptpaper.editor</code>. If no qualifying player is online, the pending apply is <strong>held</strong> (not dropped) and re-delivered on the next qualifying <code>PlayerJoinEvent</code>, until the pending TTL expires.</li>
+        <li>The plugin shows a confirmation prompt to the resolved audience. The prompt is a <strong>hardcoded chat/dialog primitive, not a CommandPrompter preset</strong> &mdash; so it renders even if <code>presets.json</code> is corrupted, which is exactly when a careful confirm matters most: <em>"Web editor wants to apply N changed presets &mdash; [Confirm] [Cancel]"</em>.</li>
+        <li>If nobody confirms within the pending TTL, the pending apply is dropped. No disk write occurs. The session-status endpoint reports "confirmation timed out."</li>
+        <li>On confirm, the plugin <strong>re-checks <code>promptpaper.editor</code></strong> at click time (in case it was revoked since session creation), records the confirmer's UUID as <code>confirmed_by</code> in the audit log (separate from <code>initiated_by</code>), then writes the JSON to <code>plugins/CommandPrompterPaper/presets.json</code> on disk and calls <code>PresetRegistry.reload()</code>. <code>reload()</code> re-reads the file, rebuilds the immutable prompt and post-command maps keyed by <code>id</code>, and atomically swaps them in via the <code>volatile</code> reference.</li>
+        <li>The plugin deletes the Redis session key (single-use apply &mdash; the token is now dead, preventing replay): <code>DEL cmdp:session:xY7v9Pq2Lz5aB1cW</code>.</li>
+        <li>The disk write and cache swap are dispatched on the appropriate Folia scheduler (region/global); the Redis listener never mutates shared plugin state directly from its IO thread.</li>
+        <li>The plugin sends a success message to the confirmer: <em>"Presets updated via Web Editor."</em> The session-status endpoint reflects success so the browser can update.</li>
+    </ol>
+</div>
+
+<h2>7. Security &amp; Edge Cases</h2>
+
+<h3>7.1 Threat Model</h3>
+<p>The web backend is <strong>stateless</strong>, has no user accounts, and is publicly exposed via Nginx. The endpoint <code>POST /api/session/&lt;token&gt;/apply</code> is reachable by anyone on the internet; the <strong>only</strong> gate is knowledge of a valid session token. The security model is therefore "knowledge of the token = edit access," and the real threats are <strong>token leakage</strong>, not brute-forcing.</p>
+
+<table>
+    <thead>
+    <tr><th>Threat</th><th>Status</th><th>Detail</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Token brute-forcing</td>
+        <td>Solved</td>
+        <td>62<sup>16</sup> &asymp; 4.7&times;10<sup>28</sup> possibilities. Infeasible to guess. No real attacker attempts this.</td>
+    </tr>
+    <tr>
+        <td>Token in transit</td>
+        <td>Solved</td>
+        <td>HTTPS encrypts the token between browser and web backend.</td>
+    </tr>
+    <tr>
+        <td>Token leaked via URL</td>
+        <td>Mitigated (&sect;7.2)</td>
+        <td>URLs leak into browser history, web-backend access logs, and <code>Referer</code> headers on external asset loads (e.g. CDN scripts). HTTPS does not protect the token at these endpoints.</td>
+    </tr>
+    <tr>
+        <td>Token leaked via in-game chat</td>
+        <td>Mitigated (&sect;7.2)</td>
+        <td>If the editor link is broadcast (not sent privately), any online player can click it. If the server logs chat, the token is on disk in the chat log.</td>
+    </tr>
+    <tr>
+        <td>No binding to the admin</td>
+        <td>Mitigated (&sect;7.2)</td>
+        <td>The token is not tied to the Minecraft player who ran <code>/commandprompter editor</code>. Without a second factor, the backend cannot distinguish the legitimate admin from an attacker holding a leaked token.</td>
+    </tr>
+    <tr>
+        <td>Replay of a leaked token</td>
+        <td>Mitigated (&sect;7.2)</td>
+        <td>A leaked token was valid for 3600s &mdash; ample time to stage malicious edits. Single-use apply closes this.</td>
+    </tr>
+    <tr>
+        <td>Blast radius: RCE via post-commands</td>
+        <td>Mitigated (&sect;7.2)</td>
+        <td>Presets include <code>post_commands</code> with <code>execute_as: console</code> and <code>{input}</code> substitution. A compromised editor is not just "changed prompt text" &mdash; it is <strong>arbitrary console command execution</strong> on the game server. This severity is what makes the thin auth model a real problem, not a theoretical one.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>7.2 Mitigations</h3>
+<p>The baseline security stack. Mitigations 1 and 3 are baked into the apply flow (Phase 3/4); 2, 4, and 5 are deployment and implementation controls.</p>
+
+<table>
+    <thead>
+    <tr><th>#</th><th>Mitigation</th><th>How</th><th>Where</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>1</td>
+        <td><strong>In-game confirmation (second factor)</strong></td>
+        <td>On "Save &amp; Apply," the web backend publishes a <em>pending</em> apply, not a direct one. The plugin shows an in-game confirm prompt (<em>"Apply N changed presets &mdash; [Confirm] [Cancel]"</em>) on the server being edited. Audience: the <code>initiated_by</code> player if present, else any online <code>promptpaper.editor</code> holder on that server (&sect;7.4). Only the in-game click writes disk + reloads. Uses the already-authenticated Minecraft session as the second channel &mdash; an attacker with only the token can stage a payload in Redis but <strong>cannot force it onto disk</strong> without a qualifying game session. <code>confirmed_by</code> is logged separately from <code>initiated_by</code>.</td>
+        <td>Phase 3/4 flow</td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td><strong>Proxy-level auth (the real auth layer)</strong></td>
+        <td>The token is a <em>session handle</em>, not an <em>auth credential</em>. Put real auth in front of the web backend &mdash; Nginx Proxy Manager access lists, basic auth, or Cloudflare Access. The editor URL is then protected by something the attacker doesn't have, independent of the token. Correct separation: token = "which edit session," proxy auth = "are you allowed to edit at all."</td>
+        <td>Deployment (Nginx / Cloudflare)</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td><strong>Single-use apply + shorter TTL</strong></td>
+        <td>A successful apply deletes the session key (<code>DEL cmdp:session:&lt;token&gt;</code>), forcing re-initiation for the next edit &mdash; a leaked token is dead after one use. TTL reduced from 3600s to 300s (idle); the TTL refreshes on each save, so an active editing session stays alive while an idle leaked token expires in 5 minutes.</td>
+        <td>Phase 1/3/4 flow</td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td><strong>Leakage-path reduction</strong></td>
+        <td>Send the editor link as a <strong>private message</strong> to the admin only, never broadcast. Strip <code>?session=</code> from the web backend's access logs. Set <code>Referrer-Policy: no-referrer</code> on the SPA so the token never leaks via <code>Referer</code> to external assets (CDN scripts, fonts).</td>
+        <td>Plugin (chat send) + Web Backend (log config) + SPA (header)</td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td><strong>Audit trail</strong></td>
+        <td>Bind <code>initiated_by</code> (admin UUID) into the session payload at creation. Log every apply with timestamp, <code>server_id</code>, and <code>initiated_by</code>. Provides a forensic trail if a compromise occurs.</td>
+        <td>Session payload + plugin log</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="warning">
+    <strong>Severity note &mdash; RCE via post-commands:</strong> A <code>post_command</code> with <code>execute_as: console</code> runs as the server console with <code>{input}</code> substitution. A bad actor who hijacks a session can inject a preset whose post-command is <code>op &lt;attacker&gt;</code> or <code>stop</code>. Mitigation 1 (in-game confirm) is the control that prevents a staged payload from ever reaching disk, because the admin sees the pending changes and can refuse. This is why the confirm step is mandatory, not optional.
+</div>
+
+<h3>7.3 Edge Cases</h3>
+<ul>
+    <li><strong>Automatic Expiration:</strong> Redis handles session cleanup natively via the <code>SETEX</code> TTL. Dead sessions leave zero footprint on the system.</li>
+    <li><strong>Server Isolation:</strong> Because $S_0$ is only subscribed to <code>cmdp:notify:&lt;S_0's Server-Id&gt;</code>, it is architecturally impossible for a session spawned by $S_1$ to accidentally overwrite $S_0$'s presets.</li>
+    <li><strong>Plugin Reboots:</strong> If the game server crashes while the admin is editing, the Pub/Sub message will be lost. To mitigate this, the plugin should <code>SCAN</code> over <code>cmdp:session:*</code> (or maintain an index set) on startup, fetching the latest presets associated with its <code>Server-Id</code> if a live session exists. <code>KEYS</code> is avoided in favor of <code>SCAN</code> to keep Redis non-blocking.</li>
+    <li><strong>Failed Reload Safety:</strong> <code>PresetRegistry.reload()</code> throws <code>PresetLoadException</code> on I/O or parse failure and preserves the previous cache. The editor's apply path surfaces this via the session-status endpoint so the admin knows the edit did not take effect.</li>
+    <li><strong>Duplicate IDs:</strong> The registry warns on duplicate prompt/post-command ids and keeps the last definition. The frontend warns on duplicate ids during editing, before apply, to prevent silent shadowing.</li>
+    <li><strong>Folia Thread Safety:</strong> All disk writes and cache swaps that touch game state are scheduled through the Paper/Folia schedulers; the Redis listener must never mutate shared plugin state directly from its IO thread.</li>
+    <li><strong>Concurrent Edits:</strong> If two admins open the same server's session, the last <code>SETEX</code> wins. For multi-admin workflows, each admin should generate their own session.</li>
+    <li><strong>Offline / Absent Initiator:</strong> If the <code>initiated_by</code> player is offline or on another backend when the pending apply arrives, the apply is <strong>held</strong> (not dropped) and re-delivered on the next qualifying <code>PlayerJoinEvent</code>, until the pending TTL expires. See &sect;7.4 for the full matrix.</li>
+</ul>
+
+<h3>7.4 Confirmation Gate Edge Cases</h3>
+<p>Mitigation 1 routes the confirm prompt to a specific audience. The cases below enumerate what goes wrong with that routing and how the design handles each. The guiding rule: <strong>never silently drop staged work</strong>, and <strong>never let a confirm reach disk without a live <code>promptpaper.editor</code> holder on the server being edited</strong>.</p>
+
+<table>
+    <thead>
+    <tr><th>Case</th><th>What happens</th><th>Handling</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Initiator disconnects before confirm</td>
+        <td>Admin staged edits, clicked Save &amp; Apply, then alt-tabbed or lost connection. <code>initiated_by</code> player is offline on the target server.</td>
+        <td>Pending apply is <strong>held</strong> with its 300s pending TTL (not dropped). On the initiator's reconnect (<code>PlayerJoinEvent</code>), if the TTL hasn't expired, the confirm prompt is re-delivered. If any other <code>promptpaper.editor</code> holder is online on the target server, they may confirm in the meantime (delegation).</td>
+    </tr>
+    <tr>
+        <td>Initiator disconnects during confirm</td>
+        <td>Admin saw the prompt, then dropped before clicking.</td>
+        <td>Same as above &mdash; held and re-delivered on reconnect, or confirmable by another editor. The 300s pending TTL bounds the wait.</td>
+    </tr>
+    <tr>
+        <td>Initiator on a different backend (proxied fleet)</td>
+        <td>Fleet is BungeeCord/Velocity-proxied. Admin ran <code>/commandprompter editor</code> on <code>survival-01</code> but is now playing on <code>creative-02</code>. <code>Bukkit.getPlayer(uuid)</code> on <code>survival-01</code> returns null &mdash; the confirm can't reach them there.</td>
+        <td>Confirm is delivered on the <strong>server being edited</strong> (where the disk write happens). The initiator must join <code>survival-01</code> to confirm, or any <code>promptpaper.editor</code> holder on <code>survival-01</code> may confirm. Cross-server confirm routing (plugin messaging channels) is out of scope (&sect;8).</td>
+    </tr>
+    <tr>
+        <td>No qualifying player online</td>
+        <td>Initiator is offline and no other <code>promptpaper.editor</code> holder is on the target server.</td>
+        <td>Pending apply is held until a qualifying player joins or the pending TTL expires. Status endpoint reports "awaiting confirmation, no eligible player online."</td>
+    </tr>
+    <tr>
+        <td>Multiple pending applies (same session)</td>
+        <td>Admin clicks Save &amp; Apply, edits more, clicks Save &amp; Apply again before confirming the first.</td>
+        <td>One in-flight pending apply per server. The second <code>/apply</code> supersedes: the plugin cancels the first confirm prompt and shows the latest. The session key's <code>SETEX</code> already reflects the newest presets, so no stale apply can land.</td>
+    </tr>
+    <tr>
+        <td>Permission revoked between create and confirm</td>
+        <td>Admin had <code>promptpaper.editor</code> when running <code>/commandprompter editor</code>, but a higher admin revoked it before the confirm click.</td>
+        <td>The plugin <strong>re-checks <code>promptpaper.editor</code> at confirm-click time</strong>, not just at session creation. If revoked, the confirm is denied with <em>"You no longer have permission to confirm edits."</em> and the pending apply remains for another eligible holder.</td>
+    </tr>
+    <tr>
+        <td>Confirm prompt vs. corrupted presets</td>
+        <td>The pending edit itself broke <code>presets.json</code> (or it was already broken). Using a CommandPrompter preset to render the confirm would be circular and could fail.</td>
+        <td>The confirm prompt is a <strong>hardcoded chat/dialog primitive</strong>, never a preset. It renders independently of <code>PresetRegistry</code> state, so the admin can always review and refuse a bad edit &mdash; including one that corrupted the preset system.</td>
+    </tr>
+    <tr>
+        <td>Server restart mid-pending</td>
+        <td>The target server crashes/restarts while a pending apply is in flight. Pub/Sub is fire-and-forget, so the message is lost.</td>
+        <td>On reboot, the SCAN recovery (&sect;7.3 "Plugin Reboots") finds the session. If the session carries a pending-apply flag, the plugin re-triggers the confirm flow once a qualifying player is online. The session TTL bounds how long the rebooted apply survives.</td>
+    </tr>
+    <tr>
+        <td>Confirm-prompt spam</td>
+        <td>A malicious <code>promptpaper.editor</code> holder spams <code>/commandprompter editor</code> + Save &amp; Apply to flood another admin's chat with confirm prompts.</td>
+        <td>One in-flight pending apply per server at a time &mdash; a new apply replaces (and cancels) the previous prompt, so there is never more than one confirm prompt outstanding per server. Session creation can additionally be rate-limited per player.</td>
+    </tr>
+    <tr>
+        <td>Initiator in an active prompt session</td>
+        <td>The initiator is mid-way through another CommandPrompter prompt when the confirm arrives.</td>
+        <td>The confirm is a primitive chat click, not a CommandPrompter prompt session, so it does not enter the prompt-session state machine and does not conflict with the active session. The reload (which <em>does</em> cancel active sessions) only happens <em>after</em> a confirm click, by which point the initiator chose to proceed.</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="note">
+    <strong>Audit fields:</strong> <code>initiated_by</code> (who ran <code>/commandprompter editor</code>) and <code>confirmed_by</code> (who clicked confirm) are logged separately. When they differ, the log shows a delegation &mdash; useful for forensic review and for the case where the initiator was unavailable and another editor confirmed on their behalf.
+</div>
+
+<h2>8. Out of Scope</h2>
+<ul>
+    <li><strong><code>config.yml</code> / <code>prompt-config.yml</code> editing:</strong> This editor is scoped to <code>presets.json</code> only. The plugin's own runtime settings (timeouts, prefixes, UI materials, screen mappings, input-validation aliases) continue to be edited on disk and applied via <code>/commandprompter reload</code>. A future revision may extend the session payload to cover these files.</li>
+    <li><strong>Locale <code>.properties</code> files:</strong> Internationalization bundles (see <code>2026-06-15-i18n-system-design.md</code>) are not edited here; they continue to be managed on disk under <code>plugins/CommandPrompterPaper/locales/</code>.</li>
+    <li><strong>Live Minecraft connection:</strong> The preview is a static HTML/CSS mock rendered from the form state. It does not connect to a running server or render real player heads for the <code>player_ui</code> preview (sample heads are used).</li>
+    <li><strong>Permission enforcement per preset:</strong> Per <code>preset-configuration-spec.html</code>, presets do not carry per-prompt permission nodes. Permissions are enforced on the root command that triggers the prompt flow, not in the editor.</li>
+    <li><strong>Cross-server confirm routing:</strong> The confirm prompt is delivered on the server being edited. Routing a confirm to an initiator who is online on a <em>different</em> backend (via BungeeCord/Velocity plugin messaging or a second Redis round-trip) is out of scope. The initiator must join the target server to confirm, or another editor on the target server confirms.</li>
+</ul>
+
+<h2>9. Implementation Strategy</h2>
+
+<h3>9.1 Repository Layout</h3>
+<p>Two repositories, split at the schema contract boundary. The plugin repo is the schema source of truth; the web repo consumes it as a versioned artifact. Build, CI, and release cadence are independent.</p>
+
+<table>
+    <thead>
+    <tr><th>Repo</th><th>Contents</th><th>Build</th><th>Deploy</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>CyR1en/CommandPrompter</code> <br><em>(existing)</em></td>
+        <td>Plugin Java/Gradle modules + <code>schema/presets.schema.json</code> (source of truth)</td>
+        <td>Gradle shadow JAR</td>
+        <td>Jenkins CI &rarr; plugin JAR</td>
+    </tr>
+    <tr>
+        <td><code>CyR1en/CommandPrompter-web</code> <br><em>(new)</em></td>
+        <td>Backend + frontend web monorepo</td>
+        <td>pnpm workspaces + turborepo</td>
+        <td>Docker image via GitHub Actions</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>9.2 Schema Contract</h3>
+<p><code>schema/presets.schema.json</code> already exists in the plugin repo (extracted from <code>preset-configuration-spec.html</code> &sect;9). It is the machine-readable contract that keeps the two repos in sync. The plugin's <code>PresetGson</code> + <code>PromptDefinitionDeserializer</code> implement it; the web repo's <code>packages/schema</code> consumes it.</p>
+
+<pre class="mermaid">
+flowchart TD
+    subgraph Plugin["Plugin Repo"]
+        Schema["presets schema json"]
+        Gson["PresetGson"]
+        Redis["Redis module"]
+    end
+    subgraph Web["Web Repo"]
+        Pkg["packages schema"]
+        Backend["apps backend"]
+        Frontend["apps frontend"]
+    end
+    Schema -->|"release artifact"| Pkg
+    Pkg -->|"types and validation"| Backend
+    Pkg -->|"types and form defs"| Frontend
+    Gson -.->|"implements"| Schema
+    Redis -->|"Redis bridge"| Backend
+</pre>
+
+<p><strong>Sync mechanism:</strong> plugin repo tags a release &rarr; schema published as a raw GitHub release asset &rarr; web repo pins the version in <code>packages/schema</code> &rarr; TS types generated via <code>json-schema-to-typescript</code> &rarr; backend uses them for <code>ajv</code> validation, frontend uses them for form rendering. A schema bump = plugin release + web repo version bump. No implicit drift.</p>
+
+<h3>9.3 Plugin Repo Changes</h3>
+<p>All new code lands in <code>prompt-paper</code>. <code>prompt-core</code> stays untouched &mdash; no Redis, no Bukkit dependencies (per the module boundary in &sect;3).</p>
+
+<table>
+    <thead>
+    <tr><th>Change</th><th>Location</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>Redis client</td>
+        <td><code>prompt-paper</code> (new package)</td>
+        <td>Lettuce or Jedis. Connection pool, Pub/Sub subscriber, async commands. Gated by <code>Redis.enabled</code> in <code>config.yml</code>.</td>
+    </tr>
+    <tr>
+        <td>New config keys</td>
+        <td><code>CommandPrompterConfig.java</code></td>
+        <td><code>Server-Id</code> and <code>Redis</code> section (<code>host</code>, <code>port</code>, <code>password</code>, <code>enabled</code>) as <code>@ConfigNode</code> fields.</td>
+    </tr>
+    <tr>
+        <td>Editor command</td>
+        <td><code>prompt-paper</code> Brigadier tree</td>
+        <td><code>/commandprompter editor</code> subcommand; <code>promptpaper.editor</code> permission registered in <code>paper-plugin.yml</code>.</td>
+    </tr>
+    <tr>
+        <td>Pub/Sub listener</td>
+        <td><code>prompt-paper</code></td>
+        <td>Subscribes to <code>cmdp:notify:&lt;server-id&gt;</code> on boot. Callbacks dispatched via Folia region/global scheduler; never mutates shared state on the IO thread.</td>
+    </tr>
+    <tr>
+        <td>Confirm primitive</td>
+        <td><code>prompt-paper</code></td>
+        <td>Hardcoded chat/dialog click handler &mdash; not a preset (&sect;7.4). Re-checks <code>promptpaper.editor</code> at click time.</td>
+    </tr>
+    <tr>
+        <td>Server-Id persistence</td>
+        <td><code>prompt-paper</code></td>
+        <td><code>.server-id</code> sidecar file for the UUID fallback when <code>Server-Id</code> is unset (&sect;3).</td>
+    </tr>
+    <tr>
+        <td>Session serializer</td>
+        <td><code>prompt-paper</code></td>
+        <td>Wraps <code>PresetGson.presetGson()</code> to emit the session payload (&sect;4). Binds <code>initiated_by</code> UUID at creation.</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>9.4 Web Repo Structure</h3>
+
+<pre><code>CommandPrompter-web/
+  packages/
+    schema/              pinned presets.schema.json + generated TS types
+  apps/
+    backend/             stateless Redis bridge + schema validation
+    frontend/            SPA: schema-driven form + live preview
+  pnpm-workspace.yaml
+  turbo.json</code></pre>
+
+<table>
+    <thead>
+    <tr><th>Package</th><th>Stack</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>packages/schema</code></td>
+        <td><code>json-schema-to-typescript</code></td>
+        <td>Single source of TS types for both apps. Pinned schema version; <code>ajv</code> compiled validator exported for the backend.</td>
+    </tr>
+    <tr>
+        <td><code>apps/backend</code></td>
+        <td>Node.js (Fastify or Hono)</td>
+        <td>Endpoints: <code>GET /api/session/:token</code>, <code>POST /api/session/:token/apply</code>, <code>GET /api/session/:token/status</code>. Redis client (ioredis). Schema validation via <code>ajv</code> on every <code>/apply</code>. Stateless &mdash; no database, no user store.</td>
+    </tr>
+    <tr>
+        <td><code>apps/frontend</code></td>
+        <td>Vue 3 or React + Vite</td>
+        <td>Two-pane editor: schema-driven form (left) + live in-game preview (right, &sect;5). MiniMessage + legacy <code>&amp;</code>-code parser for preview rendering. Material sprite atlas for item icons. <code>Referrer-Policy: no-referrer</code> header (&sect;7.2 mitigation 4).</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>9.5 Deployment Topology</h3>
+<p><strong>Plugin:</strong> existing Jenkins CI produces the shadow JAR; no change to the release pipeline.</p>
+<p><strong>Web:</strong> GitHub Actions builds a <strong>single Docker image</strong> containing both apps &mdash; the backend serves the frontend's static assets and the API on one port. One image, one container, behind Nginx Proxy Manager. The backend is a stateless Redis bridge (&sect;2); for a single-admin homelab editor there is no reason to run it as a separate process. If traffic later justifies splitting, the monorepo's <code>apps/</code> split makes that a deployment change, not a code restructure.</p>
+
+<div class="note">
+    <strong>Infrastructure:</strong> The web container requires outbound access to the internal Redis container port (default 6379). The web container and Redis container must share a Docker network. Nginx Proxy Manager exposes only the web container's port to the public internet; the Redis container is never exposed publicly. Proxy-level auth (access list, basic auth, or Cloudflare Access) sits in front of the web container (&sect;7.2 mitigation 2).
+</div>
+
+<h3>9.6 CI/CD Boundaries</h3>
+
+<table>
+    <thead>
+    <tr><th>Repo</th><th>Trigger</th><th>Output</th></tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td><code>CommandPrompter</code></td>
+        <td>Push to <code>development</code>; tag release</td>
+        <td>Shadow JAR (Jenkins) + schema asset attached to the GitHub release</td>
+    </tr>
+    <tr>
+        <td><code>CommandPrompter-web</code></td>
+        <td>Push to <code>main</code>; PR</td>
+        <td>Docker image (GitHub Actions). CI checks the pinned schema version against the latest plugin release and fails on drift.</td>
+    </tr>
+    </tbody>
+</table>
+
+<p>The only cross-repo coupling is the schema version. A plugin release that changes <code>presets.schema.json</code> should open an automated PR in the web repo to bump the pinned version. If that automation is absent, the web repo's CI drift-check is the fallback &mdash; it fails the build before a stale frontend ships.</p>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose' });
+</script>
+
+</body>
+</html>
