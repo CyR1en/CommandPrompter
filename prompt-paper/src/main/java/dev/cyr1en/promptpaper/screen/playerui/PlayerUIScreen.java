@@ -313,7 +313,7 @@ public class PlayerUIScreen implements InputScreen {
         var item = new ItemStack(mat);
         var meta = item.getItemMeta();
         if (meta != null) {
-            meta.displayName(ComponentUtil.mini(displayName));
+            meta.displayName(ComponentUtil.mini("<!italic>" + displayName));
             if (cmd != 0) meta.setCustomModelData(cmd);
             item.setItemMeta(meta);
         }

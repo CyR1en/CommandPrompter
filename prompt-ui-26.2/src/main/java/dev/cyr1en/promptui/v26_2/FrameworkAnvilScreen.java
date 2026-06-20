@@ -1,4 +1,4 @@
-package dev.cyr1en.promptui.v26_1;
+package dev.cyr1en.promptui.v26_2;
 
 import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.ComponentUtil;

@@ -1,4 +1,4 @@
-package dev.cyr1en.promptui.v26_1;
+package dev.cyr1en.promptui.v26_2;
 
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
@@ -6,10 +6,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * MC 26.1 screen provider using the framework-backed {@link FrameworkAnvilScreen}
+ * MC 26.2 screen provider using the framework-backed {@link FrameworkAnvilScreen}
  * and the existing NMS-based {@link SignScreenImpl}.
  */
-public class V26_1ScreenProvider implements ScreenProvider {
+public class V26_2ScreenProvider implements ScreenProvider {
 
     @Override
     public InputScreen createAnvil(JavaPlugin plugin, Player player, String text) {
@@ -23,6 +23,6 @@ public class V26_1ScreenProvider implements ScreenProvider {
 
     @Override
     public String getTargetVersion() {
-        return "26.1";
+        return "26.2";
     }
 }

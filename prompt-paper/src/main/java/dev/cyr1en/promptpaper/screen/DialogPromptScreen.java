@@ -277,7 +277,9 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     private Dialog buildTabMultiActionDialog(List<String> completions) {
-        var title = ComponentUtil.mini(effectiveTitle());
+        String titleStr = customTitle != null ? customTitle : 
+                (tag != null && tag.displayText() != null && !tag.displayText().isEmpty() ? tag.displayText() : dialogConfig.title());
+        var title = ComponentUtil.mini(titleStr);
 
         var buttons = new ArrayList<ActionButton>(completions.size());
         for (var completion : completions) {

@@ -37,4 +37,15 @@ public interface ScreenProvider {
      * @return the new screen; the caller will configure and open it
      */
     InputScreen createSign(JavaPlugin plugin, Player player, String[] lines);
+
+    /**
+     * Returns the target Minecraft version this provider was built for (e.g., "26.1").
+     * Used to warn server admins if they are running a newer server version without
+     * a dedicated NMS module.
+     *
+     * @return the target version string
+     */
+    default String getTargetVersion() {
+        return "unknown";
+    }
 }

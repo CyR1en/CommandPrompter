@@ -75,10 +75,13 @@ tasks.shadowJar {
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
 
-    dependsOn(":prompt-ui-26.1:jar")
+    dependsOn(":prompt-ui-26.1:jar", ":prompt-ui-26.2:jar")
     // MUST use zipTree — avoids Java 25 NMS classes on Java 21 API classpath
-    val nms = project(":prompt-ui-26.1").tasks.named("jar", Jar::class)
-    from(nms.map { zipTree(it.archiveFile) })
+    val nms26_1 = project(":prompt-ui-26.1").tasks.named("jar", Jar::class)
+    from(nms26_1.map { zipTree(it.archiveFile) })
+    
+    val nms26_2 = project(":prompt-ui-26.2").tasks.named("jar", Jar::class)
+    from(nms26_2.map { zipTree(it.archiveFile) })
 
     mergeServiceFiles()
 }

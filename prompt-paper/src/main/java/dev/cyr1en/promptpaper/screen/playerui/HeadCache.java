@@ -80,7 +80,7 @@ public class HeadCache implements Listener {
                 var promptConfig = plugin.getConfigLoader().getPromptConfig();
                 var format = promptConfig.skullNameFormat();
                 var cmData = promptConfig.skullCustomModelData();
-                meta.displayName(ComponentUtil.mini(format.formatted(player.getName())));
+                meta.displayName(ComponentUtil.mini("<!italic>" + format.formatted(player.getName())));
                 if (cmData != 0) meta.setCustomModelData(cmData);
                 skull.setItemMeta(meta);
             }

@@ -73,7 +73,7 @@ public class PluginLogger {
 
         var sepText = ">>";
         var sep = isFancy
-                ? MINI_MESSAGE.deserialize("<green>" + sepText + "</green>")
+                ? MINI_MESSAGE.deserialize("<color:#a6da95>" + sepText + "</color>")
                 : Component.text(sepText);
         var normal = isFancy
                 ? MINI_MESSAGE.deserialize("<gradient:" + NORMAL_GRADIENT + ">" + plainPrefix + "</gradient>")
@@ -97,13 +97,13 @@ public class PluginLogger {
 
     /** Logs a warning message, colorized in fancy mode. */
     public void warn(String msg, Object... args) {
-        var wrapped = isFancy ? "<gold>" + msg + "</gold>" : msg;
+        var wrapped = isFancy ? "<color:#f5a97f>" + msg + "</color>" : msg;
         emit(Level.WARNING, prefix, wrapped, args);
     }
 
     /** Logs a severe/error message, colorized red in fancy mode. */
     public void err(String msg, Object... args) {
-        var wrapped = isFancy ? "<red>" + msg + "</red>" : msg;
+        var wrapped = isFancy ? "<color:#ed8796>" + msg + "</color>" : msg;
         emit(Level.SEVERE, prefix, wrapped, args);
     }
 
@@ -117,7 +117,7 @@ public class PluginLogger {
         var callerName = caller != null && !caller.getSimpleName().isBlank()
                 ? caller.getSimpleName() : "?";
         var tagged = "[" + callerName + "] - " + msg;
-        var wrapped = isFancy ? "<#eed49f>" + tagged + "</#eed49f>" : tagged;
+        var wrapped = isFancy ? "<color:#eed49f>" + tagged + "</color>" : tagged;
         emit(Level.INFO, debugPrefix, wrapped, args);
     }
 

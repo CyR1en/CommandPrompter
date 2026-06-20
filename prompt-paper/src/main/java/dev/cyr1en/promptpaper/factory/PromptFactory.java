@@ -66,18 +66,66 @@ public class PromptFactory {
   public PromptFactory(CommandPrompter plugin) {
     this.plugin = plugin;
     this.providers = new ArrayList<>();
+    
+    List<ScreenProvider> loaded = new ArrayList<>();
     try {
       var loader = ServiceLoader.load(ScreenProvider.class, plugin.getClass().getClassLoader());
       for (var provider : loader) {
-        providers.add(provider);
-        plugin.getPluginLogger().info("Loaded screen provider: " + provider.getClass().getName());
+        loaded.add(provider);
       }
     } catch (Exception e) {
       plugin.getPluginLogger().warn("Failed to load screen providers: " + e.getMessage());
     }
-    if (providers.isEmpty()) {
-      plugin.getLogger().info("No GUI screen providers found — GUI prompts will fall back to chat.");
+
+    if (loaded.isEmpty()) {
+      plugin.getPluginLogger().info("No GUI screen providers found — GUI prompts will fall back to chat.");
+    } else {
+      // Sort providers descending by target version (e.g., "26.2" before "26.1")
+      // This ensures that if we fallback, we fallback to the newest available NMS module.
+      loaded.sort((p1, p2) -> {
+        String t1 = p1.getTargetVersion();
+        String t2 = p2.getTargetVersion();
+        if (t1.equals("unknown")) return 1;
+        if (t2.equals("unknown")) return -1;
+        
+        String[] v1 = t1.split("\\.");
+        String[] v2 = t2.split("\\.");
+        for (int i = 0; i < Math.max(v1.length, v2.length); i++) {
+          try {
+            int part1 = i < v1.length ? Integer.parseInt(v1[i]) : 0;
+            int part2 = i < v2.length ? Integer.parseInt(v2[i]) : 0;
+            if (part1 != part2) return Integer.compare(part2, part1); // Descending
+          } catch (NumberFormatException e) {
+            return t2.compareTo(t1); // Fallback to string comparison
+          }
+        }
+        return 0;
+      });
+
+      String serverVersion = org.bukkit.Bukkit.getMinecraftVersion();
+      ScreenProvider bestMatch = null;
+      
+      for (var provider : loaded) {
+        String target = provider.getTargetVersion();
+        if (serverVersion.equals(target) || serverVersion.startsWith(target + ".")) {
+          bestMatch = provider;
+          break;
+        }
+      }
+
+      if (bestMatch != null) {
+        providers.add(bestMatch);
+        plugin.getPluginLogger().info("Loaded screen provider for Minecraft " + serverVersion + ": " + bestMatch.getClass().getName());
+      } else {
+        // Fallback to the highest available provider (which is now at index 0)
+        bestMatch = loaded.get(0);
+        providers.add(bestMatch);
+        plugin.getPluginLogger().warn("No specific NMS module found for Minecraft " + serverVersion + ".");
+        plugin.getPluginLogger().warn("Falling back to the NMS module for " + bestMatch.getTargetVersion() + " (" + bestMatch.getClass().getSimpleName() + ").");
+        plugin.getPluginLogger().warn("Most features should still work, but some GUI elements might fall back to chat if internal server code has changed.");
+      }
     }
+
     this.materialMapper = new MaterialMapper(plugin.getPluginLogger());
   }
 

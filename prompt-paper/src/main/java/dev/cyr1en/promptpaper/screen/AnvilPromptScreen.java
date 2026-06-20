@@ -48,9 +48,9 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
                             + provider.getClass().getSimpleName());
                     return;
                 }
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 plugin.getPluginLogger().debug("Anvil provider "
-                        + provider.getClass().getSimpleName() + " failed: " + e.getMessage());
+                        + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
             }
         }
         plugin.getPluginLogger().debug("All anvil providers failed, falling back to chat");

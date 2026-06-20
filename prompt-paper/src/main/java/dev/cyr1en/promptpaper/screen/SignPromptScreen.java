@@ -71,9 +71,9 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
                             + provider.getClass().getSimpleName());
                     return;
                 }
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 plugin.getPluginLogger().debug("Sign provider "
-                        + provider.getClass().getSimpleName() + " failed: " + e.getMessage());
+                        + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
             }
         }
         plugin.getPluginLogger().debug("All sign providers failed, falling back to chat");
