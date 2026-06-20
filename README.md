@@ -1,9 +1,13 @@
-![](https://files.gitbook.com/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FDaCb7lTXGFkT8XKPSg62%2Fuploads%2F7dP2oyXS2s5oc3AoU6KA%2FAsset%204.png?alt=media&token=fb70ddc2-4a5f-4f20-93b9-dff1aa3bf801)  
-# CommandPrompter
-[![](https://ci.cyr1en.com/job/CommandPrompter/badge/icon)](https://ci.cyr1en.com/job/CommandPrompter)
-[![](https://img.shields.io/badge/GitBook-documentation-brightgreen?logo=gitbook)](https://cyr1en.gitbook.io/commandprompter/)
-[![](https://img.shields.io/discord/936346802402238514.svg?label=Discord&logo=discord)](https://discord.com/invite/qHM8kE4XHj)
-[![](https://img.shields.io/badge/Kofi-support%20development-brightgreen?logo=Kofi)](https://ko-fi.com/cyr1en)
+![](https://cyr1en.gitbook.io/commandprompter/~gitbook/image?url=https%3A%2F%2F2106637744-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FDaCb7lTXGFkT8XKPSg62%252Fuploads%252Fwk7HgDvFXOlkedwSBG01%252Fimage.png%3Falt%3Dmedia%26token%3De2e0cdeb-8096-4f8c-b71f-8f24d2e97c79&width=768&dpr=2&quality=100&sign=19482eee&sv=2)  
+
+<p align="center">
+  <a href="https://github.com/CyR1en/CommandPrompter/actions/workflows/gradle.yml"><img src="https://img.shields.io/github/actions/workflow/status/cyr1en/commandprompter/gradle.yml?style=for-the-badge&logo=githubactions&logoColor=a6da95"></a>
+  <a href="https://cyr1en.gitbook.io/commandprompter/"><img src="https://img.shields.io/badge/GitBook-docs-brightgreen?logo=gitbook&style=for-the-badge&color=7dc4e4"></a>
+  <a href="https://modrinth.com/plugin/commandprompter"><img src="https://img.shields.io/modrinth/v/1Ne5mutD?style=for-the-badge&logo=modrinth&logoColor=cad3f5&labelColor=363a4f&color=%23a6da95"></a>
+  <a href="https://github.com/CyR1en/CommandPrompter/blob/master/LICENSE"><img src="https://img.shields.io/github/license/cyr1en/CommandPrompter?colorA=363a4f&colorB=91d7e3&style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KPHBhdGggZD0iTTIxNiwzMlYxOTJhOCw4LDAsMCwxLTgsOEg3MmExNiwxNiwwLDAsMC0xNiwxNkgxOTJhOCw4LDAsMCwxLDAsMTZINDhhOCw4LDAsMCwxLTgtOFY1NkEzMiwzMiwwLDAsMSw3MiwyNEgyMDhBOCw4LDAsMCwxLDIxNiwzMloiIHN0eWxlPSJmaWxsOiAjQ0FEM0Y1OyIvPgo8L3N2Zz4=&logoColor=cad3f5"></a>
+  <a href="https://discord.com/invite/qHM8kE4XHj"><img src="https://img.shields.io/discord/936346802402238514?style=for-the-badge&color=b7bdf8&labelColor=363a4f&logo=discord&logoColor=cad3f5"></a>
+  <a href="https://ko-fi.com/cyr1en"><img src="https://img.shields.io/badge/Kofi-Support_Development-f5a97f?style=for-the-badge&logo=Kofi&logoColor=cad3f5&labelColor=363a4f"></a>
+</p>
 
 CommandPrompter is a powerful tool that enhances the command prompting experience and menu creation in your Minecraft server. With its customizable configuration options, CommandPrompter allows you to tailor the command prompting process to suit your server's specific requirements.
 
