@@ -20,7 +20,7 @@ class VersionCommandTest extends MockBukkitTest {
     @BeforeEach
     void setUp() {
         var meta = mock(PluginMeta.class);
-        when(meta.getVersion()).thenReturn("3.0.0-test");
+        when(meta.getVersion()).thenReturn("3.0.1-test");
         when(plugin.getPluginMeta()).thenReturn(meta);
 
         cmd = new VersionCommand(plugin);

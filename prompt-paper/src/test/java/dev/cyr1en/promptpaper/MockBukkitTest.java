@@ -97,7 +97,7 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(i18n.get(eq("command.version"), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.0.1-test"));
         when(i18n.get(eq("dialog.too_many_options"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
 
@@ -109,9 +109,9 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Unknown permission key."));
         when(i18n.get(eq("command.version"), any(Player.class), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.0.1-test"));
         when(i18n.get(eq("command.version"), isNull(), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.0.1-test"));
         when(i18n.get(eq("dialog.no_options"), any(Player.class)))
                 .thenReturn(Component.text("No options available, enter argument manually."));
         when(i18n.get(eq("dialog.too_many_options"), any(Player.class), any(Placeholder[].class)))
