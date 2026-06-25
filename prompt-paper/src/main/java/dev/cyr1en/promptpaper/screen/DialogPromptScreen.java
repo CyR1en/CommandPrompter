@@ -606,7 +606,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private DialogInput buildInputForRow(DialogRow row, Component label, String key) {
         return switch (row.inputType()) {
             case TEXT -> {
-                var c = DialogConstraints.from(null, dialogConfig);
+                var c = constraintsForTextRow(row);
                 yield DialogInputBuilder.buildText(c, label, key);
             }
             case NUMBER -> {
@@ -618,6 +618,23 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 yield DialogInputBuilder.buildChoice(c, label, key);
             }
         };
+    }
+
+    private DialogConstraints constraintsForTextRow(DialogRow row) {
+        var dText = dialogConfig.text();
+        int maxLength = row.maxLength() != null ? row.maxLength() : dText.maxLength();
+        int maxLines = row.maxLines() != null ? row.maxLines() : (dText.multiline() ? dText.multilineMaxLines() : 1);
+        
+        // Clamp bounds to prevent client crash
+        maxLength = Math.max(1, Math.min(8192, maxLength));
+        maxLines = Math.max(1, Math.min(8192, maxLines));
+
+        return new DialogConstraints(
+                DialogInputKind.TEXT, "", 
+                maxLength, maxLines > 1, maxLines,
+                List.of(),
+                0f, 0f, 0f, 0f,
+                null);
     }
 
     /**

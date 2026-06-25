@@ -55,18 +55,28 @@ public record DialogConstraints(
     private static DialogConstraints parseText(String bracket, DialogConfig d) {
         var dText = d.text();
         var maxLength = dText.maxLength();
-        // bracket is "min,max" — min is unused for text; we treat both as length bounds
-        // for forward-compat (e.g. text[0,64] means "length 0..64").
+        var maxLines = dText.multiline() ? dText.multilineMaxLines() : 1;
+
         if (!bracket.isEmpty()) {
             var parts = bracket.split(",");
-            if (parts.length >= 2) {
-                try { maxLength = clampInt(Integer.parseInt(parts[1].trim()), 1, 8192); }
-                catch (NumberFormatException ignored) {}
+            for (var part : parts) {
+                var p = part.trim();
+                if (p.startsWith("max_length=")) {
+                    try { maxLength = clampInt(Integer.parseInt(p.substring(11)), 1, 8192); }
+                    catch (NumberFormatException ignored) {}
+                } else if (p.startsWith("max_lines=")) {
+                    try { maxLines = clampInt(Integer.parseInt(p.substring(10)), 1, 8192); }
+                    catch (NumberFormatException ignored) {}
+                } else if (!p.contains("=")) {
+                    // Backwards compat for <d:text[N]>
+                    try { maxLength = clampInt(Integer.parseInt(p), 1, 8192); }
+                    catch (NumberFormatException ignored) {}
+                }
             }
         }
         return new DialogConstraints(
                 DialogInputKind.TEXT, bracket,
-                maxLength, dText.multiline(), dText.multilineMaxLines(),
+                maxLength, maxLines > 1, maxLines,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 null);

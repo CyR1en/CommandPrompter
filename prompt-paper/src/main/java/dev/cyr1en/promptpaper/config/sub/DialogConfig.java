@@ -39,11 +39,11 @@ public record DialogConfig(
     public record CancelButton(String label, String tooltip) {}
 
     public record TextDefaults(
-            int maxLength,        // default 256
+            int maxLength,        // default 32
             boolean multiline,    // default false
-            int multilineMaxLines // default 4 — only used when multiline == true
+            int multilineMaxLines // default 1 — only used when multiline == true
     ) {
-        public static final TextDefaults DEFAULTS = new TextDefaults(256, false, 4);
+        public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1);
     }
 
     /**

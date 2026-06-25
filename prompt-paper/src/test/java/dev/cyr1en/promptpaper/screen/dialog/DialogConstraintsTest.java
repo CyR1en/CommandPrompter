@@ -17,7 +17,7 @@ class DialogConstraintsTest {
     void emptyFilterUsesTextDefaults() {
         var c = DialogConstraints.from(null, defaults);
         assertEquals(DialogInputKind.TEXT, c.kind());
-        assertEquals(256, c.maxLength());
+        assertEquals(32, c.maxLength());
     }
 
     @Test

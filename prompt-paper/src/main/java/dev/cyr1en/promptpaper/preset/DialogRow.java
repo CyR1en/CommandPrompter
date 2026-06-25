@@ -21,13 +21,20 @@ import java.util.Objects;
 public record DialogRow(
     String label,
     @SerializedName("input_type") InputType inputType,
-    List<JsonElement> constraints) {
+    List<JsonElement> constraints,
+    @SerializedName("max_length") Integer maxLength,
+    @SerializedName("max_lines") Integer maxLines) {
 
   /** Canonical constructor with null-checks. */
   public DialogRow {
     Objects.requireNonNull(label, "label must not be null");
     Objects.requireNonNull(inputType, "input_type must not be null");
     constraints = constraints == null ? List.of() : List.copyOf(constraints);
+  }
+
+  /** Legacy constructor without the new text constraints. */
+  public DialogRow(String label, InputType inputType, List<JsonElement> constraints) {
+    this(label, inputType, constraints, null, null);
   }
 
   /**
