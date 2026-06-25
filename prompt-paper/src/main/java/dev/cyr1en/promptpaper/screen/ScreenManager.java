@@ -110,9 +110,10 @@ public class ScreenManager {
         var current = session.get().currentPrompt();
         if (current.isEmpty()) return;
         var tag = current.get();
-        if (!tag.isCompound() && DialogInputKind.parse(tag.filter()) == DialogInputKind.TITLE) {
+        var kind = DialogInputKind.parse(tag.filter());
+        if (!tag.isCompound() && (kind == DialogInputKind.TITLE || kind == DialogInputKind.BODY)) {
             plugin.getPluginLogger().warn("Player " + player.getName()
-                    + " initiated a prompt containing a non-compound tag with a TITLE filter: "
+                    + " initiated a prompt containing a non-compound tag with a layout filter: "
                     + tag.rawTag());
             player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter"));
             cancelAll(player);

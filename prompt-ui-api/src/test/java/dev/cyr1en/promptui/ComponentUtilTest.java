@@ -21,6 +21,24 @@ class ComponentUtilTest {
   }
 
   @Test
+  void miniMessageWithNewlines() {
+    var c1 = ComponentUtil.mini("Line 1\\nLine 2");
+    var c2 = ComponentUtil.mini("Line 1\nLine 2");
+    var c3 = ComponentUtil.mini("Line 1{br}Line 2");
+    
+    // Convert to plain string representation to verify the newline component was inserted.
+    // In MiniMessage string format, Component.newline() is serialized as <newline> (or possibly \n depending on serializer config).
+    // An easy way to check is to serialize back and check for <newline> or literal newline.
+    String s1 = ComponentUtil.serialize(c1);
+    String s2 = ComponentUtil.serialize(c2);
+    String s3 = ComponentUtil.serialize(c3);
+    
+    assertTrue(s1.contains("<newline>") || s1.contains("\n"), "Should contain newline");
+    assertEquals(s1, s2);
+    assertEquals(s1, s3);
+  }
+
+  @Test
   void miniMessageWithGradient() {
     var c = ComponentUtil.mini("<gradient:red:blue>Gradient</gradient>");
     assertNotNull(c);

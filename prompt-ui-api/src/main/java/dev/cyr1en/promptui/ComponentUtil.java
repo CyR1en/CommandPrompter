@@ -69,6 +69,7 @@ public final class ComponentUtil {
    */
   public static Component mini(String input) {
     if (input == null) return null;
+    input = input.replace("\\n", "<br>").replace("\n", "<br>").replace("{br}", "<br>");
     String normalized = convertLegacyInline(input);
     try {
       return MINI_MESSAGE.deserialize(normalized);

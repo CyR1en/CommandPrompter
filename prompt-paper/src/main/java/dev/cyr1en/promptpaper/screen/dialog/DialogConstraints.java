@@ -40,12 +40,22 @@ public record DialogConstraints(
             // never reach buildInputs(). This case exists only to satisfy the
             // exhaustive switch; treat it as title constraints.
             case TITLE -> parseTitle(bracketContent, defaults);
+            case BODY -> parseBody(bracketContent, defaults);
         };
     }
 
     private static DialogConstraints parseTitle(String bracket, DialogConfig d) {
         return new DialogConstraints(
                 DialogInputKind.TITLE, bracket,
+                0, false, 0, 200,
+                List.of(),
+                0f, 0f, 0f, 0f,
+                null);
+    }
+
+    private static DialogConstraints parseBody(String bracket, DialogConfig d) {
+        return new DialogConstraints(
+                DialogInputKind.BODY, bracket,
                 0, false, 0, 200,
                 List.of(),
                 0f, 0f, 0f, 0f,

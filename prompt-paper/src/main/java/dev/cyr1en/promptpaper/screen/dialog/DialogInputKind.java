@@ -12,7 +12,8 @@ public enum DialogInputKind {
     NUMBER,
     CHOICE,
     TAB,
-    TITLE;
+    TITLE,
+    BODY;
 
     /**
      * Parses a raw filter string into a kind, stripping trailing bracket
@@ -30,6 +31,7 @@ public enum DialogInputKind {
             case "choice" -> CHOICE;
             case "tab" -> TAB;
             case "title" -> TITLE;
+            case "body" -> BODY;
             // `text` is silently treated as TEXT — the user-facing default.
             // The user is allowed to write it explicitly, but it has no
             // distinct semantics. Unknown filters fall through to TEXT.

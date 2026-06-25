@@ -110,7 +110,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         this.dialogPrompt = null;
         this.inputRows = List.of();
         this.staticActions = List.of();
-        this.materialMapper = null;
+        this.materialMapper = new MaterialMapper(plugin.getPluginLogger());
         // Keep all rows (including TITLE) so that indices stay aligned with
         // subTags() — the answer list decoded by ScreenManager must match
         // the subTags index. TITLE rows contribute "" to the answer list and
@@ -247,8 +247,9 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 + " kind=" + kind);
 
         var title = ComponentUtil.mini(effectiveTitle());
+        List<DialogBody> bodies = buildInlineBodies();
         List<DialogInput> inputs = buildInputs();
-        var dialog = buildDialogWithButtons(title, inputs);
+        var dialog = buildDialogWithButtons(title, bodies, inputs);
         player.showDialog(dialog);
         open = true;
     }
@@ -386,7 +387,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     private Dialog buildDialogWithButtons(
-            Component title, List<DialogInput> inputs) {
+            Component title, List<DialogBody> bodies, List<DialogInput> inputs) {
         var options = clickOptions();
 
         var confirmBtn = ActionButton.builder(ComponentUtil.mini(dialogConfig.confirm().label()))
@@ -402,10 +403,29 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
                         .canCloseWithEscape(true)
+                        .body(bodies)
                         .inputs(inputs)
                         .build())
                 .type(io.papermc.paper.registry.data.dialog.type.DialogType.confirmation(confirmBtn, cancelBtn))
         );
+    }
+
+    private List<DialogBody> buildInlineBodies() {
+        var bodies = new ArrayList<DialogBody>();
+        for (var row : rows) {
+            var constraints = DialogConstraints.from(row.filter(), dialogConfig);
+            if (constraints.kind() == DialogInputKind.BODY) {
+                var bracket = constraints.rawFilter();
+                var text = ComponentUtil.mini(row.displayText());
+                if ("item".equalsIgnoreCase(bracket)) {
+                    var mat = materialMapper.resolveOrDefault(row.displayText(), "inline body item");
+                    bodies.add(DialogBody.item(new ItemStack(mat, 1)).build());
+                } else {
+                    bodies.add(DialogBody.plainMessage(text));
+                }
+            }
+        }
+        return bodies;
     }
 
     private List<DialogInput> buildInputs() {
@@ -413,10 +433,10 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         for (int i = 0; i < rows.size(); i++) {
             var row = rows.get(i);
             var constraints = DialogConstraints.from(row.filter(), dialogConfig);
-            // TITLE rows carry no input widget — they only override the dialog
-            // title. Skip them here; readAnswers() emits "" at the same index
-            // so the answer list stays aligned with subTags().
-            if (constraints.kind() == DialogInputKind.TITLE) continue;
+            // TITLE and BODY rows carry no input widget — they only override the dialog
+            // title or provide body content. Skip them here; readAnswers() emits "" at
+            // the same index so the answer list stays aligned with subTags().
+            if (constraints.kind() == DialogInputKind.TITLE || constraints.kind() == DialogInputKind.BODY) continue;
             var label = ComponentUtil.mini(row.displayText());
             var key = keyFor(i);
             inputs.add(switch (constraints.kind()) {
@@ -427,8 +447,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 // dialog by openTab() and never reaches buildInputs().
                 case TAB -> throw new UnsupportedOperationException(
                         "TAB prompts must use the multiAction dialog flow, not buildInputs()");
-                // Unreachable — TITLE is handled by the continue above.
-                case TITLE -> throw new UnsupportedOperationException("unreachable");
+                // Unreachable — TITLE and BODY are handled by the continue above.
+                case TITLE, BODY -> throw new UnsupportedOperationException("unreachable");
             });
         }
         return inputs;
@@ -483,9 +503,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             // TAB kind captures its answer via per-button lambdas and never
             // reaches this method.
             case TAB -> "";
-            // TITLE rows are stripped out by the constructor; this case is
-            // unreachable when readAnswers() is called on this.rows.
-            case TITLE -> "";
+            // TITLE and BODY rows carry no input widget; they just provide layout.
+            case TITLE, BODY -> "";
             case TEXT -> {
                 var v = view.getText(key);
                 if (v == null) yield "";

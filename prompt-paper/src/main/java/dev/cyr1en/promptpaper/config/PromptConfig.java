@@ -434,6 +434,8 @@ public record PromptConfig(
         int dialogTextMultilineMaxLines,
 
         @ConfigNode
+        @NodeName("DialogUI.Defaults.Text.Width")
+        @NodeDefault("200")
         @IntegerConstraint(min = 1, max = 8192)
         @NodeComment({"Default width of text inputs in pixels."})
         int dialogTextWidth,
