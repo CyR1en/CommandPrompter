@@ -11,7 +11,7 @@ import java.util.List;
 public record DialogConstraints(
         DialogInputKind kind,
         String rawFilter,
-        /* text-only */    int maxLength, boolean multiline, int multilineMaxLines,
+        /* text-only */    int maxLength, boolean multiline, int multilineMaxLines, int width,
         /* choice-only */  List<String> options,
         /* number-only */  float min, float max, float step, float initial,
         /* tab-only */     Integer maxButtons
@@ -46,7 +46,7 @@ public record DialogConstraints(
     private static DialogConstraints parseTitle(String bracket, DialogConfig d) {
         return new DialogConstraints(
                 DialogInputKind.TITLE, bracket,
-                0, false, 0,
+                0, false, 0, 200,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 null);
@@ -56,10 +56,11 @@ public record DialogConstraints(
         var dText = d.text();
         var maxLength = dText.maxLength();
         var maxLines = dText.multiline() ? dText.multilineMaxLines() : 1;
+        var width = dText.width();
 
         if (!bracket.isEmpty()) {
             if (bracket.contains("=")) {
-                // Key-value parsing (e.g., max_length=64,max_lines=3)
+                // Key-value parsing (e.g., max_length=64,max_lines=3,width=150)
                 var parts = bracket.split(",");
                 for (var part : parts) {
                     var p = part.trim();
@@ -69,10 +70,13 @@ public record DialogConstraints(
                     } else if (p.startsWith("max_lines=")) {
                         try { maxLines = clampInt(Integer.parseInt(p.substring(10)), 1, 8192); }
                         catch (NumberFormatException ignored) {}
+                    } else if (p.startsWith("width=")) {
+                        try { width = clampInt(Integer.parseInt(p.substring(6)), 1, 8192); }
+                        catch (NumberFormatException ignored) {}
                     }
                 }
             } else {
-                // Positional parsing: [max_length] or [max_length, max_lines]
+                // Positional parsing: [max_length] or [max_length, max_lines, width]
                 var parts = bracket.split(",");
                 if (parts.length >= 1) {
                     try { maxLength = clampInt(Integer.parseInt(parts[0].trim()), 1, 8192); }
@@ -82,30 +86,28 @@ public record DialogConstraints(
                     try { maxLines = clampInt(Integer.parseInt(parts[1].trim()), 1, 8192); }
                     catch (NumberFormatException ignored) {}
                 }
+                if (parts.length >= 3) {
+                    try { width = clampInt(Integer.parseInt(parts[2].trim()), 1, 8192); }
+                    catch (NumberFormatException ignored) {}
+                }
             }
         }
         return new DialogConstraints(
                 DialogInputKind.TEXT, bracket,
-                maxLength, maxLines > 1, maxLines,
+                maxLength, maxLines > 1, maxLines, width,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 null);
     }
 
     private static DialogConstraints parseChoice(String bracket, DialogConfig d) {
-        // Bracket content is a comma-separated list of option labels. The
-        // dropdown order in the dialog mirrors the list order. Empty /
-        // missing bracket falls back to the configured default options;
-        // if both are empty the prompt still renders a choice input, just
-        // with no selectable options (the client may present it as a
-        // disabled / empty dropdown).
         var options = d.choice().defaultOptions();
         if (!bracket.isBlank()) {
             options = List.of(bracket.split(","));
         }
         return new DialogConstraints(
                 DialogInputKind.CHOICE, bracket,
-                0, false, 0,
+                0, false, 0, 200,
                 options,
                 0f, 0f, 0f, 0f,
                 null);
@@ -160,7 +162,7 @@ public record DialogConstraints(
         initial = Math.max(min, Math.min(max, initial));
         return new DialogConstraints(
                 DialogInputKind.NUMBER, bracket,
-                0, false, 0,
+                0, false, 0, 200,
                 List.of(),
                 min, max, step, initial,
                 null);
@@ -180,7 +182,7 @@ public record DialogConstraints(
         }
         return new DialogConstraints(
                 DialogInputKind.TAB, bracket,
-                0, false, 0,
+                0, false, 0, 200,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 maxButtons);

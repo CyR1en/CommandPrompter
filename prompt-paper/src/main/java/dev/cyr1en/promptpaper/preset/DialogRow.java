@@ -23,7 +23,8 @@ public record DialogRow(
     @SerializedName("input_type") InputType inputType,
     List<JsonElement> constraints,
     @SerializedName("max_length") Integer maxLength,
-    @SerializedName("max_lines") Integer maxLines) {
+    @SerializedName("max_lines") Integer maxLines,
+    @SerializedName("width") Integer width) {
 
   /** Canonical constructor with null-checks. */
   public DialogRow {
@@ -34,7 +35,7 @@ public record DialogRow(
 
   /** Legacy constructor without the new text constraints. */
   public DialogRow(String label, InputType inputType, List<JsonElement> constraints) {
-    this(label, inputType, constraints, null, null);
+    this(label, inputType, constraints, null, null, null);
   }
 
   /**

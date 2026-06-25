@@ -18,6 +18,7 @@ class DialogConstraintsTest {
         var c = DialogConstraints.from(null, defaults);
         assertEquals(DialogInputKind.TEXT, c.kind());
         assertEquals(32, c.maxLength());
+        assertEquals(200, c.width());
     }
 
     @Test
@@ -25,6 +26,7 @@ class DialogConstraintsTest {
         // `bool` is no longer a valid kind. The parser drops it back to TEXT.
         var c = DialogConstraints.from("bool", defaults);
         assertEquals(DialogInputKind.TEXT, c.kind());
+        assertEquals(200, c.width());
     }
 
     @Test
@@ -166,14 +168,25 @@ class DialogConstraintsTest {
         assertEquals(64, c.maxLength());
         assertTrue(c.multiline());
         assertEquals(3, c.multilineMaxLines());
+        assertEquals(200, c.width());
+    }
+
+    @Test
+    void textOverrideMaxLengthLinesAndWidth() {
+        var c = DialogConstraints.from("text[64,3,150]", defaults);
+        assertEquals(64, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(3, c.multilineMaxLines());
+        assertEquals(150, c.width());
     }
 
     @Test
     void textOverrideKeyValues() {
-        var c = DialogConstraints.from("text[max_length=128,max_lines=5]", defaults);
+        var c = DialogConstraints.from("text[max_length=128,max_lines=5,width=300]", defaults);
         assertEquals(128, c.maxLength());
         assertTrue(c.multiline());
         assertEquals(5, c.multilineMaxLines());
+        assertEquals(300, c.width());
     }
 
     @Test

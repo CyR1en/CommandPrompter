@@ -32,7 +32,7 @@ class PromptConfigTest extends MockBukkitTest {
                 "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
                 "Prompt", "<green>Confirm</green>", "Confirm this action",
                 "<red>Cancel</red>", "Cancel this action",
-                256, false, 4, "", 0.0f, 100.0f, 1.0f, 5);
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
     }
 
     @Test
@@ -59,7 +59,7 @@ class PromptConfigTest extends MockBukkitTest {
                 "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
                 "Prompt", "<green>Confirm</green>", "Confirm this action",
                 "<red>Cancel</red>", "Cancel this action",
-                256, false, 4, "", 0.0f, 100.0f, 1.0f, 5);
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
 
         var mappings = cfg.getScreenMappings();
         assertFalse(mappings.isEmpty());
@@ -92,7 +92,7 @@ class PromptConfigTest extends MockBukkitTest {
                 "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
                 "Prompt", "<green>Confirm</green>", "Confirm this action",
                 "<red>Cancel</red>", "Cancel this action",
-                256, false, 4, "", 0.0f, 100.0f, 1.0f, 5);
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
 
         var mappings = cfg.getScreenMappings();
         assertEquals(ScreenType.ANVIL, mappings.get("a"));
@@ -155,7 +155,7 @@ class PromptConfigTest extends MockBukkitTest {
                 "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
                 "Custom Title", "<blue>Yes</blue>", "Please confirm",
                 "<red>No</red>", "Dismiss",
-                512, true, 8, "a,b,c", -10.0f, 10.0f, 0.5f, 7);
+                512, true, 8, 200, "a,b,c", -10.0f, 10.0f, 0.5f, 7);
 
         var dialog = cfg.dialogConfig();
         assertEquals("Custom Title", dialog.title());
@@ -199,7 +199,7 @@ class PromptConfigTest extends MockBukkitTest {
                 "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
                 "Prompt", "<green>Confirm</green>", "Confirm this action",
                 "<red>Cancel</red>", "Cancel this action",
-                256, false, 4, "", 0.0f, 100.0f, 1.0f, 5);
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
 
         assertEquals("%s", cfg.getFilterFormat("World"));
     }

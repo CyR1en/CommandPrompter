@@ -31,7 +31,7 @@ public final class DialogInputBuilder {
     /** Build a text input under a specific key (used for compound-dialog rows). */
     public static DialogInput buildText(DialogConstraints c, Component label, String key) {
         var builder = DialogInput.text(key, label)
-                .width(DEFAULT_WIDTH)
+                .width(c.width())
                 .labelVisible(true)
                 .maxLength(c.maxLength());
         if (c.multiline()) {

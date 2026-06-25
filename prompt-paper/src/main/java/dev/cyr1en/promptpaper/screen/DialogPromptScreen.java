@@ -624,14 +624,16 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         var dText = dialogConfig.text();
         int maxLength = row.maxLength() != null ? row.maxLength() : dText.maxLength();
         int maxLines = row.maxLines() != null ? row.maxLines() : (dText.multiline() ? dText.multilineMaxLines() : 1);
+        int width = row.width() != null ? row.width() : dText.width();
         
         // Clamp bounds to prevent client crash
         maxLength = Math.max(1, Math.min(8192, maxLength));
         maxLines = Math.max(1, Math.min(8192, maxLines));
+        width = Math.max(1, Math.min(8192, width));
 
         return new DialogConstraints(
                 DialogInputKind.TEXT, "", 
-                maxLength, maxLines > 1, maxLines,
+                maxLength, maxLines > 1, maxLines, width,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 null);
@@ -680,7 +682,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         initial = Math.max(min, Math.min(max, initial));
         return new DialogConstraints(
                 DialogInputKind.NUMBER, "",
-                0, false, 0, List.of(),
+                0, false, 0, 200, List.of(),
                 min, max, step, initial, null);
     }
 
@@ -692,7 +694,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private DialogConstraints constraintsForChoiceRow(DialogRow row) {
         return new DialogConstraints(
                 DialogInputKind.CHOICE, "",
-                0, false, 0,
+                0, false, 0, 200,
                 row.constraintsAsStrings(),
                 0f, 0f, 0f, 0f, null);
     }

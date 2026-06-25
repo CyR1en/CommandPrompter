@@ -434,6 +434,11 @@ public record PromptConfig(
         int dialogTextMultilineMaxLines,
 
         @ConfigNode
+        @IntegerConstraint(min = 1, max = 8192)
+        @NodeComment({"Default width of text inputs in pixels."})
+        int dialogTextWidth,
+
+        @ConfigNode
         @NodeName("DialogUI.Defaults.Choice.Default-Options")
         @NodeDefault("")
         @NodeComment({"Default options for the <d:choice[...]:...> form when no",
@@ -564,7 +569,7 @@ public record PromptConfig(
                 new DialogConfig.ConfirmButton(dialogConfirmLabel, dialogConfirmTooltip),
                 new DialogConfig.CancelButton(dialogCancelLabel, dialogCancelTooltip),
                 new DialogConfig.TextDefaults(
-                        dialogTextMaxLength, dialogTextMultiline, dialogTextMultilineMaxLines),
+                        dialogTextMaxLength, dialogTextMultiline, dialogTextMultilineMaxLines, dialogTextWidth),
                 new DialogConfig.ChoiceDefaults(
                         dialogChoiceDefaults == null || dialogChoiceDefaults.isBlank()
                                 ? java.util.List.of()

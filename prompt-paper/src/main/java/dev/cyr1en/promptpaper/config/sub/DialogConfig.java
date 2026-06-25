@@ -41,9 +41,10 @@ public record DialogConfig(
     public record TextDefaults(
             int maxLength,        // default 32
             boolean multiline,    // default false
-            int multilineMaxLines // default 1 — only used when multiline == true
+            int multilineMaxLines,// default 1 — only used when multiline == true
+            int width             // default 200
     ) {
-        public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1);
+        public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1, 200);
     }
 
     /**
