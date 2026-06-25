@@ -58,18 +58,28 @@ public record DialogConstraints(
         var maxLines = dText.multiline() ? dText.multilineMaxLines() : 1;
 
         if (!bracket.isEmpty()) {
-            var parts = bracket.split(",");
-            for (var part : parts) {
-                var p = part.trim();
-                if (p.startsWith("max_length=")) {
-                    try { maxLength = clampInt(Integer.parseInt(p.substring(11)), 1, 8192); }
+            if (bracket.contains("=")) {
+                // Key-value parsing (e.g., max_length=64,max_lines=3)
+                var parts = bracket.split(",");
+                for (var part : parts) {
+                    var p = part.trim();
+                    if (p.startsWith("max_length=")) {
+                        try { maxLength = clampInt(Integer.parseInt(p.substring(11)), 1, 8192); }
+                        catch (NumberFormatException ignored) {}
+                    } else if (p.startsWith("max_lines=")) {
+                        try { maxLines = clampInt(Integer.parseInt(p.substring(10)), 1, 8192); }
+                        catch (NumberFormatException ignored) {}
+                    }
+                }
+            } else {
+                // Positional parsing: [max_length] or [max_length, max_lines]
+                var parts = bracket.split(",");
+                if (parts.length >= 1) {
+                    try { maxLength = clampInt(Integer.parseInt(parts[0].trim()), 1, 8192); }
                     catch (NumberFormatException ignored) {}
-                } else if (p.startsWith("max_lines=")) {
-                    try { maxLines = clampInt(Integer.parseInt(p.substring(10)), 1, 8192); }
-                    catch (NumberFormatException ignored) {}
-                } else if (!p.contains("=")) {
-                    // Backwards compat for <d:text[N]>
-                    try { maxLength = clampInt(Integer.parseInt(p), 1, 8192); }
+                }
+                if (parts.length >= 2) {
+                    try { maxLines = clampInt(Integer.parseInt(parts[1].trim()), 1, 8192); }
                     catch (NumberFormatException ignored) {}
                 }
             }

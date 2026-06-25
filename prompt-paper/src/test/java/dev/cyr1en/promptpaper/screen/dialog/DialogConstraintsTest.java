@@ -156,13 +156,29 @@ class DialogConstraintsTest {
 
     @Test
     void textOverrideMaxLength() {
-        var c = DialogConstraints.from("text[0,64]", defaults);
+        var c = DialogConstraints.from("text[64]", defaults);
         assertEquals(64, c.maxLength());
     }
 
     @Test
+    void textOverrideMaxLengthAndLines() {
+        var c = DialogConstraints.from("text[64,3]", defaults);
+        assertEquals(64, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(3, c.multilineMaxLines());
+    }
+
+    @Test
+    void textOverrideKeyValues() {
+        var c = DialogConstraints.from("text[max_length=128,max_lines=5]", defaults);
+        assertEquals(128, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(5, c.multilineMaxLines());
+    }
+
+    @Test
     void textOverrideMaxLengthClamped() {
-        var c = DialogConstraints.from("text[0,99999]", defaults);
+        var c = DialogConstraints.from("text[99999]", defaults);
         assertEquals(8192, c.maxLength()); // clamped to upper bound
     }
 
