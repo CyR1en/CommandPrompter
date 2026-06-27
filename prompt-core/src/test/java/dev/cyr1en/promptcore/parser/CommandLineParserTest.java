@@ -526,4 +526,110 @@ class CommandLineParserTest {
                         && r.getMessage().contains("trailing-kind")),
         "No deprecation warning for non-dialog keys");
   }
+
+  @Test
+  void titleFlagStandalone() {
+    var result = parser.parse("/kick <a:Why? -t>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    // -t flag stripped from display text.
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithQuotedMain() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main Title\">");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("Main Title", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithMainSubAndStay() {
+    var result = parser.parse("/kick <a:Why? -t:Main|Sub|70>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main", tagTitle.main());
+    assertEquals("Sub", tagTitle.sub());
+    assertEquals(70, tagTitle.ticks());
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithQuotedMainAndSubAndStay() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main Title\"|\"Sub Title\"|100>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main Title", tagTitle.main());
+    assertEquals("Sub Title", tagTitle.sub());
+    assertEquals(100, tagTitle.ticks());
+  }
+
+  @Test
+  void titleFlagSkipSubWithDoublePipe() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main\"||70>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main", tagTitle.main());
+    assertNull(tagTitle.sub());
+    assertEquals(70, tagTitle.ticks());
+  }
+
+  @Test
+  void titleFlagOnlyMain() {
+    var result = parser.parse("/kick <a:Why? -t:MainOnly>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("MainOnly", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+  }
+
+  @Test
+  void titleFlagStrippedFromDisplayText() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main\"|Sub|70>");
+    var tag = result.promptTags().get(0);
+    assertEquals("Why?", tag.displayText());
+    assertFalse(tag.displayText().contains("-t"));
+  }
+
+  @Test
+  void titleFlagWithCompoundDialog() {
+    var result = parser.parse("/ban <d:text:Reason && d:num[0,24]:Days -t:\"Ban Form\"||50>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Ban Form", tagTitle.main());
+    assertNull(tagTitle.sub());
+    assertEquals(50, tagTitle.ticks());
+    assertTrue(tag.isCompound());
+    assertEquals(2, tag.subTags().size());
+  }
+
+  @Test
+  void titleFlagStandaloneWithCompoundDialog() {
+    var result = parser.parse("/ban <d:text:Reason && d:num[0,24]:Days -t>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    assertTrue(tag.isCompound());
+  }
+
+  @Test
+  void noTitleFlagYieldsNullTitle() {
+    var result = parser.parse("/kick <a:Why?>");
+    var tag = result.promptTags().get(0);
+    assertNull(tag.title());
+  }
 }

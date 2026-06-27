@@ -601,4 +601,80 @@ class PromptDefinitionDeserializerTest {
     PromptDefinition def = gson.fromJson(obj, PromptDefinition.class);
     assertInstanceOf(SignPrompt.class, def);
   }
+
+  // ------------------------------------------------------------------
+  // title_display field
+  // ------------------------------------------------------------------
+
+  @Test
+  void chatPromptWithTitleDisplayDeserialize() {
+    String json =
+        """
+        {
+          "type": "chat",
+          "id": "title_chat",
+          "prompt_text": "Enter your name:",
+          "sanitize": true,
+          "cancel": { "send": false, "message": "", "clickable": false, "hover_message": "" },
+          "title_display": {
+            "main": "Welcome",
+            "sub": "Please answer",
+            "ticks": 80
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ChatPrompt.class, def);
+    ChatPrompt chat = (ChatPrompt) def;
+    assertNotNull(chat.titleDisplay());
+    assertEquals("Welcome", chat.titleDisplay().main());
+    assertEquals("Please answer", chat.titleDisplay().sub());
+    assertEquals(80, chat.titleDisplay().ticks());
+  }
+
+  @Test
+  void chatPromptWithoutTitleDisplayYieldsNull() {
+    String json =
+        """
+        {
+          "type": "chat",
+          "id": "no_title",
+          "prompt_text": "Plain prompt",
+          "sanitize": true,
+          "cancel": { "send": false, "message": "", "clickable": false, "hover_message": "" }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ChatPrompt.class, def);
+    ChatPrompt chat = (ChatPrompt) def;
+    assertNull(chat.titleDisplay());
+  }
+
+  @Test
+  void anvilPromptWithTitleDisplayDeserialize() {
+    String json =
+        """
+        {
+          "type": "anvil",
+          "id": "title_anvil",
+          "title": "Rename",
+          "prompt_text": "New Name",
+          "sanitize": true,
+          "left_button": { "show": true, "button_text": "", "button_icon": "PAPER", "button_hover_text": "", "custom_model_data": 0 },
+          "right_button": { "show": true, "button_text": "", "button_icon": "PAPER", "button_hover_text": "", "custom_model_data": 0 },
+          "title_display": {
+            "main": "Anvil Title",
+            "sub": null,
+            "ticks": null
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(AnvilPrompt.class, def);
+    AnvilPrompt anvil = (AnvilPrompt) def;
+    assertNotNull(anvil.titleDisplay());
+    assertEquals("Anvil Title", anvil.titleDisplay().main());
+    assertNull(anvil.titleDisplay().sub());
+    assertNull(anvil.titleDisplay().ticks());
+  }
 }

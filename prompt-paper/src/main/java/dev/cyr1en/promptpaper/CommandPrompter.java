@@ -47,6 +47,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     private HookContainer hookContainer;
     private PresetRegistry presetRegistry;
     private PromptFactory promptFactory;
+    private Scheduler scheduler;
 
     /**
      * Initializes all plugin subsystems: config, scheduler, engine, screen
@@ -166,5 +167,6 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     public HookContainer getHookContainer() { return hookContainer; }
     public PresetRegistry getPresetRegistry() { return presetRegistry; }
     public PromptFactory getPromptFactory() { return promptFactory; }
+    public Scheduler getScheduler() { return scheduler; }
     public PaperI18n getI18n() { return configLoader.getI18n(); }
 }

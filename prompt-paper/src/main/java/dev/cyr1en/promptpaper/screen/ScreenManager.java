@@ -178,6 +178,9 @@ public class ScreenManager {
      */
     public void handleChatInput(Player player, String input) {
         var screen = activeScreens.get(player.getUniqueId());
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            screen = wrapper.delegate();
+        }
         if (!(screen instanceof ChatPromptScreen chatScreen)) return;
         cancelTimeout(player);
         chatScreen.handleInput(input);
@@ -451,7 +454,11 @@ public class ScreenManager {
     }
 
     public boolean hasChatScreen(Player player) {
-        return activeScreens.get(player.getUniqueId()) instanceof ChatPromptScreen;
+        var screen = activeScreens.get(player.getUniqueId());
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            screen = wrapper.delegate();
+        }
+        return screen instanceof ChatPromptScreen;
     }
 
     /**

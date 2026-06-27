@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.factory;
 
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
@@ -91,23 +92,41 @@ public final class InlineTagMapper {
     var id = nextInlineId();
     var text = tag.displayText() == null ? "" : tag.displayText();
     var sanitize = tag.sanitize();
+    var title = resolveTitle(tag);
     return switch (tag.key()) {
-      case "" -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize);
+      case "" -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
       case "a" -> new AnvilPrompt("anvil", id, defaultAnvilTitle(), text,
-          defaultAnvilButton(), defaultAnvilButton(), sanitize);
-      case "s" -> new SignPrompt("sign", id, text, defaultSignLines(), sanitize);
+          defaultAnvilButton(), defaultAnvilButton(), sanitize, title);
+      case "s" -> new SignPrompt("sign", id, text, defaultSignLines(), sanitize, title);
       case "p" -> new PlayerUiPrompt("player_ui", id, text, tag.filter(),
-          null, null, null, sanitize);
-      case "d" -> toDialogPrompt(tag, id, sanitize);
-      default -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize);
+          null, null, null, sanitize, title);
+      case "d" -> toDialogPrompt(tag, id, sanitize, title);
+      default -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
     };
   }
 
-  // ------------------------------------------------------------------
-  // Defaults — the JSON schema requires fields the inline syntax does
-  // not provide. These keep the records well-formed so the canonical
-  // constructors accept them.
-  // ------------------------------------------------------------------
+  /**
+   * Resolves the title-wrapper config for an inline tag.
+   *
+   * <p>If the tag has no {@code -t} flag, returns {@code null}. If the flag is the standalone
+   * {@code -t} (no parameters), the {@code main} field is empty — the caller (factory) will
+   * inject the prompt's display text as the main title text when building the wrapper screen.
+   *
+   * @param tag the parsed inline tag
+   * @return a resolved {@link TitleConfig} with a non-empty {@code main}, or {@code null}
+   */
+  private static TitleConfig resolveTitle(PromptTag tag) {
+    var raw = tag.title();
+    if (raw == null) return null;
+    if (raw.main().isEmpty()) {
+      // Standalone -t flag: inject the prompt's display text as the main title.
+      var displayText = tag.displayText() == null ? "" : tag.displayText();
+      return new TitleConfig(displayText, raw.sub(), raw.ticks());
+    }
+    return raw;
+  }
+
+  // Defaults used to keep records well-formed for canonical constructors.
 
   private static CancelBehavior defaultCancel() {
     return new CancelBehavior(false, "", false, "");
@@ -142,7 +161,8 @@ public final class InlineTagMapper {
    * <p>{@code constraints} are not preserved: the JSON schema stores them as a separate
    * field that has no analog in a {@link PromptTag}.
    */
-  private static DialogPrompt toDialogPrompt(PromptTag tag, String id, boolean sanitize) {
+  private static DialogPrompt toDialogPrompt(
+      PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
     var sourceRows = tag.isCompound() ? tag.subTags() : List.of(tag);
     var rows = new ArrayList<DialogRow>(sourceRows.size());
     for (var sub : sourceRows) {

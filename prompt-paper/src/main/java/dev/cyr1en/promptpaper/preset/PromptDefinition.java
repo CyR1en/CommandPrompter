@@ -1,5 +1,7 @@
 package dev.cyr1en.promptpaper.preset;
 
+import dev.cyr1en.promptcore.TitleConfig;
+
 /**
  * Common interface for every prompt definition loaded from {@code presets.json}.
  *
@@ -25,4 +27,12 @@ public sealed interface PromptDefinition
    * is substituted into the final command.
    */
   boolean sanitize();
+
+  /**
+   * Optional title-wrapper configuration. When present (non-null), the prompt screen is wrapped in
+   * a {@code TitleWrapperScreen} that shows an Adventure API title for {@code stay} ticks before
+   * opening the underlying prompt. {@code null} when no title wrapper is requested.
+   */
+  TitleConfig titleDisplay();
 }
+

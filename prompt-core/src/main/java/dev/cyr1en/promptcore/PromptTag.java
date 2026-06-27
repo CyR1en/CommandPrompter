@@ -60,7 +60,8 @@ public record PromptTag(
     String validatorAlias,
     AnswerType type,
     List<PromptTag> subTags,
-    boolean preset) {
+    boolean preset,
+    TitleConfig title) {
 
   /** Describes an optional type constraint on the answer value. */
   public enum AnswerType {

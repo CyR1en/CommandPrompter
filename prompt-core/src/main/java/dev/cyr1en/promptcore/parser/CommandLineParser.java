@@ -26,10 +26,8 @@ public class CommandLineParser {
   private final Pattern dsFlag;
   private final Pattern intFlag;
   private final Pattern strFlag;
-  // Deprecation warning state and detector for the legacy trailing-kind dialog form
-  // (`<d:Title bool>`). The form was removed in favor of the unified `key:filter:display`
-  // shape that mirrors Player UI; this detector exists only to log a one-shot migration
-  // hint for any config still using the old form.
+  private final Pattern titleFlag;
+  // Pattern to detect and warn about the deprecated trailing-kind dialog form.
   private static final Pattern TRAILING_KIND_DETECT =
       Pattern.compile("\\b(?:text|bool|num)(?:\\[[^\\]]*\\])?\\s*$", Pattern.CASE_INSENSITIVE);
   private final Set<String> seenDeprecationWarnings = ConcurrentHashMap.newKeySet();
@@ -55,6 +53,7 @@ public class CommandLineParser {
     this.dsFlag = Pattern.compile("-ds\\b");
     this.intFlag = Pattern.compile("-int\\b");
     this.strFlag = Pattern.compile("-str\\b");
+    this.titleFlag = Pattern.compile("-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
   }
 
   /** Returns the {@link ParserConfig} used by this parser. */
@@ -254,12 +253,10 @@ public class CommandLineParser {
     var sanitize = !dsFlag.matcher(remainder).find();
     var validatorAlias = extractValidator(remainder);
     var type = extractType(remainder);
+    var title = extractTitle(remainder);
+    remainder = stripTitleFlag(remainder, title);
 
-    // The legacy trailing-kind form (`<d:Title bool>`, `<d:Amount num[1,64]>`) was removed
-    // in favor of the unified `key:filter:display` form. If we see the deprecated form —
-    // and the two-colon form did NOT already populate `filter` (which would mean the user
-    // already migrated) — log a one-shot migration hint so the affected config can be
-    // updated. The behavior is a silent fallback to a text field.
+    // Log a one-shot migration hint if using the deprecated trailing-kind form.
     if (filter == null) warnIfTrailingKind(rawContent);
 
     var displayText =
@@ -331,14 +328,11 @@ public class CommandLineParser {
     var sanitize = !dsFlag.matcher(rawContent).find();
     var validatorAlias = extractValidator(rawContent);
     var type = extractType(rawContent);
+    var title = extractTitle(rawContent);
 
-    // Strip the flags from the whole content. After stripping, the sub-tag
-    // content is "clean" — no stray flag tokens leaking into display text.
-    // A side-effect: a literal "-ds" in a display label (very unusual) would
-    // also get stripped. We document this limitation; users who need it
-    // shouldn't put bare flag tokens in display text.
+    // Strip flags from the compound tag content.
     var stripped =
-        rawContent
+        stripTitleFlag(rawContent, title)
             .replaceAll("-ds\\b", "")
             .replaceAll("-iv:\\w+", "")
             .replaceAll("-int\\b", "")
@@ -424,7 +418,100 @@ public class CommandLineParser {
             .replace(config.escape() + config.closing(), config.closing())
             .trim();
     return new PromptTag(
-        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false);
+        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false, null);
+  }
+
+  /**
+   * Extracts a {@link TitleConfig} from the {@code -t} flag in the given content, or returns {@code
+   * null} if no title flag is present.
+   *
+   * <p>Syntax variants:
+   *
+   * <ul>
+   *   <li>{@code -t} — standalone flag; {@code main} is empty (defaults to display text later),
+   *       {@code sub} and {@code ticks} are {@code null}
+   *   <li>{@code -t:Main} — main title only
+   *   <li>{@code -t:"Main Title"|Sub|70} — main, subtitle, and ticks
+   *   <li>{@code -t:"Main"||70} — main and ticks; subtitle skipped via {@code ||}
+   * </ul>
+   *
+   * <p>Parameters after {@code -t:} are split by {@code |} (quote-aware). Surrounding double quotes
+   * are removed from each part. An empty part (from {@code ||}) is treated as "skip" (null) for
+   * {@code sub} and {@code ticks}; an empty {@code main} is preserved as an empty string.
+   */
+  TitleConfig extractTitle(String content) {
+    var m = titleFlag.matcher(content);
+    if (!m.find()) return null;
+    var matched = m.group();
+    if (matched.equals("-t")) {
+      return new TitleConfig("", null, null);
+    }
+    var params = matched.substring(3);
+    var parts = splitTitleParams(params);
+    // main title
+    var main = unquote(parts.get(0));
+    // sub title
+    String sub = null;
+    if (parts.size() > 1 && !parts.get(1).isEmpty()) {
+      sub = unquote(parts.get(1));
+    }
+    // ticks
+    Integer ticks = null;
+    if (parts.size() > 2 && !parts.get(2).isEmpty()) {
+      try {
+        ticks = Integer.parseInt(parts.get(2).trim());
+      } catch (NumberFormatException e) {
+        LOG.fine("Title ticks not a valid integer: " + parts.get(2));
+      }
+    }
+    return new TitleConfig(main, sub, ticks);
+  }
+
+  /**
+   * Strips the first {@code -t…} match from {@code content}. If {@code title} is {@code null} (no
+   * title flag was found), the content is returned unchanged.
+   */
+  String stripTitleFlag(String content, TitleConfig title) {
+    if (title == null) return content;
+    var m = titleFlag.matcher(content);
+    if (m.find()) {
+      return content.replace(m.group(), "");
+    }
+    return content;
+  }
+
+  /**
+   * Splits the title parameter string by {@code |}, respecting double-quoted segments so that a
+   * pipe inside quotes is not treated as a delimiter.
+   */
+  private static List<String> splitTitleParams(String s) {
+    var parts = new ArrayList<String>();
+    var current = new StringBuilder();
+    var inQuotes = false;
+    for (var i = 0; i < s.length(); i++) {
+      var c = s.charAt(i);
+      if (c == '"') {
+        inQuotes = !inQuotes;
+        current.append(c);
+      } else if (c == '|' && !inQuotes) {
+        parts.add(current.toString());
+        current = new StringBuilder();
+      } else {
+        current.append(c);
+      }
+    }
+    parts.add(current.toString());
+    return parts;
+  }
+
+  /** Removes surrounding double quotes from {@code s} if present. */
+  private static String unquote(String s) {
+    if (s == null) return null;
+    s = s.trim();
+    if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
+      return s.substring(1, s.length() - 1);
+    }
+    return s;
   }
 
   private String extractValidator(String content) {

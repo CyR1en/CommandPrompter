@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.annotations.SerializedName;
+import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
@@ -14,13 +15,15 @@ import java.util.Objects;
  * @param promptText the question shown to the player
  * @param cancel cancel-behavior block
  * @param sanitize whether to strip color codes from the player's input
+ * @param titleDisplay optional title-wrapper config; {@code null} when not requested
  */
 public record ChatPrompt(
     String type,
     String id,
     @SerializedName("prompt_text") String promptText,
     CancelBehavior cancel,
-    boolean sanitize)
+    boolean sanitize,
+    @SerializedName("title_display") TitleConfig titleDisplay)
     implements PromptDefinition {
 
   /** Canonical constructor. Enforces {@code type == "chat"} and non-null required fields. */
@@ -33,4 +36,14 @@ public record ChatPrompt(
       throw new IllegalArgumentException("ChatPrompt.type must be \"chat\", got: " + type);
     }
   }
+
+  /**
+   * Backward-compatible convenience constructor without the title-wrapper field. Delegates to the
+   * canonical constructor with {@code titleDisplay = null}.
+   */
+  public ChatPrompt(
+      String type, String id, String promptText, CancelBehavior cancel, boolean sanitize) {
+    this(type, id, promptText, cancel, sanitize, null);
+  }
 }
+
