@@ -72,7 +72,6 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
         if (inventory == null) {
             createInventory();
         }
-        // Place item components into the 3 anvil slots
         GuiItemContainer first = firstItemComponent.display();
         GuiItem item = first.getItem(0, 0);
         if (item != null) {
@@ -94,10 +93,8 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
             inventory.setItem(SLOT_RESULT, item.getItem());
         }
 
-        // Player inventory component placed in the bottom area
         if (isPlayerInventoryUsed()) {
             playerGuiComponent.display();
-            // Player inventory items are managed by HumanEntityCache
         }
     }
 
@@ -111,9 +108,7 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
         }
         update();
 
-        // Subscribe to name input changes (idempotent — show() can be retried
-        // by the listener on re-open; re-subscribing would replace the
-        // callback and lose any prior subscriber's reference).
+        // Subscribe to name input changes once to avoid replacing callback on re-open.
         if (!nameInputSubscribed) {
             anvilInventory.subscribeToNameInputChanges(text -> {
                 this.anvilInventory.renameText = text;
@@ -149,8 +144,7 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
                 yield false;
             }
             default -> {
-                // Player inventory slot
-                int slot = rawSlot - 3; // offset past anvil slots
+                int slot = rawSlot - 3;
                 yield playerGuiComponent.click(this, event, slot);
             }
         };

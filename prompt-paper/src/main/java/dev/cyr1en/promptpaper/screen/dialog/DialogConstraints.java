@@ -28,17 +28,12 @@ public record DialogConstraints(
                 : "";
 
         return switch (kind) {
-            // TEXT and unknown filters both land here. Unrecognized filter
-            // keywords fall through silently to a text field — the user did
-            // not opt into a specific kind, so defaulting to text is the
-            // principle of least surprise.
+            // Unknown filters fall through to a text field.
             case TEXT -> parseText(bracketContent, defaults);
             case CHOICE -> parseChoice(bracketContent, defaults);
             case NUMBER -> parseNumber(bracketContent, defaults);
             case TAB -> parseTab(bracketContent, defaults);
-            // TITLE rows are consumed by DialogPromptScreen's constructor and
-            // never reach buildInputs(). This case exists only to satisfy the
-            // exhaustive switch; treat it as title constraints.
+            // TITLE rows are handled by DialogPromptScreen's constructor.
             case TITLE -> parseTitle(bracketContent, defaults);
             case BODY -> parseBody(bracketContent, defaults);
         };
@@ -70,7 +65,7 @@ public record DialogConstraints(
 
         if (!bracket.isEmpty()) {
             if (bracket.contains("=")) {
-                // Key-value parsing (e.g., max_length=64,max_lines=3,width=150)
+                // Key-value parsing.
                 var parts = bracket.split(",");
                 for (var part : parts) {
                     var p = part.trim();
@@ -86,7 +81,7 @@ public record DialogConstraints(
                     }
                 }
             } else {
-                // Positional parsing: [max_length] or [max_length, max_lines, width]
+                // Positional parsing.
                 var parts = bracket.split(",");
                 if (parts.length >= 1) {
                     try { maxLength = clampInt(Integer.parseInt(parts[0].trim()), 1, 8192); }
@@ -129,13 +124,7 @@ public record DialogConstraints(
         var max = dNum.max();
         var step = dNum.step();
         var initial = dNum.effectiveInitial();
-        // Track whether the per-tag supplied its own min/max and whether it
-        // pinned a per-tag initial. The config default `effectiveInitial()`
-        // is resolved against the CONFIG range; reusing it after a per-tag
-        // range override leaves the initial out of the per-tag bounds and
-        // Paper's NumberRangeDialogInput rejects it with an
-        // IllegalArgumentException at build time. Re-resolve against the
-        // per-tag range when the per-tag overrode range but not initial.
+        // Resolve initial value based on per-tag range to avoid out-of-bounds exceptions.
         var rangeOverridden = false;
         var perTagInitialSupplied = false;
         if (!bracket.isEmpty()) {
@@ -154,21 +143,16 @@ public record DialogConstraints(
                     initial = Float.parseFloat(parts[3].trim());
                     perTagInitialSupplied = true;
                 }
-            } catch (NumberFormatException ignored) { /* fall back to defaults */ }
+            } catch (NumberFormatException ignored) {}
         }
-        // Paper requires min < max and step > 0; clamp defensively.
+        // Clamp min, max, and step defensively.
         if (min >= max) max = min + 1f;
         if (step <= 0f) step = 1f;
-        // Per-tag supplied a range but did not pin an initial — re-resolve
-        // against the per-tag range so the slider lands at the midpoint
-        // rather than carrying a config-range initial that no longer fits.
+        // Re-resolve midpoint initial value when range is overridden.
         if (rangeOverridden && !perTagInitialSupplied) {
             initial = (min + max) / 2.0f;
         }
-        // Safety net: Paper's NumberRangeDialogInput rejects initial < min
-        // or initial > max. The re-resolution above covers the common case;
-        // the clamp covers future code paths, config drift, and the case
-        // where the per-tag pinned an initial outside its own range.
+        // Clamp initial value to the valid range.
         initial = Math.max(min, Math.min(max, initial));
         return new DialogConstraints(
                 DialogInputKind.NUMBER, bracket,
@@ -179,10 +163,7 @@ public record DialogConstraints(
     }
 
     private static DialogConstraints parseTab(String bracket, DialogConfig d) {
-        // The bracket content is an optional single integer N — the per-tag
-        // threshold. Absent / malformed bracket falls back to the config
-        // default (`DialogUI.Defaults.Tab.MaxButtons`). N must be >= 1 to
-        // make sense; we silently clamp any zero/negative value up to 1.
+        // Parse optional threshold N from bracket, clamping to a minimum of 1.
         Integer maxButtons = d.tab().maxButtons();
         if (!bracket.isEmpty()) {
             try {
@@ -200,7 +181,7 @@ public record DialogConstraints(
 
     private static String extractBracket(String s) {
         var end = s.indexOf(']');
-        if (end < 0) return s.substring(1); // malformed — return contents anyway
+        if (end < 0) return s.substring(1);
         return s.substring(1, end).trim();
     }
 

@@ -48,6 +48,8 @@ import java.util.Objects;
  * @param type the expected answer type constraint (block-level)
  * @param subTags individual input rows for compound tags; empty list for single-row tags
  * @param preset whether this tag is a JSON preset reference (e.g. {@code <@my_prompt>})
+ * @param title optional title-wrapper configuration extracted from the {@code -t} flag; {@code
+ *     null} when no title wrapper is requested
  */
 public record PromptTag(
     String rawTag,
@@ -81,15 +83,15 @@ public record PromptTag(
 
   /**
    * Convenience shortcut for a single-row tag (no sub-tags) with default sanitize=true, no
-   * validator, no type constraint, and {@code preset = false}.
+   * validator, no type constraint, no title wrapper, and {@code preset = false}.
    */
   public PromptTag(String rawTag, String key, String filter, String displayText) {
-    this(rawTag, key, filter, displayText, true, null, AnswerType.NONE, List.of(), false);
+    this(rawTag, key, filter, displayText, true, null, AnswerType.NONE, List.of(), false, null);
   }
 
   /**
-   * Convenience shortcut with sanitize and validator but no type constraint, no sub-tags, and
-   * {@code preset = false}.
+   * Convenience shortcut with sanitize and validator but no type constraint, no sub-tags, no title
+   * wrapper, and {@code preset = false}.
    */
   public PromptTag(
       String rawTag,
@@ -107,7 +109,26 @@ public record PromptTag(
         validatorAlias,
         AnswerType.NONE,
         List.of(),
-        false);
+        false,
+        null);
+  }
+
+  /**
+   * Convenience shortcut carrying all block-level fields but no title wrapper. Equivalent to the
+   * canonical constructor with {@code title = null}. Preserves backward compatibility for callers
+   * that construct a {@code PromptTag} before the title-wrapper feature was introduced.
+   */
+  public PromptTag(
+      String rawTag,
+      String key,
+      String filter,
+      String displayText,
+      boolean sanitize,
+      String validatorAlias,
+      AnswerType type,
+      List<PromptTag> subTags,
+      boolean preset) {
+    this(rawTag, key, filter, displayText, sanitize, validatorAlias, type, subTags, preset, null);
   }
 
   /**

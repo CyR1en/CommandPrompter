@@ -63,17 +63,11 @@ public final class DialogInputBuilder {
         for (var option : c.options()) {
             var trimmed = option.trim();
             if (trimmed.isEmpty()) continue;
-            // Display is null → the client renders the id as the option label.
-            // Picking the id as the source-of-truth keeps the parsed answer
-            // string identical to what the user picked, so no label→id map
-            // lookup is needed at answer-read time.
+            // Set id as display label to keep parsed answer identical to selection.
             entries.add(SingleOptionDialogInput.OptionEntry.create(trimmed, null, first));
             first = false;
         }
-        // If the user supplied zero options, fall back to a single empty
-        // option. Paper rejects an entry list of size zero outright; an
-        // empty option at least lets the dialog render and the user can
-        // decide whether their config is wrong.
+        // Fallback to empty option if zero options supplied, avoiding client rejection.
         if (entries.isEmpty()) {
             entries.add(SingleOptionDialogInput.OptionEntry.create("", null, true));
         }

@@ -68,11 +68,7 @@ public class PromptEngine {
         }
         var parsed = parser.parse(commandLine);
 
-        // Fail-fast: any unresolved preset id aborts the entire command flow,
-        // even if the command has no prompt tags (e.g. only <!@missing>).
-        // The listener cancels the PlayerCommandPreprocessEvent when the
-        // command had tag form and the engine returned empty for a permission
-        // / fail-fast reason.
+        // Fail-fast: any unresolved preset ID aborts the command flow.
         var missingPrompts = findMissingPromptPresets(parsed);
         var missingPostCmds = findMissingPostCommandPresets(parsed);
         if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty()) {
@@ -296,8 +292,7 @@ public class PromptEngine {
     private List<String> findMissingPromptPresets(ParsedCommand parsed) {
         var registry = plugin.getPresetRegistry();
         if (registry == null) {
-            // No registry wired (e.g. very early startup). Treat all preset refs as
-            // missing so the player sees a clear error instead of a silent pass.
+            // If no registry is wired, treat all preset references as missing.
             return parsed.promptTags().stream()
                     .filter(PromptTag::isPreset)
                     .map(PromptTag::displayText)

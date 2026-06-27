@@ -108,9 +108,9 @@ public final class GuiComponent {
     @NotNull
     public GuiItemContainer display() {
         GuiItemContainer container = new GuiItemContainer(length, height);
-        // 1. Render items static pane (background)
+        // Render background static pane
         mergeContainer(container, itemsStaticPane.display(), 0, 0, false);
-        // 2. Render panes sorted by priority (lowest first → rendered behind)
+        // Render panes sorted by priority (lowest first)
         panes.stream()
             .sorted()
             .filter(pp -> pp.pane().isVisible())
@@ -135,7 +135,7 @@ public final class GuiComponent {
         for (int i = panes.size() - 1; i >= 0; i--) {
             PositionedPane pp = panes.get(i);
             if (!pp.pane().isVisible()) continue;
-            // Translate component-level slot to pane-local coordinates
+            // Translate to pane-local coordinates
             int localX = slot.x() - pp.offset().x();
             int localY = slot.y() - pp.offset().y();
             if (localX < 0 || localX >= pp.pane().getLength()
@@ -147,7 +147,6 @@ public final class GuiComponent {
                 return true;
             }
         }
-        // Fall back to items static pane
         return itemsStaticPane.click(gui, this, event, slot);
     }
 
@@ -185,8 +184,7 @@ public final class GuiComponent {
                 GuiItem item = container.getItem(x, y);
                 int invX = offsetX + x;
                 int invY = offsetY + y;
-                // Player inventory: 9 hotbar slots, then 27 storage slots (rows 1-3)
-                // The inventory view shows storage rows first, then hotbar
+                // Map coordinates to Bukkit's PlayerInventory slot layout
                 int invSlot = invY * 9 + invX;
                 if (invSlot >= 0 && invSlot < 36) {
                     if (item != null) {

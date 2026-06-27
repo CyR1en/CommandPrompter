@@ -126,12 +126,11 @@ public class CommandLineParser {
   private void parsePCM(String rawContent, String fullTag, List<PostCommandMeta> postCmds) {
     var content = rawContent;
 
-    // Extract onCancel flag (!!)
     var onCancel = content.startsWith("!!");
     if (onCancel) {
       content = content.substring(2);
     } else {
-      content = content.substring(1); // remove leading !
+      content = content.substring(1);
     }
 
     // Extract delay (!:N)
@@ -149,8 +148,7 @@ public class CommandLineParser {
 
     content = content.trim();
 
-    // Preset post-command reference: <!@id> (with onCancel/delay already stripped above).
-    // The id is everything after the leading @ up to the first space.
+    // Parse preset post-command reference: <!@id>
     if (content.startsWith("@")) {
       var id = content.substring(1);
       var space = id.indexOf(' ');
@@ -162,7 +160,6 @@ public class CommandLineParser {
             new PostCommandMeta(id, new int[0], delay, onCancel, DispatchTarget.PASSTHROUGH, true));
         return;
       }
-      // @ with no id falls through to legacy handling.
     }
 
     // Extract dispatch target (@console / @player)
@@ -180,7 +177,7 @@ public class CommandLineParser {
       indices.add(Integer.parseInt(refMatcher.group(1)));
     }
 
-    // Clean up command text (preserve {N} references for session resolution)
+    // Clean up command text
     var command = content.trim();
 
     LOG.fine(
@@ -197,9 +194,7 @@ public class CommandLineParser {
   }
 
   private void parsePromptTag(String rawContent, String fullTag, List<PromptTag> promptTags) {
-    // Preset prompt reference: <@id>. The id is everything after the leading @
-    // up to the first space. The id is stored in `displayText` and the `preset`
-    // flag is set; the screen type is resolved later from the PresetRegistry.
+    // Parse preset prompt reference: <@id>
     if (rawContent.startsWith("@")) {
       var id = rawContent.substring(1);
       var space = id.indexOf(' ');
@@ -209,18 +204,21 @@ public class CommandLineParser {
         LOG.fine("Preset prompt tag: id=" + id);
         promptTags.add(
             new PromptTag(
-                fullTag, "", null, id, true, null, PromptTag.AnswerType.NONE, List.of(), true));
+                fullTag,
+                "",
+                null,
+                id,
+                true,
+                null,
+                PromptTag.AnswerType.NONE,
+                List.of(),
+                true,
+                null));
         return;
       }
-      // @ with no id falls through to legacy handling.
     }
 
-    // Compound dialog form: a single `<d:... && d:...>` block containing one or more
-    // Compound dialog form: a single `<d:... && d:...>` block containing one or more
-    // `&&`-separated sub-tags. The block renders as one dialog with N input rows.
-    // The first sub-tag's `key` becomes the compound tag's key (for screen routing).
-    // The legacy trailing-kind detector runs only on non-compound tags — `&&` blocks
-    // are an explicit, post-migration syntax.
+    // Parse compound dialog block containing one or more &&-separated sub-tags.
     if (containsCompoundDelimiter(rawContent)) {
       parseCompoundPromptTag(rawContent, fullTag, promptTags);
       return;
@@ -230,13 +228,14 @@ public class CommandLineParser {
     String filter = null;
     String remainder;
 
-    // If content starts with '-', treat as flag-only tag with empty key
     if (rawContent.startsWith("-")) {
       key = "";
       remainder = rawContent;
     } else {
       var firstColon = rawContent.indexOf(':');
-      if (firstColon < 0) {
+      if (firstColon < 0
+          || rawContent.substring(0, firstColon).contains(" ")
+          || rawContent.substring(0, firstColon).contains("-")) {
         key = "";
         remainder = rawContent;
       } else {
@@ -284,12 +283,23 @@ public class CommandLineParser {
             + validatorAlias
             + " type="
             + type
+            + " title="
+            + title
             + " display="
             + displayText);
 
     promptTags.add(
         new PromptTag(
-            fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false));
+            fullTag,
+            key,
+            filter,
+            displayText,
+            sanitize,
+            validatorAlias,
+            type,
+            List.of(),
+            false,
+            title));
   }
 
   /**
@@ -344,15 +354,12 @@ public class CommandLineParser {
     }
 
     if (subTags.isEmpty()) {
-      // All sub-contents were empty after trimming — degenerate input.
-      // Treat the whole thing as a no-op and let the caller carry on.
+      // Ignore degenerate input if all sub-tags are empty.
       LOG.fine("Compound tag produced zero sub-tags after trimming: " + rawContent);
       return;
     }
 
-    // d:tab may not appear inside a compound block. Per-button dialogs
-    // and multi-argument completion cannot share a screen — the user
-    // cannot click a button AND see a text input on the same dialog.
+    // Disallow d:tab inside compound tags.
     for (var sub : subTags) {
       if (isTabFilter(sub.filter())) {
         throw new IllegalArgumentException(
@@ -374,7 +381,7 @@ public class CommandLineParser {
             + type);
     promptTags.add(
         new PromptTag(
-            fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags, false));
+            fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags, false, title));
   }
 
   /**
@@ -391,8 +398,6 @@ public class CommandLineParser {
     String filter = null;
     String remainder;
     if (subContent.startsWith("-")) {
-      // Flag-only sub-tag: no key, no filter, no display. Unlikely in practice
-      // but we handle it the same way the single-tag parser does.
       key = "";
       filter = null;
       remainder = subContent;

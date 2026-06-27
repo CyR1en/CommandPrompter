@@ -81,8 +81,7 @@ public class PostCommandResolver {
     }
     var presetOpt = registry.getPostCommand(pcm.command());
     if (presetOpt.isEmpty()) {
-      // Fail-fast in PromptEngine.intercept should have caught this. Defensive
-      // log in case the registry was hot-reloaded after the session started.
+      // Defensive check in case the registry was reloaded after the session started.
       plugin.getPluginLogger().err(
           "Preset post-command '" + pcm.command()
               + "' not found at dispatch time (registry may have been reloaded) — skipping");
@@ -98,8 +97,7 @@ public class PostCommandResolver {
               + ") — skipping");
       return Optional.empty();
     }
-    // Cross-check: if the parser's onCancel hint disagrees with the preset
-    // policy, surface the misconfiguration to the operator.
+    // Log a warning if the parser's hint disagrees with the preset policy.
     if (pcm.onCancel() != (def.executionPolicy() == ExecutionPolicy.ON_CANCEL)) {
       plugin.getPluginLogger().warn(
           "Preset post-command '" + def.id()
@@ -119,9 +117,7 @@ public class PostCommandResolver {
 
   private Optional<Resolved> resolveLegacy(
       Player player, PostCommandMeta pcm, boolean wasCancelled) {
-    // Legacy PCMs are pre-filtered by PromptSession into onCompleteCmds /
-    // onCancelCmds based on the parser's onCancel hint, which is exactly the
-    // session's completion state. No additional policy check needed.
+    // Legacy PCMs are pre-filtered by the session's completion state.
     if (pcm.command() == null || pcm.command().isEmpty()) {
       plugin.getPluginLogger().debug("Skipping empty legacy PCM");
       return Optional.empty();

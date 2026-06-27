@@ -48,9 +48,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
         this.plugin = plugin;
         this.player = player;
         this.defaultLines = lines;
-        // Position is resolved at open() time (not here) so it tracks the
-        // player's current location when the sign actually shows, and so the
-        // scheduled task can compute the eye-line position.
+        // Position is resolved at open() to track the player's current location.
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -90,25 +88,14 @@ public class SignScreenImpl implements SignInputScreen, Listener {
 
             var signState = resolveSignState();
             var signEntity = new SignBlockEntity(pos, signState);
-            // Build text while level is null. SignBlockEntity.setText() calls
-            // setChanged(), which no-ops when level == null — keeping level
-            // unset here prevents the chunk at our virtual position from
-            // being marked dirty/saved.
+            // Set text while level is null to prevent dirtying or saving the virtual chunk.
             var text = signEntity.getText(true);
             for (int i = 0; i < Math.min(defaultLines.length, 4); i++) {
                 text = text.setMessage(i, Component.literal(defaultLines[i] != null ? defaultLines[i] : ""));
             }
             signEntity.setText(text, true);
 
-            // getUpdatePacket() needs the level to resolve registryAccess()
-            // for the block-entity data packet. Borrow the player's level for
-            // just this one packet and release it immediately — the sign
-            // block entity never actually lives in any chunk.
-            //
-            // Order matches SignGUI's Mojang wrappers: first tell the client
-            // the block at `pos` is a sign, then send the block-entity data
-            // (text), then open the editor. The client needs the block-state
-            // packet before the BE-data packet, or the editor won't open.
+            // Send block change, temporarily set level for the update packet, and open the sign editor.
             var signLocation = new org.bukkit.Location(
                     player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
             player.sendBlockChange(signLocation, resolveSignMaterial().createBlockData());
@@ -160,7 +147,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
                 pipeline.remove(SignInterceptor.HANDLER_NAME);
             }
             interceptor = null;
-            // Remove fake sign entity from client view
+            // Remove fake sign from client
             nmsPlayer.connection.send(new ClientboundBlockUpdatePacket(pos, Blocks.AIR.defaultBlockState()));
         }, null);
     }

@@ -138,7 +138,8 @@ public class ScreenManager {
                 tag.validatorAlias(),
                 tag.type(),
                 tag.subTags(),
-                tag.preset());
+                tag.preset(),
+                tag.title());
         var context = buildCompletionContext(player, resolvedTag);
         var screen = factory.createFromTag(player, resolvedTag, context);
         plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
@@ -208,10 +209,7 @@ public class ScreenManager {
         if (tagOpt.isEmpty()) return;
         var tag = tagOpt.get();
 
-        // Compound dialogs encode N sub-answers into the result payload.
-        // The dialog screen uses ASCII control chars (RS=0x1E, US=0x1F) as
-        // delimiters. A leading RS marks a compound payload; a plain string
-        // is a single-tag answer.
+        // Compound dialogs encode multiple sub-answers with control characters (RS/US).
         if (tag.isCompound()) {
             handleCompoundResult(player, tag, result.answer());
             return;
@@ -243,8 +241,7 @@ public class ScreenManager {
     private void handleCompoundResult(Player player, PromptTag tag, String rawPayload) {
         var answers = decodeAnswers(rawPayload, tag.subTags().size());
         if (answers == null) {
-            // Malformed payload — re-show the dialog. This shouldn't happen
-            // with a properly-built DialogPromptScreen, but defensive.
+            // Defensive fallback: re-show prompt if compound payload is malformed.
             plugin.getPluginLogger().warn("Malformed compound payload from dialog for "
                     + player.getName() + ": " + rawPayload);
             showPrompt(player, tag);

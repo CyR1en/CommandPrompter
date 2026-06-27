@@ -150,16 +150,15 @@ public final class InlineTagMapper {
       var label = sub.displayText() == null ? "" : sub.displayText();
       rows.add(new DialogRow(label, inputType, null));
     }
-    var title = tag.displayText() == null || tag.displayText().isBlank()
+    var dialogTitle = tag.displayText() == null || tag.displayText().isBlank()
         ? "Dialog"
         : tag.displayText();
 
-    // Build the new schema shape: DialogBaseConfig(inputs) + DialogTypeConfig.
     var base = new DialogBaseConfig(List.of(), rows);
     var dialogType = isTabFilter(tag)
         ? new DialogTypeConfig(DialogType.MULTI_ACTION, 2, null, null, null, null, null)
         : new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null, null, null);
-    return new DialogPrompt("dialog", id, title, base, dialogType, sanitize);
+    return new DialogPrompt("dialog", id, dialogTitle, base, dialogType, sanitize, titleConfig);
   }
 
   private static boolean isTabFilter(PromptTag tag) {

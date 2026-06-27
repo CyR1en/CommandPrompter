@@ -126,6 +126,7 @@ public class MockBukkitTest {
         when(plugin.getHookContainer()).thenReturn(hookContainer);
 
         scheduler = new MockScheduler(plugin);
+        when(plugin.getScheduler()).thenReturn(scheduler);
     }
 
     @AfterEach

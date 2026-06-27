@@ -60,10 +60,6 @@ public abstract class AbstractI18n<T, C> {
     load();
   }
 
-  // ---------------------------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------------------------
-
   public String getLocale() {
     return locale;
   }
@@ -111,10 +107,6 @@ public abstract class AbstractI18n<T, C> {
     load();
   }
 
-  // ---------------------------------------------------------------------------
-  // Extension points for subclasses
-  // ---------------------------------------------------------------------------
-
   /**
    * Optional pre-processing step invoked <em>before</em> {@code %key%} substitution.
    *
@@ -154,10 +146,6 @@ public abstract class AbstractI18n<T, C> {
     return postFormat("<missing translation: " + key + ">", null);
   }
 
-  // ---------------------------------------------------------------------------
-  // Internal helpers
-  // ---------------------------------------------------------------------------
-
   /**
    * Replaces all {@code %key%} tokens in {@code text} with the corresponding {@link Placeholder}
    * value.
@@ -175,15 +163,15 @@ public abstract class AbstractI18n<T, C> {
    * user-override properties are loaded last and overwrite JAR-provided defaults.
    */
   private void load() {
-    // Level 3: ultimate JAR fallback — en_US
+    // Ultimate JAR fallback (en_US)
     loadFromJar("messages_en_US.properties");
 
-    // Level 2: locale-specific JAR bundle (no-op if locale == en_US or file missing)
+    // Locale-specific JAR bundle
     if (!"en_US".equals(locale)) {
       loadFromJar("messages_" + locale + ".properties");
     }
 
-    // Level 1: user-override file on disk (highest priority)
+    // User-override file on disk (highest priority)
     loadFromDisk(locale);
   }
 

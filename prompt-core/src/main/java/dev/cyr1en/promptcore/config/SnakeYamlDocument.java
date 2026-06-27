@@ -138,9 +138,9 @@ public class SnakeYamlDocument implements YamlDocument {
 
         String rawDump = yaml.dump(data);
 
-        // Add a newline before each top-level key to space out sections
+        // Space out top-level sections
         rawDump = rawDump.replaceAll("(?m)^([a-zA-Z0-9_-]+:)", "\n$1");
-        // Remove any leading newlines that might have been added to the very first item
+        // Remove leading newlines
         rawDump = rawDump.replaceFirst("^\\n+", "");
 
         for (Map.Entry<String, String[]> entry : commentsMap.entrySet()) {
@@ -152,7 +152,7 @@ public class SnakeYamlDocument implements YamlDocument {
 
           boolean found = true;
           for (int i = 0; i < parts.length; i++) {
-            // SnakeYAML default block style indents each level by 2 spaces.
+            // Default indentation is 2 spaces
             String expectedIndent = " ".repeat(i * 2);
             java.util.regex.Pattern p =
                 java.util.regex.Pattern.compile(

@@ -14,8 +14,6 @@ class PresetTagParserTest {
 
   private final CommandLineParser parser = new CommandLineParser();
 
-  // --- Prompt preset (<@id>) ---
-
   @Test
   void presetPromptTagIsExtracted() {
     var result = parser.parse("/give <@target_player> 64");
@@ -29,8 +27,7 @@ class PresetTagParserTest {
 
   @Test
   void presetPromptTagStopsAtSpace() {
-    // The id is everything after @ up to the first space; the rest is
-    // preserved in the template and not parsed as part of the tag.
+    // ID is parsed up to the first space.
     var result = parser.parse("/cmd <@my_prompt> more text");
     assertEquals(1, result.promptTags().size());
     var tag = result.promptTags().get(0);
@@ -59,8 +56,7 @@ class PresetTagParserTest {
 
   @Test
   void emptyPresetIdFallsThroughToLegacy() {
-    // `<@>` has no id after the @ — legacy parser treats it as a chat
-    // prompt with display text "@".
+    // Fallback to legacy chat prompt if ID is empty.
     var result = parser.parse("/cmd <@>");
     assertEquals(1, result.promptTags().size());
     var tag = result.promptTags().get(0);
@@ -73,8 +69,6 @@ class PresetTagParserTest {
     var result = parser.parse("/cmd <@my_prompt>");
     assertTrue(result.postCmds().isEmpty());
   }
-
-  // --- Post-command preset (<!@id>, <!!@id>, <!:N@id>) ---
 
   @Test
   void presetPostCommandOnComplete() {
@@ -121,8 +115,7 @@ class PresetTagParserTest {
 
   @Test
   void legacyPostCommandIsNotPreset() {
-    // Plain `<! cmd>` must still produce a non-preset PCM so the existing
-    // dispatch path continues to work.
+    // Plain PCMs remain non-preset.
     var result = parser.parse("/cmd <!log {0}>");
     assertEquals(1, result.postCmds().size());
     var pcm = result.postCmds().get(0);
@@ -138,8 +131,6 @@ class PresetTagParserTest {
     assertEquals(1, result.postCmds().size());
     assertTrue(result.postCmds().get(0).isPreset());
   }
-
-  // --- hasTagForm() ---
 
   @Test
   void hasTagFormDetectsPromptTag() {
@@ -173,12 +164,9 @@ class PresetTagParserTest {
     assertFalse(parser.hasTagForm("   "));
   }
 
-  // --- Raw tag preservation ---
-
   @Test
   void presetPromptTagRawTagPreserved() {
-    // The rawTag must include the @ so the answer-substitution step can
-    // find and replace the original markup in the command template.
+    // rawTag must include the @ symbol.
     var result = parser.parse("/cmd <@my_prompt>");
     assertEquals("<@my_prompt>", result.promptTags().get(0).rawTag());
   }

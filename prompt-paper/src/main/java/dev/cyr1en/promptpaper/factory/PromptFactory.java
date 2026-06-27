@@ -80,8 +80,7 @@ public class PromptFactory {
     if (loaded.isEmpty()) {
       plugin.getPluginLogger().info("No GUI screen providers found — GUI prompts will fall back to chat.");
     } else {
-      // Sort providers descending by target version (e.g., "26.2" before "26.1")
-      // This ensures that if we fallback, we fallback to the newest available NMS module.
+      // Sort providers descending to fall back to the newest available NMS module.
       loaded.sort((p1, p2) -> {
         String t1 = p1.getTargetVersion();
         String t2 = p2.getTargetVersion();
@@ -117,7 +116,7 @@ public class PromptFactory {
         providers.add(bestMatch);
         plugin.getPluginLogger().info("Loaded screen provider for Minecraft " + serverVersion + ": " + bestMatch.getClass().getName());
       } else {
-        // Fallback to the highest available provider (which is now at index 0)
+        // Fallback to the newest provider.
         bestMatch = loaded.get(0);
         providers.add(bestMatch);
         plugin.getPluginLogger().warn("No specific NMS module found for Minecraft " + serverVersion + ".");
@@ -218,9 +217,7 @@ public class PromptFactory {
   }
 
   private AnvilPromptScreen createAnvil(Player player, dev.cyr1en.promptpaper.preset.AnvilPrompt anvil) {
-    // Touch the anvil button icons through the material mapper so a bad
-    // icon name produces a non-fatal warning even when the button
-    // configuration is still being read from the legacy YAML config.
+    // Resolve icons through material mapper to warn about invalid names.
     materialMapper.resolveOrDefault(anvil.leftButton().buttonIcon(),
         "anvil prompt '" + anvil.id() + "' left_button");
     materialMapper.resolveOrDefault(anvil.rightButton().buttonIcon(),
@@ -240,7 +237,7 @@ public class PromptFactory {
         pui.promptText(),
         pui.sanitize(),
         null);
-    // Resolve the navigation button icons so a bad name is flagged.
+    // Resolve navigation button icons to warn about invalid names.
     resolveUiButton(pui.cancelButton(), pui.id(), "cancel_button");
     resolveUiButton(pui.previousButton(), pui.id(), "previous_button");
     resolveUiButton(pui.nextButton(), pui.id(), "next_button");

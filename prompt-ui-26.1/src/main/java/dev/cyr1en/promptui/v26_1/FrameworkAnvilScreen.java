@@ -59,12 +59,9 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             inventoryImpl = new AnvilInventoryImpl(player);
             anvilGui = new AnvilGui(plugin, inventoryImpl);
 
-            // Configure title
             configureTitle();
-            // Set up items
             setupItems();
 
-            // Register callbacks
             anvilGui.setOnClose(event -> {
                 if (open) {
                     open = false;
@@ -77,8 +74,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             // Prevent item theft from anvil slots
             anvilGui.setOnTopClick(event -> event.setCancelled(true));
 
-            // Direct result-click callback (bypasses UUID matching since NMS
-            // overwrites the result ItemStack, stripping the UUID tag)
+            // Direct callback bypasses UUID matching since NMS strips result item UUID tags
             anvilGui.setOnResultClick(event -> {
                 if (!open) return;
                 open = false;
@@ -92,8 +88,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
                 closeInternal();
             });
 
-            // Create the NMS container, render items via framework (UUID-tagged
-            // so GuiListener can route clicks to GuiItem actions), then open
+            // Create NMS container, render items via framework, and open
             anvilGui.createInventory();
             anvilGui.update();
             inventoryImpl.open();
@@ -110,7 +105,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
     private void configureTitle() {
         boolean enableTitle = Boolean.parseBoolean(config.getOrDefault("enableTitle", "true"));
         if (!enableTitle) {
-            anvilGui.setTitle(""); // ensure non-null title even when disabled
+            anvilGui.setTitle(""); // Ensure title is non-null when disabled
             return;
         }
         String customTitle = config.getOrDefault("customTitle", "");
@@ -120,7 +115,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
         }
         int brIndex = displayText.indexOf("{br}");
         String title = brIndex >= 0 ? displayText.substring(0, brIndex) : displayText;
-        anvilGui.setTitle(title.isEmpty() ? " " : title); // fallback to space so title is never null
+        anvilGui.setTitle(title.isEmpty() ? " " : title); // Fallback to space to avoid null title
     }
 
     /**
@@ -128,7 +123,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
      * anvil GUI components based on config values.
      */
     private void setupItems() {
-        // First item (the rename input item)
+        // First item (rename input)
         ItemStack firstItem = buildConfiguredItem(
             config.getOrDefault("anvilItem", "Paper"),
             config.getOrDefault("itemHideTooltips", "false"),
@@ -144,13 +139,10 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             }
         }
 
-        GuiItem firstGuiItem = new GuiItem(firstItem, null); // input is handled by anvil typing
+        GuiItem firstGuiItem = new GuiItem(firstItem, null); // Input is handled by anvil typing
         anvilGui.getFirstItemComponent().addItem(firstGuiItem, 0, 0);
 
-        // Result item (triggers submission). Click is routed by AnvilGui
-        // through setOnResultClick below — NMS overwrites the result ItemStack
-        // on submit, stripping the UUID tag the pane system relies on, so a
-        // GuiItem-level click action would never fire here.
+        // Result item triggers submission; clicks are routed via setOnResultClick because NMS strips item UUIDs
         ItemStack resultItem = buildConfiguredItem(
             config.getOrDefault("anvilResultItem", "Paper"),
             config.getOrDefault("resultItemHideTooltips", "false"),
@@ -160,7 +152,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
         GuiItem resultGuiItem = new GuiItem(resultItem, null);
         anvilGui.getResultComponent().addItem(resultGuiItem, 0, 0);
 
-        // Cancel item (optional)
+        // Optional cancel item
         boolean enableCancel = Boolean.parseBoolean(config.getOrDefault("enableCancelItem", "false"));
         if (enableCancel) {
             ItemStack cancelItem = buildConfiguredItem(

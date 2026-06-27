@@ -11,8 +11,6 @@ class PromptSessionTest {
 
   private final CommandLineParser parser = new CommandLineParser();
 
-  // --- Session start ---
-
   @Test
   void startWithPrompts_awaitingInput() {
     var parsed = parser.parse("/kick <a:Why?>");
@@ -51,8 +49,6 @@ class PromptSessionTest {
     var session = PromptSession.start("user1", parsed);
     assertEquals(0, session.currentIndex());
   }
-
-  // --- Submit answers ---
 
   @Test
   void submitAnswer_returnsNewSession() {
@@ -101,8 +97,6 @@ class PromptSessionTest {
     assertEquals(List.of("a", "b", "c"), session.answers());
   }
 
-  // --- Cancel ---
-
   @Test
   void cancel_returnsCancelledState() {
     var parsed = parser.parse("/kick <a:Why?>");
@@ -132,8 +126,6 @@ class PromptSessionTest {
     var session = PromptSession.start("user1", parsed).cancel(CancelReason.MANUAL);
     assertThrows(IllegalStateException.class, () -> session.cancel(CancelReason.TIMEOUT));
   }
-
-  // --- Finish and assembly ---
 
   @Test
   void finish_assemblesCommand() {
@@ -168,7 +160,7 @@ class PromptSessionTest {
     var result = session.finish();
     assertTrue(result.onCompleteCmds().isEmpty());
     assertEquals(1, result.onCancelCmds().size());
-    // answer list is empty since we cancelled before answering
+    // Empty answers list because session was cancelled.
     assertEquals("msg", result.onCancelCmds().get(0).command());
   }
 
@@ -187,8 +179,6 @@ class PromptSessionTest {
     var session = PromptSession.start("user1", parsed);
     assertThrows(IllegalStateException.class, session::finish);
   }
-
-  // --- Sanitization ---
 
   @Test
   void sanitize_stripsColorCodes() {
@@ -234,8 +224,6 @@ class PromptSessionTest {
     assertEquals("§cHello", session.answers().get(0));
   }
 
-  // --- PCM metadata preservation ---
-
   @Test
   void finish_preservesPCMDelay() {
     var parsed = parser.parse("/kick <> <!:20 msg {0}>");
@@ -253,8 +241,6 @@ class PromptSessionTest {
     assertEquals(DispatchTarget.CONSOLE, result.onCompleteCmds().get(0).dispatchTarget());
   }
 
-  // --- Edge cases ---
-
   @Test
   void sessionWithoutPrompts_finishesImmediately() {
     var parsed = parser.parse("/kick Steve");
@@ -269,7 +255,7 @@ class PromptSessionTest {
     var parsed = parser.parse("/kick <a:first> <a:second>");
     var session1 = PromptSession.start("user1", parsed);
     var afterFirst = session1.submitAnswer("a1");
-    // session1 should be unchanged
+    // session1 remains unchanged.
     assertEquals(0, session1.answers().size());
     assertEquals(1, afterFirst.answers().size());
   }
@@ -282,8 +268,6 @@ class PromptSessionTest {
     var r2 = session.finish();
     assertEquals(r1, r2);
   }
-
-  // --- Regression: H5 (equals/hashCode include remaining + pcmQueue) ---
 
   @Test
   void equals_differentiatesSessionsByRemaining() {
@@ -299,23 +283,20 @@ class PromptSessionTest {
     var parsed = parser.parse("/kick <a:first> <a:second>");
     var s = PromptSession.start("u", parsed);
     var t = s.submitAnswer("a1");
-    // Two sessions with same answers, state, remaining, cancel reason should be equal
+    // Identical sessions must be equal.
     var u = PromptSession.start("u", parsed).submitAnswer("a1");
     assertEquals(t, u);
   }
-
-  // --- Regression: M16 (pcmQueue is defensive copy) ---
 
   @Test
   void pcmQueue_isNotSharedBetweenSessions() {
     var parsed = parser.parse("/kick <a:first> <!msg {0}>");
     var s1 = PromptSession.start("u", parsed);
     var s2 = s1.submitAnswer("a1");
-    // Mutating parsedCommand's postCmds (which is the parser's returned list view)
-    // should not affect either session's view of pcmQueue
+    // Mutating postCmds does not affect pcmQueue.
     assertEquals(1, s1.pcmQueue().size());
     assertEquals(1, s2.pcmQueue().size());
-    // The two sessions share an immutable copy: same content, different reference is OK
+    // Sessions share an immutable copy.
     assertEquals(s1.pcmQueue(), s2.pcmQueue());
   }
 }

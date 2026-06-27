@@ -61,10 +61,8 @@ public final class GuiListener implements Listener {
         Gui gui = Gui.getGui(event.getInventory());
         if (gui == null) return;
 
-        // Global callback fires before any specific handling
         gui.callOnGlobalClick(event);
 
-        // Determine if top or bottom inventory
         InventoryView view = event.getView();
         Inventory top = view.getTopInventory();
         Inventory clicked = event.getClickedInventory();
@@ -78,13 +76,11 @@ public final class GuiListener implements Listener {
             gui.callOnTopClick(event);
         } else {
             gui.callOnBottomClick(event);
-            // Allow bottom clicks unless explicitly prevented
             if (!gui.isPlayerInventoryUsed()) {
                 event.setCancelled(true);
             }
         }
 
-        // Dispatch to GUI for component-level handling
         boolean consumed = gui.click(event);
         if (consumed) {
             event.setCancelled(true);
@@ -116,7 +112,7 @@ public final class GuiListener implements Listener {
             gui.callOnBottomDrag(event);
         }
 
-        // Cancel drag if it touches top inventory (prevent item movement in GUI)
+        // Cancel drag on top inventory to prevent item movement
         if (touchesTop) {
             event.setCancelled(true);
         }
@@ -135,7 +131,6 @@ public final class GuiListener implements Listener {
         gui.callOnClose(event);
         activeGuis.remove(gui);
 
-        // Restore cached player inventory
         HumanEntity player = event.getPlayer();
         gui.getHumanEntityCache().restoreAndForget(player);
     }

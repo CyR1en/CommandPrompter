@@ -88,14 +88,10 @@ public final class ChestGui extends NamedGui implements MergedGui, InventoryBase
         inventory.clear();
         guiComponent.display();
 
-        // Place top (chest) items: rows 0..rows-1
         guiComponent.placeItems(inventory, 0, 0);
 
-        // Place bottom (player) items
         if (isPlayerInventoryUsed()) {
-            // The component reserves rows rows..(rows+4) for player inventory
-            // We need to get those rows rendered into the actual player inventory shown below
-            // But the chest inventory only has `rows * 9` slots — player inventory is separate
+            // TODO: Render component's player inventory rows into player's actual inventory.
         }
     }
 

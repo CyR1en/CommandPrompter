@@ -16,6 +16,7 @@ import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.screen.playerui.HeadCache;
 import dev.cyr1en.promptpaper.util.PaperScheduler;
 import dev.cyr1en.promptpaper.util.PluginLogger;
+import dev.cyr1en.promptpaper.util.Scheduler;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.event.EventHandler;
@@ -75,6 +76,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
             pluginLogger.debug("Loaded post-command IDs: " + String.join(", ", presetRegistry.getPostCommandIds()));
 
             var scheduler = new PaperScheduler(this);
+            this.scheduler = scheduler;
             pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");
             this.engine = new PromptEngine(this, scheduler);
             pluginLogger.debug("PromptEngine initialized");

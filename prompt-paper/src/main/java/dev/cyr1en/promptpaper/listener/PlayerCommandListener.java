@@ -81,11 +81,7 @@ public class PlayerCommandListener implements Listener {
 
         var commandLine = message.startsWith("/") ? message.substring(1) : message;
 
-        // Cancel the event for any command that has a tag form AND either a
-        // session is about to start, OR the command references a preset
-        // (so the literal <@id>/<!@id> markup is never dispatched). Legacy
-        // commands with only non-preset PCMs (e.g. <!log>) pass through
-        // unchanged to preserve existing behavior.
+        // Cancel the event if a session starts or the command references a preset.
         if (engine != null && engine.commandHasTagForm(commandLine)) {
             var allowedToUse = !config.enablePermission() || player.hasPermission("promptpaper.use");
             if (allowedToUse) {
@@ -99,9 +95,7 @@ public class PlayerCommandListener implements Listener {
                         + player.getName() + " lacks promptpaper.use, not cancelling");
             }
         } else if (screenManager.hasActiveScreen(player)) {
-            // Backward-compat: non-tag-form command while a screen is already open
-            // should still let startSession observe it (no-op) and we keep the
-            // existing cancel-on-hasScreen behavior.
+            // Handle backward compatibility when a screen is already open.
             screenManager.startSession(player, commandLine);
             if (screenManager.hasActiveScreen(player)) {
                 event.setCancelled(true);
