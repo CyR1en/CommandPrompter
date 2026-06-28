@@ -416,7 +416,11 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                     var mat = materialMapper.resolveOrDefault(row.displayText(), "inline body item");
                     bodies.add(DialogBody.item(new ItemStack(mat, 1)).build());
                 } else {
-                    bodies.add(DialogBody.plainMessage(text));
+                    if (constraints.width() > 0) {
+                        bodies.add(DialogBody.plainMessage(text, constraints.width()));
+                    } else {
+                        bodies.add(DialogBody.plainMessage(text));
+                    }
                 }
             }
         }
@@ -574,7 +578,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         return switch (config.type()) {
             case PLAIN_MESSAGE -> {
                 if (config.content() == null) yield null;
-                yield DialogBody.plainMessage(ComponentUtil.mini(config.content()));
+                var text = ComponentUtil.mini(config.content());
+                if (config.width() != null && config.width() > 0) {
+                    yield DialogBody.plainMessage(text, config.width());
+                } else {
+                    yield DialogBody.plainMessage(text);
+                }
             }
             case ITEM -> {
                 var mat = materialMapper.resolveOrDefault(config.material(),

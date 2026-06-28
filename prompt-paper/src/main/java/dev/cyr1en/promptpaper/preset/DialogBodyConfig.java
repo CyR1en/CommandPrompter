@@ -20,9 +20,12 @@ import java.util.Objects;
  * @param material the Bukkit {@code Material} name for {@link DialogBodyType#ITEM}, otherwise
  *     {@code null}
  * @param amount the stack size for {@link DialogBodyType#ITEM}; coerced to {@code 1} when null
+ * @param width optional pixel width for {@link DialogBodyType#PLAIN_MESSAGE} text wrapping;
+ *     {@code null} means the client auto-calculates. Clamped to the Paper-supported range
+ *     {@code [1, 1024]} when present.
  */
 public record DialogBodyConfig(
-    DialogBodyType type, String content, String material, Integer amount) {
+    DialogBodyType type, String content, String material, Integer amount, Integer width) {
 
   /** Canonical constructor. Enforces non-null {@code type} and {@code amount >= 1}. */
   public DialogBodyConfig {
@@ -33,5 +36,13 @@ public record DialogBodyConfig(
     if (amount < 1) {
       throw new IllegalArgumentException("amount must be >= 1, got: " + amount);
     }
+    if (width != null) {
+      width = Math.max(1, Math.min(1024, width));
+    }
+  }
+
+  /** Backward-compatible constructor without the width field. */
+  public DialogBodyConfig(DialogBodyType type, String content, String material, Integer amount) {
+    this(type, content, material, amount, null);
   }
 }

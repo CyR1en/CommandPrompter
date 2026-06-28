@@ -49,9 +49,25 @@ public record DialogConstraints(
     }
 
     private static DialogConstraints parseBody(String bracket, DialogConfig d) {
+        String type = bracket;
+        int width = 0; // 0 = no explicit width; let the client auto-wrap.
+
+        if (bracket.contains(",")) {
+            var parts = bracket.split(",", 2);
+            type = parts[0].trim();
+            var widthPart = parts[1].trim();
+            try {
+                if (widthPart.startsWith("width=")) {
+                    width = clampInt(Integer.parseInt(widthPart.substring(6)), 1, 1024);
+                } else {
+                    width = clampInt(Integer.parseInt(widthPart), 1, 1024);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
         return new DialogConstraints(
-                DialogInputKind.BODY, bracket,
-                0, false, 0, 200,
+                DialogInputKind.BODY, type,
+                0, false, 0, width,
                 List.of(),
                 0f, 0f, 0f, 0f,
                 null);

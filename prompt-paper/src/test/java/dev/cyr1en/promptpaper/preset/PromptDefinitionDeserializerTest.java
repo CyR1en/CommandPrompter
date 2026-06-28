@@ -677,4 +677,76 @@ class PromptDefinitionDeserializerTest {
     assertNull(anvil.titleDisplay().sub());
     assertNull(anvil.titleDisplay().ticks());
   }
+
+  @Test
+  void dialogPromptDeserializeBodyWithWidth() {
+    String json =
+        """
+        {
+          "type": "dialog",
+          "id": "body_width",
+          "title": "Width Test",
+          "sanitize": false,
+          "base": {
+            "body": [
+              { "type": "plain_message", "content": "Narrow text", "width": 200 },
+              { "type": "plain_message", "content": "Auto width" },
+              { "type": "item", "material": "STONE" }
+            ]
+          },
+          "dialog_type": {
+            "type": "confirmation",
+            "confirm_action": { "label": "OK" }
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(DialogPrompt.class, def);
+    DialogPrompt dialog = (DialogPrompt) def;
+
+    List<DialogBodyConfig> body = dialog.base().body();
+    assertEquals(3, body.size());
+
+    // First body element: plain_message with explicit width.
+    DialogBodyConfig narrow = body.get(0);
+    assertEquals(DialogBodyType.PLAIN_MESSAGE, narrow.type());
+    assertEquals("Narrow text", narrow.content());
+    assertEquals(200, narrow.width());
+
+    // Second body element: plain_message without width (null = client auto-wrap).
+    DialogBodyConfig auto = body.get(1);
+    assertEquals(DialogBodyType.PLAIN_MESSAGE, auto.type());
+    assertEquals("Auto width", auto.content());
+    assertNull(auto.width());
+
+    // Third body element: item (width irrelevant, should be null).
+    DialogBodyConfig item = body.get(2);
+    assertEquals(DialogBodyType.ITEM, item.type());
+    assertNull(item.width());
+  }
+
+  @Test
+  void dialogPromptDeserializeBodyWidthClamped() {
+    String json =
+        """
+        {
+          "type": "dialog",
+          "id": "body_width_clamp",
+          "title": "Clamp Test",
+          "sanitize": false,
+          "base": {
+            "body": [
+              { "type": "plain_message", "content": "Too wide", "width": 9999 }
+            ]
+          },
+          "dialog_type": {
+            "type": "confirmation",
+            "confirm_action": { "label": "OK" }
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    DialogPrompt dialog = (DialogPrompt) def;
+    assertEquals(1024, dialog.base().body().get(0).width());
+  }
 }
