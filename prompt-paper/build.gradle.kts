@@ -115,6 +115,7 @@ val paperJarPattern = Regex("""paper-([\d.]+)-(\d+)\.jar""")
 data class PaperBuild(val id: Int, val channel: String, val downloadUrl: String, val jarName: String)
 
 fun httpGet(url: String): String {
+    // nosemgrep
     val conn = (URI.create(url).toURL().openConnection() as HttpURLConnection).apply {
         requestMethod = "GET"
         connectTimeout = 15_000
@@ -233,6 +234,7 @@ fun downloadFile(url: String, target: File) {
     println("Downloading $url")
     println("         → $target")
     target.parentFile.mkdirs()
+    // nosemgrep
     val conn = (URI.create(url).toURL().openConnection() as HttpURLConnection).apply {
         connectTimeout = 15_000
         readTimeout = 120_000
@@ -255,6 +257,7 @@ fun resolveServerRoot(version: String): File {
     return if (override != null) file(override) else file("$rootDir/testserver/$version")
 }
 
+@Suppress("TooGenericExceptionCaught")
 fun stopServerIn(serverRoot: File) {
     if (!serverRoot.exists()) {
         println("Server root $serverRoot does not exist; nothing to stop.")
@@ -275,7 +278,11 @@ fun stopServerIn(serverRoot: File) {
                 ProcessBuilder("kill", "-9", pid).start().waitFor()
             }
         }
-    } catch (e: Exception) {
+    } catch (e: java.io.IOException) {
+        println("jps kill method failed, falling back to pkill: ${e.message}")
+    } catch (e: InterruptedException) {
+        println("jps kill method failed, falling back to pkill: ${e.message}")
+    } catch (e: RuntimeException) {
         println("jps kill method failed, falling back to pkill: ${e.message}")
     }
 

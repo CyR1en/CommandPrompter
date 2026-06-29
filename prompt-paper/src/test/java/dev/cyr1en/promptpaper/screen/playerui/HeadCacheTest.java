@@ -181,12 +181,12 @@ class HeadCacheTest extends MockBukkitTest {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
     private void injectEmptyEntry(UUID uuid) {
         injectEntry(uuid, Optional.empty());
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
     private void injectEntry(UUID uuid, Optional<ItemStack> value) {
         try {
             Field field = HeadCache.class.getDeclaredField("cache");

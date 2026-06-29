@@ -24,7 +24,7 @@ Features:
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:
 
 #### Requirements
-* JDK 17 or newer
+* JDK 25
 * Git
 
 #### Compiling from source

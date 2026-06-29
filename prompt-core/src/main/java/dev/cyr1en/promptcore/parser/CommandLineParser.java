@@ -4,6 +4,7 @@ import dev.cyr1en.promptcore.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -93,11 +94,7 @@ public class CommandLineParser {
       }
     }
 
-    var esc = config.escape();
-    var template =
-        rawCommand
-            .replace(esc + config.opening(), config.opening())
-            .replace(esc + config.closing(), config.closing());
+    var template = unescape(rawCommand);
 
     LOG.fine("Parsed " + promptTags.size() + " prompt tags, " + postCmds.size() + " PCMs");
 
@@ -164,9 +161,13 @@ public class CommandLineParser {
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
     var targetMatcher = pcmTarget.matcher(content);
-    if (targetMatcher.find()) {
-      target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase());
-      content = content.replaceAll("@(console|player)", "").trim();
+    var newContent = targetMatcher.replaceFirst("");
+    if (newContent.length() != content.length()) {
+      targetMatcher.reset();
+      if (targetMatcher.find()) {
+        target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
+      }
+      content = newContent.trim();
     }
 
     // Extract answer references ({N})
@@ -250,7 +251,10 @@ public class CommandLineParser {
       }
     }
 
-    var sanitize = !dsFlag.matcher(remainder).find();
+    var dsMatcher = dsFlag.matcher(remainder);
+    var newRemainder = dsMatcher.replaceAll("");
+    var sanitize = remainder.length() == newRemainder.length();
+    remainder = newRemainder;
     var validatorAlias = extractValidator(remainder);
     var type = extractType(remainder);
     var title = extractTitle(remainder);
@@ -260,13 +264,11 @@ public class CommandLineParser {
     if (filter == null) warnIfTrailingKind(rawContent);
 
     var displayText =
-        remainder
-            .replaceAll("-ds\\b", "")
-            .replaceAll("-iv:\\w+", "")
-            .replaceAll("-int\\b", "")
-            .replaceAll("-str\\b", "")
-            .replace(config.escape() + config.opening(), config.opening())
-            .replace(config.escape() + config.closing(), config.closing())
+        unescape(
+                remainder
+                    .replaceAll("-iv:\\w+", "")
+                    .replaceAll("-int\\b", "")
+                    .replaceAll("-str\\b", ""))
             .trim();
 
     LOG.fine(
@@ -325,15 +327,16 @@ public class CommandLineParser {
    */
   private void parseCompoundPromptTag(
       String rawContent, String fullTag, List<PromptTag> promptTags) {
-    var sanitize = !dsFlag.matcher(rawContent).find();
-    var validatorAlias = extractValidator(rawContent);
-    var type = extractType(rawContent);
-    var title = extractTitle(rawContent);
+    var dsMatcher = dsFlag.matcher(rawContent);
+    var contentWithoutDs = dsMatcher.replaceAll("");
+    var sanitize = rawContent.length() == contentWithoutDs.length();
+    var validatorAlias = extractValidator(contentWithoutDs);
+    var type = extractType(contentWithoutDs);
+    var title = extractTitle(contentWithoutDs);
 
     // Strip flags from the compound tag content.
     var stripped =
-        stripTitleFlag(rawContent, title)
-            .replaceAll("-ds\\b", "")
+        stripTitleFlag(contentWithoutDs, title)
             .replaceAll("-iv:\\w+", "")
             .replaceAll("-int\\b", "")
             .replaceAll("-str\\b", "")
@@ -412,11 +415,7 @@ public class CommandLineParser {
         }
       }
     }
-    var displayText =
-        remainder
-            .replace(config.escape() + config.opening(), config.opening())
-            .replace(config.escape() + config.closing(), config.closing())
-            .trim();
+    var displayText = unescape(remainder).trim();
     return new PromptTag(
         fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false, null);
   }
@@ -473,11 +472,7 @@ public class CommandLineParser {
    */
   String stripTitleFlag(String content, TitleConfig title) {
     if (title == null) return content;
-    var m = titleFlag.matcher(content);
-    if (m.find()) {
-      return content.replace(m.group(), "");
-    }
-    return content;
+    return titleFlag.matcher(content).replaceFirst("");
   }
 
   /**
@@ -545,6 +540,16 @@ public class CommandLineParser {
             + config.closing()
             + "'. Use the unified form '<d:kind[constraints]:display>'. "
             + "The trailing form is no longer parsed; the prompt will be a text field.");
+  }
+
+  private String unescape(String input) {
+    if (input == null || input.isEmpty()) return input;
+    var esc = Pattern.quote(config.escape());
+    return input
+        .replaceAll(
+            esc + Pattern.quote(config.opening()), Matcher.quoteReplacement(config.opening()))
+        .replaceAll(
+            esc + Pattern.quote(config.closing()), Matcher.quoteReplacement(config.closing()));
   }
 
   /**
