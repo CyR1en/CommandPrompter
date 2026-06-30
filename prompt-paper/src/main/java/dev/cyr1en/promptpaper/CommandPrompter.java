@@ -61,59 +61,75 @@ public class CommandPrompter extends JavaPlugin implements Listener {
         try {
             new Metrics(this, 5359);
 
-            this.pluginLogger = new PluginLogger(this);
-            this.configLoader = new PaperConfigLoader(this);
-            pluginLogger.reload(configLoader.getConfig());
-            pluginLogger.debug("Config loaded, debugMode=" + configLoader.getConfig().debugMode()
-                    + " locale=" + configLoader.getConfig().locale());
-            pluginLogger.debug("I18n initialized for locale=" + configLoader.getConfig().locale());
-
-            this.presetRegistry = new PresetRegistry(this);
-            this.presetRegistry.reload();
-            var presetMsg = "Loaded presets: <green>" + presetRegistry.promptCount() + " prompts</green>, <gold>" +
-                    presetRegistry.postCommandCount() + " post commands</gold>";
-            pluginLogger.info(presetMsg);
-            pluginLogger.debug("Loaded prompt IDs: " + String.join(", ", presetRegistry.getPromptIds()));
-            pluginLogger.debug("Loaded post-command IDs: " + String.join(", ", presetRegistry.getPostCommandIds()));
-
-            var scheduler = new PaperScheduler(this);
-            this.scheduler = scheduler;
-            pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");
-            this.engine = new PromptEngine(this, scheduler);
-            pluginLogger.debug("PromptEngine initialized");
-
-            this.promptFactory = new PromptFactory(this);
-            this.screenManager = new ScreenManager(this, engine, promptFactory, scheduler);
-            pluginLogger.debug("ScreenManager initialized (factory: providers=" + promptFactory.providerCount() + ")");
-
-            this.headCache = new HeadCache(this, scheduler);
-            getServer().getPluginManager().registerEvents(headCache, this);
-            pluginLogger.debug("HeadCache registered");
-
-            getServer().getPluginManager().registerEvents(
-                    new PlayerCommandListener(this, screenManager), this);
-            getServer().getPluginManager().registerEvents(
-                    new CommandSendListener(this), this);
-            getServer().getPluginManager().registerEvents(this, this);
-            pluginLogger.debug("Listeners registered");
-
-            this.hookContainer = new HookContainer(this);
-            hookContainer.initHooks();
-            headCache.registerFilters(hookContainer);
-            var hookedCount = hookContainer.getHooksImplementing(PluginHook.class).size();
-            pluginLogger.debug("Hooks initialized: " + hookedCount + " active");
-
-            resolveChatListener();
-
-            getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
-                    event -> new CommandRegistrar(this).registerAll(event.registrar()));
-            pluginLogger.debug("Command registrar registered");
+            initLoggerAndConfig();
+            initPresets();
+            initCoreSubsystems();
+            initListeners();
+            initHooks();
+            initCommands();
 
             pluginLogger.info("CommandPrompterPaper v" + getPluginMeta().getVersion() + " enabled.");
         } catch (Exception e) {
             getLogger().severe("Failed to enable CommandPrompterPaper: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
         }
+    }
+
+    private void initLoggerAndConfig() {
+        this.pluginLogger = new PluginLogger(this);
+        this.configLoader = new PaperConfigLoader(this);
+        pluginLogger.reload(configLoader.getConfig());
+        pluginLogger.debug("Config loaded, debugMode=" + configLoader.getConfig().debugMode()
+                + " locale=" + configLoader.getConfig().locale());
+        pluginLogger.debug("I18n initialized for locale=" + configLoader.getConfig().locale());
+    }
+
+    private void initPresets() {
+        this.presetRegistry = new PresetRegistry(this);
+        this.presetRegistry.reload();
+        var presetMsg = "Loaded presets: <green>" + presetRegistry.promptCount() + " prompts</green>, <gold>" +
+                presetRegistry.postCommandCount() + " post commands</gold>";
+        pluginLogger.info(presetMsg);
+        pluginLogger.debug("Loaded prompt IDs: " + String.join(", ", presetRegistry.getPromptIds()));
+        pluginLogger.debug("Loaded post-command IDs: " + String.join(", ", presetRegistry.getPostCommandIds()));
+    }
+
+    private void initCoreSubsystems() {
+        this.scheduler = new PaperScheduler(this);
+        pluginLogger.debug("Scheduler: PaperScheduler (Folia-safe)");
+        this.engine = new PromptEngine(this, scheduler);
+        pluginLogger.debug("PromptEngine initialized");
+
+        this.promptFactory = new PromptFactory(this);
+        this.screenManager = new ScreenManager(this, engine, promptFactory, scheduler);
+        pluginLogger.debug("ScreenManager initialized (factory: providers=" + promptFactory.providerCount() + ")");
+    }
+
+    private void initListeners() {
+        this.headCache = new HeadCache(this, scheduler);
+        registerEvents(headCache);
+        pluginLogger.debug("HeadCache registered");
+
+        registerEvents(new PlayerCommandListener(this, screenManager));
+        registerEvents(new CommandSendListener(this));
+        registerEvents(this);
+        pluginLogger.debug("Listeners registered");
+    }
+
+    private void initHooks() {
+        this.hookContainer = new HookContainer(this);
+        hookContainer.initHooks();
+        headCache.registerFilters(hookContainer);
+        var hookedCount = hookContainer.getHooksImplementing(PluginHook.class).size();
+        pluginLogger.debug("Hooks initialized: " + hookedCount + " active");
+
+        resolveChatListener();
+    }
+
+    private void initCommands() {
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
+                event -> new CommandRegistrar(this).registerAll(event.registrar()));
+        pluginLogger.debug("Command registrar registered");
     }
 
     /**
@@ -157,6 +173,11 @@ public class CommandPrompter extends JavaPlugin implements Listener {
         if (pluginLogger != null) {
             pluginLogger.info("CommandPrompterPaper disabled.");
         }
+    }
+
+    /** Registers an event listener with the server. */
+    private void registerEvents(Listener listener) {
+        getServer().getPluginManager().registerEvents(listener, this);
     }
 
     public PaperConfigLoader getConfigLoader() { return configLoader; }
