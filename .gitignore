@@ -163,3 +163,7 @@ cache/
 
 # Superpowers
 .superpowers/
+
+# Codacy
+.codacy/
+.codacy.yaml
