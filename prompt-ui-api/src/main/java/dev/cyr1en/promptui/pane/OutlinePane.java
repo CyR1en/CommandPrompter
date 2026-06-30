@@ -132,7 +132,6 @@ public final class OutlinePane extends Pane {
      * Returns the GuiItem at the given grid position based on current layout.
      */
     private GuiItem getItemAt(@NotNull Slot slot) {
-        int index = 0;
         Iterator<GuiItem> iterator = items.iterator();
         for (int y = 0; y < getHeight(); y++) {
             for (int x = 0; x < getLength(); x++) {

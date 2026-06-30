@@ -8,7 +8,6 @@ import dev.cyr1en.promptcore.config.annotations.type.SectionComment;
 import dev.cyr1en.promptcore.config.annotations.type.SectionComments;
 import dev.cyr1en.promptcore.config.YamlDocument;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Core plugin settings loaded from {@code config.yml}.

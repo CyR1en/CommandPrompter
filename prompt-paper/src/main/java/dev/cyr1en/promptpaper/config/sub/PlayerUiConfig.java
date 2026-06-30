@@ -1,8 +1,5 @@
 package dev.cyr1en.promptpaper.config.sub;
 
-import dev.cyr1en.promptpaper.config.sub.ControlItem;
-import dev.cyr1en.promptpaper.config.sub.SearchAnvilItem;
-
 /**
  * Grouped configuration for the Player UI prompt screen.
  *

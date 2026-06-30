@@ -42,6 +42,7 @@ public record DialogRow(
    * Convenience accessor: returns each constraint as a string. Numbers are rendered via {@link
    * Number#toString()} so {@code 1} becomes {@code "1"}.
    */
+  @SuppressWarnings("null")
   public List<String> constraintsAsStrings() {
     return constraints.stream().map(JsonElement::getAsString).toList();
   }

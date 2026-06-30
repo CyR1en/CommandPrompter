@@ -13,7 +13,6 @@ import dev.cyr1en.promptpaper.validation.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.bukkit.entity.Player;
 
