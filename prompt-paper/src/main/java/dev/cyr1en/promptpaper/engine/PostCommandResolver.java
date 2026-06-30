@@ -5,7 +5,6 @@ import dev.cyr1en.promptcore.PostCommandMeta;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.ExecutionPolicy;
-import dev.cyr1en.promptpaper.preset.PostCommand;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import java.util.List;
 import java.util.Optional;

@@ -5,7 +5,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
-import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.factory.PromptFactory;
 import java.util.Map;

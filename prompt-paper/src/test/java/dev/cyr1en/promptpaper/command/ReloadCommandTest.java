@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.MockBukkitTest;
-import dev.cyr1en.promptpaper.config.CommandPrompterConfig;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;

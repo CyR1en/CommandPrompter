@@ -1,7 +1,6 @@
 package dev.cyr1en.promptui.gui;
 
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.jetbrains.annotations.NotNull;
 
 /**

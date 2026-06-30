@@ -6,7 +6,6 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptui.ComponentUtil;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import net.kyori.adventure.text.Component;

@@ -1,7 +1,6 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;

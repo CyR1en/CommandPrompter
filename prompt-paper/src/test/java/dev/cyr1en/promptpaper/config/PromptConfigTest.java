@@ -5,7 +5,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.config.YamlDocument;
 import dev.cyr1en.promptpaper.MockBukkitTest;
-import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
