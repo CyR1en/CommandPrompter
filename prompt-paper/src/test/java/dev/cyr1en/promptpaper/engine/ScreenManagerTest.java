@@ -7,6 +7,9 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.factory.PromptFactory;
+import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -144,5 +147,25 @@ class ScreenManagerTest extends MockBukkitTest {
         } catch (NoClassDefFoundError e) {
             assertTrue(e.getMessage().contains("papermc/paper"), "Expected Paper API missing error");
         }
+    }
+
+    @Test
+    void handleChatInputWithCancelKeywordCancelsSession() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasActiveScreen(player));
+        screenManager.handleChatInput(player, "cancel");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void handleChatInputWithCancelKeywordCaseInsensitiveAndSpacedCancelsSession() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasActiveScreen(player));
+        screenManager.handleChatInput(player, "  cAnCeL  ");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
     }
 }

@@ -76,4 +76,18 @@ class MultiPromptIntegrationTest extends MockBukkitTest {
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
     }
+
+    @Test
+    void cancelKeywordDuringMultiPromptCancelsSession() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <First> <Second> <Third>");
+
+        assertTrue(screenManager.hasActiveScreen(player));
+        screenManager.handleChatInput(player, "first");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        screenManager.handleChatInput(player, "cancel");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
 }

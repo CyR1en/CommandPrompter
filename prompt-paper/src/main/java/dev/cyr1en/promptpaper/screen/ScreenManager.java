@@ -10,6 +10,7 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
 import dev.cyr1en.promptui.ComponentUtil;
+import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
 import dev.cyr1en.promptpaper.util.CancellableTask;
@@ -210,6 +211,32 @@ public class ScreenManager {
         var tagOpt = sessionOpt.get().currentPrompt();
         if (tagOpt.isEmpty()) return;
         var tag = tagOpt.get();
+
+        var cancelKeyword = plugin.getConfigLoader().getConfig().cancelKeyword();
+        boolean isCancelKeyword = false;
+        if (result.answer() != null && cancelKeyword != null && !cancelKeyword.isBlank()) {
+            if (tag.isCompound()) {
+                var decoded = AnswerEncoding.decode(result.answer(), tag.subTags().size());
+                if (decoded != null) {
+                    for (var ans : decoded) {
+                        if (ComponentUtil.stripColor(ans).trim().equalsIgnoreCase(cancelKeyword)) {
+                            isCancelKeyword = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                if (ComponentUtil.stripColor(result.answer()).trim().equalsIgnoreCase(cancelKeyword)) {
+                    isCancelKeyword = true;
+                }
+            }
+        }
+
+        if (isCancelKeyword) {
+            engine.cancel(player, CancelReason.MANUAL);
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+            return;
+        }
 
         // Compound dialogs encode multiple sub-answers with control characters (RS/US).
         if (tag.isCompound()) {
