@@ -11,12 +11,21 @@ import java.util.regex.Pattern;
  * Parses command strings into structured {@link ParsedCommand} objects.
  *
  * <p>Thread-safe after construction. No platform dependencies.
+ *
+ * <h2>Tag filtering</h2>
+ *
+ * <p>An optional {@link TagFilter} (a {@code Predicate<String>} on the raw tag content) can be
+ * supplied at construction time. When set, any tag whose content matches the predicate is
+ * <b>skipped</b> — it is neither treated as a prompt tag nor as a PCM, and is left intact in the
+ * template command. This is how MiniMessage syntax (e.g. {@code <red>}, {@code </red>}, {@code
+ * <gradient:gold:yellow>}) is ignored when the prompt delimiters are angle brackets.
  */
 public class CommandLineParser {
 
   private static final Logger LOG = Logger.getLogger(CommandLineParser.class.getName());
 
   private final ParserConfig config;
+  private final TagFilter tagFilter;
   private final Pattern tagPattern;
   private final Pattern pcmPrefix;
   private final Pattern pcmCancelPrefix;
@@ -33,12 +42,34 @@ public class CommandLineParser {
       Pattern.compile("\\b(?:text|bool|num)(?:\\[[^\\]]*\\])?\\s*$", Pattern.CASE_INSENSITIVE);
   private final Set<String> seenDeprecationWarnings = ConcurrentHashMap.newKeySet();
 
+  /** Creates a parser with angle-bracket delimiters and no tag filtering. */
   public CommandLineParser() {
-    this(ParserConfig.ANGLE_BRACKETS);
+    this(ParserConfig.ANGLE_BRACKETS, null);
   }
 
+  /**
+   * Creates a parser with the given config and no tag filtering.
+   *
+   * @param config the delimiter configuration
+   */
   public CommandLineParser(ParserConfig config) {
+    this(config, null);
+  }
+
+  /**
+   * Creates a parser with the given config and an optional tag filter.
+   *
+   * <p>When {@code tagFilter} is non-null, any matched tag whose content (the text between the
+   * delimiters) passes the predicate is skipped — it is not classified as a prompt tag or a PCM and
+   * is left intact in the template command. This is how MiniMessage syntax is ignored.
+   *
+   * @param config the delimiter configuration
+   * @param tagFilter a predicate that returns {@code true} for tags to skip, or {@code null} to
+   *     disable filtering
+   */
+  public CommandLineParser(ParserConfig config, TagFilter tagFilter) {
     this.config = config;
+    this.tagFilter = tagFilter;
     String open = config.opening();
     String close = config.closing();
     String escPattern = Pattern.quote(config.escape());
@@ -87,6 +118,12 @@ public class CommandLineParser {
       var rawContent = matcher.group(1);
       var fullTag = config.opening() + rawContent + config.closing();
 
+      // Skip tags that the filter says to ignore (e.g. MiniMessage syntax).
+      if (tagFilter != null && tagFilter.test(rawContent)) {
+        LOG.fine("Skipping filtered tag: " + fullTag);
+        continue;
+      }
+
       if (isPCM(rawContent)) {
         parsePCM(rawContent, fullTag, postCmds);
       } else {
@@ -106,13 +143,28 @@ public class CommandLineParser {
   }
 
   /**
-   * Whether the raw command string contains at least one tag (prompt or PCM). Used by callers that
-   * need to distinguish "no tag form at all" from "had tag form but parsing returned empty for some
-   * reason" — for example, the fail-fast path in the engine.
+   * Whether the raw command string contains at least one non-filtered tag (prompt or PCM). Used by
+   * callers that need to distinguish "no tag form at all" from "had tag form but parsing returned
+   * empty for some reason" — for example, the fail-fast path in the engine.
+   *
+   * <p>When a {@link TagFilter} is configured, tags that match the filter are not counted — a
+   * command containing only MiniMessage tags (e.g. {@code <red>}) will return {@code false}.
    */
   public boolean hasTagForm(String rawCommand) {
     if (rawCommand == null || rawCommand.isBlank()) return false;
-    return tagPattern.matcher(rawCommand).find();
+    var matcher = tagPattern.matcher(rawCommand);
+    while (matcher.find()) {
+      var rawContent = matcher.group(1);
+      if (tagFilter == null || !tagFilter.test(rawContent)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns the {@link TagFilter} used by this parser, or {@code null} if none is set. */
+  public TagFilter getTagFilter() {
+    return tagFilter;
   }
 
   private boolean isPCM(String content) {

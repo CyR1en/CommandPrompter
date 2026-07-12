@@ -632,4 +632,84 @@ class CommandLineParserTest {
     var tag = result.promptTags().get(0);
     assertNull(tag.title());
   }
+
+  // ============================= Tag Filter Tests =============================
+
+  @Test
+  void tagFilterSkipsMatchingTags() {
+    // Simulate a MiniMessage-style filter: skip tags whose content is a known formatting word.
+    TagFilter skipRed = content -> content.equals("red") || content.equals("/red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    var result = filteredParser.parse("/say <red>Hello</red> <a:Name?>");
+    // <red> and </red> are skipped; only <a:Name?> is a prompt.
+    assertEquals(1, result.promptTags().size());
+    assertEquals("Name?", result.promptTags().get(0).displayText());
+    // Template preserves the original string (MiniMessage tags left intact).
+    assertEquals("/say <red>Hello</red> <a:Name?>", result.templateCommand());
+  }
+
+  @Test
+  void tagFilterSkipsClosingTags() {
+    TagFilter skipBold = content -> content.equals("bold") || content.equals("/bold");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipBold);
+
+    var result = filteredParser.parse("/say <bold>text</bold> <>");
+    assertEquals(1, result.promptTags().size());
+    assertEquals("", result.promptTags().get(0).displayText());
+  }
+
+  @Test
+  void tagFilterDoesNotAffectNonMatchingTags() {
+    TagFilter skipNothing = content -> false;
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipNothing);
+
+    var result = filteredParser.parse("/kick <a:Why?> <s:How?>");
+    assertEquals(2, result.promptTags().size());
+  }
+
+  @Test
+  void tagFilterAffectsHasTagForm() {
+    TagFilter skipRed = content -> content.equals("red") || content.equals("/red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    // Only MiniMessage tags → hasTagForm returns false.
+    assertFalse(filteredParser.hasTagForm("/say <red>Hello</red>"));
+    // Mix of MiniMessage and prompt → hasTagForm returns true.
+    assertTrue(filteredParser.hasTagForm("/say <red>Hello</red> <a:Name?>"));
+    // No tags at all → false.
+    assertFalse(filteredParser.hasTagForm("/say hello"));
+  }
+
+  @Test
+  void tagFilterDoesNotAffectPCMs() {
+    // PCMs (starting with !) should not be filtered.
+    TagFilter skipRed = content -> content.equals("red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    var result = filteredParser.parse("/kick <> <! ban {0}>");
+    assertEquals(1, result.promptTags().size());
+    assertEquals(1, result.postCmds().size());
+  }
+
+  @Test
+  void nullTagFilterBehavesLikeNoFilter() {
+    var p = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, null);
+    var result = p.parse("/say <red>Hello</red> <a:Name?>");
+    // Without a filter, <red>, </red>, and <a:Name?> are all treated as prompt tags.
+    assertEquals(3, result.promptTags().size());
+  }
+
+  @Test
+  void getTagFilterReturnsConfiguredFilter() {
+    TagFilter filter = content -> true;
+    var p = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, filter);
+    assertSame(filter, p.getTagFilter());
+  }
+
+  @Test
+  void getTagFilterReturnsNullWhenNotSet() {
+    var p = new CommandLineParser();
+    assertNull(p.getTagFilter());
+  }
 }

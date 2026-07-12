@@ -4,6 +4,7 @@ import dev.cyr1en.promptcore.*;
 import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.util.MiniMessageTagFilter;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +28,24 @@ public class PromptEngine {
 
     public PromptEngine(CommandPrompter plugin, Scheduler scheduler) {
         this.plugin = plugin;
-        this.parser = new CommandLineParser();
+        this.parser = createParser(plugin);
         this.sessions = new ConcurrentHashMap<>();
         this.scheduler = scheduler;
+    }
+
+    /**
+     * Creates the command-line parser, optionally with a MiniMessage tag filter.
+     *
+     * <p>When {@code Ignore-MiniMessage} is enabled in the config and the prompt delimiters are
+     * angle brackets, a {@link MiniMessageTagFilter} is attached so that MiniMessage formatting
+     * tags (e.g. {@code <red>}, {@code </red>}) are not treated as prompts.
+     */
+    private static CommandLineParser createParser(CommandPrompter plugin) {
+        var config = plugin.getConfigLoader().getConfig();
+        if (config.ignoreMiniMessage()) {
+            return new CommandLineParser(ParserConfig.ANGLE_BRACKETS, new MiniMessageTagFilter());
+        }
+        return new CommandLineParser();
     }
 
     /**

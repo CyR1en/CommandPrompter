@@ -87,6 +87,15 @@ public record CommandPrompterConfig(
         String argumentRegex,
 
         @ConfigNode
+        @NodeName("Ignore-MiniMessage")
+        @NodeDefault("true")
+        @NodeComment({"When the prompt delimiters are angle brackets (< >), MiniMessage",
+                "formatting tags (e.g. <red>, </red>, <gradient:gold:yellow>) use the same",
+                "syntax. When enabled, CommandPrompter detects and ignores MiniMessage tags",
+                "so they are not treated as prompts."})
+        boolean ignoreMiniMessage,
+
+        @ConfigNode
         @NodeName("Ignored-Commands")
         @NodeDefault("sampleCommand, sampleCommand2")
         @NodeComment({"What commands should CommandPrompter ignore",
