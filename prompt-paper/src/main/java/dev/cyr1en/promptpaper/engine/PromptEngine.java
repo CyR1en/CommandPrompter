@@ -22,13 +22,13 @@ import org.bukkit.entity.Player;
 public class PromptEngine {
 
     private final CommandPrompter plugin;
-    private final CommandLineParser parser;
+    private volatile CommandLineParser parser;
     private final Map<UUID, PromptSession> sessions;
     private final Scheduler scheduler;
 
     public PromptEngine(CommandPrompter plugin, Scheduler scheduler) {
         this.plugin = plugin;
-        this.parser = createParser(plugin);
+        this.parser = buildParser(plugin);
         this.sessions = new ConcurrentHashMap<>();
         this.scheduler = scheduler;
     }
@@ -40,12 +40,34 @@ public class PromptEngine {
      * angle brackets, a {@link MiniMessageTagFilter} is attached so that MiniMessage formatting
      * tags (e.g. {@code <red>}, {@code </red>}) are not treated as prompts.
      */
-    private static CommandLineParser createParser(CommandPrompter plugin) {
+    private CommandLineParser buildParser(CommandPrompter plugin) {
         var config = plugin.getConfigLoader().getConfig();
-        if (config.ignoreMiniMessage()) {
-            return new CommandLineParser(ParserConfig.ANGLE_BRACKETS, new MiniMessageTagFilter());
+        if (config == null) {
+            return new CommandLineParser();
         }
-        return new CommandLineParser();
+        var regex = config.argumentRegex();
+        if (regex == null || regex.isBlank()) {
+            regex = "<.*?>";
+        }
+        ParserConfig parserConfig;
+        try {
+            parserConfig = ParserConfig.fromArgumentRegex(regex);
+        } catch (IllegalArgumentException e) {
+            plugin.getPluginLogger().err("Failed to parse argument regex '" + regex + "': " + e.getMessage() + ". Falling back to angle brackets.");
+            parserConfig = ParserConfig.ANGLE_BRACKETS;
+        }
+
+        boolean useFilter = config.ignoreMiniMessage() && "<".equals(parserConfig.opening()) && ">".equals(parserConfig.closing());
+        var filter = useFilter ? new MiniMessageTagFilter() : null;
+        return new CommandLineParser(parserConfig, filter);
+    }
+
+    public CommandLineParser getParser() {
+        return this.parser;
+    }
+
+    public void reloadParser() {
+        this.parser = buildParser(plugin);
     }
 
     /**
@@ -82,7 +104,7 @@ public class PromptEngine {
                     + " lacks promptpaper.use, skipping prompt intercept");
             return Optional.empty();
         }
-        var parsed = parser.parse(commandLine);
+        var parsed = getParser().parse(commandLine);
 
         // Fail-fast: any unresolved preset ID aborts the command flow.
         var missingPrompts = findMissingPromptPresets(parsed);
@@ -116,7 +138,7 @@ public class PromptEngine {
      * must cancel the underlying command dispatch.
      */
     public boolean commandHasTagForm(String commandLine) {
-        return parser.hasTagForm(commandLine);
+        return getParser().hasTagForm(commandLine);
     }
 
     /**
@@ -127,8 +149,8 @@ public class PromptEngine {
      * reach the underlying command dispatcher.
      */
     public boolean hasPresetReferences(String commandLine) {
-        if (!parser.hasTagForm(commandLine)) return false;
-        var parsed = parser.parse(commandLine);
+        if (!getParser().hasTagForm(commandLine)) return false;
+        var parsed = getParser().parse(commandLine);
         return parsed.promptTags().stream().anyMatch(PromptTag::isPreset)
                 || parsed.postCmds().stream().anyMatch(PostCommandMeta::isPreset);
     }

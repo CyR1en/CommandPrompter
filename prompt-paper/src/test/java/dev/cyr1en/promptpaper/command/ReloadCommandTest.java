@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,6 +63,7 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(loader, times(1)).reload();
+        verify(engine, times(1)).reloadParser();
         verify(registry, times(1)).reload();
         verify(sender, times(1)).sendMessage(any(Component.class));
     }
@@ -79,6 +81,7 @@ class ReloadCommandTest extends MockBukkitTest {
         verify(screenManager, times(1)).cancelAll(player);
         verify(engine, times(1)).cancelAll();
         verify(loader, times(1)).reload();
+        verify(engine, times(1)).reloadParser();
         verify(registry, times(1)).reload();
     }
 
@@ -92,6 +95,7 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(sender, times(1)).sendMessage(any(Component.class));
+        verify(engine, never()).reloadParser();
     }
 
     @Test
@@ -107,6 +111,7 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(loader, times(1)).reload();
+        verify(engine, times(1)).reloadParser();
         verify(sender, times(1)).sendMessage(any(Component.class));
     }
 
@@ -124,6 +129,7 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(loader, times(1)).reload();
+        verify(engine, times(1)).reloadParser();
         verify(registry, times(1)).reload();
         // Exactly one error message is sent; success message must not be sent.
         verify(sender, times(1)).sendMessage(any(Component.class));

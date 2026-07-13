@@ -55,6 +55,8 @@ public class MockBukkitTest {
         when(config.cancelKeyword()).thenReturn("cancel");
         when(config.ignoredCommands()).thenReturn(java.util.List.of());
         when(config.locale()).thenReturn("en_US");
+        when(config.argumentRegex()).thenReturn("<.*?>");
+        when(config.ignoreMiniMessage()).thenReturn(false);
 
         configLoader = mock(PaperConfigLoader.class);
         when(configLoader.getConfig()).thenReturn(config);

@@ -14,9 +14,10 @@ import java.util.List;
 
 /**
  * {@code /commandprompter reload} — cancels every active session across
- * every online player, then reloads the configuration from disk. The cancel
- * pass prevents stale sessions from holding references to the previous
- * config values.
+ * every online player, reloads the configuration from disk, and rebuilds the
+ * command-line parser (so {@code Argument-Regex} and {@code Ignore-MiniMessage}
+ * take effect without a restart). The cancel pass prevents stale sessions
+ * from holding references to the previous config values.
  */
 public class ReloadCommand extends PromptCommand implements Command<CommandSourceStack> {
 
@@ -60,6 +61,9 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             var cfg = loader.getConfig();
             if (cfg != null) {
                 plugin.getPluginLogger().reload(cfg);
+            }
+            if (plugin.getEngine() != null) {
+                plugin.getEngine().reloadParser();
             }
             // Reload preset cache; failure aborts the reload.
             var registry = plugin.getPresetRegistry();

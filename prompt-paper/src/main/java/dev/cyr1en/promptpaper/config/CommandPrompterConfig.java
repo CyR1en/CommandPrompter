@@ -83,7 +83,9 @@ public record CommandPrompterConfig(
         @NodeName("Argument-Regex")
         @NodeDefault("<.*?>")
         @NodeComment({"This will determine if a part of a command is a prompt.",
-                "", "ONLY CHANGE THE FIRST AND LAST", "I.E (.*?), {.*?}, or [.*?]"})
+                "", "ONLY CHANGE THE FIRST AND LAST. The opening and closing delimiters",
+                "must each be a single character (e.g. (.*?), {.*?}, or [.*?]).",
+                "Changes take effect on /commandprompter reload."})
         String argumentRegex,
 
         @ConfigNode
