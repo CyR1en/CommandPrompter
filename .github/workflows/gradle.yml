@@ -72,14 +72,12 @@ jobs:
           version: ${{ github.event.release.tag_name }}
           version-type: release
           changelog: ${{ github.event.release.body }}
-
           loaders: |
             paper
-            spigot
             purpur
           game-versions: |
-            1.21.4
-
+            26.1
+            26.2
           files: prompt-paper/build/libs/CommandPrompterPaper-*.jar
 
 
