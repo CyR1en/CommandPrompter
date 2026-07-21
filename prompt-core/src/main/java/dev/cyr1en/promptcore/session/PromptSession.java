@@ -77,8 +77,6 @@ public final class PromptSession {
         null);
   }
 
-  // --- Accessors ---
-
   /** The platform-agnostic user identifier this session belongs to. */
   public String userId() {
     return userId;
@@ -139,8 +137,6 @@ public final class PromptSession {
   public int currentIndex() {
     return answers.size();
   }
-
-  // --- Transitions ---
 
   /**
    * Submit an answer to the current prompt.
@@ -297,8 +293,6 @@ public final class PromptSession {
     return new SessionResult(command, new java.util.ArrayList<>(answers), onComplete, onCancel);
   }
 
-  // --- Internal ---
-
   private List<PostCommandMeta> resolvePCMReferences(List<PostCommandMeta> pcms) {
     return pcms.stream()
         .map(
@@ -307,7 +301,6 @@ public final class PromptSession {
               for (int i = 0; i < answers.size(); i++) {
                 resolved = resolved.replace("{" + i + "}", answers.get(i));
               }
-              // Warn about unresolved references
               var unresolved = Pattern.compile("\\{\\d+}").matcher(resolved);
               if (unresolved.find()) {
                 LOG.warning(
@@ -340,13 +333,10 @@ public final class PromptSession {
    */
   static String sanitize(String input) {
     if (input == null || input.isEmpty()) return input;
-    // Strip Minecraft legacy color codes (§, &)
+    // Strip color codes and decorative symbols
     var noColor = input.replaceAll("(?i)[§&][0-9a-fklmnor]", "");
-    // Strip decorative symbols
     return COLOR_SYMBOLS.matcher(noColor).replaceAll("").trim();
   }
-
-  // --- Equality ---
 
   @Override
   public boolean equals(Object o) {

@@ -5,7 +5,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
-import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.factory.PromptFactory;
 import java.util.Map;
@@ -74,6 +73,20 @@ class MultiPromptIntegrationTest extends MockBukkitTest {
         assertTrue(screenManager.hasActiveScreen(player));
 
         screenManager.cancelAll(player);
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void cancelKeywordDuringMultiPromptCancelsSession() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <First> <Second> <Third>");
+
+        assertTrue(screenManager.hasActiveScreen(player));
+        screenManager.handleChatInput(player, "first");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        screenManager.handleChatInput(player, "cancel");
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
     }

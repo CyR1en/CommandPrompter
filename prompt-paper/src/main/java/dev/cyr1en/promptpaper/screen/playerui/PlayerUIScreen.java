@@ -83,11 +83,9 @@ public class PlayerUIScreen implements InputScreen {
         gui.setTitle(ComponentUtil.mini(tag.displayText()));
         gui.setPlayerInventoryUsed(false);
 
-        // Cancel all top-inventory clicks to prevent item theft from empty slots.
-        // Pane-level click actions still fire via gui.click() regardless of cancellation.
+        // Cancel top clicks to prevent item theft from empty slots.
         gui.setOnTopClick(event -> event.setCancelled(true));
 
-        // Build the player-head paginated pane
         headPane = new PaginatedPane(9, rows - 1);
         int pageSize = 9 * (rows - 1);
         for (int i = 0; i < currentHeads.size(); i += pageSize) {
@@ -114,7 +112,6 @@ public class PlayerUIScreen implements InputScreen {
         }
         gui.addPane(Slot.of(0, 0), headPane);
 
-        // Build the navigation control pane
         var controlY = rows - 1;
         var controlPane = buildControlPane(promptConfig);
         gui.addPane(Slot.of(0, controlY), controlPane);
@@ -146,9 +143,7 @@ public class PlayerUIScreen implements InputScreen {
                     .filter(p -> !headCache.isVanished(p))
                     .count();
             var heads = promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
-            // Cache staleness is handled proactively in open() via cache-mismatch check.
-            // If we arrive here with empty heads despite online players, log and
-            // return empty — open() will eventually rebuild and re-trigger.
+            // Fallback check if cache is empty but players are online.
             if (heads.isEmpty() && onlineCount > 0) {
                 plugin.getPluginLogger().debug("PlayerUI heads empty but onlineVisible="
                         + onlineCount + " cacheSize=" + headCache.size()

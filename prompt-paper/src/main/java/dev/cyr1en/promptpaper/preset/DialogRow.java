@@ -21,7 +21,10 @@ import java.util.Objects;
 public record DialogRow(
     String label,
     @SerializedName("input_type") InputType inputType,
-    List<JsonElement> constraints) {
+    List<JsonElement> constraints,
+    @SerializedName("max_length") Integer maxLength,
+    @SerializedName("max_lines") Integer maxLines,
+    @SerializedName("width") Integer width) {
 
   /** Canonical constructor with null-checks. */
   public DialogRow {
@@ -30,10 +33,16 @@ public record DialogRow(
     constraints = constraints == null ? List.of() : List.copyOf(constraints);
   }
 
+  /** Legacy constructor without the new text constraints. */
+  public DialogRow(String label, InputType inputType, List<JsonElement> constraints) {
+    this(label, inputType, constraints, null, null, null);
+  }
+
   /**
    * Convenience accessor: returns each constraint as a string. Numbers are rendered via {@link
    * Number#toString()} so {@code 1} becomes {@code "1"}.
    */
+  @SuppressWarnings("null")
   public List<String> constraintsAsStrings() {
     return constraints.stream().map(JsonElement::getAsString).toList();
   }

@@ -29,8 +29,7 @@ public class PluginLogger {
             StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    // MiniMessage gradient definitions (replaces the old per-character
-    // ANSI ColorGradient generator).
+    // MiniMessage gradient definitions.
     private static final String NORMAL_GRADIENT = "#c6a0f6:#8aadf4";
     private static final String DEBUG_GRADIENT = "#ee99a0:#f5a97f";
 
@@ -65,9 +64,7 @@ public class PluginLogger {
     }
 
     private void rebuildPrefixes() {
-        // Strip MiniMessage tags from the user-supplied prefix (so the
-        // "Debug" variant is derived from the visible label, not the
-        // markup) and compute the matching "[…-Debug]" name.
+        // Derive the debug prefix name from the default prefix.
         var plainPrefix = PREFIX_DEFAULT;
         var debugName = plainPrefix.substring(0, plainPrefix.length() - 1) + "-Debug]";
 

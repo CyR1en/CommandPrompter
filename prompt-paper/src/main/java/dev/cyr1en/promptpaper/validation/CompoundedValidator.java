@@ -1,7 +1,6 @@
 package dev.cyr1en.promptpaper.validation;
 
 import java.util.ArrayList;
-import java.util.List;
 import org.bukkit.entity.Player;
 
 /**

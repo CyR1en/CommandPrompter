@@ -46,12 +46,10 @@ public class SignInterceptor extends MessageToMessageDecoder<Packet<?>> {
                 var lines = signPacket.getLines();
                 plugin.getSLF4JLogger().debug("SignInterceptor intercepted packet: player={} lines={}",
                         player.getName(), String.join(", ", lines));
-                // route back to player's region thread
                 player.getScheduler().run(plugin, scheduledTask -> {
                     onFinish.accept(lines);
                 }, null);
-                // Drop matched packet so the server does not process a sign
-                // update at our (potentially far away) virtual position.
+                // Drop packet to prevent server from processing the sign update
                 return;
             }
         }

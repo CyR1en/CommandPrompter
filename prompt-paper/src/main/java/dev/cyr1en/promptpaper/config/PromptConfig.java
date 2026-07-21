@@ -13,7 +13,6 @@ import dev.cyr1en.promptpaper.validation.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.bukkit.entity.Player;
 
@@ -434,6 +433,13 @@ public record PromptConfig(
         int dialogTextMultilineMaxLines,
 
         @ConfigNode
+        @NodeName("DialogUI.Defaults.Text.Width")
+        @NodeDefault("200")
+        @IntegerConstraint(min = 1, max = 8192)
+        @NodeComment({"Default width of text inputs in pixels."})
+        int dialogTextWidth,
+
+        @ConfigNode
         @NodeName("DialogUI.Defaults.Choice.Default-Options")
         @NodeDefault("")
         @NodeComment({"Default options for the <d:choice[...]:...> form when no",
@@ -564,7 +570,7 @@ public record PromptConfig(
                 new DialogConfig.ConfirmButton(dialogConfirmLabel, dialogConfirmTooltip),
                 new DialogConfig.CancelButton(dialogCancelLabel, dialogCancelTooltip),
                 new DialogConfig.TextDefaults(
-                        dialogTextMaxLength, dialogTextMultiline, dialogTextMultilineMaxLines),
+                        dialogTextMaxLength, dialogTextMultiline, dialogTextMultilineMaxLines, dialogTextWidth),
                 new DialogConfig.ChoiceDefaults(
                         dialogChoiceDefaults == null || dialogChoiceDefaults.isBlank()
                                 ? java.util.List.of()

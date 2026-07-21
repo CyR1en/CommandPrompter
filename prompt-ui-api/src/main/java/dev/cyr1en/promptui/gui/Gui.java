@@ -50,6 +50,7 @@ public abstract class Gui {
     private boolean updating;
     private boolean isPlayerInventoryUsed = true;
 
+    @SuppressWarnings("PMD.AssignmentToNonFinalStatic")
     protected Gui(@NotNull JavaPlugin plugin, @Nullable Inventory inventory) {
         this.plugin = plugin;
         this.inventory = inventory;

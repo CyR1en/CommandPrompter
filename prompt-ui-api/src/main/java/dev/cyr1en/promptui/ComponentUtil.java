@@ -69,6 +69,7 @@ public final class ComponentUtil {
    */
   public static Component mini(String input) {
     if (input == null) return null;
+    input = input.replace("\\n", "<br>").replace("\n", "<br>").replace("{br}", "<br>");
     String normalized = convertLegacyInline(input);
     try {
       return MINI_MESSAGE.deserialize(normalized);
@@ -100,12 +101,8 @@ public final class ComponentUtil {
   public static String toLegacy(String msg) {
     if (msg == null) return null;
     var matcher = HEX_PATTERN.matcher(msg);
-    while (matcher.find()) {
-      String hex = msg.substring(matcher.start(), matcher.end());
-      msg = msg.replace(hex, ChatColor.of(hex).toString());
-      matcher = HEX_PATTERN.matcher(msg);
-    }
-    return ChatColor.translateAlternateColorCodes('&', msg);
+    String replaced = matcher.replaceAll(mr -> ChatColor.of(mr.group()).toString());
+    return ChatColor.translateAlternateColorCodes('&', replaced);
   }
 
   /**

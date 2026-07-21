@@ -1,7 +1,6 @@
 package dev.cyr1en.promptpaper.i18n;
 
 import dev.cyr1en.promptcore.i18n.AbstractI18n;
-import dev.cyr1en.promptcore.i18n.Placeholder;
 import java.io.File;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;

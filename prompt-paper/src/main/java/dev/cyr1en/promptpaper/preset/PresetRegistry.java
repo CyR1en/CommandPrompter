@@ -92,6 +92,7 @@ public class PresetRegistry {
    *
    * @throws PresetLoadException if the file cannot be read or parsed
    */
+  @SuppressWarnings("null")
   public void reload() {
     try {
       ensureFileExists();

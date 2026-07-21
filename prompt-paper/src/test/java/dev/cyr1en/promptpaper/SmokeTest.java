@@ -1,7 +1,6 @@
 package dev.cyr1en.promptpaper;
 
 import static org.junit.jupiter.api.Assertions.*;
-import dev.cyr1en.promptpaper.testutil.MockScheduler;
 import dev.cyr1en.promptpaper.util.CancellableTask;
 import dev.cyr1en.promptpaper.util.FormatUtil;
 import java.util.concurrent.atomic.AtomicBoolean;

@@ -55,6 +55,8 @@ public class MockBukkitTest {
         when(config.cancelKeyword()).thenReturn("cancel");
         when(config.ignoredCommands()).thenReturn(java.util.List.of());
         when(config.locale()).thenReturn("en_US");
+        when(config.argumentRegex()).thenReturn("<.*?>");
+        when(config.ignoreMiniMessage()).thenReturn(false);
 
         configLoader = mock(PaperConfigLoader.class);
         when(configLoader.getConfig()).thenReturn(config);
@@ -97,7 +99,7 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(i18n.get(eq("command.version"), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
         when(i18n.get(eq("dialog.too_many_options"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
 
@@ -109,9 +111,9 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Unknown permission key."));
         when(i18n.get(eq("command.version"), any(Player.class), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
         when(i18n.get(eq("command.version"), isNull(), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.0.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
         when(i18n.get(eq("dialog.no_options"), any(Player.class)))
                 .thenReturn(Component.text("No options available, enter argument manually."));
         when(i18n.get(eq("dialog.too_many_options"), any(Player.class), any(Placeholder[].class)))
@@ -126,6 +128,7 @@ public class MockBukkitTest {
         when(plugin.getHookContainer()).thenReturn(hookContainer);
 
         scheduler = new MockScheduler(plugin);
+        when(plugin.getScheduler()).thenReturn(scheduler);
     }
 
     @AfterEach

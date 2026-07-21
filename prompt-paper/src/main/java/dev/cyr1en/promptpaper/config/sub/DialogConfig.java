@@ -4,14 +4,12 @@ import java.util.List;
 
 /** Grouped configuration for the Dialog prompt screen. */
 public record DialogConfig(
-        // Legacy confirm/cancel surfaces (kept for back-compat with <3.0 configs).
-        // Confirm and Cancel are no longer the only buttons — see defaults below.
+        // Legacy confirm/cancel surfaces kept for backward compatibility.
         String title,
         ConfirmButton confirm,
         CancelButton cancel,
 
-        // Defaults for variants when the per-tag filter does not override.
-        // Applied in DialogPromptScreen after parsing PromptTag.filter.
+        // Defaults when the per-tag filter does not override.
         TextDefaults text,
         ChoiceDefaults choice,
         NumberDefaults number,
@@ -39,11 +37,12 @@ public record DialogConfig(
     public record CancelButton(String label, String tooltip) {}
 
     public record TextDefaults(
-            int maxLength,        // default 256
+            int maxLength,        // default 32
             boolean multiline,    // default false
-            int multilineMaxLines // default 4 — only used when multiline == true
+            int multilineMaxLines,// default 1 — only used when multiline == true
+            int width             // default 200
     ) {
-        public static final TextDefaults DEFAULTS = new TextDefaults(256, false, 4);
+        public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1, 200);
     }
 
     /**

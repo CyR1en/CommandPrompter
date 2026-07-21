@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.annotations.SerializedName;
+import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
@@ -18,6 +19,7 @@ import java.util.Objects;
  * @param previousButton optional previous-page button layout; {@code null} hides the button
  * @param nextButton optional next-page button layout; {@code null} hides the button
  * @param sanitize whether to strip color codes from the player's input
+ * @param titleDisplay optional title-wrapper config; {@code null} when not requested
  */
 public record PlayerUiPrompt(
     String type,
@@ -27,7 +29,8 @@ public record PlayerUiPrompt(
     @SerializedName("cancel_button") UIButton cancelButton,
     @SerializedName("previous_button") UIButton previousButton,
     @SerializedName("next_button") UIButton nextButton,
-    boolean sanitize)
+    boolean sanitize,
+    @SerializedName("title_display") TitleConfig titleDisplay)
     implements PromptDefinition {
 
   /** Canonical constructor. */
@@ -39,4 +42,21 @@ public record PlayerUiPrompt(
       throw new IllegalArgumentException("PlayerUiPrompt.type must be \"player_ui\", got: " + type);
     }
   }
+
+  /**
+   * Backward-compatible convenience constructor without the title-wrapper field. Delegates to the
+   * canonical constructor with {@code titleDisplay = null}.
+   */
+  public PlayerUiPrompt(
+      String type,
+      String id,
+      String promptText,
+      String filter,
+      UIButton cancelButton,
+      UIButton previousButton,
+      UIButton nextButton,
+      boolean sanitize) {
+    this(type, id, promptText, filter, cancelButton, previousButton, nextButton, sanitize, null);
+  }
 }
+

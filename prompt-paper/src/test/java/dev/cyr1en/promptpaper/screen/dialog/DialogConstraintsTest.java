@@ -17,7 +17,8 @@ class DialogConstraintsTest {
     void emptyFilterUsesTextDefaults() {
         var c = DialogConstraints.from(null, defaults);
         assertEquals(DialogInputKind.TEXT, c.kind());
-        assertEquals(256, c.maxLength());
+        assertEquals(32, c.maxLength());
+        assertEquals(200, c.width());
     }
 
     @Test
@@ -25,6 +26,7 @@ class DialogConstraintsTest {
         // `bool` is no longer a valid kind. The parser drops it back to TEXT.
         var c = DialogConstraints.from("bool", defaults);
         assertEquals(DialogInputKind.TEXT, c.kind());
+        assertEquals(200, c.width());
     }
 
     @Test
@@ -156,13 +158,40 @@ class DialogConstraintsTest {
 
     @Test
     void textOverrideMaxLength() {
-        var c = DialogConstraints.from("text[0,64]", defaults);
+        var c = DialogConstraints.from("text[64]", defaults);
         assertEquals(64, c.maxLength());
     }
 
     @Test
+    void textOverrideMaxLengthAndLines() {
+        var c = DialogConstraints.from("text[64,3]", defaults);
+        assertEquals(64, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(3, c.multilineMaxLines());
+        assertEquals(200, c.width());
+    }
+
+    @Test
+    void textOverrideMaxLengthLinesAndWidth() {
+        var c = DialogConstraints.from("text[64,3,150]", defaults);
+        assertEquals(64, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(3, c.multilineMaxLines());
+        assertEquals(150, c.width());
+    }
+
+    @Test
+    void textOverrideKeyValues() {
+        var c = DialogConstraints.from("text[max_length=128,max_lines=5,width=300]", defaults);
+        assertEquals(128, c.maxLength());
+        assertTrue(c.multiline());
+        assertEquals(5, c.multilineMaxLines());
+        assertEquals(300, c.width());
+    }
+
+    @Test
     void textOverrideMaxLengthClamped() {
-        var c = DialogConstraints.from("text[0,99999]", defaults);
+        var c = DialogConstraints.from("text[99999]", defaults);
         assertEquals(8192, c.maxLength()); // clamped to upper bound
     }
 
@@ -229,5 +258,68 @@ class DialogConstraintsTest {
         assertEquals(20, c.maxButtons());
         // And the per-tag override still wins.
         assertEquals(3, DialogConstraints.from("tab[3]", cfg).maxButtons());
+    }
+
+    // ============================== Body prompt (width) ==============================
+
+    @Test
+    void bodyNoBracketDefaultsToZeroWidth() {
+        var c = DialogConstraints.from("body", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals(0, c.width());
+        assertEquals("", c.rawFilter());
+    }
+
+    @Test
+    void bodyTextBracketNoWidthDefaultsToZeroWidth() {
+        var c = DialogConstraints.from("body[text]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals(0, c.width());
+        assertEquals("text", c.rawFilter());
+    }
+
+    @Test
+    void bodyItemBracketNoWidthDefaultsToZeroWidth() {
+        var c = DialogConstraints.from("body[item]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals(0, c.width());
+        assertEquals("item", c.rawFilter());
+    }
+
+    @Test
+    void bodyTextPositionalWidth() {
+        var c = DialogConstraints.from("body[text, 250]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("text", c.rawFilter());
+        assertEquals(250, c.width());
+    }
+
+    @Test
+    void bodyTextKeyValueWidth() {
+        var c = DialogConstraints.from("body[text, width=300]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("text", c.rawFilter());
+        assertEquals(300, c.width());
+    }
+
+    @Test
+    void bodyWidthClampedToUpperBound() {
+        var c = DialogConstraints.from("body[text, 9999]", defaults);
+        assertEquals(1024, c.width());
+    }
+
+    @Test
+    void bodyWidthClampedToLowerBound() {
+        var c = DialogConstraints.from("body[text, 0]", defaults);
+        assertEquals(1, c.width());
+    }
+
+    @Test
+    void bodyItemWithWidthIgnoredDownstream() {
+        // Width is parsed but the item rendering path ignores it.
+        var c = DialogConstraints.from("body[item, 250]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("item", c.rawFilter());
+        assertEquals(250, c.width());
     }
 }

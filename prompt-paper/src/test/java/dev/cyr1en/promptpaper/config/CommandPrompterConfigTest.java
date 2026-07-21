@@ -19,7 +19,7 @@ class CommandPrompterConfigTest extends MockBukkitTest {
 
         var cfg = new CommandPrompterConfig(
                 rawConfig, "[Prompter] ", 300, "cancel", false, false,
-                true, true, true, "<.*?>", List.of(), List.of(),
+                true, true, true, "<.*?>", true, List.of(), List.of(),
                 true, 1, List.of("bukkit.command.gamemode"), "en_US");
 
         var perms = cfg.getPermissionAttachment("GAMEMODE");
@@ -34,7 +34,7 @@ class CommandPrompterConfigTest extends MockBukkitTest {
 
         var cfg = new CommandPrompterConfig(
                 rawConfig, "[Prompter] ", 300, "cancel", false, false,
-                true, true, true, "<.*?>", List.of(), List.of(),
+                true, true, true, "<.*?>", true, List.of(), List.of(),
                 true, 1, List.of(), "en_US");
 
         var keys = cfg.getPermissionKeys();
@@ -49,7 +49,7 @@ class CommandPrompterConfigTest extends MockBukkitTest {
 
         var cfg = new CommandPrompterConfig(
                 rawConfig, "[Prompter] ", 300, "cancel", false, false,
-                true, true, true, "<.*?>", List.of(), List.of(),
+                true, true, true, "<.*?>", true, List.of(), List.of(),
                 true, 1, List.of(), "en_US");
 
         var keys = cfg.getPermissionKeys();

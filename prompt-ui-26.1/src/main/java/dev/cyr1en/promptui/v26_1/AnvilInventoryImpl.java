@@ -7,10 +7,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.world.Container;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.MenuType;
@@ -67,7 +65,6 @@ public final class AnvilInventoryImpl extends AnvilInventory {
         var nmsPlayer = craftPlayer.getHandle();
         nmsPlayer.connection.send(new ClientboundContainerClosePacket(0));
         Component title = container.getTitle();
-        // containerId was already assigned in the constructor via nextContainerCounter
         int id = container.containerId;
         nmsPlayer.connection.send(new ClientboundOpenScreenPacket(id, MenuType.ANVIL, title));
         nmsPlayer.containerMenu = container;
@@ -116,7 +113,6 @@ public final class AnvilInventoryImpl extends AnvilInventory {
         return "";
     }
 
-    // Called by NMSAnvilContainer.setItemName
     /** Relays rename-text changes from the NMS container to the subscribed callback. */
     void onNameChanged(String text) {
         this.renameText = text;
@@ -173,13 +169,11 @@ public final class AnvilInventoryImpl extends AnvilInventory {
         /** No-op: prevents item drops when the container is closed server-side. */
         @Override
         public void removed(Player player) {
-            // Prevent item drops when container is removed
         }
 
         /** No-op: prevents item drops when the container is cleared. */
         @Override
         protected void clearContainer(Player player, Container container) {
-            // Prevent item drops
         }
 
         /** Delegates to {@code super} then notifies the parent of the name change. */

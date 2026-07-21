@@ -18,6 +18,7 @@ public record PositionedPane(Pane pane, int priority, Slot offset) implements Co
         this(pane, priority, Slot.of(0, 0));
     }
 
+    @SuppressWarnings("null")
     private static final Comparator<PositionedPane> COMPARATOR =
         Comparator.comparingInt(PositionedPane::priority);
 

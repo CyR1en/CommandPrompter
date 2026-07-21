@@ -6,7 +6,6 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptui.ComponentUtil;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import net.kyori.adventure.text.Component;
@@ -65,10 +64,8 @@ public class ChatPromptScreen implements InputScreen {
         if (sendCancel) {
             var builder = ComponentUtil.mini(cancelMsg);
             if (isClickable) {
-                builder = builder.clickEvent(ClickEvent.clickEvent(ClickEvent.Action.RUN_COMMAND,
-                                ClickEvent.Payload.string("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword())))
-                        .hoverEvent(HoverEvent.hoverEvent(HoverEvent.Action.SHOW_TEXT,
-                                ComponentUtil.mini(hoverMsg)));
+                builder = builder.clickEvent(ClickEvent.runCommand("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword()))
+                        .hoverEvent(HoverEvent.showText(ComponentUtil.mini(hoverMsg)));
             }
             cancelComponent = builder;
         }

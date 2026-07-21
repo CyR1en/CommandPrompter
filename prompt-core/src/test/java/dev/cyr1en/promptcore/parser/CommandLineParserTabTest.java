@@ -45,12 +45,12 @@ class CommandLineParserTabTest {
 
   @Test
   void tabKindCaseInsensitive() {
-    // Parser captures verbatim; downstream normalizes.
+    // Verbatim capture, normalization downstream.
     var r1 = parser.parse("/cmd <d:TAB:Foo>");
     var r2 = parser.parse("/cmd <d:Tab[10]:Foo>");
     assertEquals("TAB", r1.promptTags().get(0).filter());
     assertEquals("Tab[10]", r2.promptTags().get(0).filter());
-    // isTabFilter must accept both via the case-insensitive normalize.
+    // isTabFilter accepts both case variants.
     assertTrue(CommandLineParser.isTabFilter(r1.promptTags().get(0).filter()));
     assertTrue(CommandLineParser.isTabFilter(r2.promptTags().get(0).filter()));
   }

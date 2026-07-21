@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.annotations.SerializedName;
+import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
@@ -13,6 +14,7 @@ import java.util.Objects;
  * @param leftButton the item placed in the left slot
  * @param rightButton the item placed in the right slot
  * @param sanitize whether to strip color codes from the player's input
+ * @param titleDisplay optional title-wrapper config; {@code null} when not requested
  */
 public record AnvilPrompt(
     String type,
@@ -21,7 +23,8 @@ public record AnvilPrompt(
     @SerializedName("prompt_text") String promptText,
     @SerializedName("left_button") AnvilButton leftButton,
     @SerializedName("right_button") AnvilButton rightButton,
-    boolean sanitize)
+    boolean sanitize,
+    @SerializedName("title_display") TitleConfig titleDisplay)
     implements PromptDefinition {
 
   /** Canonical constructor. */
@@ -36,4 +39,20 @@ public record AnvilPrompt(
       throw new IllegalArgumentException("AnvilPrompt.type must be \"anvil\", got: " + type);
     }
   }
+
+  /**
+   * Backward-compatible convenience constructor without the title-wrapper field. Delegates to the
+   * canonical constructor with {@code titleDisplay = null}.
+   */
+  public AnvilPrompt(
+      String type,
+      String id,
+      String title,
+      String promptText,
+      AnvilButton leftButton,
+      AnvilButton rightButton,
+      boolean sanitize) {
+    this(type, id, title, promptText, leftButton, rightButton, sanitize, null);
+  }
 }
+

@@ -601,4 +601,152 @@ class PromptDefinitionDeserializerTest {
     PromptDefinition def = gson.fromJson(obj, PromptDefinition.class);
     assertInstanceOf(SignPrompt.class, def);
   }
+
+  // ------------------------------------------------------------------
+  // title_display field
+  // ------------------------------------------------------------------
+
+  @Test
+  void chatPromptWithTitleDisplayDeserialize() {
+    String json =
+        """
+        {
+          "type": "chat",
+          "id": "title_chat",
+          "prompt_text": "Enter your name:",
+          "sanitize": true,
+          "cancel": { "send": false, "message": "", "clickable": false, "hover_message": "" },
+          "title_display": {
+            "main": "Welcome",
+            "sub": "Please answer",
+            "ticks": 80
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ChatPrompt.class, def);
+    ChatPrompt chat = (ChatPrompt) def;
+    assertNotNull(chat.titleDisplay());
+    assertEquals("Welcome", chat.titleDisplay().main());
+    assertEquals("Please answer", chat.titleDisplay().sub());
+    assertEquals(80, chat.titleDisplay().ticks());
+  }
+
+  @Test
+  void chatPromptWithoutTitleDisplayYieldsNull() {
+    String json =
+        """
+        {
+          "type": "chat",
+          "id": "no_title",
+          "prompt_text": "Plain prompt",
+          "sanitize": true,
+          "cancel": { "send": false, "message": "", "clickable": false, "hover_message": "" }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ChatPrompt.class, def);
+    ChatPrompt chat = (ChatPrompt) def;
+    assertNull(chat.titleDisplay());
+  }
+
+  @Test
+  void anvilPromptWithTitleDisplayDeserialize() {
+    String json =
+        """
+        {
+          "type": "anvil",
+          "id": "title_anvil",
+          "title": "Rename",
+          "prompt_text": "New Name",
+          "sanitize": true,
+          "left_button": { "show": true, "button_text": "", "button_icon": "PAPER", "button_hover_text": "", "custom_model_data": 0 },
+          "right_button": { "show": true, "button_text": "", "button_icon": "PAPER", "button_hover_text": "", "custom_model_data": 0 },
+          "title_display": {
+            "main": "Anvil Title",
+            "sub": null,
+            "ticks": null
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(AnvilPrompt.class, def);
+    AnvilPrompt anvil = (AnvilPrompt) def;
+    assertNotNull(anvil.titleDisplay());
+    assertEquals("Anvil Title", anvil.titleDisplay().main());
+    assertNull(anvil.titleDisplay().sub());
+    assertNull(anvil.titleDisplay().ticks());
+  }
+
+  @Test
+  void dialogPromptDeserializeBodyWithWidth() {
+    String json =
+        """
+        {
+          "type": "dialog",
+          "id": "body_width",
+          "title": "Width Test",
+          "sanitize": false,
+          "base": {
+            "body": [
+              { "type": "plain_message", "content": "Narrow text", "width": 200 },
+              { "type": "plain_message", "content": "Auto width" },
+              { "type": "item", "material": "STONE" }
+            ]
+          },
+          "dialog_type": {
+            "type": "confirmation",
+            "confirm_action": { "label": "OK" }
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(DialogPrompt.class, def);
+    DialogPrompt dialog = (DialogPrompt) def;
+
+    List<DialogBodyConfig> body = dialog.base().body();
+    assertEquals(3, body.size());
+
+    // First body element: plain_message with explicit width.
+    DialogBodyConfig narrow = body.get(0);
+    assertEquals(DialogBodyType.PLAIN_MESSAGE, narrow.type());
+    assertEquals("Narrow text", narrow.content());
+    assertEquals(200, narrow.width());
+
+    // Second body element: plain_message without width (null = client auto-wrap).
+    DialogBodyConfig auto = body.get(1);
+    assertEquals(DialogBodyType.PLAIN_MESSAGE, auto.type());
+    assertEquals("Auto width", auto.content());
+    assertNull(auto.width());
+
+    // Third body element: item (width irrelevant, should be null).
+    DialogBodyConfig item = body.get(2);
+    assertEquals(DialogBodyType.ITEM, item.type());
+    assertNull(item.width());
+  }
+
+  @Test
+  void dialogPromptDeserializeBodyWidthClamped() {
+    String json =
+        """
+        {
+          "type": "dialog",
+          "id": "body_width_clamp",
+          "title": "Clamp Test",
+          "sanitize": false,
+          "base": {
+            "body": [
+              { "type": "plain_message", "content": "Too wide", "width": 9999 }
+            ]
+          },
+          "dialog_type": {
+            "type": "confirmation",
+            "confirm_action": { "label": "OK" }
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    DialogPrompt dialog = (DialogPrompt) def;
+    assertEquals(1024, dialog.base().body().get(0).width());
+  }
 }

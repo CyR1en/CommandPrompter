@@ -141,7 +141,10 @@
         "constraints": { 
           "type": "array",
           "items": { "type": ["string", "number"] }
-        }
+        },
+        "max_length": { "type": "integer", "minimum": 1 },
+        "max_lines": { "type": "integer", "minimum": 1 },
+        "width": { "type": "integer", "minimum": 1 }
       }
     },
     "actionButton": {

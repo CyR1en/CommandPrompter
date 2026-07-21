@@ -1,11 +1,13 @@
 package dev.cyr1en.promptpaper.factory;
 
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.screen.AnvilPromptScreen;
 import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import dev.cyr1en.promptpaper.screen.SignPromptScreen;
+import dev.cyr1en.promptpaper.screen.TitleWrapperScreen;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreen;
 import dev.cyr1en.promptui.InputScreen;
@@ -80,8 +82,7 @@ public class PromptFactory {
     if (loaded.isEmpty()) {
       plugin.getPluginLogger().info("No GUI screen providers found — GUI prompts will fall back to chat.");
     } else {
-      // Sort providers descending by target version (e.g., "26.2" before "26.1")
-      // This ensures that if we fallback, we fallback to the newest available NMS module.
+      // Sort providers descending to fall back to the newest available NMS module.
       loaded.sort((p1, p2) -> {
         String t1 = p1.getTargetVersion();
         String t2 = p2.getTargetVersion();
@@ -117,7 +118,7 @@ public class PromptFactory {
         providers.add(bestMatch);
         plugin.getPluginLogger().info("Loaded screen provider for Minecraft " + serverVersion + ": " + bestMatch.getClass().getName());
       } else {
-        // Fallback to the highest available provider (which is now at index 0)
+        // Fallback to the newest provider.
         bestMatch = loaded.get(0);
         providers.add(bestMatch);
         plugin.getPluginLogger().warn("No specific NMS module found for Minecraft " + serverVersion + ".");
@@ -163,13 +164,14 @@ public class PromptFactory {
         "PromptFactory.create: player=" + player.getName()
                 + " type=" + def.type()
                 + " id=" + def.id());
-    return switch (def) {
+    var screen = switch (def) {
       case dev.cyr1en.promptpaper.preset.ChatPrompt chat -> createChat(player, chat);
       case dev.cyr1en.promptpaper.preset.AnvilPrompt anvil -> createAnvil(player, anvil);
       case dev.cyr1en.promptpaper.preset.SignPrompt sign -> createSign(player, sign);
       case dev.cyr1en.promptpaper.preset.PlayerUiPrompt pui -> createPlayerUi(player, pui);
       case dev.cyr1en.promptpaper.preset.DialogPrompt dialog -> createDialog(player, dialog, context);
     };
+    return wrapWithTitle(player, def, screen);
   }
 
   // ------------------------------------------------------------------
@@ -198,12 +200,11 @@ public class PromptFactory {
       return create(player, def, context);
     }
     if ("d".equals(tag.key()) || tag.isCompound()) {
-      // Dialog: pass the original tag through. The dialog screen consumes
-      // PromptTag directly, and round-tripping through JSON would lose
-      // filter syntax + constraints.
+      // Pass the tag directly to preserve filter syntax and constraints.
       var promptConfig = plugin.getConfigLoader().getPromptConfig();
-      return new dev.cyr1en.promptpaper.screen.DialogPromptScreen(
+      var dialogScreen = new dev.cyr1en.promptpaper.screen.DialogPromptScreen(
           plugin, player, tag, promptConfig, context);
+      return wrapWithTagTitle(player, tag, dialogScreen);
     }
     var def = InlineTagMapper.toPromptDefinition(tag);
     return create(player, def, context);
@@ -218,9 +219,7 @@ public class PromptFactory {
   }
 
   private AnvilPromptScreen createAnvil(Player player, dev.cyr1en.promptpaper.preset.AnvilPrompt anvil) {
-    // Touch the anvil button icons through the material mapper so a bad
-    // icon name produces a non-fatal warning even when the button
-    // configuration is still being read from the legacy YAML config.
+    // Resolve icons through material mapper to warn about invalid names.
     materialMapper.resolveOrDefault(anvil.leftButton().buttonIcon(),
         "anvil prompt '" + anvil.id() + "' left_button");
     materialMapper.resolveOrDefault(anvil.rightButton().buttonIcon(),
@@ -240,7 +239,7 @@ public class PromptFactory {
         pui.promptText(),
         pui.sanitize(),
         null);
-    // Resolve the navigation button icons so a bad name is flagged.
+    // Resolve navigation button icons to warn about invalid names.
     resolveUiButton(pui.cancelButton(), pui.id(), "cancel_button");
     resolveUiButton(pui.previousButton(), pui.id(), "previous_button");
     resolveUiButton(pui.nextButton(), pui.id(), "next_button");
@@ -268,5 +267,64 @@ public class PromptFactory {
     if (button == null) return;
     materialMapper.resolveOrDefault(button.buttonIcon(),
         "player_ui prompt '" + promptId + "' " + which);
+  }
+
+  // ------------------------------------------------------------------
+  // Title wrapper
+  // ------------------------------------------------------------------
+
+  /**
+   * Wraps the given screen in a {@link TitleWrapperScreen} if the {@link PromptDefinition}
+   * carries a non-null {@code titleDisplay} config. If the config's {@code main} is empty, the
+   * definition's prompt/display text is injected as the main title.
+   *
+   * @param player the target player
+   * @param def the prompt definition that produced the screen
+   * @param screen the freshly built screen (not yet opened)
+   * @return the original screen, or a {@link TitleWrapperScreen} wrapping it
+   */
+  private InputScreen wrapWithTitle(Player player, PromptDefinition def, InputScreen screen) {
+    var raw = def.titleDisplay();
+    if (raw == null) return screen;
+    var resolved = resolveTitleMain(raw, displayTextFor(def));
+    return new TitleWrapperScreen(screen, resolved, player, plugin.getScheduler(), plugin);
+  }
+
+  /**
+   * Wraps the given screen in a {@link TitleWrapperScreen} if the inline {@link PromptTag}
+   * carries a non-null {@code title} config. Used for the dialog path in {@link #createFromTag}
+   * which bypasses {@link #create}.
+   */
+  private InputScreen wrapWithTagTitle(Player player, PromptTag tag, InputScreen screen) {
+    var raw = tag.title();
+    if (raw == null) return screen;
+    var resolved = resolveTitleMain(raw, tag.displayText());
+    return new TitleWrapperScreen(screen, resolved, player, plugin.getScheduler(), plugin);
+  }
+
+  /**
+   * If {@code raw.main()} is empty, returns a new {@link TitleConfig} with {@code main} set to
+   * {@code fallbackText}; otherwise returns {@code raw} unchanged.
+   */
+  private static TitleConfig resolveTitleMain(TitleConfig raw, String fallbackText) {
+    if (raw.main() == null || raw.main().isEmpty()) {
+      var text = fallbackText == null ? "" : fallbackText;
+      return new TitleConfig(text, raw.sub(), raw.ticks());
+    }
+    return raw;
+  }
+
+  /**
+   * Extracts the display/prompt text from a {@link PromptDefinition} for use as the title main
+   * fallback when the title config's main is empty.
+   */
+  private static String displayTextFor(PromptDefinition def) {
+    return switch (def) {
+      case dev.cyr1en.promptpaper.preset.ChatPrompt chat -> chat.promptText();
+      case dev.cyr1en.promptpaper.preset.AnvilPrompt anvil -> anvil.promptText();
+      case dev.cyr1en.promptpaper.preset.SignPrompt sign -> sign.promptText();
+      case dev.cyr1en.promptpaper.preset.PlayerUiPrompt pui -> pui.promptText();
+      case dev.cyr1en.promptpaper.preset.DialogPrompt dialog -> dialog.title();
+    };
   }
 }

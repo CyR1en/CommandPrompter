@@ -29,4 +29,25 @@ public record ParserConfig(String opening, String closing, String escape) {
       throw new IllegalArgumentException("Opening, closing, and escape must be single characters");
     }
   }
+
+  /**
+   * Creates a {@link ParserConfig} by extracting the opening and closing delimiters from an
+   * argument regex.
+   *
+   * @param regex the regex string (e.g. {@code <.*?>})
+   * @return the parsed configuration
+   * @throws IllegalArgumentException if the regex is null, empty, or has a length less than 3
+   */
+  public static ParserConfig fromArgumentRegex(String regex) {
+    if (regex == null) {
+      throw new IllegalArgumentException("Argument regex cannot be null");
+    }
+    regex = regex.trim();
+    if (regex.length() < 3) {
+      throw new IllegalArgumentException("Argument regex must be at least 3 characters long");
+    }
+    String open = String.valueOf(regex.charAt(0));
+    String close = String.valueOf(regex.charAt(regex.length() - 1));
+    return new ParserConfig(open, close, "\\");
+  }
 }

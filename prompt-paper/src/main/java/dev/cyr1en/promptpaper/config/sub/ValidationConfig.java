@@ -1,7 +1,4 @@
 package dev.cyr1en.promptpaper.config.sub;
-
-import dev.cyr1en.promptpaper.config.sub.ValidationEntry;
-
 /**
  * Grouped configuration for input validation defaults.
  *

@@ -107,6 +107,7 @@ bin/
 prompt-paper/build/
 prompt-ui-api/build/
 prompt-ui-26.1/build/
+prompt-ui-26.2/build/
 
 # Paperweight runtime caches (regenerated on build)
 cache/
@@ -132,6 +133,10 @@ docs/
 .reasonix/
 .stfolder/
 .codegraph/
+.kilo/
+.claude/
+.codex/
+.opencode/
 
 # CodeGraph data files
 # These are local to each machine and should not be committed
@@ -163,3 +168,7 @@ cache/
 
 # Superpowers
 .superpowers/
+
+# Codacy
+.codacy/
+.codacy.yaml

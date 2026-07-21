@@ -14,9 +14,10 @@ import java.util.List;
 
 /**
  * {@code /commandprompter reload} — cancels every active session across
- * every online player, then reloads the configuration from disk. The cancel
- * pass prevents stale sessions from holding references to the previous
- * config values.
+ * every online player, reloads the configuration from disk, and rebuilds the
+ * command-line parser (so {@code Argument-Regex} and {@code Ignore-MiniMessage}
+ * take effect without a restart). The cancel pass prevents stale sessions
+ * from holding references to the previous config values.
  */
 public class ReloadCommand extends PromptCommand implements Command<CommandSourceStack> {
 
@@ -46,8 +47,7 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
      */
     public void executeReload(CommandSender sender) {
         plugin.getPluginLogger().info("Configuration reloaded by " + sender.getName());
-        // Cancel all active sessions before reloading config — prevents stale sessions
-        // with references to old config values (ROADMAP: "old sessions are cancelled cleanly")
+        // Cancel active sessions to prevent references to outdated config values.
         plugin.getPluginLogger().debug("Reload: cancelling all active sessions before config reload");
         if (plugin.getScreenManager() != null && plugin.getEngine() != null) {
             for (var player : plugin.getServer().getOnlinePlayers()) {
@@ -62,8 +62,10 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             if (cfg != null) {
                 plugin.getPluginLogger().reload(cfg);
             }
-            // Reload the prompt/post-command preset cache. A failure here aborts the whole
-            // reload and rolls back the visible state to the previous cache.
+            if (plugin.getEngine() != null) {
+                plugin.getEngine().reloadParser();
+            }
+            // Reload preset cache; failure aborts the reload.
             var registry = plugin.getPresetRegistry();
             if (registry != null) {
                 registry.reload();

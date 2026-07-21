@@ -113,10 +113,7 @@ public class HeadCache implements Listener {
     }
 
     public int size() {
-        // Count only populated entries so the staleness check in
-        // PlayerUIScreen.open() detects a cache where every entry is
-        // Optional.empty() (which happens when getHeadFor is invoked
-        // before the player is in Bukkit.getOnlinePlayers()).
+        // Count only populated entries so empty/unloaded heads are detected as stale.
         return (int) cache.values().stream()
                 .filter(Optional::isPresent)
                 .count();
@@ -152,12 +149,7 @@ public class HeadCache implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        // Use PlayerJoinEvent (not PlayerLoginEvent) so the player is
-        // already in Bukkit.getOnlinePlayers() when getHeadFor runs.
-        // PlayerLoginEvent fires during authentication, often seconds
-        // before the player actually joins, which causes
-        // getHeadFor to cache Optional.empty() and leaves the cache
-        // permanently stale.
+        // Use PlayerJoinEvent so player is in online players list when cache updates.
         var player = event.getPlayer();
         var vanished = isVanished(player);
         plugin.getPluginLogger().debug("Player join: name=" + player.getName()

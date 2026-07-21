@@ -8,7 +8,6 @@ import dev.cyr1en.promptcore.config.annotations.type.SectionComment;
 import dev.cyr1en.promptcore.config.annotations.type.SectionComments;
 import dev.cyr1en.promptcore.config.YamlDocument;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Core plugin settings loaded from {@code config.yml}.
@@ -84,8 +83,19 @@ public record CommandPrompterConfig(
         @NodeName("Argument-Regex")
         @NodeDefault("<.*?>")
         @NodeComment({"This will determine if a part of a command is a prompt.",
-                "", "ONLY CHANGE THE FIRST AND LAST", "I.E (.*?), {.*?}, or [.*?]"})
+                "", "ONLY CHANGE THE FIRST AND LAST. The opening and closing delimiters",
+                "must each be a single character (e.g. (.*?), {.*?}, or [.*?]).",
+                "Changes take effect on /commandprompter reload."})
         String argumentRegex,
+
+        @ConfigNode
+        @NodeName("Ignore-MiniMessage")
+        @NodeDefault("true")
+        @NodeComment({"When the prompt delimiters are angle brackets (< >), MiniMessage",
+                "formatting tags (e.g. <red>, </red>, <gradient:gold:yellow>) use the same",
+                "syntax. When enabled, CommandPrompter detects and ignores MiniMessage tags",
+                "so they are not treated as prompts."})
+        boolean ignoreMiniMessage,
 
         @ConfigNode
         @NodeName("Ignored-Commands")

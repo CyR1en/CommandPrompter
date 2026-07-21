@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.annotations.SerializedName;
+import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
@@ -18,6 +19,9 @@ import java.util.Objects;
  * @param base optional {@code base} block (body elements + input rows); may be {@code null}
  * @param dialogType the required {@code dialog_type} block describing the action layout
  * @param sanitize whether to strip color codes from the player's input
+ * @param titleDisplay optional title-wrapper config; {@code null} when not requested. Distinct
+ *     from {@code title} (the dialog window title) — this controls the on-screen Adventure title
+ *     shown before the dialog opens.
  */
 public record DialogPrompt(
     String type,
@@ -25,7 +29,8 @@ public record DialogPrompt(
     String title,
     DialogBaseConfig base,
     @SerializedName("dialog_type") DialogTypeConfig dialogType,
-    boolean sanitize)
+    boolean sanitize,
+    @SerializedName("title_display") TitleConfig titleDisplay)
     implements PromptDefinition {
 
   /** Canonical constructor. */
@@ -38,4 +43,19 @@ public record DialogPrompt(
       throw new IllegalArgumentException("DialogPrompt.type must be \"dialog\", got: " + type);
     }
   }
+
+  /**
+   * Backward-compatible convenience constructor without the title-wrapper field. Delegates to the
+   * canonical constructor with {@code titleDisplay = null}.
+   */
+  public DialogPrompt(
+      String type,
+      String id,
+      String title,
+      DialogBaseConfig base,
+      DialogTypeConfig dialogType,
+      boolean sanitize) {
+    this(type, id, title, base, dialogType, sanitize, null);
+  }
 }
+

@@ -4,11 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
@@ -27,6 +29,7 @@ import dev.cyr1en.promptpaper.preset.UIButton;
 import dev.cyr1en.promptpaper.screen.AnvilPromptScreen;
 import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import dev.cyr1en.promptpaper.screen.SignPromptScreen;
+import dev.cyr1en.promptpaper.screen.TitleWrapperScreen;
 import dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreen;
 import dev.cyr1en.promptui.InputScreen;
 import java.util.List;
@@ -407,5 +410,110 @@ class PromptFactoryTest extends MockBukkitTest {
     InputScreen screen = factory.create(createPlayer(), chat);
     assertNotNull(screen);
     assertEquals(false, screen.isOpen());
+  }
+
+  // ------------------------------------------------------------------
+  // Title wrapper
+  // ------------------------------------------------------------------
+
+  @Test
+  void createWithoutTitleDisplayIsNotWrapped() {
+    var chat = new ChatPrompt("chat", "p1", "Why?", new CancelBehavior(false, "", false, ""), true);
+    var screen = factory.create(createPlayer(), chat);
+    // No titleDisplay → no wrapper.
+    assertFalse(screen instanceof TitleWrapperScreen);
+    assertInstanceOf(ChatPromptScreen.class, screen);
+  }
+
+  @Test
+  void createChatWithTitleDisplayIsWrapped() {
+    var title = new TitleConfig("Hello", "World", 50);
+    var chat = new ChatPrompt("chat", "p1", "Why?",
+        new CancelBehavior(false, "", false, ""), true, title);
+    var screen = factory.create(createPlayer(), chat);
+    assertInstanceOf(TitleWrapperScreen.class, screen);
+    var wrapper = (TitleWrapperScreen) screen;
+    assertInstanceOf(ChatPromptScreen.class, wrapper.delegate());
+  }
+
+  @Test
+  void createAnvilWithTitleDisplayIsWrapped() {
+    var title = new TitleConfig("Main", null, null);
+    var anvil = new AnvilPrompt(
+        "anvil", "p1", "Rename", "New",
+        new AnvilButton(true, "Cancel", "BARRIER", "Click", 0),
+        new AnvilButton(true, "OK", "PAPER", "Click", 0),
+        true, title);
+    var screen = factory.create(createPlayer(), anvil);
+    assertInstanceOf(TitleWrapperScreen.class, screen);
+  }
+
+  @Test
+  void titleDisplayWithEmptyMainInjectsPromptText() {
+    // Empty main → factory should inject the prompt's display text.
+    var title = new TitleConfig("", null, null);
+    var chat = new ChatPrompt("chat", "p1", "Default Text",
+        new CancelBehavior(false, "", false, ""), true, title);
+    var screen = factory.create(createPlayer(), chat);
+    assertInstanceOf(TitleWrapperScreen.class, screen);
+    // The wrapper is created — the main injection happens inside wrapWithTitle.
+    // We can't directly inspect the resolved TitleConfig, but the wrapper
+    // exists which proves the titleDisplay was present and processed.
+  }
+
+  @Test
+  void inlineMapperPassesTitleToChatPrompt() {
+    var titleTag = new PromptTag("<test>", "", null, "Why?", true, null,
+        PromptTag.AnswerType.NONE, java.util.List.of(), false,
+        new TitleConfig("Title Main", "Sub", 60));
+    var def = InlineTagMapper.toPromptDefinition(titleTag);
+    assertInstanceOf(ChatPrompt.class, def);
+    var chat = (ChatPrompt) def;
+    assertNotNull(chat.titleDisplay());
+    assertEquals("Title Main", chat.titleDisplay().main());
+    assertEquals("Sub", chat.titleDisplay().sub());
+    assertEquals(60, chat.titleDisplay().ticks());
+  }
+
+  @Test
+  void inlineMapperStandaloneTitleInjectsDisplayText() {
+    // Standalone -t flag → main is empty, mapper should inject displayText.
+    var titleTag = new PromptTag("<test>", "", null, "Prompt Text", true, null,
+        PromptTag.AnswerType.NONE, java.util.List.of(), false,
+        new TitleConfig("", null, null));
+    var def = InlineTagMapper.toPromptDefinition(titleTag);
+    assertInstanceOf(ChatPrompt.class, def);
+    var chat = (ChatPrompt) def;
+    assertNotNull(chat.titleDisplay());
+    // The mapper resolves the empty main to the prompt's displayText.
+    assertEquals("Prompt Text", chat.titleDisplay().main());
+  }
+
+  @Test
+  void inlineMapperNoTitleYieldsNullTitleDisplay() {
+    var tag = new PromptTag("<test>", "", null, "Why?");
+    var def = InlineTagMapper.toPromptDefinition(tag);
+    assertInstanceOf(ChatPrompt.class, def);
+    var chat = (ChatPrompt) def;
+    assertNull(chat.titleDisplay());
+  }
+
+  @Test
+  void createFromTagWithTitleFlagWrapsScreen() {
+    var tag = new PromptTag("<a:Why?>", "a", null, "Why?", true, null,
+        PromptTag.AnswerType.NONE, java.util.List.of(), false,
+        new TitleConfig("Title", null, 40));
+    var screen = factory.createFromTag(createPlayer(), tag);
+    assertInstanceOf(TitleWrapperScreen.class, screen);
+    var wrapper = (TitleWrapperScreen) screen;
+    assertInstanceOf(AnvilPromptScreen.class, wrapper.delegate());
+  }
+
+  @Test
+  void createFromTagWithoutTitleFlagDoesNotWrap() {
+    var tag = new PromptTag("<a:Why?>", "a", null, "Why?");
+    var screen = factory.createFromTag(createPlayer(), tag);
+    assertFalse(screen instanceof TitleWrapperScreen);
+    assertInstanceOf(AnvilPromptScreen.class, screen);
   }
 }

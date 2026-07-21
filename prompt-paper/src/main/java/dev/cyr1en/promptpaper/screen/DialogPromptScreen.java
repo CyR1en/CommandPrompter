@@ -7,14 +7,11 @@ import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import dev.cyr1en.promptpaper.factory.MaterialMapper;
 import dev.cyr1en.promptpaper.preset.ActionButtonConfig;
 import dev.cyr1en.promptpaper.preset.ActionsSource;
-import dev.cyr1en.promptpaper.preset.DialogBaseConfig;
 import dev.cyr1en.promptpaper.preset.DialogBodyConfig;
-import dev.cyr1en.promptpaper.preset.DialogBodyType;
 import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.preset.DialogRow;
 import dev.cyr1en.promptpaper.preset.DialogType;
 import dev.cyr1en.promptpaper.preset.DialogTypeConfig;
-import dev.cyr1en.promptpaper.preset.InputType;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogConstraints;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputBuilder;
@@ -110,11 +107,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         this.dialogPrompt = null;
         this.inputRows = List.of();
         this.staticActions = List.of();
-        this.materialMapper = null;
-        // Keep all rows (including TITLE) so that indices stay aligned with
-        // subTags() — the answer list decoded by ScreenManager must match
-        // the subTags index. TITLE rows contribute "" to the answer list and
-        // are skipped in buildInputs().
+        this.materialMapper = new MaterialMapper(plugin.getPluginLogger());
+        // Keep all rows to align indices with subTags in ScreenManager.
         this.rows = tag.isCompound() ? tag.subTags() : List.of(tag);
         String foundTitle = null;
         for (var row : this.rows) {
@@ -247,8 +241,9 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 + " kind=" + kind);
 
         var title = ComponentUtil.mini(effectiveTitle());
+        List<DialogBody> bodies = buildInlineBodies();
         List<DialogInput> inputs = buildInputs();
-        var dialog = buildDialogWithButtons(title, inputs);
+        var dialog = buildDialogWithButtons(title, bodies, inputs);
         player.showDialog(dialog);
         open = true;
     }
@@ -265,9 +260,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         plugin.getPluginLogger().debug("d:tab resolved " + completions.size()
                 + " completions (max=" + maxButtons + ")");
 
-        // Zero completions always fall through to the text-input fallback:
-        // DialogType.multiAction rejects an empty action list, and an empty
-        // button grid has nothing useful to render anyway.
+        // Fall back to text input if there are no options.
         Dialog dialog = !completions.isEmpty() && completions.size() <= maxButtons
                 ? buildTabMultiActionDialog(completions)
                 : buildTabFallbackDialog(completions.size());
@@ -386,7 +379,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     private Dialog buildDialogWithButtons(
-            Component title, List<DialogInput> inputs) {
+            Component title, List<DialogBody> bodies, List<DialogInput> inputs) {
         var options = clickOptions();
 
         var confirmBtn = ActionButton.builder(ComponentUtil.mini(dialogConfig.confirm().label()))
@@ -402,10 +395,33 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
                         .canCloseWithEscape(true)
+                        .body(bodies)
                         .inputs(inputs)
                         .build())
                 .type(io.papermc.paper.registry.data.dialog.type.DialogType.confirmation(confirmBtn, cancelBtn))
         );
+    }
+
+    private List<DialogBody> buildInlineBodies() {
+        var bodies = new ArrayList<DialogBody>();
+        for (var row : rows) {
+            var constraints = DialogConstraints.from(row.filter(), dialogConfig);
+            if (constraints.kind() == DialogInputKind.BODY) {
+                var bracket = constraints.rawFilter();
+                var text = ComponentUtil.mini(row.displayText());
+                if ("item".equalsIgnoreCase(bracket)) {
+                    var mat = materialMapper.resolveOrDefault(row.displayText(), "inline body item");
+                    bodies.add(DialogBody.item(new ItemStack(mat, 1)).build());
+                } else {
+                    if (constraints.width() > 0) {
+                        bodies.add(DialogBody.plainMessage(text, constraints.width()));
+                    } else {
+                        bodies.add(DialogBody.plainMessage(text));
+                    }
+                }
+            }
+        }
+        return bodies;
     }
 
     private List<DialogInput> buildInputs() {
@@ -413,22 +429,19 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         for (int i = 0; i < rows.size(); i++) {
             var row = rows.get(i);
             var constraints = DialogConstraints.from(row.filter(), dialogConfig);
-            // TITLE rows carry no input widget — they only override the dialog
-            // title. Skip them here; readAnswers() emits "" at the same index
-            // so the answer list stays aligned with subTags().
-            if (constraints.kind() == DialogInputKind.TITLE) continue;
+            // Skip layout rows; keep indices aligned with subTags.
+            if (constraints.kind() == DialogInputKind.TITLE || constraints.kind() == DialogInputKind.BODY) continue;
             var label = ComponentUtil.mini(row.displayText());
             var key = keyFor(i);
             inputs.add(switch (constraints.kind()) {
                 case NUMBER -> DialogInputBuilder.buildNumber(constraints, label, key);
                 case CHOICE -> DialogInputBuilder.buildChoice(constraints, label, key);
                 case TEXT -> DialogInputBuilder.buildText(constraints, label, key);
-                // TAB kind is rendered as either a multiAction or fallback
-                // dialog by openTab() and never reaches buildInputs().
+                // TAB kind is handled separately in openTab().
                 case TAB -> throw new UnsupportedOperationException(
                         "TAB prompts must use the multiAction dialog flow, not buildInputs()");
-                // Unreachable — TITLE is handled by the continue above.
-                case TITLE -> throw new UnsupportedOperationException("unreachable");
+                // Unreachable: handled by the continue above.
+                case TITLE, BODY -> throw new UnsupportedOperationException("unreachable");
             });
         }
         return inputs;
@@ -441,8 +454,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     private void onConfirm(DialogResponseView view) {
-        // Dialog callbacks fire on the network thread. Hop to the player scheduler
-        // before touching ScreenManager / engine / Player.sendMessage.
+        // Switch to player scheduler as dialog callbacks fire on network thread.
         player.getScheduler().run(plugin, scheduledTask -> {
             if (!open) return;
             open = false;
@@ -483,22 +495,16 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             // TAB kind captures its answer via per-button lambdas and never
             // reaches this method.
             case TAB -> "";
-            // TITLE rows are stripped out by the constructor; this case is
-            // unreachable when readAnswers() is called on this.rows.
-            case TITLE -> "";
+            // TITLE and BODY rows carry no input widget; they just provide layout.
+            case TITLE, BODY -> "";
             case TEXT -> {
                 var v = view.getText(key);
                 if (v == null) yield "";
-                // -ds (don't sanitize) lets the user type MiniMessage tags like
-                // <red>red</red>. Downstream command dispatch (e.g. /say) only
-                // understands legacy §X codes, so convert before handing the
-                // answer to the placeholder substitution pipeline.
+                // Convert MiniMessage tags to legacy §X codes for downstream commands.
                 yield tag.sanitize() ? v : ComponentUtil.miniToLegacy(v);
             }
             case CHOICE -> {
-                // The id of the selected option. With our builder the id
-                // equals the display label, so the answer is the label the
-                // user saw in the dropdown.
+                // Choice id matches display label, so return the label.
                 var v = view.getText(key);
                 yield v == null ? "" : v;
             }
@@ -569,7 +575,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         return switch (config.type()) {
             case PLAIN_MESSAGE -> {
                 if (config.content() == null) yield null;
-                yield DialogBody.plainMessage(ComponentUtil.mini(config.content()));
+                var text = ComponentUtil.mini(config.content());
+                if (config.width() != null && config.width() > 0) {
+                    yield DialogBody.plainMessage(text, config.width());
+                } else {
+                    yield DialogBody.plainMessage(text);
+                }
             }
             case ITEM -> {
                 var mat = materialMapper.resolveOrDefault(config.material(),
@@ -606,7 +617,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private DialogInput buildInputForRow(DialogRow row, Component label, String key) {
         return switch (row.inputType()) {
             case TEXT -> {
-                var c = DialogConstraints.from(null, dialogConfig);
+                var c = constraintsForTextRow(row);
                 yield DialogInputBuilder.buildText(c, label, key);
             }
             case NUMBER -> {
@@ -618,6 +629,25 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 yield DialogInputBuilder.buildChoice(c, label, key);
             }
         };
+    }
+
+    private DialogConstraints constraintsForTextRow(DialogRow row) {
+        var dText = dialogConfig.text();
+        int maxLength = row.maxLength() != null ? row.maxLength() : dText.maxLength();
+        int maxLines = row.maxLines() != null ? row.maxLines() : (dText.multiline() ? dText.multilineMaxLines() : 1);
+        int width = row.width() != null ? row.width() : dText.width();
+        
+        // Clamp bounds to prevent client crash
+        maxLength = Math.max(1, Math.min(8192, maxLength));
+        maxLines = Math.max(1, Math.min(8192, maxLines));
+        width = Math.max(1, Math.min(8192, width));
+
+        return new DialogConstraints(
+                DialogInputKind.TEXT, "", 
+                maxLength, maxLines > 1, maxLines, width,
+                List.of(),
+                0f, 0f, 0f, 0f,
+                null);
     }
 
     /**
@@ -652,9 +682,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 initial = Float.parseFloat(cs.get(3).trim());
                 perTagInitialSupplied = true;
             }
-        } catch (NumberFormatException ignored) {
-            // fall back to defaults
-        }
+        } catch (NumberFormatException ignored) {}
         if (min >= max) max = min + 1f;
         if (step <= 0f) step = 1f;
         if (rangeOverridden && !perTagInitialSupplied) {
@@ -663,7 +691,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         initial = Math.max(min, Math.min(max, initial));
         return new DialogConstraints(
                 DialogInputKind.NUMBER, "",
-                0, false, 0, List.of(),
+                0, false, 0, 200, List.of(),
                 min, max, step, initial, null);
     }
 
@@ -675,7 +703,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private DialogConstraints constraintsForChoiceRow(DialogRow row) {
         return new DialogConstraints(
                 DialogInputKind.CHOICE, "",
-                0, false, 0,
+                0, false, 0, 200,
                 row.constraintsAsStrings(),
                 0f, 0f, 0f, 0f, null);
     }
@@ -999,8 +1027,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             case NUMBER -> {
                 var v = view.getFloat(key);
                 if (v == null) yield "0";
-                // Mirror the legacy path: integral values render as long so the
-                // placeholders downstream see e.g. "1" instead of "1.0".
+                // Integral values return as integers to prevent decimals like "1.0".
                 if (Math.floor(v) == v) {
                     yield Long.toString(v.longValue());
                 }

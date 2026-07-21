@@ -4,18 +4,28 @@ import dev.cyr1en.promptcore.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Parses command strings into structured {@link ParsedCommand} objects.
  *
  * <p>Thread-safe after construction. No platform dependencies.
+ *
+ * <h2>Tag filtering</h2>
+ *
+ * <p>An optional {@link TagFilter} (a {@code Predicate<String>} on the raw tag content) can be
+ * supplied at construction time. When set, any tag whose content matches the predicate is
+ * <b>skipped</b> — it is neither treated as a prompt tag nor as a PCM, and is left intact in the
+ * template command. This is how MiniMessage syntax (e.g. {@code <red>}, {@code </red>}, {@code
+ * <gradient:gold:yellow>}) is ignored when the prompt delimiters are angle brackets.
  */
 public class CommandLineParser {
 
   private static final Logger LOG = Logger.getLogger(CommandLineParser.class.getName());
 
   private final ParserConfig config;
+  private final TagFilter tagFilter;
   private final Pattern tagPattern;
   private final Pattern pcmPrefix;
   private final Pattern pcmCancelPrefix;
@@ -26,20 +36,40 @@ public class CommandLineParser {
   private final Pattern dsFlag;
   private final Pattern intFlag;
   private final Pattern strFlag;
-  // Deprecation warning state and detector for the legacy trailing-kind dialog form
-  // (`<d:Title bool>`). The form was removed in favor of the unified `key:filter:display`
-  // shape that mirrors Player UI; this detector exists only to log a one-shot migration
-  // hint for any config still using the old form.
+  private final Pattern titleFlag;
+  // Pattern to detect and warn about the deprecated trailing-kind dialog form.
   private static final Pattern TRAILING_KIND_DETECT =
       Pattern.compile("\\b(?:text|bool|num)(?:\\[[^\\]]*\\])?\\s*$", Pattern.CASE_INSENSITIVE);
   private final Set<String> seenDeprecationWarnings = ConcurrentHashMap.newKeySet();
 
+  /** Creates a parser with angle-bracket delimiters and no tag filtering. */
   public CommandLineParser() {
-    this(ParserConfig.ANGLE_BRACKETS);
+    this(ParserConfig.ANGLE_BRACKETS, null);
   }
 
+  /**
+   * Creates a parser with the given config and no tag filtering.
+   *
+   * @param config the delimiter configuration
+   */
   public CommandLineParser(ParserConfig config) {
+    this(config, null);
+  }
+
+  /**
+   * Creates a parser with the given config and an optional tag filter.
+   *
+   * <p>When {@code tagFilter} is non-null, any matched tag whose content (the text between the
+   * delimiters) passes the predicate is skipped — it is not classified as a prompt tag or a PCM and
+   * is left intact in the template command. This is how MiniMessage syntax is ignored.
+   *
+   * @param config the delimiter configuration
+   * @param tagFilter a predicate that returns {@code true} for tags to skip, or {@code null} to
+   *     disable filtering
+   */
+  public CommandLineParser(ParserConfig config, TagFilter tagFilter) {
     this.config = config;
+    this.tagFilter = tagFilter;
     String open = config.opening();
     String close = config.closing();
     String escPattern = Pattern.quote(config.escape());
@@ -55,6 +85,7 @@ public class CommandLineParser {
     this.dsFlag = Pattern.compile("-ds\\b");
     this.intFlag = Pattern.compile("-int\\b");
     this.strFlag = Pattern.compile("-str\\b");
+    this.titleFlag = Pattern.compile("-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
   }
 
   /** Returns the {@link ParserConfig} used by this parser. */
@@ -87,6 +118,12 @@ public class CommandLineParser {
       var rawContent = matcher.group(1);
       var fullTag = config.opening() + rawContent + config.closing();
 
+      // Skip tags that the filter says to ignore (e.g. MiniMessage syntax).
+      if (tagFilter != null && tagFilter.test(rawContent)) {
+        LOG.fine("Skipping filtered tag: " + fullTag);
+        continue;
+      }
+
       if (isPCM(rawContent)) {
         parsePCM(rawContent, fullTag, postCmds);
       } else {
@@ -94,11 +131,7 @@ public class CommandLineParser {
       }
     }
 
-    var esc = config.escape();
-    var template =
-        rawCommand
-            .replace(esc + config.opening(), config.opening())
-            .replace(esc + config.closing(), config.closing());
+    var template = unescape(rawCommand);
 
     LOG.fine("Parsed " + promptTags.size() + " prompt tags, " + postCmds.size() + " PCMs");
 
@@ -110,13 +143,28 @@ public class CommandLineParser {
   }
 
   /**
-   * Whether the raw command string contains at least one tag (prompt or PCM). Used by callers that
-   * need to distinguish "no tag form at all" from "had tag form but parsing returned empty for some
-   * reason" — for example, the fail-fast path in the engine.
+   * Whether the raw command string contains at least one non-filtered tag (prompt or PCM). Used by
+   * callers that need to distinguish "no tag form at all" from "had tag form but parsing returned
+   * empty for some reason" — for example, the fail-fast path in the engine.
+   *
+   * <p>When a {@link TagFilter} is configured, tags that match the filter are not counted — a
+   * command containing only MiniMessage tags (e.g. {@code <red>}) will return {@code false}.
    */
   public boolean hasTagForm(String rawCommand) {
     if (rawCommand == null || rawCommand.isBlank()) return false;
-    return tagPattern.matcher(rawCommand).find();
+    var matcher = tagPattern.matcher(rawCommand);
+    while (matcher.find()) {
+      var rawContent = matcher.group(1);
+      if (tagFilter == null || !tagFilter.test(rawContent)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns the {@link TagFilter} used by this parser, or {@code null} if none is set. */
+  public TagFilter getTagFilter() {
+    return tagFilter;
   }
 
   private boolean isPCM(String content) {
@@ -126,12 +174,11 @@ public class CommandLineParser {
   private void parsePCM(String rawContent, String fullTag, List<PostCommandMeta> postCmds) {
     var content = rawContent;
 
-    // Extract onCancel flag (!!)
     var onCancel = content.startsWith("!!");
     if (onCancel) {
       content = content.substring(2);
     } else {
-      content = content.substring(1); // remove leading !
+      content = content.substring(1);
     }
 
     // Extract delay (!:N)
@@ -149,8 +196,7 @@ public class CommandLineParser {
 
     content = content.trim();
 
-    // Preset post-command reference: <!@id> (with onCancel/delay already stripped above).
-    // The id is everything after the leading @ up to the first space.
+    // Parse preset post-command reference: <!@id>
     if (content.startsWith("@")) {
       var id = content.substring(1);
       var space = id.indexOf(' ');
@@ -162,15 +208,18 @@ public class CommandLineParser {
             new PostCommandMeta(id, new int[0], delay, onCancel, DispatchTarget.PASSTHROUGH, true));
         return;
       }
-      // @ with no id falls through to legacy handling.
     }
 
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
     var targetMatcher = pcmTarget.matcher(content);
-    if (targetMatcher.find()) {
-      target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase());
-      content = content.replaceAll("@(console|player)", "").trim();
+    var newContent = targetMatcher.replaceFirst("");
+    if (newContent.length() != content.length()) {
+      targetMatcher.reset();
+      if (targetMatcher.find()) {
+        target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
+      }
+      content = newContent.trim();
     }
 
     // Extract answer references ({N})
@@ -180,7 +229,7 @@ public class CommandLineParser {
       indices.add(Integer.parseInt(refMatcher.group(1)));
     }
 
-    // Clean up command text (preserve {N} references for session resolution)
+    // Clean up command text
     var command = content.trim();
 
     LOG.fine(
@@ -197,9 +246,7 @@ public class CommandLineParser {
   }
 
   private void parsePromptTag(String rawContent, String fullTag, List<PromptTag> promptTags) {
-    // Preset prompt reference: <@id>. The id is everything after the leading @
-    // up to the first space. The id is stored in `displayText` and the `preset`
-    // flag is set; the screen type is resolved later from the PresetRegistry.
+    // Parse preset prompt reference: <@id>
     if (rawContent.startsWith("@")) {
       var id = rawContent.substring(1);
       var space = id.indexOf(' ');
@@ -209,18 +256,21 @@ public class CommandLineParser {
         LOG.fine("Preset prompt tag: id=" + id);
         promptTags.add(
             new PromptTag(
-                fullTag, "", null, id, true, null, PromptTag.AnswerType.NONE, List.of(), true));
+                fullTag,
+                "",
+                null,
+                id,
+                true,
+                null,
+                PromptTag.AnswerType.NONE,
+                List.of(),
+                true,
+                null));
         return;
       }
-      // @ with no id falls through to legacy handling.
     }
 
-    // Compound dialog form: a single `<d:... && d:...>` block containing one or more
-    // Compound dialog form: a single `<d:... && d:...>` block containing one or more
-    // `&&`-separated sub-tags. The block renders as one dialog with N input rows.
-    // The first sub-tag's `key` becomes the compound tag's key (for screen routing).
-    // The legacy trailing-kind detector runs only on non-compound tags — `&&` blocks
-    // are an explicit, post-migration syntax.
+    // Parse compound dialog block containing one or more &&-separated sub-tags.
     if (containsCompoundDelimiter(rawContent)) {
       parseCompoundPromptTag(rawContent, fullTag, promptTags);
       return;
@@ -230,13 +280,14 @@ public class CommandLineParser {
     String filter = null;
     String remainder;
 
-    // If content starts with '-', treat as flag-only tag with empty key
     if (rawContent.startsWith("-")) {
       key = "";
       remainder = rawContent;
     } else {
       var firstColon = rawContent.indexOf(':');
-      if (firstColon < 0) {
+      if (firstColon < 0
+          || rawContent.substring(0, firstColon).contains(" ")
+          || rawContent.substring(0, firstColon).contains("-")) {
         key = "";
         remainder = rawContent;
       } else {
@@ -252,25 +303,24 @@ public class CommandLineParser {
       }
     }
 
-    var sanitize = !dsFlag.matcher(remainder).find();
+    var dsMatcher = dsFlag.matcher(remainder);
+    var newRemainder = dsMatcher.replaceAll("");
+    var sanitize = remainder.length() == newRemainder.length();
+    remainder = newRemainder;
     var validatorAlias = extractValidator(remainder);
     var type = extractType(remainder);
+    var title = extractTitle(remainder);
+    remainder = stripTitleFlag(remainder, title);
 
-    // The legacy trailing-kind form (`<d:Title bool>`, `<d:Amount num[1,64]>`) was removed
-    // in favor of the unified `key:filter:display` form. If we see the deprecated form —
-    // and the two-colon form did NOT already populate `filter` (which would mean the user
-    // already migrated) — log a one-shot migration hint so the affected config can be
-    // updated. The behavior is a silent fallback to a text field.
+    // Log a one-shot migration hint if using the deprecated trailing-kind form.
     if (filter == null) warnIfTrailingKind(rawContent);
 
     var displayText =
-        remainder
-            .replaceAll("-ds\\b", "")
-            .replaceAll("-iv:\\w+", "")
-            .replaceAll("-int\\b", "")
-            .replaceAll("-str\\b", "")
-            .replace(config.escape() + config.opening(), config.opening())
-            .replace(config.escape() + config.closing(), config.closing())
+        unescape(
+                remainder
+                    .replaceAll("-iv:\\w+", "")
+                    .replaceAll("-int\\b", "")
+                    .replaceAll("-str\\b", ""))
             .trim();
 
     LOG.fine(
@@ -284,12 +334,23 @@ public class CommandLineParser {
             + validatorAlias
             + " type="
             + type
+            + " title="
+            + title
             + " display="
             + displayText);
 
     promptTags.add(
         new PromptTag(
-            fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false));
+            fullTag,
+            key,
+            filter,
+            displayText,
+            sanitize,
+            validatorAlias,
+            type,
+            List.of(),
+            false,
+            title));
   }
 
   /**
@@ -318,18 +379,16 @@ public class CommandLineParser {
    */
   private void parseCompoundPromptTag(
       String rawContent, String fullTag, List<PromptTag> promptTags) {
-    var sanitize = !dsFlag.matcher(rawContent).find();
-    var validatorAlias = extractValidator(rawContent);
-    var type = extractType(rawContent);
+    var dsMatcher = dsFlag.matcher(rawContent);
+    var contentWithoutDs = dsMatcher.replaceAll("");
+    var sanitize = rawContent.length() == contentWithoutDs.length();
+    var validatorAlias = extractValidator(contentWithoutDs);
+    var type = extractType(contentWithoutDs);
+    var title = extractTitle(contentWithoutDs);
 
-    // Strip the flags from the whole content. After stripping, the sub-tag
-    // content is "clean" — no stray flag tokens leaking into display text.
-    // A side-effect: a literal "-ds" in a display label (very unusual) would
-    // also get stripped. We document this limitation; users who need it
-    // shouldn't put bare flag tokens in display text.
+    // Strip flags from the compound tag content.
     var stripped =
-        rawContent
-            .replaceAll("-ds\\b", "")
+        stripTitleFlag(contentWithoutDs, title)
             .replaceAll("-iv:\\w+", "")
             .replaceAll("-int\\b", "")
             .replaceAll("-str\\b", "")
@@ -344,15 +403,12 @@ public class CommandLineParser {
     }
 
     if (subTags.isEmpty()) {
-      // All sub-contents were empty after trimming — degenerate input.
-      // Treat the whole thing as a no-op and let the caller carry on.
+      // Ignore degenerate input if all sub-tags are empty.
       LOG.fine("Compound tag produced zero sub-tags after trimming: " + rawContent);
       return;
     }
 
-    // d:tab may not appear inside a compound block. Per-button dialogs
-    // and multi-argument completion cannot share a screen — the user
-    // cannot click a button AND see a text input on the same dialog.
+    // Disallow d:tab inside compound tags.
     for (var sub : subTags) {
       if (isTabFilter(sub.filter())) {
         throw new IllegalArgumentException(
@@ -374,7 +430,7 @@ public class CommandLineParser {
             + type);
     promptTags.add(
         new PromptTag(
-            fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags, false));
+            fullTag, compoundKey, null, "", sanitize, validatorAlias, type, subTags, false, title));
   }
 
   /**
@@ -391,8 +447,6 @@ public class CommandLineParser {
     String filter = null;
     String remainder;
     if (subContent.startsWith("-")) {
-      // Flag-only sub-tag: no key, no filter, no display. Unlikely in practice
-      // but we handle it the same way the single-tag parser does.
       key = "";
       filter = null;
       remainder = subContent;
@@ -413,13 +467,98 @@ public class CommandLineParser {
         }
       }
     }
-    var displayText =
-        remainder
-            .replace(config.escape() + config.opening(), config.opening())
-            .replace(config.escape() + config.closing(), config.closing())
-            .trim();
+    var displayText = unescape(remainder).trim();
     return new PromptTag(
-        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false);
+        fullTag, key, filter, displayText, sanitize, validatorAlias, type, List.of(), false, null);
+  }
+
+  /**
+   * Extracts a {@link TitleConfig} from the {@code -t} flag in the given content, or returns {@code
+   * null} if no title flag is present.
+   *
+   * <p>Syntax variants:
+   *
+   * <ul>
+   *   <li>{@code -t} — standalone flag; {@code main} is empty (defaults to display text later),
+   *       {@code sub} and {@code ticks} are {@code null}
+   *   <li>{@code -t:Main} — main title only
+   *   <li>{@code -t:"Main Title"|Sub|70} — main, subtitle, and ticks
+   *   <li>{@code -t:"Main"||70} — main and ticks; subtitle skipped via {@code ||}
+   * </ul>
+   *
+   * <p>Parameters after {@code -t:} are split by {@code |} (quote-aware). Surrounding double quotes
+   * are removed from each part. An empty part (from {@code ||}) is treated as "skip" (null) for
+   * {@code sub} and {@code ticks}; an empty {@code main} is preserved as an empty string.
+   */
+  TitleConfig extractTitle(String content) {
+    var m = titleFlag.matcher(content);
+    if (!m.find()) return null;
+    var matched = m.group();
+    if (matched.equals("-t")) {
+      return new TitleConfig("", null, null);
+    }
+    var params = matched.substring(3);
+    var parts = splitTitleParams(params);
+    // main title
+    var main = unquote(parts.get(0));
+    // sub title
+    String sub = null;
+    if (parts.size() > 1 && !parts.get(1).isEmpty()) {
+      sub = unquote(parts.get(1));
+    }
+    // ticks
+    Integer ticks = null;
+    if (parts.size() > 2 && !parts.get(2).isEmpty()) {
+      try {
+        ticks = Integer.parseInt(parts.get(2).trim());
+      } catch (NumberFormatException e) {
+        LOG.fine("Title ticks not a valid integer: " + parts.get(2));
+      }
+    }
+    return new TitleConfig(main, sub, ticks);
+  }
+
+  /**
+   * Strips the first {@code -t…} match from {@code content}. If {@code title} is {@code null} (no
+   * title flag was found), the content is returned unchanged.
+   */
+  String stripTitleFlag(String content, TitleConfig title) {
+    if (title == null) return content;
+    return titleFlag.matcher(content).replaceFirst("");
+  }
+
+  /**
+   * Splits the title parameter string by {@code |}, respecting double-quoted segments so that a
+   * pipe inside quotes is not treated as a delimiter.
+   */
+  private static List<String> splitTitleParams(String s) {
+    var parts = new ArrayList<String>();
+    var current = new StringBuilder();
+    var inQuotes = false;
+    for (var i = 0; i < s.length(); i++) {
+      var c = s.charAt(i);
+      if (c == '"') {
+        inQuotes = !inQuotes;
+        current.append(c);
+      } else if (c == '|' && !inQuotes) {
+        parts.add(current.toString());
+        current = new StringBuilder();
+      } else {
+        current.append(c);
+      }
+    }
+    parts.add(current.toString());
+    return parts;
+  }
+
+  /** Removes surrounding double quotes from {@code s} if present. */
+  private static String unquote(String s) {
+    if (s == null) return null;
+    s = s.trim();
+    if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
+      return s.substring(1, s.length() - 1);
+    }
+    return s;
   }
 
   private String extractValidator(String content) {
@@ -453,6 +592,16 @@ public class CommandLineParser {
             + config.closing()
             + "'. Use the unified form '<d:kind[constraints]:display>'. "
             + "The trailing form is no longer parsed; the prompt will be a text field.");
+  }
+
+  private String unescape(String input) {
+    if (input == null || input.isEmpty()) return input;
+    var esc = Pattern.quote(config.escape());
+    return input
+        .replaceAll(
+            esc + Pattern.quote(config.opening()), Matcher.quoteReplacement(config.opening()))
+        .replaceAll(
+            esc + Pattern.quote(config.closing()), Matcher.quoteReplacement(config.closing()));
   }
 
   /**

@@ -13,8 +13,6 @@ class CommandLineParserTest {
 
   private final CommandLineParser parser = new CommandLineParser();
 
-  // --- Basic tag extraction ---
-
   @Test
   void emptyString() {
     var result = parser.parse("");
@@ -90,8 +88,6 @@ class CommandLineParserTest {
     assertEquals("say <> world", result.templateCommand());
   }
 
-  // --- Prompt argument flags ---
-
   @Test
   void disableSanitization() {
     var result = parser.parse("/kick <-ds>");
@@ -141,8 +137,6 @@ class CommandLineParserTest {
     assertEquals("required", tag.validatorAlias());
     assertFalse(tag.sanitize());
   }
-
-  // --- PCM parsing ---
 
   @Test
   void pcmOnComplete() {
@@ -205,8 +199,6 @@ class CommandLineParserTest {
     assertArrayEquals(new int[] {0}, pcm.answerIndices());
   }
 
-  // --- Mixed prompts and PCMs ---
-
   @Test
   void mixedPromptsAndPCMs() {
     var result = parser.parse("/ban <a:Why -str> <! tempban {0} 7d>");
@@ -221,8 +213,6 @@ class CommandLineParserTest {
     var pcm = result.postCmds().get(0);
     assertEquals("tempban {0} 7d", pcm.command());
   }
-
-  // --- Edge cases ---
 
   @Test
   void emptyTag() {
@@ -254,8 +244,6 @@ class CommandLineParserTest {
     assertEquals("", tag.key());
     assertEquals("a", tag.displayText());
   }
-
-  // --- Helper methods ---
 
   @Test
   void promptCount() {
@@ -324,8 +312,6 @@ class CommandLineParserTest {
             "warn {0}", true, 50, DispatchTarget.CONSOLE, new int[] {0}));
   }
 
-  // --- Escape sequence (H1) ---
-
   @Test
   void escapedTagIsNotMatched() {
     var result = parser.parse("hello \\<a:foo\\> world");
@@ -350,12 +336,9 @@ class CommandLineParserTest {
     assertEquals("<a:literal> <a:real>", result.templateCommand());
   }
 
-  // --- Unified dialog form (`<d:filter:display>`, mirrors Player UI two-colon shape) ---
-
   @Test
   void unifiedDialogForm_noFilterDefaultsToText() {
-    // A dialog tag with no filter still routes to a text input. The
-    // unified form treats a missing filter as TEXT by default.
+    // No filter defaults to text input.
     var result = parser.parse("/test <d:Title>");
     var tag = result.promptTags().get(0);
     assertEquals("d", tag.key());
@@ -423,9 +406,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_caseInsensitive() {
-    // The parser preserves captured case in the filter slot; downstream
-    // consumers (DialogInputKind.parse) normalize before matching the
-    // kind keyword. Asserting both forms documents the contract.
+    // Parser preserves case; normalization happens downstream.
     var result = parser.parse("/test <d:NUM[0,100]:Amount>");
     var tag = result.promptTags().get(0);
     assertEquals("NUM[0,100]", tag.filter(), "Parser preserves the captured case");
@@ -437,9 +418,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_displayPreservesKeyword() {
-    // The display text contains the word "bool" — the unified form is
-    // unambiguous because the filter is bounded by the second colon, so
-    // a bare keyword in the display must NOT be picked up as a filter.
+    // Bare keyword in display is not parsed as a filter.
     var result = parser.parse("/test <d:Confirm with bool value?>");
     var tag = result.promptTags().get(0);
     assertNull(tag.filter(), "Bare keyword in display text must not be picked up as a filter");
@@ -448,9 +427,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_displayWithBrackets() {
-    // Display text contains brackets that look like a constraint block.
-    // The unified form scopes the constraint block to the filter slot
-    // (between the two colons), so display-side brackets are untouched.
+    // Display text brackets are preserved.
     var result = parser.parse("/test <d:num[0,100]:Items [0-99]>");
     var tag = result.promptTags().get(0);
     assertEquals("num[0,100]", tag.filter());
@@ -459,10 +436,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_flagsCombined() {
-    // The two-colon form requires a space-free filter segment, so flags
-    // come AFTER the display text in the unified form. The parser strips
-    // them from `remainder` (the display-text derivation) and exposes
-    // them on the resulting `PromptTag`.
+    // Flags after display text are parsed and stripped.
     var result = parser.parse("/test <d:text:Greeting -ds -iv:min -str>");
     var tag = result.promptTags().get(0);
     assertEquals("d", tag.key());
@@ -475,10 +449,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_legacyTrailingKindIsPlainDisplay() {
-    // Breaking change: the legacy space-separated trailing-kind form
-    // (`<d:Title bool>`) is no longer parsed. The keyword stays in the
-    // display text and `filter` remains null. Downstream the dialog
-    // defaults to a text input.
+    // Legacy trailing-kind form is no longer parsed.
     var result = parser.parse("/test <d:Title bool>");
     var tag = result.promptTags().get(0);
     assertNull(tag.filter(), "Legacy form must not populate filter");
@@ -487,9 +458,7 @@ class CommandLineParserTest {
 
   @Test
   void unifiedDialogForm_deprecationWarningFiresForLegacyForm() {
-    // The deprecation warning is the only outward sign of the breaking
-    // change beyond the silent fallback to text. Capture log records
-    // on the parser's logger and assert the warning fires.
+    // Deprecation warning fires for legacy form.
     var logger = java.util.logging.Logger.getLogger(CommandLineParser.class.getName());
     var captured = new java.util.ArrayList<java.util.logging.LogRecord>();
     var handler =
@@ -556,5 +525,191 @@ class CommandLineParserTest {
                         && r.getMessage() != null
                         && r.getMessage().contains("trailing-kind")),
         "No deprecation warning for non-dialog keys");
+  }
+
+  @Test
+  void titleFlagStandalone() {
+    var result = parser.parse("/kick <a:Why? -t>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    // -t flag stripped from display text.
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithQuotedMain() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main Title\">");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("Main Title", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithMainSubAndStay() {
+    var result = parser.parse("/kick <a:Why? -t:Main|Sub|70>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main", tagTitle.main());
+    assertEquals("Sub", tagTitle.sub());
+    assertEquals(70, tagTitle.ticks());
+    assertEquals("Why?", tag.displayText());
+  }
+
+  @Test
+  void titleFlagWithQuotedMainAndSubAndStay() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main Title\"|\"Sub Title\"|100>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main Title", tagTitle.main());
+    assertEquals("Sub Title", tagTitle.sub());
+    assertEquals(100, tagTitle.ticks());
+  }
+
+  @Test
+  void titleFlagSkipSubWithDoublePipe() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main\"||70>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Main", tagTitle.main());
+    assertNull(tagTitle.sub());
+    assertEquals(70, tagTitle.ticks());
+  }
+
+  @Test
+  void titleFlagOnlyMain() {
+    var result = parser.parse("/kick <a:Why? -t:MainOnly>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("MainOnly", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+  }
+
+  @Test
+  void titleFlagStrippedFromDisplayText() {
+    var result = parser.parse("/kick <a:Why? -t:\"Main\"|Sub|70>");
+    var tag = result.promptTags().get(0);
+    assertEquals("Why?", tag.displayText());
+    assertFalse(tag.displayText().contains("-t"));
+  }
+
+  @Test
+  void titleFlagWithCompoundDialog() {
+    var result = parser.parse("/ban <d:text:Reason && d:num[0,24]:Days -t:\"Ban Form\"||50>");
+    var tag = result.promptTags().get(0);
+    var tagTitle = tag.title();
+    assertNotNull(tagTitle);
+    assertEquals("Ban Form", tagTitle.main());
+    assertNull(tagTitle.sub());
+    assertEquals(50, tagTitle.ticks());
+    assertTrue(tag.isCompound());
+    assertEquals(2, tag.subTags().size());
+  }
+
+  @Test
+  void titleFlagStandaloneWithCompoundDialog() {
+    var result = parser.parse("/ban <d:text:Reason && d:num[0,24]:Days -t>");
+    var tag = result.promptTags().get(0);
+    assertNotNull(tag.title());
+    assertEquals("", tag.title().main());
+    assertNull(tag.title().sub());
+    assertNull(tag.title().ticks());
+    assertTrue(tag.isCompound());
+  }
+
+  @Test
+  void noTitleFlagYieldsNullTitle() {
+    var result = parser.parse("/kick <a:Why?>");
+    var tag = result.promptTags().get(0);
+    assertNull(tag.title());
+  }
+
+  // ============================= Tag Filter Tests =============================
+
+  @Test
+  void tagFilterSkipsMatchingTags() {
+    // Simulate a MiniMessage-style filter: skip tags whose content is a known formatting word.
+    TagFilter skipRed = content -> content.equals("red") || content.equals("/red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    var result = filteredParser.parse("/say <red>Hello</red> <a:Name?>");
+    // <red> and </red> are skipped; only <a:Name?> is a prompt.
+    assertEquals(1, result.promptTags().size());
+    assertEquals("Name?", result.promptTags().get(0).displayText());
+    // Template preserves the original string (MiniMessage tags left intact).
+    assertEquals("/say <red>Hello</red> <a:Name?>", result.templateCommand());
+  }
+
+  @Test
+  void tagFilterSkipsClosingTags() {
+    TagFilter skipBold = content -> content.equals("bold") || content.equals("/bold");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipBold);
+
+    var result = filteredParser.parse("/say <bold>text</bold> <>");
+    assertEquals(1, result.promptTags().size());
+    assertEquals("", result.promptTags().get(0).displayText());
+  }
+
+  @Test
+  void tagFilterDoesNotAffectNonMatchingTags() {
+    TagFilter skipNothing = content -> false;
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipNothing);
+
+    var result = filteredParser.parse("/kick <a:Why?> <s:How?>");
+    assertEquals(2, result.promptTags().size());
+  }
+
+  @Test
+  void tagFilterAffectsHasTagForm() {
+    TagFilter skipRed = content -> content.equals("red") || content.equals("/red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    // Only MiniMessage tags → hasTagForm returns false.
+    assertFalse(filteredParser.hasTagForm("/say <red>Hello</red>"));
+    // Mix of MiniMessage and prompt → hasTagForm returns true.
+    assertTrue(filteredParser.hasTagForm("/say <red>Hello</red> <a:Name?>"));
+    // No tags at all → false.
+    assertFalse(filteredParser.hasTagForm("/say hello"));
+  }
+
+  @Test
+  void tagFilterDoesNotAffectPCMs() {
+    // PCMs (starting with !) should not be filtered.
+    TagFilter skipRed = content -> content.equals("red");
+    var filteredParser = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, skipRed);
+
+    var result = filteredParser.parse("/kick <> <! ban {0}>");
+    assertEquals(1, result.promptTags().size());
+    assertEquals(1, result.postCmds().size());
+  }
+
+  @Test
+  void nullTagFilterBehavesLikeNoFilter() {
+    var p = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, null);
+    var result = p.parse("/say <red>Hello</red> <a:Name?>");
+    // Without a filter, <red>, </red>, and <a:Name?> are all treated as prompt tags.
+    assertEquals(3, result.promptTags().size());
+  }
+
+  @Test
+  void getTagFilterReturnsConfiguredFilter() {
+    TagFilter filter = content -> true;
+    var p = new CommandLineParser(ParserConfig.ANGLE_BRACKETS, filter);
+    assertSame(filter, p.getTagFilter());
+  }
+
+  @Test
+  void getTagFilterReturnsNullWhenNotSet() {
+    var p = new CommandLineParser();
+    assertNull(p.getTagFilter());
   }
 }

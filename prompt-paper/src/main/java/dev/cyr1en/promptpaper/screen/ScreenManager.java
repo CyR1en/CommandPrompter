@@ -10,6 +10,7 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
 import dev.cyr1en.promptui.ComponentUtil;
+import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
 import dev.cyr1en.promptpaper.util.CancellableTask;
@@ -19,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import dev.cyr1en.promptcore.i18n.Placeholder;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -110,9 +110,10 @@ public class ScreenManager {
         var current = session.get().currentPrompt();
         if (current.isEmpty()) return;
         var tag = current.get();
-        if (!tag.isCompound() && DialogInputKind.parse(tag.filter()) == DialogInputKind.TITLE) {
+        var kind = DialogInputKind.parse(tag.filter());
+        if (!tag.isCompound() && (kind == DialogInputKind.TITLE || kind == DialogInputKind.BODY)) {
             plugin.getPluginLogger().warn("Player " + player.getName()
-                    + " initiated a prompt containing a non-compound tag with a TITLE filter: "
+                    + " initiated a prompt containing a non-compound tag with a layout filter: "
                     + tag.rawTag());
             player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter"));
             cancelAll(player);
@@ -137,7 +138,8 @@ public class ScreenManager {
                 tag.validatorAlias(),
                 tag.type(),
                 tag.subTags(),
-                tag.preset());
+                tag.preset(),
+                tag.title());
         var context = buildCompletionContext(player, resolvedTag);
         var screen = factory.createFromTag(player, resolvedTag, context);
         plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
@@ -176,6 +178,9 @@ public class ScreenManager {
      */
     public void handleChatInput(Player player, String input) {
         var screen = activeScreens.get(player.getUniqueId());
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            screen = wrapper.delegate();
+        }
         if (!(screen instanceof ChatPromptScreen chatScreen)) return;
         cancelTimeout(player);
         chatScreen.handleInput(input);
@@ -207,10 +212,33 @@ public class ScreenManager {
         if (tagOpt.isEmpty()) return;
         var tag = tagOpt.get();
 
-        // Compound dialogs encode N sub-answers into the result payload.
-        // The dialog screen uses ASCII control chars (RS=0x1E, US=0x1F) as
-        // delimiters. A leading RS marks a compound payload; a plain string
-        // is a single-tag answer.
+        var cancelKeyword = plugin.getConfigLoader().getConfig().cancelKeyword();
+        boolean isCancelKeyword = false;
+        if (result.answer() != null && cancelKeyword != null && !cancelKeyword.isBlank()) {
+            if (tag.isCompound()) {
+                var decoded = AnswerEncoding.decode(result.answer(), tag.subTags().size());
+                if (decoded != null) {
+                    for (var ans : decoded) {
+                        if (ComponentUtil.stripColor(ans).trim().equalsIgnoreCase(cancelKeyword)) {
+                            isCancelKeyword = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                if (ComponentUtil.stripColor(result.answer()).trim().equalsIgnoreCase(cancelKeyword)) {
+                    isCancelKeyword = true;
+                }
+            }
+        }
+
+        if (isCancelKeyword) {
+            engine.cancel(player, CancelReason.MANUAL);
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+            return;
+        }
+
+        // Compound dialogs encode multiple sub-answers with control characters (RS/US).
         if (tag.isCompound()) {
             handleCompoundResult(player, tag, result.answer());
             return;
@@ -242,8 +270,7 @@ public class ScreenManager {
     private void handleCompoundResult(Player player, PromptTag tag, String rawPayload) {
         var answers = decodeAnswers(rawPayload, tag.subTags().size());
         if (answers == null) {
-            // Malformed payload — re-show the dialog. This shouldn't happen
-            // with a properly-built DialogPromptScreen, but defensive.
+            // Defensive fallback: re-show prompt if compound payload is malformed.
             plugin.getPluginLogger().warn("Malformed compound payload from dialog for "
                     + player.getName() + ": " + rawPayload);
             showPrompt(player, tag);
@@ -453,7 +480,11 @@ public class ScreenManager {
     }
 
     public boolean hasChatScreen(Player player) {
-        return activeScreens.get(player.getUniqueId()) instanceof ChatPromptScreen;
+        var screen = activeScreens.get(player.getUniqueId());
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            screen = wrapper.delegate();
+        }
+        return screen instanceof ChatPromptScreen;
     }
 
     /**
