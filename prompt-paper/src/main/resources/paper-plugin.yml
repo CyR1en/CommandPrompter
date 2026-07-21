@@ -1,5 +1,5 @@
 name: CommandPrompterPaper
-version: '3.1.0'
+version: '${version}'
 main: dev.cyr1en.promptpaper.CommandPrompter
 api-version: '26.1.2'
 description: Making Commands More Interactive!

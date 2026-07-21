@@ -65,6 +65,12 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+tasks.processResources {
+    filesMatching("paper-plugin.yml") {
+        expand(project.properties)
+    }
+}
+
 tasks.named<Test>("test") {
     useJUnitPlatform()
     jvmArgs("-Dnet.bytebuddy.experimental=true")
