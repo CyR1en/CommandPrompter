@@ -83,11 +83,43 @@ class ScreenManagerTest extends MockBukkitTest {
 
     @Test
     void cancelAllRemovesScreen() {
+        when(config.showCancelled()).thenReturn(true);
         var player = createPlayer();
         screenManager.startSession(player, "/cmd <test>");
         assertTrue(screenManager.hasActiveScreen(player));
+        while (player.nextMessage() != null) {
+            // Discard the prompt text before checking that the default path stays silent.
+        }
         screenManager.cancelAll(player);
         assertFalse(screenManager.hasActiveScreen(player));
+        assertNull(player.nextMessage());
+    }
+
+    @Test
+    void cancelAllWithNotificationNotifiesPlayerWithActiveSession() {
+        when(config.showCancelled()).thenReturn(true);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        while (player.nextMessage() != null) {
+            // Discard the prompt text so only cancellation feedback remains to assert.
+        }
+
+        screenManager.cancelAll(player, true);
+
+        assertEquals("Prompt cancelled.", player.nextMessage());
+        assertNull(player.nextMessage());
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void cancelAllWithNotificationDoesNotNotifyPlayerWithoutActiveSession() {
+        when(config.showCancelled()).thenReturn(true);
+        var player = createPlayer();
+
+        screenManager.cancelAll(player, true);
+
+        assertNull(player.nextMessage());
     }
 
     @Test

@@ -86,7 +86,7 @@ class ReloadCommandTest extends MockBukkitTest {
 
         cmd.executeReload(sender);
 
-        verify(screenManager, times(1)).cancelAll(player);
+        verify(screenManager, times(1)).cancelAll(player, true);
         verify(engine, times(1)).discardAll();
         verify(loader, times(1)).reload();
         verify(engine, times(1)).reloadParser();

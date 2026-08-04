@@ -109,7 +109,7 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
                         plugin,
                         scheduledTask -> {
                             try {
-                                plugin.getScreenManager().cancelAll(player);
+                                plugin.getScreenManager().cancelAll(player, true);
                             } finally {
                                 finish.run();
                             }

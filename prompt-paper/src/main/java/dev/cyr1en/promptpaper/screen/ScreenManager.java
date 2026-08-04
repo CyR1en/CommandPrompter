@@ -642,7 +642,16 @@ public class ScreenManager {
      * Cancels the active screen, timeout, and session for the player.
      */
     public void cancelAll(Player player) {
-        teardown(player, CancelReason.MANUAL, true, false);
+        cancelAll(player, false);
+    }
+
+    /**
+     * Cancels the active screen, timeout, and session for the player, optionally notifying
+     * players whose active prompt was cancelled.
+     */
+    public void cancelAll(Player player, boolean notifyCancelled) {
+        var hadActiveSession = engine.hasActiveSession(player);
+        teardown(player, CancelReason.MANUAL, true, notifyCancelled && hadActiveSession);
         plugin.getPluginLogger().debug("Cancelled all for " + player.getName());
     }
 
