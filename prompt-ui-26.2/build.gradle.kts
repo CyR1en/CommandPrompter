@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.2.build.+")
+    paperweight.paperDevBundle("26.2.build.92-stable")
     compileOnly(project(":prompt-ui-api"))
     implementation(project(":prompt-core"))
 }

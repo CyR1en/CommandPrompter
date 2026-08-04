@@ -1,5 +1,6 @@
 package dev.cyr1en.promptcore;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -155,5 +156,48 @@ class ParsedCommandTest {
     var partial = ParsedCommand.buildPartialCommand(parsed, List.of());
     assertEquals("/no_prompts no_tags_here ", partial);
     assertTrue(partial.length() > 0);
+  }
+
+  @Test
+  void duplicateRawTagsUseDistinctAnswers() {
+    var parsed = parser.parse("/say <a:value> <a:value>");
+
+    assertEquals(
+        "/say first second ",
+        ParsedCommand.buildPartialCommand(parsed, List.of("first", "second")));
+  }
+
+  @Test
+  void answerTextIsNotSearchedForAnotherPrompt() {
+    var parsed = parser.parse("/say <a:first> <a:second>");
+
+    assertEquals(
+        "/say <a:second> literal ",
+        ParsedCommand.buildPartialCommand(parsed, List.of("<a:second>", "literal")));
+  }
+
+  @Test
+  void parsedModelRetainsRawTemplateAndExactSpans() {
+    var parsed = parser.parse("/say <a:Why? \\>> <!log>");
+
+    assertEquals("/say <a:Why? \\>> <!log>", parsed.rawTemplateCommand());
+    assertEquals(2, parsed.templateSpans().size());
+    assertEquals("<a:Why? \\>>", parsed.templateSpans().get(0).rawText());
+    assertEquals("<!log>", parsed.templateSpans().get(1).rawText());
+  }
+
+  @Test
+  void postCommandArraysAreDefensivelyCopiedAndComparedByContent() {
+    var source = new int[] {1, 2};
+    var first = new PostCommandMeta("log", source, 0, false, DispatchTarget.PASSTHROUGH, false);
+    source[0] = 99;
+    var returned = first.answerIndices();
+    returned[1] = 99;
+
+    var second =
+        new PostCommandMeta("log", new int[] {1, 2}, 0, false, DispatchTarget.PASSTHROUGH, false);
+    assertArrayEquals(new int[] {1, 2}, first.answerIndices());
+    assertEquals(first, second);
+    assertEquals(first.hashCode(), second.hashCode());
   }
 }

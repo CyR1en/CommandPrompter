@@ -68,11 +68,12 @@ class PostCommandResolverTest extends MockBukkitTest {
   }
 
   @Test
-  void legacyPassthroughMapsToPlayer() {
+  void legacyPassthroughRetainsInheritanceContext() {
     var pcm = new PostCommandMeta(
             "say hi", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var resolved = resolver.resolve(player(), pcm, false, List.of());
     assertEquals(ExecuteAs.PLAYER, resolved.get().executeAs());
+    assertTrue(resolved.get().inheritDispatch());
   }
 
   @Test

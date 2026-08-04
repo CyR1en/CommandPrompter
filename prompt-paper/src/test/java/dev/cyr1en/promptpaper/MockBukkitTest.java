@@ -14,6 +14,7 @@ import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.testutil.MockScheduler;
+import dev.cyr1en.promptpaper.testutil.TestPlayerMock;
 import dev.cyr1en.promptpaper.util.PluginLogger;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -137,11 +138,13 @@ public class MockBukkitTest {
     }
 
     protected PlayerMock createPlayer() {
-        return server.addPlayer();
+        return createPlayer("Player");
     }
 
     protected PlayerMock createPlayer(String name) {
-        return server.addPlayer(name);
+        var player = new TestPlayerMock(server, name);
+        server.addPlayer(player);
+        return player;
     }
 
     protected void performTicks(long ticks) {

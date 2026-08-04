@@ -18,6 +18,7 @@ import dev.cyr1en.promptpaper.util.PaperScheduler;
 import dev.cyr1en.promptpaper.util.PluginLogger;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -148,7 +149,13 @@ public class CommandPrompter extends JavaPlugin implements Listener {
             }
         }
         var listener = new ChatPromptListener(this, screenManager);
-        getServer().getPluginManager().registerEvents(listener, this);
+        getServer().getPluginManager().registerEvent(
+                AsyncChatEvent.class,
+                listener,
+                listener.resolvePriority(),
+                (registeredListener, event) -> listener.onPlayerChat((AsyncChatEvent) event),
+                this,
+                false);
         pluginLogger.info("Using default Bukkit chat listener");
     }
 
@@ -172,7 +179,18 @@ public class CommandPrompter extends JavaPlugin implements Listener {
         if (hookContainer != null) hookContainer.disableAll();
         if (engine != null) engine.cancelAll();
         if (screenManager != null) {
-            Bukkit.getOnlinePlayers().forEach(screenManager::cancelAll);
+            for (var player : Bukkit.getOnlinePlayers()) {
+                var uuid = player.getUniqueId();
+                try {
+                    var task = player.getScheduler().run(
+                            this,
+                            scheduledTask -> screenManager.cancelAll(player),
+                            () -> screenManager.discardState(uuid));
+                    if (task == null) screenManager.discardState(uuid);
+                } catch (Throwable t) {
+                    screenManager.discardState(uuid);
+                }
+            }
         }
         if (pluginLogger != null) {
             pluginLogger.info("CommandPrompterPaper disabled.");

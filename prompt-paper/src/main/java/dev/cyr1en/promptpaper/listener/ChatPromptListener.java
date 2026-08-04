@@ -4,7 +4,6 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
@@ -29,7 +28,6 @@ public class ChatPromptListener implements Listener {
      * cancels the event to prevent the message from reaching other listeners,
      * and forwards the serialized text to the screen manager on the player's scheduler.
      */
-    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerChat(AsyncChatEvent event) {
         var player = event.getPlayer();
         plugin.getPluginLogger().debug("Chat event: player=" + player.getName()
@@ -40,9 +38,16 @@ public class ChatPromptListener implements Listener {
         event.setCancelled(true);
         var message = event.message();
         plugin.getPluginLogger().debug("Chat input captured for " + player.getName());
-        player.getScheduler().run(plugin, scheduledTask -> {
-            screenManager.handleChatInput(player, ComponentUtil.serialize(message));
-        }, null);
+        try {
+            var task = player.getScheduler().run(plugin, scheduledTask -> {
+                screenManager.handleChatInput(player, ComponentUtil.serialize(message));
+            }, null);
+            if (task == null) {
+                plugin.getPluginLogger().debug("Chat input task retired for " + player.getUniqueId());
+            }
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to schedule chat input: " + e.getMessage());
+        }
     }
 
     /**
@@ -52,7 +57,7 @@ public class ChatPromptListener implements Listener {
     public EventPriority resolvePriority() {
         var configPriority = plugin.getConfigLoader().getPromptConfig().responseListenerPriority();
         try {
-            return EventPriority.valueOf(configPriority.toUpperCase());
+            return EventPriority.valueOf(configPriority.trim().toUpperCase());
         } catch (Exception e) {
             return EventPriority.LOWEST;
         }

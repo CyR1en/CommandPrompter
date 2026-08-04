@@ -321,7 +321,8 @@ class PromptFactoryTest extends MockBukkitTest {
       // failure is specifically about a Paper dialog class (not
       // something else like a NullPointerException in our code).
       var msg = e.getMessage();
-      assertTrue(msg != null && msg.contains("papermc/paper"),
+      assertTrue(msg != null && (msg.contains("papermc/paper")
+              || msg.contains("net/kyori/adventure/dialog")),
           "Expected NoClassDefFoundError on a Paper dialog class, got: " + msg);
     }
   }

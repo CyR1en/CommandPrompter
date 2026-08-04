@@ -13,6 +13,8 @@ import dev.cyr1en.promptpaper.validation.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.bukkit.entity.Player;
 
@@ -472,6 +474,58 @@ public record PromptConfig(
         int dialogTabMaxButtons
 
 ) implements AliasedSection {
+
+    /** Validate values that are consumed by UI builders before a new config can be published. */
+    public PromptConfig {
+        Objects.requireNonNull(rawConfig, "rawConfig");
+        if (playerUISize != 18 && playerUISize != 27 && playerUISize != 36
+                && playerUISize != 45 && playerUISize != 54) {
+            throw new IllegalArgumentException(
+                    "PlayerUI.Size must be one of 18, 27, 36, 45, or 54; got " + playerUISize);
+        }
+        if (!Float.isFinite(dialogNumberMin)
+                || !Float.isFinite(dialogNumberMax)
+                || !Float.isFinite(dialogNumberStep)
+                || dialogNumberMin >= dialogNumberMax
+                || dialogNumberStep <= 0.0f
+                || !Float.isFinite((dialogNumberMin + dialogNumberMax) / 2.0f)) {
+            throw new IllegalArgumentException(
+                    "DialogUI.Defaults.Number must have finite values with min < max and step > 0"
+                            + " (min=" + dialogNumberMin
+                            + ", max=" + dialogNumberMax
+                            + ", step=" + dialogNumberStep + ")");
+        }
+        validateRegex("Input-Validation.Integer-Sample.Regex", intSampleRegex);
+        validateRegex("Input-Validation.Alpha-Sample.Regex", strSampleRegex);
+        validateConfiguredRegexes(rawConfig);
+    }
+
+    private static void validateRegex(String path, String regex) {
+        if (regex == null) {
+            throw new IllegalArgumentException("Configured validator regex '" + path + "' must not be null");
+        }
+        try {
+            Pattern.compile(regex);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "Invalid configured validator regex at '" + path + "': " + regex, e);
+        }
+    }
+
+    private static void validateConfiguredRegexes(YamlDocument rawConfig) {
+        Set<String> aliases = rawConfig.getKeys("Input-Validation");
+        if (aliases == null) return;
+        for (String alias : aliases) {
+            if (alias == null || alias.isBlank()) continue;
+            String basePath = "Input-Validation." + alias;
+            Set<String> fields = rawConfig.getKeys(basePath);
+            if (fields == null || !fields.contains("Regex")) continue;
+            String regex = rawConfig.getString(basePath + ".Regex");
+            if (regex != null && !regex.isBlank()) {
+                validateRegex(basePath + ".Regex", regex);
+            }
+        }
+    }
 
     // ============================== Screen Mappings ==============================
 

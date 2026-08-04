@@ -5,6 +5,7 @@ import dev.cyr1en.promptpaper.hook.annotations.TargetPlugin;
 import dev.cyr1en.promptpaper.screen.playerui.CacheFilter;
 import dev.cyr1en.promptpaper.screen.playerui.HeadCache;
 import java.util.List;
+import java.util.ServiceConfigurationError;
 import java.util.regex.Pattern;
 import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
@@ -22,12 +23,24 @@ public class LuckPermsHook extends BaseHook implements FilterHook {
 
     public LuckPermsHook(CommandPrompter plugin) {
         super(plugin);
-        var provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (provider != null) this.api = provider.getProvider();
+        try {
+            var provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
+            if (provider != null) this.api = provider.getProvider();
+        } catch (ServiceConfigurationError e) {
+            plugin.getPluginLogger().debug("LuckPerms API service is unavailable: " + e.getMessage());
+        } catch (LinkageError e) {
+            plugin.getPluginLogger().debug("LuckPerms API linkage is unavailable: " + e.getMessage());
+        } catch (RuntimeException e) {
+            plugin.getPluginLogger().debug("LuckPerms API service lookup failed: " + e.getMessage());
+        }
     }
 
     @Override
     public void registerFilters(HeadCache cache) {
+        if (api == null) {
+            getPlugin().getPluginLogger().debug("LuckPerms unavailable; no LuckPerms filters registered");
+            return;
+        }
         cache.registerFilter(new OwnGroupFilter());
         cache.registerFilter(new GroupFilter());
     }
@@ -37,13 +50,35 @@ public class LuckPermsHook extends BaseHook implements FilterHook {
      */
     private List<Player> getPlayersWithGroup(String groupName) {
         if (api == null || groupName.isBlank()) return List.of();
-        return Bukkit.getOnlinePlayers().stream()
-                .<Player>map(p -> p)
-                .filter(p -> {
-                    var user = api.getUserManager().getUser(p.getUniqueId());
-                    if (user == null) return false;
-                    return user.getPrimaryGroup().equals(groupName);
-                }).toList();
+        try {
+            if (api.getUserManager() == null) return List.of();
+            return Bukkit.getOnlinePlayers().stream()
+                    .<Player>map(p -> p)
+                    .filter(p -> groupName.equals(getPrimaryGroup(p)))
+                    .toList();
+        } catch (ServiceConfigurationError e) {
+            return List.of();
+        } catch (LinkageError e) {
+            return List.of();
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    private String getPrimaryGroup(Player player) {
+        if (api == null || player == null) return null;
+        try {
+            var userManager = api.getUserManager();
+            if (userManager == null) return null;
+            var user = userManager.getUser(player.getUniqueId());
+            return user == null ? null : user.getPrimaryGroup();
+        } catch (ServiceConfigurationError e) {
+            return null;
+        } catch (LinkageError e) {
+            return null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private class OwnGroupFilter extends CacheFilter {
@@ -52,9 +87,8 @@ public class LuckPermsHook extends BaseHook implements FilterHook {
         }
         @Override public CacheFilter reConstruct(String promptKey) { return this; }
         @Override public List<Player> filter(Player relative) {
-            var user = api.getUserManager().getUser(relative.getUniqueId());
-            if (user == null) return List.of();
-            return getPlayersWithGroup(user.getPrimaryGroup());
+            var group = getPrimaryGroup(relative);
+            return group == null ? List.of() : getPlayersWithGroup(group);
         }
     }
 

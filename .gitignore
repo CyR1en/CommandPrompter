@@ -172,3 +172,6 @@ cache/
 # Codacy
 .codacy/
 .codacy.yaml
+
+# Local deep-work progress state
+.slim/deepwork/

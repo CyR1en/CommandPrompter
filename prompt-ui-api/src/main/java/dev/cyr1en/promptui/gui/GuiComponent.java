@@ -131,10 +131,15 @@ public final class GuiComponent {
     public boolean click(@NotNull Gui gui, @NotNull InventoryClickEvent event, int rawSlot) {
         Slot slot = slotFromRaw(rawSlot);
         if (slot == null) return false;
-        // Try panes in reverse priority (foreground first)
-        for (int i = panes.size() - 1; i >= 0; i--) {
-            PositionedPane pp = panes.get(i);
-            if (!pp.pane().isVisible()) continue;
+        // Rendering sorts low priorities first and lets later panes overwrite
+        // earlier cells. Route clicks through that exact rendered order in
+        // reverse so the visible foreground pane receives the event first.
+        List<PositionedPane> renderedPanes = panes.stream()
+            .filter(pp -> pp.pane().isVisible())
+            .sorted()
+            .toList();
+        for (int i = renderedPanes.size() - 1; i >= 0; i--) {
+            PositionedPane pp = renderedPanes.get(i);
             // Translate to pane-local coordinates
             int localX = slot.x() - pp.offset().x();
             int localY = slot.y() - pp.offset().y();

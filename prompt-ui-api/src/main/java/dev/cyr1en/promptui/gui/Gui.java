@@ -11,10 +11,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
 /**
@@ -22,13 +23,17 @@ import java.util.function.Consumer;
  *
  * <p>Provides the core lifecycle ({@link #show}, {@link #update}, {@link #click}),
  * event callbacks, and a static registry mapping {@link Inventory} instances to
- * their owning {@link Gui}. The registry uses a {@link WeakHashMap} to work around
- * Bukkit's refusal to set {@link InventoryHolder} on certain inventory types (e.g., anvils).</p>
+ * their owning {@link Gui}. The registry is explicit because Bukkit refuses to
+ * set {@link InventoryHolder} on certain inventory types (e.g., anvils). Entries
+ * are removed when the last viewer closes the inventory.</p>
  */
 public abstract class Gui {
 
     /** Maps inventories to their owning Gui, bypassing Holder limitations. */
-    protected static final Map<Inventory, Gui> GUI_INVENTORIES = new WeakHashMap<>();
+    protected static final ConcurrentMap<Inventory, Gui> GUI_INVENTORIES = new ConcurrentHashMap<>();
+
+    /** GUIs with at least one currently tracked viewer. */
+    private static final Set<Gui> ACTIVE_GUIS = ConcurrentHashMap.newKeySet();
 
     /** The singleton event listener, created lazily on first Gui construction. */
     private static GuiListener listener;
@@ -36,6 +41,7 @@ public abstract class Gui {
     protected final JavaPlugin plugin;
     protected Inventory inventory;
     protected final HumanEntityCache humanEntityCache = new HumanEntityCache();
+    private final Set<HumanEntity> viewers = ConcurrentHashMap.newKeySet();
 
     // -- event callbacks --
     private Consumer<InventoryClickEvent> onTopClick;
@@ -66,10 +72,34 @@ public abstract class Gui {
      * then opens the inventory. Subclasses must call {@code super.show(humanEntity)}
      * after preparing the inventory.
      */
-    public void show(@NotNull HumanEntity humanEntity) {
-        humanEntityCache.storeAndClear(humanEntity);
-        if (inventory != null) {
-            humanEntity.openInventory(inventory);
+    public synchronized void show(@NotNull HumanEntity humanEntity) {
+        if (inventory == null) {
+            return;
+        }
+
+        // Re-register on every open because a final close removes the explicit
+        // association and anvil inventories cannot rely on their holder.
+        addInventory(inventory, this);
+        boolean wasViewer = isViewer(humanEntity);
+        boolean stored = false;
+        try {
+            stored = humanEntityCache.storeAndClear(humanEntity);
+            // Paper returns null when opening is cancelled or the inventory is
+            // otherwise not viewable. Treat it like an exception so the
+            // player's original inventory is never lost.
+            if (humanEntity.openInventory(inventory) == null) {
+                throw new IllegalStateException("Inventory opening was cancelled");
+            }
+            markViewer(humanEntity);
+        } catch (RuntimeException | Error failure) {
+            if (stored) {
+                humanEntityCache.restoreAndForget(humanEntity);
+            }
+            if (!wasViewer) {
+                removeViewer(humanEntity);
+            }
+            removeInventoryIfUnused(this);
+            throw failure;
         }
     }
 
@@ -213,7 +243,31 @@ public abstract class Gui {
      * Registers a gui-inventory association. Called when inventory is created.
      */
     public static void addInventory(@NotNull Inventory inventory, @NotNull Gui gui) {
-        GUI_INVENTORIES.put(inventory, gui);
+        synchronized (gui) {
+            GUI_INVENTORIES.put(inventory, gui);
+        }
+    }
+
+    /**
+     * Removes an inventory association if it still belongs to the supplied GUI.
+     * The conditional form prevents an old GUI from removing a newer mapping.
+     */
+    public static void removeInventory(@NotNull Inventory inventory, @NotNull Gui gui) {
+        synchronized (gui) {
+            GUI_INVENTORIES.remove(inventory, gui);
+        }
+    }
+
+    /** Removes an inventory association without requiring the owning GUI. */
+    public static void removeInventory(@NotNull Inventory inventory) {
+        GUI_INVENTORIES.remove(inventory);
+    }
+
+    /** Removes every inventory association owned by the supplied GUI. */
+    public static void removeInventories(@NotNull Gui gui) {
+        synchronized (gui) {
+            GUI_INVENTORIES.entrySet().removeIf(entry -> entry.getValue() == gui);
+        }
     }
 
     /**
@@ -235,6 +289,69 @@ public abstract class Gui {
      */
     @NotNull
     public static Set<Gui> getGuis() {
-        return new HashSet<>(GUI_INVENTORIES.values());
+        return Collections.unmodifiableSet(new HashSet<>(GUI_INVENTORIES.values()));
+    }
+
+    /** Returns a stable snapshot of GUIs that currently have viewers. */
+    @NotNull
+    public static Set<Gui> getActiveGuis() {
+        return Collections.unmodifiableSet(new HashSet<>(ACTIVE_GUIS));
+    }
+
+    /** Marks a viewer as active for this GUI. */
+    public synchronized void markViewer(@NotNull HumanEntity humanEntity) {
+        viewers.add(humanEntity);
+        ACTIVE_GUIS.add(this);
+    }
+
+    /** Removes a viewer and reports whether no viewers remain. */
+    public synchronized boolean removeViewer(@NotNull HumanEntity humanEntity) {
+        viewers.remove(humanEntity);
+        if (viewers.isEmpty()) {
+            ACTIVE_GUIS.remove(this);
+            return true;
+        }
+        return false;
+    }
+
+    /** Removes all tracked viewers from this GUI's active state. */
+    public synchronized void removeViewerAll() {
+        viewers.clear();
+        ACTIVE_GUIS.remove(this);
+    }
+
+    /** Returns whether the supplied entity is an active viewer of this GUI. */
+    public synchronized boolean isViewer(@NotNull HumanEntity humanEntity) {
+        return viewers.contains(humanEntity);
+    }
+
+    /** Returns whether at least one viewer is currently active. */
+    public synchronized boolean hasViewers() {
+        return !viewers.isEmpty();
+    }
+
+    /** Returns a stable snapshot of this GUI's active viewers. */
+    @NotNull
+    public synchronized Set<HumanEntity> getViewers() {
+        return Collections.unmodifiableSet(new HashSet<>(viewers));
+    }
+
+    /**
+     * Removes this GUI from the explicit registry only after its final viewer
+     * has gone away.
+     */
+    public static void removeInventoryIfUnused(@NotNull Gui gui) {
+        synchronized (gui) {
+            if (!gui.hasViewers()) {
+                GUI_INVENTORIES.entrySet().removeIf(entry -> entry.getValue() == gui);
+                ACTIVE_GUIS.remove(gui);
+            }
+        }
+    }
+
+    /** Clears the global registry and active set after viewer restoration. */
+    public static void clearRegistry() {
+        GUI_INVENTORIES.clear();
+        ACTIVE_GUIS.clear();
     }
 }

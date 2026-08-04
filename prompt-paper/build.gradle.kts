@@ -1,10 +1,14 @@
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.Properties
+import java.util.jar.JarFile
 
 plugins {
     java
-    id("io.github.goooler.shadow") version "8.1.7"
+    id("com.gradleup.shadow") version "9.6.1"
     `maven-publish`
 }
 
@@ -42,9 +46,9 @@ repositories {
 dependencies {
     implementation(project(":prompt-core"))
     implementation(project(":prompt-ui-api"))
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
-    implementation("net.kyori:adventure-text-minimessage:4.26.1")
-    implementation("net.kyori:adventure-text-serializer-legacy:4.26.1")
+    compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
+    compileOnly("net.kyori:adventure-text-minimessage:4.26.1")
+    compileOnly("net.kyori:adventure-text-serializer-legacy:4.26.1")
     implementation("org.bstats:bstats-bukkit:3.0.2")
     implementation("org.openjdk.nashorn:nashorn-core:15.4")
 
@@ -89,7 +93,16 @@ tasks.shadowJar {
     val nms26_2 = project(":prompt-ui-26.2").tasks.named("jar", Jar::class)
     from(nms26_2.map { zipTree(it.archiveFile) })
 
+    // Paper supplies Adventure. Keep those API/serializer classes out of the plugin jar and
+    // isolate bStats from other plugins that may ship a different bStats version.
+    relocate("org.bstats", "dev.cyr1en.promptpaper.libs.bstats")
     mergeServiceFiles()
+}
+
+// The shadow jar is the only distributable prompt-paper artifact. Keeping the ordinary Java jar
+// disabled prevents it from being mistaken for a release plugin by local tooling or CI uploads.
+tasks.named<Jar>("jar") {
+    enabled = false
 }
 
 tasks.build {
@@ -102,12 +115,11 @@ tasks.build {
 //
 // Tasks:
 //   - prepareServer : ensure <rootDir>/testserver/<version>/ exists with a
-//                     current Paper jar and accepted EULA. No start, no deploy.
-//   - stopServer    : kill the running paper process in the resolved root.
-//   - deploy        : prepareServer + stop + copy shadow jar + start.
+//                     current Paper jar and accepted EULA.
+//   - stopServer    : stop only the process recorded in the selected server root.
 //
 // Properties (all optional):
-//   -PpaperVersion=<v>   Minecraft version (e.g. 26.1.2, 1.21.11). Default: latest stable.
+//   -PpaperVersion=<v>   Paper version (e.g. 26.1.2, 26.2-rc-2). Default: latest stable.
 //   -PpaperBuild=<n>     Pin a specific build number. Default: latest matching -PpaperChannel.
 //   -PpaperChannel=<c>   stable | beta | alpha | default. Default: stable.
 //   -PtestServer=<path>  Override server root. Default: <rootDir>/testserver/<paperVersion>/.
@@ -116,9 +128,25 @@ tasks.build {
 //   (v2 /download endpoint is being sunset 2026-07-01 — already returns 404)
 
 val paperApiBase = "https://fill.papermc.io/v3/projects/paper"
-val paperJarPattern = Regex("""paper-([\d.]+)-(\d+)\.jar""")
+val paperJarPattern = Regex("""paper-(.+)-(\d+)\.jar""")
+val serverPidFileName = ".commandprompter-server.properties"
 
-data class PaperBuild(val id: Int, val channel: String, val downloadUrl: String, val jarName: String)
+data class PaperBuild(
+    val id: Int,
+    val channel: String,
+    val downloadUrl: String,
+    val jarName: String,
+    val sha256: String?
+)
+
+data class ExistingPaperJar(val file: File, val version: String, val build: Int)
+
+data class ServerProcessRecord(
+    val pid: Long,
+    val serverRoot: String,
+    val jar: String,
+    val startMillis: Long
+)
 
 fun httpGet(url: String): String {
     // nosemgrep
@@ -126,7 +154,7 @@ fun httpGet(url: String): String {
         requestMethod = "GET"
         connectTimeout = 15_000
         readTimeout = 60_000
-        setRequestProperty("User-Agent", "CommandPrompter-deploy/3.0")
+        setRequestProperty("User-Agent", "CommandPrompter-test-server/3.1")
     }
     return conn.inputStream.bufferedReader().use { it.readText() }
 }
@@ -215,7 +243,9 @@ fun resolveBuild(version: String, channelOrder: List<String>, pinned: Int? = nul
         val ch = chRe.find(obj)?.groupValues?.get(1) ?: return@mapNotNull null
         val url = urlRe.find(obj)?.groupValues?.get(1) ?: return@mapNotNull null
         val name = nameRe.find(obj)?.groupValues?.get(1) ?: return@mapNotNull null
-        PaperBuild(id, ch, url, name)
+        val sha256 = Regex(""""sha256"\s*:\s*"([0-9a-fA-F]{64})"""")
+            .find(obj)?.groupValues?.get(1)?.lowercase()
+        PaperBuild(id, ch, url, name, sha256)
     }
 
     if (pinned != null) {
@@ -228,28 +258,74 @@ fun resolveBuild(version: String, channelOrder: List<String>, pinned: Int? = nul
     return null
 }
 
-fun findExistingPaperJar(dir: File): Pair<String, Int>? {
+fun findExistingPaperJar(dir: File): ExistingPaperJar? {
     if (!dir.exists()) return null
-    val candidates = dir.listFiles { f -> paperJarPattern.matches(f.name) } ?: return null
-    val latest = candidates.maxByOrNull { it.lastModified() } ?: return null
+    val candidates = dir.listFiles { f -> f.isFile && paperJarPattern.matches(f.name) } ?: return null
+    val latest = candidates.maxWithOrNull(compareBy<File> { it.lastModified() }.thenBy { it.name })
+        ?: return null
     val match = paperJarPattern.matchEntire(latest.name) ?: return null
-    return match.groupValues[1] to match.groupValues[2].toInt()
+    return ExistingPaperJar(latest, match.groupValues[1], match.groupValues[2].toInt())
 }
 
-fun downloadFile(url: String, target: File) {
+fun sha256(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    Files.newInputStream(file.toPath()).use { input ->
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+}
+
+fun isReadableJar(file: File): Boolean = try {
+    JarFile(file).use { true }
+} catch (e: Exception) {
+    false
+}
+
+fun downloadFile(url: String, target: File, expectedSha256: String?) {
     println("Downloading $url")
     println("         → $target")
     target.parentFile.mkdirs()
+    val temporary = Files.createTempFile(target.parentFile.toPath(), ".${target.name}.", ".part")
     // nosemgrep
     val conn = (URI.create(url).toURL().openConnection() as HttpURLConnection).apply {
         connectTimeout = 15_000
         readTimeout = 120_000
-        setRequestProperty("User-Agent", "CommandPrompter-deploy/3.0")
+        setRequestProperty("User-Agent", "CommandPrompter-test-server/3.1")
     }
-    conn.inputStream.use { input ->
-        Files.newOutputStream(target.toPath()).use { output ->
-            input.copyTo(output)
+    try {
+        if (conn.responseCode !in 200..299) {
+            error("Paper download failed with HTTP ${conn.responseCode}: $url")
         }
+        conn.inputStream.use { input ->
+            Files.newOutputStream(temporary).use { output ->
+                input.copyTo(output)
+            }
+        }
+        if (Files.size(temporary) <= 0L) error("Paper download produced an empty file: $url")
+        if (!isReadableJar(temporary.toFile())) error("Paper download is not a readable jar: $url")
+        if (expectedSha256 != null) {
+            val actual = sha256(temporary.toFile())
+            if (!actual.equals(expectedSha256, ignoreCase = true)) {
+                error("Paper checksum mismatch for $url: expected $expectedSha256, got $actual")
+            }
+        } else {
+            println("Paper API did not provide a SHA-256 checksum; accepting non-empty download.")
+        }
+        // Keep the temporary file beside the target and require an atomic replacement. A failed
+        // download therefore cannot leave a partial jar at the final path.
+        Files.move(
+            temporary,
+            target.toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING)
+    } finally {
+        conn.disconnect()
+        Files.deleteIfExists(temporary)
     }
 }
 
@@ -263,44 +339,156 @@ fun resolveServerRoot(version: String): File {
     return if (override != null) file(override) else file("$rootDir/testserver/$version")
 }
 
-@Suppress("TooGenericExceptionCaught")
+fun resolveStopServerRoot(): File {
+    val override = project.findProperty("testServer") as? String
+    if (override != null) return file(override)
+
+    val configuredVersion = project.findProperty("paperVersion") as? String
+    if (configuredVersion != null) return file("$rootDir/testserver/$configuredVersion")
+
+    val base = file("$rootDir/testserver")
+    val tracked = base.listFiles { f ->
+        f.isDirectory && File(f, serverPidFileName).isFile
+    }?.toList() ?: emptyList()
+    if (tracked.size == 1) return tracked.single()
+    if (tracked.size > 1) {
+        error("Multiple tracked test servers exist; select one with -PtestServer=<directory>.")
+    }
+
+    // A server created before PID tracking cannot be stopped safely. Select a sole existing
+    // directory only to report that no tracked process is available; never scan or kill by name.
+    val existing = base.listFiles { f ->
+        f.isDirectory && (f.listFiles { jar -> jar.isFile && paperJarPattern.matches(jar.name) }?.isNotEmpty() == true)
+    }?.toList() ?: emptyList()
+    if (existing.size == 1) return existing.single()
+    if (existing.size > 1) {
+        error("Multiple test server directories exist; select one with -PtestServer=<directory>.")
+    }
+    return base
+}
+
+fun canonicalPath(file: File): String = file.canonicalFile.path
+
+fun readServerProcessRecord(serverRoot: File): ServerProcessRecord? {
+    val pidFile = File(serverRoot, serverPidFileName)
+    if (!pidFile.isFile) return null
+    return try {
+        val properties = Properties()
+        Files.newInputStream(pidFile.toPath()).use { properties.load(it) }
+        ServerProcessRecord(
+            properties.getProperty("pid").toLong(),
+            properties.getProperty("serverRoot"),
+            properties.getProperty("jar"),
+            properties.getProperty("startMillis").toLong())
+    } catch (e: Exception) {
+        println("Ignoring malformed server PID file $pidFile: ${e.message}")
+        null
+    }
+}
+
+fun writeServerProcessRecord(serverRoot: File, process: Process, jar: File) {
+    val handle = process.toHandle()
+    val properties = Properties()
+    properties["pid"] = handle.pid().toString()
+    properties["serverRoot"] = canonicalPath(serverRoot)
+    properties["jar"] = canonicalPath(jar)
+    properties["startMillis"] = handle.info().startInstant().map { it.toEpochMilli() }.orElse(0L).toString()
+
+    val temporary = Files.createTempFile(serverRoot.toPath(), ".commandprompter-server.", ".tmp")
+    try {
+        Files.newOutputStream(temporary).use { properties.store(it, "CommandPrompter test server process") }
+        Files.move(
+            temporary,
+            File(serverRoot, serverPidFileName).toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING)
+    } finally {
+        Files.deleteIfExists(temporary)
+    }
+}
+
+fun processMatches(handle: ProcessHandle, record: ServerProcessRecord, serverRoot: File): Boolean {
+    if (!handle.isAlive) return false
+    if (record.serverRoot != canonicalPath(serverRoot)) return false
+
+    val expectedJar = File(record.jar).canonicalFile
+    if (canonicalPath(expectedJar.parentFile) != canonicalPath(serverRoot)) return false
+
+    val info = handle.info()
+    val arguments = info.arguments().orElse(emptyArray<String>()).toList()
+    val jarArgument = arguments.indexOf("-jar").takeIf { it >= 0 }
+        ?.let { arguments.getOrNull(it + 1) }
+    val commandLine = info.commandLine().orElse("")
+    val jarMatches = jarArgument == expectedJar.path || commandLine.contains(expectedJar.path)
+    if (!jarMatches) return false
+
+    if (record.startMillis > 0L) {
+        val actualStart = info.startInstant().map { it.toEpochMilli() }.orElse(0L)
+        if (actualStart == 0L || actualStart != record.startMillis) return false
+    }
+    return true
+}
+
+fun waitForExit(handle: ProcessHandle, timeoutMillis: Long): Boolean {
+    val deadline = System.nanoTime() + timeoutMillis * 1_000_000L
+    while (handle.isAlive && System.nanoTime() < deadline) {
+        try {
+            Thread.sleep(100L)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return false
+        }
+    }
+    return !handle.isAlive
+}
+
+fun deleteServerProcessRecord(serverRoot: File, expected: ServerProcessRecord) {
+    if (readServerProcessRecord(serverRoot) == expected) {
+        Files.deleteIfExists(File(serverRoot, serverPidFileName).toPath())
+    }
+}
+
 fun stopServerIn(serverRoot: File) {
     if (!serverRoot.exists()) {
         println("Server root $serverRoot does not exist; nothing to stop.")
         return
     }
-    println("Stopping paper process (if any) in $serverRoot …")
-    
-    try {
-        // Use jps to safely find and kill the exact java process, avoiding pkill quirks on macOS
-        val jps = ProcessBuilder("jps", "-l").start()
-        val output = jps.inputStream.bufferedReader().readText()
-        jps.waitFor()
-        
-        output.lines().forEach { line ->
-            if (line.contains("paper-") && line.contains(".jar")) {
-                val pid = line.substringBefore(" ").trim()
-                println("Found running paper server (PID: $pid), killing...")
-                ProcessBuilder("kill", "-9", pid).start().waitFor()
-            }
-        }
-    } catch (e: java.io.IOException) {
-        println("jps kill method failed, falling back to pkill: ${e.message}")
-    } catch (e: InterruptedException) {
-        println("jps kill method failed, falling back to pkill: ${e.message}")
-    } catch (e: RuntimeException) {
-        println("jps kill method failed, falling back to pkill: ${e.message}")
+    val record = readServerProcessRecord(serverRoot)
+    if (record == null) {
+        println("No tracked server process in $serverRoot; refusing to search for other processes.")
+        return
     }
 
-    // Fallback: simple pkill without the complex regex that macOS often rejects
-    val proc = ProcessBuilder("bash", "-c", "pkill -9 -f 'paper-.*\\.jar' || true")
-        .directory(serverRoot)
-        .redirectErrorStream(true)
-        .start()
-    proc.inputStream.bufferedReader().use { print(it.readText()) }
-    proc.waitFor()
-    // Give the OS a moment to release file locks.
-    Thread.sleep(2000)
+    val handle = ProcessHandle.of(record.pid).orElse(null)
+    if (handle == null || !handle.isAlive) {
+        deleteServerProcessRecord(serverRoot, record)
+        println("Tracked server process ${record.pid} is no longer running.")
+        return
+    }
+    if (!processMatches(handle, record, serverRoot)) {
+        println("Refusing to stop PID ${record.pid}: it no longer matches $serverRoot/${File(record.jar).name}.")
+        return
+    }
+
+    println("Requesting graceful stop for Paper PID ${record.pid} in $serverRoot …")
+    handle.destroy()
+    if (!waitForExit(handle, 15_000L)) {
+        // Revalidate immediately before the forceful operation. Only the PID recorded for this
+        // exact root/jar may receive the forceful request; unrelated servers are never searched.
+        if (processMatches(handle, record, serverRoot)) {
+            println("Paper PID ${record.pid} did not stop gracefully; forcing that PID only.")
+            handle.destroyForcibly()
+            waitForExit(handle, 5_000L)
+        } else {
+            println("PID ${record.pid} changed before forceful stop; refusing to terminate it.")
+        }
+    }
+    if (!handle.isAlive) {
+        deleteServerProcessRecord(serverRoot, record)
+        println("Paper PID ${record.pid} stopped.")
+    } else {
+        println("Paper PID ${record.pid} is still running; PID file retained for a later stop.")
+    }
 }
 
 tasks.register("prepareServer") {
@@ -322,26 +510,31 @@ tasks.register("prepareServer") {
         println("Server root: $serverRoot")
 
         val existing = findExistingPaperJar(serverRoot)
-        val needsDownload = when {
-            existing == null -> true
-            existing.first != version -> true
-            existing.second < build.id -> true
-            else -> false
-        }
+        val existingIsValid = existing != null
+            && existing.version == version
+            && existing.build >= build.id
+            && existing.file.length() > 0L
+            && isReadableJar(existing.file)
+            && existing.file.name == build.jarName
+            && (build.sha256 == null || runCatching { sha256(existing.file) == build.sha256 }.getOrDefault(false))
+        val needsDownload = !existingIsValid
         if (needsDownload) {
-            existing?.let { (v, b) ->
-                if (v != version) {
-                    println("Existing jar is for a different version ($v); replacing.")
+            existing?.let { current ->
+                if (current.version != version) {
+                    println("Existing jar is for a different version (${current.version}); replacing.")
                 } else {
-                    println("Existing jar is build $b; upgrading to ${build.id}.")
+                    println("Existing jar is build ${current.build}; upgrading to ${build.id}.")
                 }
             } ?: println("No existing paper jar; downloading fresh.")
-            // Clear any old paper jars to keep the dir tidy.
-            serverRoot.listFiles { f -> paperJarPattern.matches(f.name) }?.forEach { it.delete() }
             val target = File(serverRoot, build.jarName)
-            downloadFile(build.downloadUrl, target)
+            downloadFile(build.downloadUrl, target, build.sha256)
+            // Remove superseded jars only after the new jar has been downloaded, checked, and
+            // atomically installed.
+            serverRoot.listFiles { f ->
+                f.isFile && paperJarPattern.matches(f.name) && canonicalPath(f) != canonicalPath(target)
+            }?.forEach { it.delete() }
         } else {
-            println("Existing jar ${existing!!.first} build ${existing.second} is up to date.")
+            println("Existing jar ${existing!!.file.name} build ${existing.build} is up to date.")
         }
 
         val eula = File(serverRoot, "eula.txt")
@@ -356,12 +549,11 @@ tasks.register("prepareServer") {
 
 tasks.register("stopServer") {
     description = "Stop the running Paper test server. " +
-        "Uses -PtestServer if set, otherwise <rootDir>/testserver/<paperVersion>/."
+        "Uses -PtestServer, -PpaperVersion, or the sole existing tracked server directory."
     group = "commandprompter"
 
     doLast {
-        val version = resolveVersionProperty()
-        stopServerIn(resolveServerRoot(version))
+        stopServerIn(resolveStopServerRoot())
         println("Server stopped.")
     }
 }
@@ -410,13 +602,45 @@ tasks.register("startServer") {
         val jar = (serverRoot.listFiles { f -> paperJarPattern.matches(f.name) } ?: emptyArray())
             .maxByOrNull { it.lastModified() }
             ?: error("No paper-*.jar in $serverRoot — did prepareServer run?")
-        println("Starting $jar in $serverRoot …")
-        
-        val process = ProcessBuilder("java", "-jar", jar.name, "-nogui")
+        val existingRecord = readServerProcessRecord(serverRoot)
+        if (existingRecord != null) {
+            val existingHandle = ProcessHandle.of(existingRecord.pid).orElse(null)
+            if (existingHandle != null && existingHandle.isAlive) {
+                if (processMatches(existingHandle, existingRecord, serverRoot)) {
+                    error("Paper test server is already running with PID ${existingRecord.pid}.")
+                }
+                error("PID file ${File(serverRoot, serverPidFileName)} points to an unrelated process; refusing to overwrite it.")
+            }
+            deleteServerProcessRecord(serverRoot, existingRecord)
+        }
+
+        val javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(25)
+        }.get().executablePath.asFile
+        println("Starting $jar in $serverRoot with Java 25 launcher $javaLauncher …")
+
+        val process = ProcessBuilder(javaLauncher.absolutePath, "-jar", jar.absolutePath, "-nogui")
             .directory(serverRoot)
             .inheritIO()
             .start()
-            
-        process.waitFor()
+        try {
+            writeServerProcessRecord(serverRoot, process, jar)
+        } catch (e: Exception) {
+            process.destroyForcibly()
+            throw e
+        }
+
+        try {
+            process.waitFor()
+        } finally {
+            if (!process.isAlive) {
+                val record = readServerProcessRecord(serverRoot)
+                if (record != null && record.pid == process.pid()) {
+                    deleteServerProcessRecord(serverRoot, record)
+                }
+            } else {
+                println("Paper PID ${process.pid()} is still running; retaining $serverPidFileName.")
+            }
+        }
     }
 }

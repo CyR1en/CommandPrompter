@@ -60,12 +60,22 @@ public class PlayerCommandListener implements Listener {
         plugin.getPluginLogger().debug("Command received: player=" + player.getName()
                 + " cmd=" + commandName + " hasScreen=" + hasActiveScreen);
 
-        if (commandName.startsWith("commandprompter") || commandName.startsWith("cmdp")) {
+        if (commandName.equals("commandprompter") || commandName.equals("cmdp")) {
             plugin.getPluginLogger().debug("Command is plugin command, not intercepting");
             return;
         }
 
         var config = plugin.getConfigLoader().getConfig();
+        var commandLine = message.startsWith("/") ? message.substring(1) : message;
+        if (engine != null
+                && engine.isReloadInProgress()
+                && engine.commandHasTagForm(commandLine)) {
+            // Do not let a tagged command fall through while ReloadCommand is still tearing down
+            // other players. The engine also supplies localized feedback for the rejected session.
+            event.setCancelled(true);
+            engine.rejectIfReloading(player);
+            return;
+        }
         if (config.ignoredCommands().stream()
                 .anyMatch(c -> c.equalsIgnoreCase(commandName))) {
             plugin.getPluginLogger().debug("Command is in ignored-commands list, not intercepting");
@@ -78,14 +88,22 @@ public class PlayerCommandListener implements Listener {
             event.setCancelled(true);
         }
 
-        var commandLine = message.startsWith("/") ? message.substring(1) : message;
-
         // Cancel the event if a session starts or the command references a preset.
         if (engine != null && engine.commandHasTagForm(commandLine)) {
             var allowedToUse = !config.enablePermission() || player.hasPermission("promptpaper.use");
             if (allowedToUse) {
-                screenManager.startSession(player, commandLine);
-                if (screenManager.hasActiveScreen(player) || engine.hasPresetReferences(commandLine)) {
+                try {
+                    screenManager.startSession(player, commandLine);
+                } catch (Throwable e) {
+                    screenManager.discardState(player.getUniqueId());
+                    plugin.getPluginLogger().err("Prompt screen failed for " + player.getName()
+                            + ": " + e.getMessage());
+                    event.setCancelled(true);
+                    return;
+                }
+                if (screenManager.hasActiveScreen(player)
+                        || engine.hasPresetReferences(commandLine)
+                        || engine.isReloadInProgress()) {
                     plugin.getPluginLogger().debug("Command had prompts/presets, cancelling event");
                     event.setCancelled(true);
                 }

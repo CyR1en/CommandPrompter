@@ -53,6 +53,8 @@ public class CancelCommand extends PromptCommand implements Command<CommandSourc
             return;
         }
         plugin.getScreenManager().cancelAll(player);
-        player.sendMessage(i18n.get("prompt.cancelled"));
+        if (plugin.getConfigLoader().getConfig().showCancelled()) {
+            player.sendMessage(i18n.get("prompt.cancelled"));
+        }
     }
 }

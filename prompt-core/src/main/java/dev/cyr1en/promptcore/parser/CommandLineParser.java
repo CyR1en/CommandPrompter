@@ -4,7 +4,6 @@ import dev.cyr1en.promptcore.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -26,10 +25,6 @@ public class CommandLineParser {
 
   private final ParserConfig config;
   private final TagFilter tagFilter;
-  private final Pattern tagPattern;
-  private final Pattern pcmPrefix;
-  private final Pattern pcmCancelPrefix;
-  private final Pattern pcmDelay;
   private final Pattern pcmTarget;
   private final Pattern answerRef;
   private final Pattern validatorFlag;
@@ -70,29 +65,14 @@ public class CommandLineParser {
   public CommandLineParser(ParserConfig config, TagFilter tagFilter) {
     this.config = config;
     this.tagFilter = tagFilter;
-    String open = config.opening();
-    String close = config.closing();
-    String escPattern = Pattern.quote(config.escape());
-    this.tagPattern =
-        Pattern.compile(
-            "(?<!"
-                + escPattern
-                + ")"
-                + Pattern.quote(open)
-                + "(.*?)(?<!"
-                + escPattern
-                + ")"
-                + Pattern.quote(close));
-    this.pcmPrefix = Pattern.compile("^!");
-    this.pcmCancelPrefix = Pattern.compile("^!!");
-    this.pcmDelay = Pattern.compile("^!:(\\d+)");
-    this.pcmTarget = Pattern.compile("@(console|player)(?=\\s|$)");
+    this.pcmTarget = Pattern.compile("(?<!\\S)@(console|player)(?=\\s|$)");
     this.answerRef = Pattern.compile("\\{(\\d+)}");
-    this.validatorFlag = Pattern.compile("-iv:(\\w+)");
-    this.dsFlag = Pattern.compile("-ds\\b");
-    this.intFlag = Pattern.compile("-int\\b");
-    this.strFlag = Pattern.compile("-str\\b");
-    this.titleFlag = Pattern.compile("-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
+    // Flags are tokens, not substrings of display text (for example, cost-int).
+    this.validatorFlag = Pattern.compile("(?<!\\S)-iv:(\\w+)(?!\\S)");
+    this.dsFlag = Pattern.compile("(?<!\\S)-ds(?!\\S)");
+    this.intFlag = Pattern.compile("(?<!\\S)-int(?!\\S)");
+    this.strFlag = Pattern.compile("(?<!\\S)-str(?!\\S)");
+    this.titleFlag = Pattern.compile("(?<!\\S)-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
   }
 
   /** Returns the {@link ParserConfig} used by this parser. */
@@ -115,15 +95,15 @@ public class CommandLineParser {
       return new ParsedCommand(rawCommand == null ? "" : rawCommand, List.of(), List.of(), config);
     }
 
-    var matcher = tagPattern.matcher(rawCommand);
     var promptTags = new ArrayList<PromptTag>();
     var postCmds = new ArrayList<PostCommandMeta>();
+    var spans = new ArrayList<ParsedCommand.TemplateSpan>();
 
     LOG.fine("Parsing command: " + rawCommand);
 
-    while (matcher.find()) {
-      var rawContent = matcher.group(1);
-      var fullTag = config.opening() + rawContent + config.closing();
+    for (var match : scanTags(rawCommand)) {
+      var rawContent = match.content();
+      var fullTag = match.rawText();
 
       // Skip tags that the filter says to ignore (e.g. MiniMessage syntax).
       if (tagFilter != null && tagFilter.test(rawContent)) {
@@ -133,8 +113,17 @@ public class CommandLineParser {
 
       if (isPCM(rawContent)) {
         parsePCM(rawContent, fullTag, postCmds);
+        spans.add(
+            new ParsedCommand.TemplateSpan(
+                match.start(), match.end(), match.rawText(), true, postCmds.size() - 1));
       } else {
+        int before = promptTags.size();
         parsePromptTag(rawContent, fullTag, promptTags);
+        if (promptTags.size() > before) {
+          spans.add(
+              new ParsedCommand.TemplateSpan(
+                  match.start(), match.end(), match.rawText(), false, promptTags.size() - 1));
+        }
       }
     }
 
@@ -146,7 +135,9 @@ public class CommandLineParser {
         template,
         Collections.unmodifiableList(promptTags),
         Collections.unmodifiableList(postCmds),
-        config);
+        config,
+        rawCommand,
+        Collections.unmodifiableList(spans));
   }
 
   /**
@@ -159,10 +150,8 @@ public class CommandLineParser {
    */
   public boolean hasTagForm(String rawCommand) {
     if (rawCommand == null || rawCommand.isBlank()) return false;
-    var matcher = tagPattern.matcher(rawCommand);
-    while (matcher.find()) {
-      var rawContent = matcher.group(1);
-      if (tagFilter == null || !tagFilter.test(rawContent)) {
+    for (var match : scanTags(rawCommand)) {
+      if (tagFilter == null || !tagFilter.test(match.content())) {
         return true;
       }
     }
@@ -175,8 +164,57 @@ public class CommandLineParser {
   }
 
   private boolean isPCM(String content) {
-    return pcmPrefix.matcher(content).find();
+    return content.startsWith("!");
   }
+
+  /**
+   * Scans delimiter pairs in one pass. An escape consumes the following character, and an
+   * unterminated opener consumes the remainder of the input rather than restarting a search at
+   * every later opener. That makes repeated unterminated openers linear instead of quadratic.
+   */
+  private List<TagMatch> scanTags(String rawCommand) {
+    var matches = new ArrayList<TagMatch>();
+    char opening = config.opening().charAt(0);
+    char closing = config.closing().charAt(0);
+    char escape = config.escape().charAt(0);
+    int i = 0;
+    while (i < rawCommand.length()) {
+      char current = rawCommand.charAt(i);
+      if (current == escape) {
+        i += i + 1 < rawCommand.length() ? 2 : 1;
+        continue;
+      }
+      if (current != opening) {
+        i++;
+        continue;
+      }
+
+      int start = i++;
+      boolean closed = false;
+      while (i < rawCommand.length()) {
+        current = rawCommand.charAt(i);
+        if (current == escape) {
+          i += i + 1 < rawCommand.length() ? 2 : 1;
+        } else if (current == closing) {
+          int end = ++i;
+          matches.add(
+              new TagMatch(
+                  start,
+                  end,
+                  rawCommand.substring(start + 1, end - 1),
+                  rawCommand.substring(start, end)));
+          closed = true;
+          break;
+        } else {
+          i++;
+        }
+      }
+      if (!closed) break;
+    }
+    return matches;
+  }
+
+  private record TagMatch(int start, int end, String content, String rawText) {}
 
   private void parsePCM(String rawContent, String fullTag, List<PostCommandMeta> postCmds) {
     var content = rawContent;
@@ -225,13 +263,11 @@ public class CommandLineParser {
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
     var targetMatcher = pcmTarget.matcher(content);
-    var newContent = targetMatcher.replaceFirst("");
-    if (newContent.length() != content.length()) {
-      targetMatcher.reset();
-      if (targetMatcher.find()) {
-        target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
-      }
-      content = newContent.trim();
+    if (targetMatcher.find()) {
+      target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
+      content =
+          (content.substring(0, targetMatcher.start()) + content.substring(targetMatcher.end()))
+              .trim();
     }
 
     // Extract answer references ({N})
@@ -334,9 +370,9 @@ public class CommandLineParser {
     var displayText =
         unescape(
                 remainder
-                    .replaceAll("-iv:\\w+", "")
-                    .replaceAll("-int\\b", "")
-                    .replaceAll("-str\\b", ""))
+                    .replaceAll(validatorFlag.pattern(), "")
+                    .replaceAll(intFlag.pattern(), "")
+                    .replaceAll(strFlag.pattern(), ""))
             .trim();
 
     LOG.fine(
@@ -423,9 +459,9 @@ public class CommandLineParser {
     // Strip flags from the compound tag content.
     var stripped =
         stripTitleFlag(contentWithoutDs, title)
-            .replaceAll("-iv:\\w+", "")
-            .replaceAll("-int\\b", "")
-            .replaceAll("-str\\b", "")
+            .replaceAll(validatorFlag.pattern(), "")
+            .replaceAll(intFlag.pattern(), "")
+            .replaceAll(strFlag.pattern(), "")
             .trim();
 
     var subContents = splitCompound(stripped);
@@ -630,12 +666,23 @@ public class CommandLineParser {
 
   private String unescape(String input) {
     if (input == null || input.isEmpty()) return input;
-    var esc = Pattern.quote(config.escape());
-    return input
-        .replaceAll(
-            esc + Pattern.quote(config.opening()), Matcher.quoteReplacement(config.opening()))
-        .replaceAll(
-            esc + Pattern.quote(config.closing()), Matcher.quoteReplacement(config.closing()));
+    char escape = config.escape().charAt(0);
+    char opening = config.opening().charAt(0);
+    char closing = config.closing().charAt(0);
+    var result = new StringBuilder(input.length());
+    for (int i = 0; i < input.length(); i++) {
+      char current = input.charAt(i);
+      if (current == escape && i + 1 < input.length()) {
+        char next = input.charAt(i + 1);
+        if (next == opening || next == closing) {
+          result.append(next);
+          i++;
+          continue;
+        }
+      }
+      result.append(current);
+    }
+    return result.toString();
   }
 
   /**

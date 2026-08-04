@@ -13,8 +13,8 @@ import java.util.List;
  * pointer via constructor injection.
  *
  * <p>The lifecycle handler that drives this is registered in
- * {@link CommandPrompterBootstrap#bootstrap}. When Paper fires
- * {@code LifecycleEvents.COMMANDS}, the bootstrap constructs a new
+ * {@link CommandPrompter#onEnable()}. When Paper fires
+ * {@code LifecycleEvents.COMMANDS}, the plugin constructs a new
  * {@code CommandRegistrar(plugin)} and calls
  * {@link #registerAll(Commands)} on the event's registrar.
  */

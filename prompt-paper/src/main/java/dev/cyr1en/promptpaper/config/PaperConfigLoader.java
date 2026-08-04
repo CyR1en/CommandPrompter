@@ -13,9 +13,7 @@ public class PaperConfigLoader {
 
     private final CommandPrompter plugin;
     private final RecordConfigLoader configManager;
-    private CommandPrompterConfig config;
-    private PromptConfig promptConfig;
-    private PaperI18n i18n;
+    private volatile ConfigState state;
 
     /**
      * Creates the loader and immediately loads all config files.
@@ -30,35 +28,38 @@ public class PaperConfigLoader {
 
     /** Re-reads {@code config.yml} and {@code prompt-config.yml} from disk, replacing all cached records. */
     public void reload() {
-        config = configManager.getConfig(CommandPrompterConfig.class);
-        plugin.getLogger().fine("config.yml loaded: timeout=" + config.promptTimeout()
-                + " debug=" + config.debugMode() + " fancy=" + config.fancyLogger()
-                + " locale=" + config.locale());
-        promptConfig = configManager.getConfig(PromptConfig.class);
+        // Load and validate the complete replacement off to the side. A single volatile state
+        // publication prevents player scheduler threads from observing a mixed old/new set.
+        var newConfig = configManager.getConfig(CommandPrompterConfig.class);
+        plugin.getLogger().fine("config.yml loaded: timeout=" + newConfig.promptTimeout()
+                + " debug=" + newConfig.debugMode() + " fancy=" + newConfig.fancyLogger()
+                + " locale=" + newConfig.locale());
+        var newPromptConfig = configManager.getConfig(PromptConfig.class);
         plugin.getLogger().fine("prompt-config.yml loaded: mappings="
-                + promptConfig.getScreenMappings().size());
-        if (i18n == null || !i18n.getLocale().equals(config.locale())) {
-            i18n = new PaperI18n(
-                    config.locale(),
-                    plugin.getDataFolder(),
-                    plugin.getClass().getClassLoader(),
-                    plugin.getLogger());
-        } else {
-            i18n.reload();
-        }
-        plugin.getLogger().fine("i18n reloaded for locale=" + config.locale());
+                + newPromptConfig.getScreenMappings().size());
+        var newI18n = new PaperI18n(
+                newConfig.locale(),
+                plugin.getDataFolder(),
+                plugin.getClass().getClassLoader(),
+                plugin.getLogger());
+        plugin.getLogger().fine("i18n reloaded for locale=" + newConfig.locale());
+        var newState = new ConfigState(newConfig, newPromptConfig, newI18n);
+        state = newState;
         plugin.getLogger().fine("Configuration reloaded successfully");
     }
 
     public CommandPrompterConfig getConfig() {
-        return config;
+        return state.config();
     }
 
     public PromptConfig getPromptConfig() {
-        return promptConfig;
+        return state.promptConfig();
     }
 
     public PaperI18n getI18n() {
-        return i18n;
+        return state.i18n();
     }
+
+    private record ConfigState(
+            CommandPrompterConfig config, PromptConfig promptConfig, PaperI18n i18n) {}
 }

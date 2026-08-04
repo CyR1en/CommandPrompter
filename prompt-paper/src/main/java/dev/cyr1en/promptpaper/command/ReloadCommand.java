@@ -6,11 +6,21 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.engine.PromptEngine;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * {@code /commandprompter reload} — cancels every active session across
@@ -46,16 +56,98 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
      * directly with a mock {@link CommandSender}.
      */
     public void executeReload(CommandSender sender) {
-        plugin.getPluginLogger().info("Configuration reloaded by " + sender.getName());
-        // Cancel active sessions to prevent references to outdated config values.
+        plugin.getPluginLogger().info("Reload requested by " + sender.getName());
         plugin.getPluginLogger().debug("Reload: cancelling all active sessions before config reload");
-        if (plugin.getScreenManager() != null && plugin.getEngine() != null) {
-            for (var player : plugin.getServer().getOnlinePlayers()) {
-                plugin.getScreenManager().cancelAll(player);
+        var feedbackLocation = captureBlockLocation(sender);
+        var gateOwner = plugin.getEngine();
+        if (gateOwner != null) {
+            boolean acquired;
+            try {
+                acquired = gateOwner.beginReload();
+            } catch (Exception e) {
+                plugin.getPluginLogger().err("Unable to acquire reload barrier: " + e.getMessage());
+                sendResult(sender, feedbackLocation, reloadFailure(e.getMessage()));
+                return;
             }
-            plugin.getEngine().cancelAll();
+            if (!acquired) {
+                plugin.getPluginLogger().debug("Reload already in progress; rejecting reload request");
+                sendResult(sender, feedbackLocation, reloadFailure("another reload is already in progress"));
+                return;
+            }
         }
+        ArrayList<Player> players;
         try {
+            players = new ArrayList<>(plugin.getServer().getOnlinePlayers());
+        } catch (Throwable t) {
+            plugin.getPluginLogger().err("Unable to enumerate players for reload: " + t.getMessage());
+            try {
+                sendResult(sender, feedbackLocation, reloadFailure(t.getMessage()));
+            } finally {
+                releaseReloadGate(gateOwner);
+            }
+            return;
+        }
+        if (plugin.getScreenManager() == null || plugin.getEngine() == null || players.isEmpty()) {
+            scheduleReload(sender, feedbackLocation, gateOwner);
+            return;
+        }
+
+        var remaining = new AtomicInteger(players.size());
+        var reloadScheduled = new AtomicBoolean();
+        for (var player : players) {
+            var uuid = player.getUniqueId();
+            var completed = new AtomicBoolean();
+            Runnable finish = () -> {
+                if (completed.compareAndSet(false, true)
+                        && remaining.decrementAndGet() == 0
+                        && reloadScheduled.compareAndSet(false, true)) {
+                    scheduleReload(sender, feedbackLocation, gateOwner);
+                }
+            };
+            try {
+                var task = player.getScheduler().run(
+                        plugin,
+                        scheduledTask -> {
+                            try {
+                                plugin.getScreenManager().cancelAll(player);
+                            } finally {
+                                finish.run();
+                            }
+                        },
+                        () -> discardPlayerState(uuid, finish));
+                if (task == null) {
+                    discardPlayerState(uuid, finish);
+                }
+            } catch (Throwable t) {
+                plugin.getPluginLogger().debug(
+                        "Player teardown scheduling failed for " + uuid + ": " + t.getMessage());
+                discardPlayerState(uuid, finish);
+            }
+        }
+    }
+
+    private void scheduleReload(
+            CommandSender sender, Location feedbackLocation, PromptEngine gateOwner) {
+        try {
+            plugin.getScheduler().runSync(
+                    () -> reloadAfterTeardown(sender, feedbackLocation, gateOwner));
+        } catch (Throwable t) {
+            plugin.getPluginLogger().err("Unable to schedule configuration reload: " + t.getMessage());
+            try {
+                sendResult(sender, feedbackLocation, plugin.getConfigLoader().getI18n().get(
+                        "command.reload.failed",
+                        Placeholder.of("error", t.getMessage() != null ? t.getMessage() : "")));
+            } finally {
+                releaseReloadGate(gateOwner);
+            }
+        }
+    }
+
+    private void reloadAfterTeardown(
+            CommandSender sender, Location feedbackLocation, PromptEngine gateOwner) {
+        try {
+            if (plugin.getEngine() != null)
+                plugin.getEngine().discardAll();
             plugin.getConfigLoader().reload();
             var loader = plugin.getConfigLoader();
             var cfg = loader.getConfig();
@@ -73,13 +165,97 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
                         registry.postCommandCount() + " post commands</gold>";
                 plugin.getPluginLogger().info(presetMsg);
                 plugin.getPluginLogger().debug("Loaded prompt IDs: " + String.join(", ", registry.getPromptIds()));
-                plugin.getPluginLogger().debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
+                plugin.getPluginLogger()
+                        .debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
             }
-            sender.sendMessage(plugin.getConfigLoader().getI18n().get("command.reload.success"));
+            sendResult(sender, feedbackLocation,
+                    plugin.getConfigLoader().getI18n().get("command.reload.success"));
         } catch (Exception e) {
-            sender.sendMessage(plugin.getConfigLoader().getI18n().get(
+            sendResult(sender, feedbackLocation, plugin.getConfigLoader().getI18n().get(
                     "command.reload.failed",
                     Placeholder.of("error", e.getMessage() != null ? e.getMessage() : "")));
+        } finally {
+            releaseReloadGate(gateOwner);
+        }
+    }
+
+    void sendResult(CommandSender sender, Location feedbackLocation, Component message) {
+        if (sender instanceof Player player) {
+            try {
+                var task = player.getScheduler().run(
+                        plugin, scheduledTask -> player.sendMessage(message), () -> {
+                        });
+                if (task == null) {
+                    plugin.getPluginLogger().debug("Reload result sender retired; omitting feedback");
+                }
+            } catch (Exception e) {
+                plugin.getPluginLogger().debug("Reload result sender retired: " + e.getMessage());
+            }
+            return;
+        }
+
+        if (sender instanceof BlockCommandSender blockSender) {
+            if (feedbackLocation == null) {
+                plugin.getPluginLogger().debug(
+                        "Unable to route reload result: block sender has no captured location");
+                return;
+            }
+            try {
+                Bukkit.getRegionScheduler().run(
+                        plugin,
+                        feedbackLocation,
+                        scheduledTask -> blockSender.sendMessage(message));
+            } catch (Exception e) {
+                plugin.getPluginLogger().debug(
+                        "Unable to route reload result to block sender: " + e.getMessage());
+            }
+            return;
+        }
+
+        try {
+            // PaperScheduler maps runSync to the global-region scheduler.
+            plugin.getScheduler().runSync(() -> sender.sendMessage(message));
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to send reload result: " + e.getMessage());
+        }
+    }
+
+    private Location captureBlockLocation(CommandSender sender) {
+        if (!(sender instanceof BlockCommandSender blockSender))
+            return null;
+        try {
+            return blockSender.getBlock().getLocation().clone();
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to capture block sender location: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private Component reloadFailure(String detail) {
+        return plugin.getConfigLoader().getI18n().get(
+                "command.reload.failed",
+                Placeholder.of("error", detail != null ? detail : ""));
+    }
+
+    private void releaseReloadGate(PromptEngine gateOwner) {
+        if (gateOwner == null)
+            return;
+        try {
+            gateOwner.endReload();
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to release reload barrier: " + e.getMessage());
+        }
+    }
+
+    private void discardPlayerState(UUID uuid, Runnable finish) {
+        try {
+            plugin.getScreenManager().discardState(uuid);
+            plugin.getEngine().discard(uuid);
+        } catch (Throwable t) {
+            plugin.getPluginLogger().debug(
+                    "Unable to discard player state for " + uuid + ": " + t.getMessage());
+        } finally {
+            finish.run();
         }
     }
 }

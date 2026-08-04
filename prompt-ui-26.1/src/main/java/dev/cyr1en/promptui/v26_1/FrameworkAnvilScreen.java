@@ -4,7 +4,9 @@ import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.AnvilGui;
+import dev.cyr1en.promptui.gui.Gui;
 import dev.cyr1en.promptui.gui.GuiItem;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -33,7 +35,16 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
     private AnvilGui anvilGui;
     private AnvilInventoryImpl inventoryImpl;
     private Consumer<ScreenResult> callback;
-    private boolean open;
+    private Consumer<Throwable> openFailure;
+    private ScheduledTask openTask;
+    private State state = State.NEW;
+
+    private enum State {
+        NEW,
+        CLOSED,
+        OPENING,
+        OPEN
+    }
 
     public FrameworkAnvilScreen(@NotNull JavaPlugin plugin, @NotNull Player player,
                                  @NotNull String displayText) {
@@ -53,47 +64,84 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
      */
     @Override
     public void open() {
-        player.getScheduler().run(plugin, scheduledTask -> {
+        synchronized (this) {
+            if (state != State.NEW) return;
+            state = State.OPENING;
+        }
+
+        ScheduledTask scheduled;
+        try {
+            scheduled = player.getScheduler().run(plugin, ignored -> openOnPlayerThread(),
+                    () -> failOpen(new IllegalStateException("Player scheduler retired")));
+        } catch (Throwable failure) {
+            failOpen(failure);
+            return;
+        }
+        synchronized (this) {
+            if (state == State.OPENING) {
+                openTask = scheduled;
+            } else if (scheduled != null) {
+                scheduled.cancel();
+            }
+        }
+        if (scheduled == null) {
+            failOpen(new IllegalStateException("Player scheduler returned no task"));
+        }
+    }
+
+    private void openOnPlayerThread() {
+        synchronized (this) {
+            if (state != State.OPENING) return;
+            openTask = null;
+        }
+        try {
             inventoryImpl = new AnvilInventoryImpl(player);
             anvilGui = new AnvilGui(plugin, inventoryImpl);
 
             configureTitle();
             setupItems();
 
-            anvilGui.setOnClose(event -> {
-                if (open) {
-                    open = false;
-                    if (callback != null) {
-                        callback.accept(ScreenResult.cancel());
-                    }
-                }
-            });
+            anvilGui.setOnClose(event -> complete(ScreenResult.cancel(), false));
 
-            // Prevent item theft from anvil slots
+            // Prevent item theft from anvil slots.
             anvilGui.setOnTopClick(event -> event.setCancelled(true));
 
-            // Direct callback bypasses UUID matching since NMS strips result item UUID tags
+            // NMS overwrites the result item and strips its UUID, so route the
+            // result directly instead of relying on pane UUID matching.
             anvilGui.setOnResultClick(event -> {
-                if (!open) return;
-                open = false;
+                if (!isOpen()) return;
                 String answer = inventoryImpl.getRenameText();
                 plugin.getSLF4JLogger().debug(
                     "FrameworkAnvilScreen result: player={} answer={}",
                     player.getName(), answer);
-                if (callback != null) {
-                    callback.accept(ScreenResult.answer(answer));
-                }
-                closeInternal();
+                complete(ScreenResult.answer(answer), true);
             });
 
-            // Create NMS container, render items via framework, and open
             anvilGui.createInventory();
             anvilGui.update();
+            synchronized (this) {
+                if (state != State.OPENING) {
+                    cleanupScreen(anvilGui, inventoryImpl, false);
+                    return;
+                }
+            }
+            // The NMS packet path does not emit Bukkit's normal open event, so
+            // perform the same viewer/cache registration explicitly.
+            anvilGui.getHumanEntityCache().storeAndClear(player);
+            anvilGui.markViewer(player);
             inventoryImpl.open();
-
-            open = true;
+            synchronized (this) {
+                if (state == State.OPENING) {
+                    state = State.OPEN;
+                } else {
+                    cleanupScreen(anvilGui, inventoryImpl, false);
+                    return;
+                }
+            }
             plugin.getSLF4JLogger().debug("FrameworkAnvilScreen opened: player={}", player.getName());
-        }, null);
+        } catch (Throwable failure) {
+            failOpen(failure);
+        }
     }
 
     /**
@@ -169,13 +217,9 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             }
 
             GuiItem cancelGuiItem = new GuiItem(cancelItem, event -> {
-                if (!open) return;
-                open = false;
+                if (!isOpen()) return;
                 plugin.getSLF4JLogger().debug("FrameworkAnvilScreen cancel: player={}", player.getName());
-                if (callback != null) {
-                    callback.accept(ScreenResult.cancel());
-                }
-                closeInternal();
+                complete(ScreenResult.cancel(), true);
             });
             anvilGui.getSecondItemComponent().addItem(cancelGuiItem, 0, 0);
         }
@@ -210,28 +254,156 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
 
     @Override
     public void close() {
-        if (!open) return;
-        open = false;
-        closeInternal();
+        AnvilGui gui;
+        AnvilInventoryImpl impl;
+        ScheduledTask task;
+        synchronized (this) {
+            if (state == State.CLOSED) return;
+            state = State.CLOSED;
+            task = openTask;
+            openTask = null;
+            gui = anvilGui;
+            impl = inventoryImpl;
+            anvilGui = null;
+            inventoryImpl = null;
+            callback = null;
+            openFailure = null;
+        }
+        cancel(task);
+        scheduleCleanup(gui, impl, true);
     }
 
-    /** Schedules the NMS container close and Bukkit inventory close on the player's thread. */
-    private void closeInternal() {
-        player.getScheduler().run(plugin, scheduledTask -> {
-            if (inventoryImpl != null) {
-                inventoryImpl.close();
+    private void complete(ScreenResult result, boolean closePlayer) {
+        AnvilGui gui;
+        AnvilInventoryImpl impl;
+        ScheduledTask task;
+        Consumer<ScreenResult> resultCallback;
+        synchronized (this) {
+            if (state == State.CLOSED) return;
+            state = State.CLOSED;
+            task = openTask;
+            openTask = null;
+            gui = anvilGui;
+            impl = inventoryImpl;
+            anvilGui = null;
+            inventoryImpl = null;
+            resultCallback = callback;
+            callback = null;
+        }
+        cancel(task);
+        try {
+            cleanupScreen(gui, impl, closePlayer);
+        } finally {
+            try {
+                if (resultCallback != null) {
+                    resultCallback.accept(result);
+                }
+            } finally {
+                // Keep the second cleanup idempotent and conditional on the
+                // old container identity. A callback may already have opened
+                // the next prompt by this point.
+                cleanupScreen(gui, impl, false);
             }
-            player.closeInventory();
-        }, null);
+        }
+    }
+
+    private void failOpen(Throwable failure) {
+        AnvilGui gui;
+        AnvilInventoryImpl impl;
+        ScheduledTask task;
+        Consumer<Throwable> failureCallback;
+        synchronized (this) {
+            if (state == State.CLOSED) return;
+            state = State.CLOSED;
+            task = openTask;
+            openTask = null;
+            gui = anvilGui;
+            impl = inventoryImpl;
+            anvilGui = null;
+            inventoryImpl = null;
+            failureCallback = openFailure;
+            openFailure = null;
+            callback = null;
+        }
+        cancel(task);
+        try {
+            cleanupScreen(gui, impl, true);
+        } finally {
+            try {
+                if (failureCallback != null) {
+                    failureCallback.accept(failure);
+                }
+            } finally {
+                cleanupScreen(gui, impl, false);
+            }
+        }
+    }
+
+    private void scheduleCleanup(AnvilGui gui, AnvilInventoryImpl impl, boolean closePlayer) {
+        if (gui == null && impl == null) return;
+        try {
+            ScheduledTask task = player.getScheduler().run(
+                plugin,
+                ignored -> cleanupScreen(gui, impl, closePlayer),
+                () -> cleanupScreen(gui, impl, closePlayer));
+            if (task == null) {
+                cleanupScreen(gui, impl, closePlayer);
+            }
+        } catch (Throwable failure) {
+            cleanupScreen(gui, impl, closePlayer);
+        }
+    }
+
+    private void cleanupScreen(AnvilGui gui, AnvilInventoryImpl impl, boolean closePlayer) {
+        try {
+            if (impl != null) {
+                impl.clearCallbacks();
+                impl.close();
+            }
+        } finally {
+            if (gui != null) {
+                gui.setOnClose(null);
+                gui.setOnResultClick(null);
+                gui.setOnTopClick(null);
+                Gui.removeInventories(gui);
+                gui.getHumanEntityCache().restoreAndForget(player);
+                gui.removeViewer(player);
+                Gui.removeInventoryIfUnused(gui);
+
+                if (closePlayer && gui.getInventory() != null) {
+                    try {
+                        if (player.getOpenInventory().getTopInventory().equals(gui.getInventory())) {
+                            player.closeInventory();
+                        }
+                    } catch (RuntimeException ignored) {
+                        // Retired/disconnected players may reject inventory
+                        // access; the NMS and registry cleanup already ran.
+                    }
+                }
+            }
+        }
+    }
+
+    private static void cancel(ScheduledTask task) {
+        if (task != null) {
+            task.cancel();
+        }
     }
 
     @Override
     public boolean isOpen() {
-        return open;
+        synchronized (this) {
+            return state == State.OPEN;
+        }
     }
 
     @Override
     public void onResult(Consumer<ScreenResult> callback) {
         this.callback = callback;
+    }
+
+    @Override
+    public void onOpenFailure(Consumer<Throwable> callback) {
+        this.openFailure = callback;
     }
 }

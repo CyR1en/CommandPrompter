@@ -1,5 +1,6 @@
 package dev.cyr1en.promptcore.config.handlers.impl;
 
+import dev.cyr1en.promptcore.config.ConfigurationException;
 import dev.cyr1en.promptcore.config.YamlDocument;
 import dev.cyr1en.promptcore.config.annotations.field.NodeDefault;
 import dev.cyr1en.promptcore.config.handlers.ConfigTypeHandler;
@@ -9,7 +10,25 @@ import java.lang.reflect.Field;
 public class FloatHandler implements ConfigTypeHandler<Float> {
   @Override
   public Float getValue(YamlDocument config, String nodeName, Field field) {
-    return (float) config.getDouble(nodeName);
+    final double value;
+    try {
+      value = config.getDouble(nodeName);
+    } catch (ConfigurationException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      throw new ConfigurationException(
+          "Invalid float configuration value for '" + nodeName + "'", e);
+    }
+    float narrowed = (float) value;
+    if (!Float.isFinite(narrowed)) {
+      throw new ConfigurationException(
+          "Invalid float configuration value for '"
+              + nodeName
+              + "': value overflows a 32-bit float ("
+              + value
+              + ")");
+    }
+    return narrowed;
   }
 
   @Override
@@ -22,9 +41,14 @@ public class FloatHandler implements ConfigTypeHandler<Float> {
     var defaultAnnotation = field.getAnnotation(NodeDefault.class);
     if (defaultAnnotation != null) {
       try {
-        return Float.parseFloat(defaultAnnotation.value());
+        var value = Float.parseFloat(defaultAnnotation.value());
+        if (!Float.isFinite(value)) {
+          throw new NumberFormatException("non-finite value");
+        }
+        return value;
       } catch (NumberFormatException e) {
-        return 0.0f;
+        throw new IllegalArgumentException(
+            "Invalid float default for '" + field.getName() + "': " + defaultAnnotation.value(), e);
       }
     }
     return 0.0f;

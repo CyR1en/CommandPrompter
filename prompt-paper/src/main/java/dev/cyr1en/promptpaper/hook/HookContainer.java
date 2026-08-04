@@ -3,7 +3,12 @@ package dev.cyr1en.promptpaper.hook;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.hook.annotations.TargetPlugin;
 import dev.cyr1en.promptpaper.hook.hooks.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.ServiceConfigurationError;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Listener;
 
@@ -16,9 +21,22 @@ import org.bukkit.event.Listener;
  */
 public class HookContainer {
 
+    /** Hook order is also the selection priority for hooks sharing an extension point. */
+    private static final List<Class<? extends PluginHook>> HOOK_TYPES = List.of(
+            PremiumVanishHook.class,
+            SuperVanishHook.class,
+            CarbonChatHook.class,
+            VanishNoPacketHook.class,
+            PapiHook.class,
+            TownyHook.class,
+            LuckPermsHook.class,
+            HuskTownsHook.class,
+            WorldGuardHook.class);
+
     private final CommandPrompter plugin;
-    private final Map<Class<?>, PluginHook> hooks = new HashMap<>();
-    private final Map<Class<?>, String> targetPlugins = new HashMap<>();
+    private final Map<Class<?>, PluginHook> hooks = new LinkedHashMap<>();
+    private final Map<Class<?>, String> targetPlugins = new LinkedHashMap<>();
+    private boolean initialized;
 
     public HookContainer(CommandPrompter plugin) {
         this.plugin = plugin;
@@ -29,18 +47,17 @@ public class HookContainer {
      * silently if its {@link TargetPlugin} is not installed on the server.
      */
     public void initHooks() {
+        if (initialized) {
+            plugin.getPluginLogger().debug("Hooks already initialized; keeping existing registrations");
+            return;
+        }
+        initialized = true;
         plugin.getPluginLogger().debug("Initializing hooks...");
-        hook(PremiumVanishHook.class);
-        hook(SuperVanishHook.class);
-        hook(CarbonChatHook.class);
-        hook(VanishNoPacketHook.class);
-        hook(PapiHook.class);
-        hook(TownyHook.class);
-        hook(LuckPermsHook.class);
-        hook(HuskTownsHook.class);
-        hook(WorldGuardHook.class);
-        var hookedCount = hooks.size();
-        plugin.getPluginLogger().debug("Hooks initialized: " + hookedCount + "/" + hooks.size() + " active");
+        for (var type : HOOK_TYPES) {
+            hook(type);
+        }
+        plugin.getPluginLogger().debug(
+                "Hooks initialized: " + hooks.size() + "/" + HOOK_TYPES.size() + " active");
     }
 
     /**
@@ -48,11 +65,25 @@ public class HookContainer {
      * Skips silently if the target plugin is missing or the annotation is absent.
      */
     private <T extends PluginHook> void hook(Class<T> type) {
-        var instance = constructHook(type);
-        if (instance == null) return;
-        hooks.put(type, instance);
-        plugin.getPluginLogger().info(" \u2713 " + type.getSimpleName() + " hooked");
-        instance.onEnable();
+        try {
+            var instance = constructHook(type);
+            if (instance == null) return;
+
+            // Run optional API initialization before exposing the hook to selectors. If the
+            // provider throws, only this hook is skipped and the remaining integrations continue.
+            instance.onEnable();
+            registerListener(type, instance);
+            hooks.put(type, instance);
+            var annotation = type.getAnnotation(TargetPlugin.class);
+            if (annotation != null) targetPlugins.put(type, annotation.pluginName());
+            plugin.getPluginLogger().info(" \u2713 " + type.getSimpleName() + " hooked");
+        } catch (ServiceConfigurationError e) {
+            logHookFailure(type, e);
+        } catch (LinkageError e) {
+            logHookFailure(type, e);
+        } catch (Exception e) {
+            logHookFailure(type, e);
+        }
     }
 
     /**
@@ -61,33 +92,62 @@ public class HookContainer {
      * the annotation is absent, or the required constructor is not found.
      */
     private <T extends PluginHook> T constructHook(Class<T> type) {
-        var ann = type.getAnnotation(TargetPlugin.class);
-        if (ann == null) {
-            plugin.getPluginLogger().debug("Skipping " + type.getSimpleName() + ": no @TargetPlugin annotation");
-            return null;
-        }
-
-        var target = ann.pluginName();
-        if (!Bukkit.getPluginManager().isPluginEnabled(target)) {
-            plugin.getPluginLogger().debug("Skipping " + type.getSimpleName() + ": " + target + " not installed");
-            return null;
-        }
-
         try {
+            var ann = type.getAnnotation(TargetPlugin.class);
+            if (ann == null) {
+                plugin.getPluginLogger().debug(
+                        "Skipping " + type.getSimpleName() + ": no @TargetPlugin annotation");
+                return null;
+            }
+
+            var target = ann.pluginName();
+            if (!Bukkit.getPluginManager().isPluginEnabled(target)) {
+                plugin.getPluginLogger().debug(
+                        "Skipping " + type.getSimpleName() + ": " + target + " not installed");
+                return null;
+            }
+
             var ctor = type.getDeclaredConstructor(CommandPrompter.class);
             var instance = ctor.newInstance(plugin);
-            if (instance instanceof Listener listener)
-                Bukkit.getPluginManager().registerEvents(listener, plugin);
-            targetPlugins.put(type, target);
             return instance;
         } catch (NoSuchMethodException e) {
-            plugin.getPluginLogger().err("Hook " + type.getSimpleName()
-                    + " is missing required constructor (CommandPrompter)");
+            plugin.getPluginLogger().err(
+                    "Hook " + type.getSimpleName()
+                            + " is missing required constructor (CommandPrompter)");
+            return null;
+        } catch (ServiceConfigurationError e) {
+            logHookFailure(type, e);
+            return null;
+        } catch (LinkageError e) {
+            logHookFailure(type, e);
             return null;
         } catch (Exception e) {
-            plugin.getPluginLogger().err("Failed to construct hook " + type.getSimpleName() + ": " + e.getMessage());
+            logHookFailure(type, e);
             return null;
         }
+    }
+
+    /** Registers a listener after successful optional-API initialization. */
+    private void registerListener(Class<?> type, PluginHook hook) {
+        if (!(hook instanceof Listener listener)) return;
+
+        // PremiumVanish exposes the SuperVanish event/API and PremiumVanishHook inherits the
+        // listener method. Registering both instances makes every vanish event invalidate the
+        // cache twice when both plugins are installed. PremiumVanish has explicit priority above
+        // SuperVanish, so retain the first listener and keep the second hook API-only.
+        if (type == SuperVanishHook.class && hooks.containsKey(PremiumVanishHook.class)) {
+            plugin.getPluginLogger().debug(
+                    "Skipping inherited SuperVanish listener because PremiumVanish is already hooked");
+            return;
+        }
+        Bukkit.getPluginManager().registerEvents(listener, plugin);
+    }
+
+    private void logHookFailure(Class<?> type, Throwable failure) {
+        var message = failure.getMessage();
+        plugin.getPluginLogger().err(
+                "Skipping hook " + type.getSimpleName() + ": "
+                        + (message == null ? failure.getClass().getSimpleName() : message));
     }
 
     /** Returns the Bukkit plugin name that the given hook type targets, if known. */
@@ -96,10 +156,12 @@ public class HookContainer {
     }
 
     /** Returns the registered hook instance of the given type, if present. */
+    @SuppressWarnings("unchecked")
     public <T> Optional<T> getHook(Class<T> type) {
         return Optional.ofNullable((T) hooks.get(type));
     }
 
+    @SuppressWarnings("unchecked")
     public <T extends PluginHook> Optional<T> getPluginHook(Class<T> type) {
         return Optional.ofNullable((T) hooks.get(type));
     }
@@ -126,6 +188,20 @@ public class HookContainer {
     /** Calls {@link PluginHook#onDisable()} on every registered hook. */
     public void disableAll() {
         plugin.getPluginLogger().debug("Disabling all hooks...");
-        hooks.values().forEach(PluginHook::onDisable);
+        // Disable in reverse registration order so selected fallbacks remain available until
+        // higher-priority integrations have released their resources.
+        var registered = new ArrayList<>(hooks.values());
+        for (var i = registered.size() - 1; i >= 0; i--) {
+            var hook = registered.get(i);
+            try {
+                hook.onDisable();
+            } catch (ServiceConfigurationError e) {
+                logHookFailure(hook.getClass(), e);
+            } catch (LinkageError e) {
+                logHookFailure(hook.getClass(), e);
+            } catch (Exception e) {
+                logHookFailure(hook.getClass(), e);
+            }
+        }
     }
 }

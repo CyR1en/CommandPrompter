@@ -2,14 +2,18 @@ package dev.cyr1en.promptui.v26_1;
 
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.SignInputScreen;
+import io.netty.channel.ChannelPipeline;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Material;
@@ -22,137 +26,201 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * NMS implementation of {@link SignInputScreen} that opens a virtual sign editor
- * for text input without placing a real block.
- *
- * <p>Sends a fake sign block state and block-entity data packet to the client, then
- * installs a {@link SignInterceptor} in the player's channel pipeline to capture
- * the sign-edit response. The virtual sign is always placed behind the player
- * so it stays hidden.</p>
+ * NMS implementation of {@link SignInputScreen} that opens a virtual sign
+ * editor for text input without placing a real block.
  */
 public class SignScreenImpl implements SignInputScreen, Listener {
 
     private final JavaPlugin plugin;
     private final Player player;
     private final String[] defaultLines;
+    private final String handlerName = "commandprompter_sign_" + UUID.randomUUID();
+    private final Object lifecycleLock = new Object();
     private BlockPos pos;
     private SignInterceptor interceptor;
     private Map<String, String> config = Map.of();
-    private boolean open;
     private Consumer<ScreenResult> callback;
+    private Consumer<Throwable> openFailure;
+    private ScheduledTask openTask;
+    private ScheduledTask finishTask;
+    private BlockState originalBlockState;
+    private Packet<?> originalBlockEntityPacket;
+    private boolean fakeStateSent;
+    private State state = State.NEW;
+
+    private enum State {
+        NEW,
+        OPENING,
+        OPEN,
+        CLOSED
+    }
 
     public SignScreenImpl(JavaPlugin plugin, Player player, String[] lines) {
         this.plugin = plugin;
         this.player = player;
-        this.defaultLines = lines;
-        // Position is resolved at open() to track the player's current location.
+        this.defaultLines = lines.clone();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Computes the block 3 blocks behind the player at eye level. The sign
-     * is always in a loaded chunk, at a valid Y coordinate within the build
-     * limits, and (because the player is looking forward) hidden behind them.
-     * This matches the SignGUI reference implementation and avoids the
-     * out-of-bounds drop that breaks the editor-open packet when the sign
-     * is placed above the build ceiling.
-     */
+    /** Computes a hidden position and clamps it to the world's build limits. */
     private BlockPos resolveSignPosition() {
         var eye = player.getEyeLocation();
         var dir = eye.getDirection();
         var x = eye.getBlockX() - (int) Math.round(dir.getX() * 3.0);
         var y = eye.getBlockY();
         var z = eye.getBlockZ() - (int) Math.round(dir.getZ() * 3.0);
+        int minY = player.getWorld().getMinHeight();
+        int maxY = player.getWorld().getMaxHeight() - 1;
+        y = Math.max(minY, Math.min(maxY, y));
         return new BlockPos(x, y, z);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void configure(Map<String, String> config) {
         this.config = new HashMap<>(config);
     }
 
-    /**
-     * Opens the virtual sign editor on the player's thread: resolves a hidden
-     * position, sends fake block/entity packets, opens the sign GUI, and
-     * installs a {@link SignInterceptor} to capture the response.
-     */
     @Override
     public void open() {
-        player.getScheduler().run(plugin, scheduledTask -> {
+        synchronized (lifecycleLock) {
+            if (state != State.NEW) return;
+            state = State.OPENING;
+        }
+
+        ScheduledTask scheduled;
+        try {
+            scheduled = player.getScheduler().run(plugin, ignored -> openOnPlayerThread(),
+                    () -> failOpen(new IllegalStateException("Player scheduler retired")));
+        } catch (Throwable failure) {
+            failOpen(failure);
+            return;
+        }
+        synchronized (lifecycleLock) {
+            if (state == State.OPENING) {
+                openTask = scheduled;
+            } else if (scheduled != null) {
+                scheduled.cancel();
+            }
+        }
+        if (scheduled == null) {
+            failOpen(new IllegalStateException("Player scheduler returned no task"));
+        }
+    }
+
+    private void openOnPlayerThread() {
+        synchronized (lifecycleLock) {
+            if (state != State.OPENING) return;
+            openTask = null;
+        }
+        try {
             var nmsPlayer = ((CraftPlayer) player).getHandle();
             pos = resolveSignPosition();
 
+            // Capture the real client-visible state before sending anything
+            // fake. The entity packet is retained so an existing sign/block
+            // entity can be restored, rather than blindly replacing it with AIR.
+            originalBlockState = nmsPlayer.level().getBlockState(pos);
+            BlockEntity originalEntity = nmsPlayer.level().getBlockEntity(pos);
+            originalBlockEntityPacket = originalEntity == null
+                    ? null
+                    : originalEntity.getUpdatePacket();
+
             var signState = resolveSignState();
             var signEntity = new SignBlockEntity(pos, signState);
-            // Set text while level is null to prevent dirtying or saving the virtual chunk.
             var text = signEntity.getText(true);
             for (int i = 0; i < Math.min(defaultLines.length, 4); i++) {
-                text = text.setMessage(i, Component.literal(defaultLines[i] != null ? defaultLines[i] : ""));
+                text = text.setMessage(i, Component.literal(
+                        defaultLines[i] != null ? defaultLines[i] : ""));
             }
             signEntity.setText(text, true);
 
-            // Send block change, temporarily set level for the update packet, and open the sign editor.
             var signLocation = new org.bukkit.Location(
                     player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
             player.sendBlockChange(signLocation, resolveSignMaterial().createBlockData());
+            fakeStateSent = true;
             signEntity.setLevel(nmsPlayer.level());
             try {
                 nmsPlayer.connection.send(signEntity.getUpdatePacket());
             } finally {
                 signEntity.setLevel(null);
             }
-            nmsPlayer.connection.send(new ClientboundOpenSignEditorPacket(pos, true));
 
-            var pipeline = nmsPlayer.connection.connection.channel.pipeline();
-            if (pipeline.get(SignInterceptor.HANDLER_NAME) != null) {
-                pipeline.remove(SignInterceptor.HANDLER_NAME);
+            ChannelPipeline pipeline = nmsPlayer.connection.connection.channel.pipeline();
+            if (pipeline == null || pipeline.get("decoder") == null) {
+                throw new IllegalStateException("Player connection decoder is unavailable");
             }
-            interceptor = new SignInterceptor(plugin, player, pos, this::handleSignFinish);
-            pipeline.addAfter("decoder", SignInterceptor.HANDLER_NAME, interceptor);
+            interceptor = new SignInterceptor(
+                    plugin,
+                    player,
+                    pos,
+                    handlerName,
+                    this::handleSignFinish,
+                    this::rememberFinishTask,
+                    this::failOpen);
+            pipeline.addAfter("decoder", handlerName, interceptor);
 
-            open = true;
+            synchronized (lifecycleLock) {
+                if (state != State.OPENING) {
+                    cleanupScreen(false);
+                    return;
+                }
+                state = State.OPEN;
+            }
+            nmsPlayer.connection.send(new ClientboundOpenSignEditorPacket(pos, true));
             plugin.getSLF4JLogger().debug("SignScreen opened: player={} lines={} pos={}",
                     player.getName(), defaultLines.length, pos);
-        }, null);
+        } catch (Throwable failure) {
+            failOpen(failure);
+        }
     }
 
-    /** Converts the configured sign material to its default NMS {@link BlockState}. */
+    private void rememberFinishTask(ScheduledTask task) {
+        synchronized (lifecycleLock) {
+            if (state == State.OPEN || state == State.OPENING) {
+                finishTask = task;
+                return;
+            }
+        }
+        task.cancel();
+    }
+
     private BlockState resolveSignState() {
         var nmsBlock = org.bukkit.craftbukkit.block.CraftBlockType
                 .bukkitToMinecraft(resolveSignMaterial());
         return nmsBlock.defaultBlockState();
     }
 
-    /** Resolves the sign {@link Material} from config, defaulting to {@link Material#OAK_SIGN}. */
     private Material resolveSignMaterial() {
         var materialName = config.getOrDefault("signMaterial", "OAK_SIGN");
         var mat = Material.matchMaterial(materialName);
         return mat != null ? mat : Material.OAK_SIGN;
     }
 
-    /** Removes the {@link SignInterceptor} from the pipeline and restores the virtual block to air. */
     @Override
     public void close() {
-        if (!open) return;
+        ScheduledTask open;
+        ScheduledTask finish;
+        synchronized (lifecycleLock) {
+            if (state == State.CLOSED) return;
+            state = State.CLOSED;
+            open = openTask;
+            finish = finishTask;
+            openTask = null;
+            finishTask = null;
+            callback = null;
+            openFailure = null;
+        }
+        cancel(open);
+        cancel(finish);
         HandlerList.unregisterAll(this);
-        open = false;
-        plugin.getSLF4JLogger().debug("SignScreen closing: player={}", player.getName());
-        player.getScheduler().run(plugin, scheduledTask -> {
-            var nmsPlayer = ((CraftPlayer) player).getHandle();
-            var pipeline = nmsPlayer.connection.connection.channel.pipeline();
-            if (pipeline.get(SignInterceptor.HANDLER_NAME) != null) {
-                pipeline.remove(SignInterceptor.HANDLER_NAME);
-            }
-            interceptor = null;
-            // Remove fake sign from client
-            nmsPlayer.connection.send(new ClientboundBlockUpdatePacket(pos, Blocks.AIR.defaultBlockState()));
-        }, null);
+        scheduleCleanup(false, null);
     }
 
     @Override
     public boolean isOpen() {
-        return open;
+        synchronized (lifecycleLock) {
+            return state == State.OPEN;
+        }
     }
 
     @Override
@@ -160,7 +228,11 @@ public class SignScreenImpl implements SignInputScreen, Listener {
         this.callback = callback;
     }
 
-    /** Cleans up the sign screen if the player disconnects while it is open. */
+    @Override
+    public void onOpenFailure(Consumer<Throwable> callback) {
+        this.openFailure = callback;
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         if (event.getPlayer().equals(player)) {
@@ -170,27 +242,139 @@ public class SignScreenImpl implements SignInputScreen, Listener {
         }
     }
 
-    /** Callback from {@link SignInterceptor}: removes the virtual sign and delivers the result. */
     private void handleSignFinish(String[] lines) {
-        HandlerList.unregisterAll(this);
-        open = false;
-        var nmsPlayer = ((CraftPlayer) player).getHandle();
-        var pipeline = nmsPlayer.connection.connection.channel.pipeline();
-        if (pipeline.get(SignInterceptor.HANDLER_NAME) != null) {
-            pipeline.remove(SignInterceptor.HANDLER_NAME);
+        Consumer<ScreenResult> resultCallback;
+        ScheduledTask finish;
+        synchronized (lifecycleLock) {
+            if (state != State.OPEN) return;
+            state = State.CLOSED;
+            finish = finishTask;
+            finishTask = null;
+            resultCallback = callback;
+            callback = null;
         }
-        interceptor = null;
-        nmsPlayer.connection.send(new ClientboundBlockUpdatePacket(pos, Blocks.AIR.defaultBlockState()));
-        player.closeInventory();
-        var answer = String.join("\n", lines).trim();
-        plugin.getSLF4JLogger().debug("SignScreen finished: player={} answer={}",
-                player.getName(), answer);
-        if (callback != null) {
-            if (answer.isEmpty()) {
-                callback.accept(ScreenResult.cancel());
-            } else {
-                callback.accept(ScreenResult.answer(answer));
+        cancel(finish);
+        HandlerList.unregisterAll(this);
+        String answer = String.join("\n", lines == null ? new String[0] : lines).trim();
+        ScreenResult result = answer.isEmpty()
+                ? ScreenResult.cancel()
+                : ScreenResult.answer(answer);
+        try {
+            cleanupScreen(true);
+        } finally {
+            try {
+                if (resultCallback != null) {
+                    plugin.getSLF4JLogger().debug("SignScreen finished: player={} answer={}",
+                            player.getName(), answer);
+                    resultCallback.accept(result);
+                }
+            } finally {
+                cleanupScreen(false);
             }
         }
+    }
+
+    private void failOpen(Throwable failure) {
+        Consumer<Throwable> failureCallback;
+        ScheduledTask open;
+        ScheduledTask finish;
+        synchronized (lifecycleLock) {
+            if (state == State.CLOSED) return;
+            state = State.CLOSED;
+            open = openTask;
+            finish = finishTask;
+            openTask = null;
+            finishTask = null;
+            failureCallback = openFailure;
+            openFailure = null;
+            callback = null;
+        }
+        cancel(open);
+        cancel(finish);
+        HandlerList.unregisterAll(this);
+        scheduleCleanup(false, failureCallback == null ? null : () -> failureCallback.accept(failure));
+    }
+
+    private void scheduleCleanup(boolean closeInventory, Runnable afterCleanup) {
+        try {
+            ScheduledTask task = player.getScheduler().run(
+                    plugin,
+                    ignored -> terminalCleanup(closeInventory, afterCleanup),
+                    () -> terminalCleanup(closeInventory, afterCleanup));
+            if (task == null) {
+                terminalCleanup(closeInventory, afterCleanup);
+            }
+        } catch (Throwable failure) {
+            terminalCleanup(closeInventory, afterCleanup);
+        }
+    }
+
+    private void terminalCleanup(boolean closeInventory, Runnable afterCleanup) {
+        try {
+            cleanupScreen(closeInventory);
+        } finally {
+            if (afterCleanup != null) {
+                try {
+                    afterCleanup.run();
+                } finally {
+                    cleanupScreen(false);
+                }
+            }
+        }
+    }
+
+    private void cleanupScreen(boolean closeInventory) {
+        SignInterceptor current = interceptor;
+        interceptor = null;
+        HandlerList.unregisterAll(this);
+        try {
+            var nmsPlayer = ((CraftPlayer) player).getHandle();
+            if (nmsPlayer.connection != null && nmsPlayer.connection.connection != null) {
+                ChannelPipeline pipeline = nmsPlayer.connection.connection.channel.pipeline();
+                if (pipeline != null && current != null && pipeline.get(handlerName) == current) {
+                    pipeline.remove(handlerName);
+                }
+            }
+        } catch (Throwable failure) {
+            plugin.getSLF4JLogger().debug("Sign pipeline cleanup failed: {}", failure.getMessage());
+        } finally {
+            restoreClientState();
+            if (closeInventory) {
+                try {
+                    player.closeInventory();
+                } catch (Throwable failure) {
+                    plugin.getSLF4JLogger().debug("Sign inventory cleanup failed: {}", failure.getMessage());
+                }
+            }
+        }
+    }
+
+    private void restoreClientState() {
+        BlockPos restorePos;
+        BlockState restoreState;
+        Packet<?> entityPacket;
+        synchronized (lifecycleLock) {
+            if (!fakeStateSent || pos == null) return;
+            fakeStateSent = false;
+            restorePos = pos;
+            restoreState = originalBlockState;
+            entityPacket = originalBlockEntityPacket;
+        }
+        try {
+            var nmsPlayer = ((CraftPlayer) player).getHandle();
+            if (restoreState == null) {
+                restoreState = nmsPlayer.level().getBlockState(restorePos);
+            }
+            nmsPlayer.connection.send(new ClientboundBlockUpdatePacket(restorePos, restoreState));
+            if (entityPacket != null) {
+                nmsPlayer.connection.send(entityPacket);
+            }
+        } catch (Throwable failure) {
+            plugin.getSLF4JLogger().debug("Sign block restoration failed: {}", failure.getMessage());
+        }
+    }
+
+    private static void cancel(ScheduledTask task) {
+        if (task != null) task.cancel();
     }
 }

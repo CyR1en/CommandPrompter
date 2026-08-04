@@ -87,6 +87,12 @@ class PostCommandPlaceholderResolverTest extends MockBukkitTest {
   }
 
   @Test
+  void oversizedInputIndexIsLeftInPlace() {
+    var result = resolver.resolve("say {input:999999999999999999999999}", player(), List.of("a"));
+    assertEquals("say {input:999999999999999999999999}", result);
+  }
+
+  @Test
   void multipleInputPlaceholdersInOneTemplate() {
     var result = resolver.resolve(
         "msg {input:2} about {input:1}", player(), List.of("first", "second"));

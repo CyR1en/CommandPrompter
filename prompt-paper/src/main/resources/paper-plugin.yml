@@ -21,6 +21,13 @@ dependencies:
 permissions:
   promptpaper.admin:
     description: Master permission for CommandPrompter commands
+    children:
+      promptpaper.reload: true
+      promptpaper.cancel: true
+      promptpaper.version: true
+      promptpaper.use: true
+      promptpaper.consoledelegate: true
+      promptpaper.playerdelegate: true
   promptpaper.reload:
     description: Allows using /commandprompter reload
   promptpaper.cancel:

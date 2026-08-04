@@ -6,8 +6,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
 /**
- * A GUI whose top and bottom inventories are rendered as a single merged
- * {@link GuiComponent}, typically used by chest-style GUIs.
+ * A GUI whose rendered inventory region is represented by a single
+ * {@link GuiComponent}, typically used by chest-style GUIs. Implementations
+ * that do not render player-inventory rows expose only their top region rather
+ * than advertising an absent bottom component.
  */
 public interface MergedGui {
 

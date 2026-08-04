@@ -43,7 +43,7 @@ class ConsoleDelegateCommandTest extends MockBukkitTest {
         PlayerMock target = createPlayer("Alice");
         cmd.startSession("Console", target, "msg %target_player% hi");
         verify(screenManager, times(1)).startDelegatedSession(
-                target, "msg Alice hi", DispatchMode.CONSOLE, null);
+                target, "msg %target_player% hi", DispatchMode.CONSOLE, null);
     }
 
     @Test

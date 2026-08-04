@@ -153,7 +153,7 @@ public final class PromptSession {
 
     var current = remaining.get(0);
     var processedAnswer = current.sanitize() ? sanitize(answer) : answer;
-    var newAnswers = new ArrayList<>(answers);
+    var newAnswers = new ArrayList<>(this.answers);
     newAnswers.add(processedAnswer);
     var newRemaining = new ArrayList<>(remaining);
     newRemaining.remove(0);
@@ -208,11 +208,13 @@ public final class PromptSession {
               + answers.size());
     }
 
-    var newAnswers = new ArrayList<>(answers);
-    var processed = new ArrayList<String>(newAnswers.size());
-    for (var raw : newAnswers) {
+    var newAnswers = new ArrayList<>(this.answers);
+    var processed = new ArrayList<String>(answers.size());
+    for (var raw : answers) {
+      Objects.requireNonNull(raw, "answers must not contain null elements");
       processed.add(current.sanitize() ? sanitize(raw) : raw);
     }
+    newAnswers.addAll(processed);
     var newRemaining = new ArrayList<>(remaining);
     newRemaining.remove(0);
 
@@ -231,7 +233,7 @@ public final class PromptSession {
     return new PromptSession(
         userId,
         parsedCommand,
-        Collections.unmodifiableList(processed),
+        Collections.unmodifiableList(newAnswers),
         Collections.unmodifiableList(newRemaining),
         pcmQueue,
         newState,
@@ -297,22 +299,35 @@ public final class PromptSession {
     return pcms.stream()
         .map(
             pcm -> {
-              var resolved = pcm.command();
-              for (int i = 0; i < answers.size(); i++) {
-                resolved = resolved.replace("{" + i + "}", answers.get(i));
+              // Match only against the original PCM template. appendReplacement prevents an answer
+              // containing "{1}" from being scanned again and substituted by a later answer.
+              var matcher = Pattern.compile("\\{(\\d+)}").matcher(pcm.command());
+              var resolved = new StringBuffer();
+              while (matcher.find()) {
+                int index;
+                try {
+                  index = Integer.parseInt(matcher.group(1));
+                } catch (NumberFormatException e) {
+                  index = -1;
+                }
+                String replacement = "";
+                if (index >= 0 && index < answers.size()) {
+                  replacement = answers.get(index);
+                } else {
+                  LOG.warning(
+                      "Unresolved PCM reference "
+                          + matcher.group()
+                          + " in command: "
+                          + pcm.command());
+                }
+                matcher.appendReplacement(
+                    resolved, java.util.regex.Matcher.quoteReplacement(replacement));
               }
-              var unresolved = Pattern.compile("\\{\\d+}").matcher(resolved);
-              if (unresolved.find()) {
-                LOG.warning(
-                    "Unresolved PCM reference "
-                        + unresolved.group()
-                        + " in command: "
-                        + pcm.command());
-                resolved = unresolved.replaceAll("");
-              }
-              resolved = resolved.replaceAll("\\s+", " ").trim();
+              matcher.appendTail(resolved);
+              var resolvedCommand = resolved.toString();
+              resolvedCommand = resolvedCommand.replaceAll("\\s+", " ").trim();
               return new PostCommandMeta(
-                  resolved,
+                  resolvedCommand,
                   pcm.answerIndices(),
                   pcm.delayTicks(),
                   pcm.onCancel(),

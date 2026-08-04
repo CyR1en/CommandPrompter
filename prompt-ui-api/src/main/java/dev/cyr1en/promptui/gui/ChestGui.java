@@ -14,15 +14,13 @@ import java.util.List;
 /**
  * A chest-style GUI with 1-6 rows.
  *
- * <p>Uses a single merged {@link GuiComponent} that spans both the chest rows
- * and the player inventory rows below. The component is split at render time
- * via row exclusion.</p>
+ * <p>The component covers the chest rows only. Player-inventory rows are not
+ * advertised until they have a real renderer; bottom-inventory interaction is
+ * disabled by default rather than silently exposing an unrendered component.</p>
  */
 public final class ChestGui extends NamedGui implements MergedGui, InventoryBased, InventoryHolder {
 
     private static final int ROW_WIDTH = 9;
-    private static final int PLAYER_INV_ROWS = 4; // 36 slots = hotbar (1 row) + storage (3 rows)
-
     private final int rows;
     private final GuiComponent guiComponent;
 
@@ -38,7 +36,8 @@ public final class ChestGui extends NamedGui implements MergedGui, InventoryBase
             throw new IllegalArgumentException("Chest rows must be 1-6, got " + rows);
         }
         this.rows = rows;
-        this.guiComponent = new GuiComponent(ROW_WIDTH, rows + PLAYER_INV_ROWS);
+        this.guiComponent = new GuiComponent(ROW_WIDTH, rows);
+        setPlayerInventoryUsed(false);
     }
 
     // -- InventoryBased --
@@ -89,9 +88,6 @@ public final class ChestGui extends NamedGui implements MergedGui, InventoryBase
 
         guiComponent.placeItems(inventory, 0, 0);
 
-        if (isPlayerInventoryUsed()) {
-            // TODO: Render component's player inventory rows into player's actual inventory.
-        }
     }
 
     /**

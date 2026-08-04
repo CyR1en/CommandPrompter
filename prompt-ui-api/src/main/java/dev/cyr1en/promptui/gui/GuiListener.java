@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Central event handler for all GUI lifecycle events.
@@ -27,7 +28,7 @@ import java.util.Set;
 public final class GuiListener implements Listener {
 
     private final JavaPlugin plugin;
-    private final Set<Gui> activeGuis = new HashSet<>();
+    private final Set<Gui> activeGuis = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates and registers this listener with the Bukkit plugin manager.
@@ -45,7 +46,8 @@ public final class GuiListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryOpen(@NotNull InventoryOpenEvent event) {
         Gui gui = Gui.getGui(event.getInventory());
-        if (gui != null) {
+        if (gui != null && !event.isCancelled()) {
+            gui.markViewer(event.getPlayer());
             activeGuis.add(gui);
         }
     }
@@ -113,7 +115,7 @@ public final class GuiListener implements Listener {
         }
 
         // Cancel drag on top inventory to prevent item movement
-        if (touchesTop) {
+        if (touchesTop || (touchesBottom && !gui.isPlayerInventoryUsed())) {
             event.setCancelled(true);
         }
     }
@@ -128,12 +130,27 @@ public final class GuiListener implements Listener {
         Gui gui = Gui.getGui(event.getInventory());
         if (gui == null) return;
 
+        HumanEntity player = event.getPlayer();
+        boolean lastViewer = gui.removeViewer(player);
+        gui.getHumanEntityCache().restoreAndForget(player);
+        if (lastViewer) {
+            activeGuis.remove(gui);
+            Gui.removeInventories(gui);
+        }
+
         try {
             gui.callOnClose(event);
         } finally {
-            activeGuis.remove(gui);
-            HumanEntity player = event.getPlayer();
-            gui.getHumanEntityCache().restoreAndForget(player);
+            // Close callbacks are user code and may open the next prompt. The
+            // registry/cache cleanup deliberately happens before the callback,
+            // while this finally block makes the cleanup idempotent if the
+            // callback throws or a second close event is emitted.
+            if (!gui.isViewer(player)) {
+                gui.removeViewer(player);
+                gui.getHumanEntityCache().restoreAndForget(player);
+                Gui.removeInventoryIfUnused(gui);
+                activeGuis.remove(gui);
+            }
         }
     }
 
@@ -146,13 +163,17 @@ public final class GuiListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onEntityPickupItem(@NotNull EntityPickupItemEvent event) {
         if (!(event.getEntity() instanceof HumanEntity player)) return;
-        for (Gui gui : activeGuis) {
-            if (gui.getHumanEntityCache().contains(player)) {
+        for (Gui gui : Gui.getActiveGuis()) {
+            if (gui.isViewer(player) && gui.getHumanEntityCache().contains(player)) {
                 boolean stored = gui.getHumanEntityCache().add(player, event.getItem().getItemStack());
                 if (stored) {
                     event.getItem().remove();
-                    event.setCancelled(true);
                 }
+                // A full snapshot is still protected: cancelling without
+                // removing leaves the world item untouched for a later,
+                // non-temporary pickup instead of allowing it into the
+                // transient inventory.
+                event.setCancelled(true);
                 break;
             }
         }
@@ -162,11 +183,30 @@ public final class GuiListener implements Listener {
      * Closes all active GUIs. Called on plugin disable.
      */
     public void closeAll() {
-        for (Gui gui : new HashSet<>(activeGuis)) {
-            for (HumanEntity viewer : new HashSet<>(gui.getInventory().getViewers())) {
-                viewer.closeInventory();
+        Set<Gui> guis = new HashSet<>(Gui.getGuis());
+        guis.addAll(Gui.getActiveGuis());
+        guis.addAll(new HashSet<>(activeGuis));
+        for (Gui gui : guis) {
+            Set<HumanEntity> viewers = new HashSet<>(gui.getViewers());
+            Inventory guiInventory = gui.getInventory();
+            if (guiInventory != null) {
+                viewers.addAll(new HashSet<>(guiInventory.getViewers()));
             }
+            for (HumanEntity viewer : viewers) {
+                try {
+                    viewer.closeInventory();
+                } finally {
+                    gui.removeViewer(viewer);
+                    gui.getHumanEntityCache().restoreAndForget(viewer);
+                }
+            }
+            // A close event is not guaranteed during plugin shutdown. Restore
+            // any cached entity not present in the platform viewer list too.
+            gui.getHumanEntityCache().restoreAll();
+            Gui.removeInventories(gui);
+            gui.removeViewerAll();
         }
         activeGuis.clear();
+        Gui.clearRegistry();
     }
 }

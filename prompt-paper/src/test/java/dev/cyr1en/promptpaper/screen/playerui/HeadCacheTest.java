@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -170,6 +171,19 @@ class HeadCacheTest extends MockBukkitTest {
         Style coloredStyle = findStyleWithColor(display);
         assertNotNull(coloredStyle);
         assertEquals(NamedTextColor.GOLD, coloredStyle.color());
+    }
+
+    @Test
+    void buildCacheWaitsForAllBatchedPlayerTasksBeforeCompletion() {
+        for (int i = 0; i < 26; i++) createPlayer("Batch" + i);
+        var callbackCount = new AtomicInteger();
+
+        headCache.buildCache(callbackCount::incrementAndGet);
+
+        assertEquals(0, callbackCount.get());
+        performOneTick();
+        assertEquals(1, callbackCount.get());
+        assertEquals(26, headCache.size());
     }
 
     private static Style findStyleWithColor(Component root) {

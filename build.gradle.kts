@@ -3,6 +3,11 @@ allprojects {
     version = "3.1.0"
 }
 
+tasks.register("printVersion") {
+    description = "Print the Gradle project version for release checks."
+    doLast { println(project.version) }
+}
+
 subprojects {
     apply(plugin = "maven-publish")
 

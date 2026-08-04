@@ -290,7 +290,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .build())
                 .type(io.papermc.paper.registry.data.dialog.type.DialogType.multiAction(List.copyOf(buttons), buildExitButton(), 1)));
     }
@@ -341,7 +341,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(List.of(DialogBody.plainMessage(notice)))
                         .inputs(List.of(input))
                         .build())
@@ -394,7 +394,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(bodies)
                         .inputs(inputs)
                         .build())
@@ -536,7 +536,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         player.showDialog(Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(body)
                         .inputs(inputs)
                         .build())

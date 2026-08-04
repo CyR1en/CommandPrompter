@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -128,20 +130,57 @@ public class HeadCache implements Listener {
         cache.clear();
         var players = new ArrayList<Player>(Bukkit.getOnlinePlayers());
         players.removeIf(this::isVanished);
-        processBatch(players, 0, callback);
+        processBatch(players, 0, callback, new AtomicBoolean());
     }
 
     private static final int BATCH_SIZE = 25;
 
-    private void processBatch(List<Player> players, int start, Runnable callback) {
+    private void processBatch(
+            List<Player> players, int start, Runnable callback, AtomicBoolean callbackCompleted) {
         int end = Math.min(start + BATCH_SIZE, players.size());
-        for (int i = start; i < end; i++) {
-            getHeadFor(players.get(i));
+        if (start >= end) {
+            if (callbackCompleted.compareAndSet(false, true)) callback.run();
+            return;
         }
+        var remaining = new AtomicInteger(end - start);
+        for (int i = start; i < end; i++) {
+            Player p = players.get(i);
+            var playerCompleted = new AtomicBoolean();
+            Runnable completePlayer = () -> {
+                if (playerCompleted.compareAndSet(false, true)
+                        && remaining.decrementAndGet() == 0) {
+                    continueBatch(players, end, callback, callbackCompleted);
+                }
+            };
+            try {
+                var task = p.getScheduler().run(
+                        plugin,
+                        scheduledTask -> {
+                            try {
+                                getHeadFor(p);
+                            } finally {
+                                completePlayer.run();
+                            }
+                        },
+                        completePlayer);
+                if (task == null) completePlayer.run();
+            } catch (Throwable t) {
+                completePlayer.run();
+            }
+        }
+    }
+
+    private void continueBatch(
+            List<Player> players, int end, Runnable callback, AtomicBoolean callbackCompleted) {
         if (end < players.size()) {
-            scheduler.runLater(() -> processBatch(players, end, callback), 1);
+            try {
+                scheduler.runLater(
+                        () -> processBatch(players, end, callback, callbackCompleted), 1);
+            } catch (Throwable t) {
+                if (callbackCompleted.compareAndSet(false, true)) callback.run();
+            }
         } else {
-            callback.run();
+            if (callbackCompleted.compareAndSet(false, true)) callback.run();
         }
     }
 
@@ -158,7 +197,17 @@ public class HeadCache implements Listener {
         if (vanished) return;
         var delay = plugin.getConfigLoader().getPromptConfig().cacheDelay();
         if (delay > 0) {
-            scheduler.runLater(() -> getHeadFor(player), delay);
+            try {
+                var task = player.getScheduler().runDelayed(
+                        plugin, scheduledTask -> getHeadFor(player), null, delay);
+                if (task == null) {
+                    plugin.getPluginLogger().debug("Head-cache join task retired for "
+                            + player.getUniqueId());
+                }
+            } catch (Exception e) {
+                plugin.getPluginLogger().debug("Unable to schedule head-cache join task for "
+                        + player.getUniqueId() + ": " + e.getMessage());
+            }
         } else {
             getHeadFor(player);
         }

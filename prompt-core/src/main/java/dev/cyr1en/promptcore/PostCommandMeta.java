@@ -1,5 +1,6 @@
 package dev.cyr1en.promptcore;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -31,7 +32,15 @@ public record PostCommandMeta(
 
   public PostCommandMeta {
     Objects.requireNonNull(command);
+    Objects.requireNonNull(answerIndices);
     Objects.requireNonNull(dispatchTarget);
+    answerIndices = answerIndices.clone();
+  }
+
+  /** Returns a defensive copy so callers cannot mutate parsed session metadata. */
+  @Override
+  public int[] answerIndices() {
+    return answerIndices.clone();
   }
 
   /**
@@ -41,5 +50,23 @@ public record PostCommandMeta(
    */
   public boolean isPreset() {
     return preset;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) return true;
+    if (!(other instanceof PostCommandMeta that)) return false;
+    return delayTicks == that.delayTicks
+        && onCancel == that.onCancel
+        && preset == that.preset
+        && command.equals(that.command)
+        && Arrays.equals(answerIndices, that.answerIndices)
+        && dispatchTarget == that.dispatchTarget;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(command, delayTicks, onCancel, dispatchTarget, preset);
+    return 31 * result + Arrays.hashCode(answerIndices);
   }
 }

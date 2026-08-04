@@ -40,8 +40,6 @@ public class RecordConfigLoader {
             ? new String[] {configClass.getSimpleName(), "Configuration"}
             : headerAnnotation.value();
 
-    boolean saveNeeded = false;
-
     var configValues = new ArrayList<>();
     configValues.add(config);
 
@@ -62,7 +60,6 @@ public class RecordConfigLoader {
 
         if (nodeDefault != null) {
           handler.setValue(config, nodeName, nodeDefault, nodeComment);
-          saveNeeded = true;
         }
       } else {
         var commentAnnotation = field.getAnnotation(NodeComment.class);
@@ -74,7 +71,19 @@ public class RecordConfigLoader {
       if (field.isAnnotationPresent(Match.class)) {
         var matchAnnotation = field.getAnnotation(Match.class);
         var regex = matchAnnotation.regex();
-        var pattern = Pattern.compile(regex);
+        final Pattern pattern;
+        try {
+          pattern = Pattern.compile(regex);
+        } catch (RuntimeException e) {
+          throw new ConfigurationException(
+              "Invalid regex for configuration path '"
+                  + nodeName
+                  + "' in "
+                  + file.getAbsolutePath()
+                  + ": "
+                  + regex,
+              e);
+        }
         String valStr = config.getString(nodeName);
         if (valStr != null) {
           var res = pattern.matcher(valStr).matches();
@@ -101,15 +110,20 @@ public class RecordConfigLoader {
       }
     }
 
-    config.save(header);
-
     try {
       var recordConfig =
           configClass.getDeclaredConstructors()[0].newInstance(configValues.toArray());
       @SuppressWarnings("unchecked")
       var out = (T) recordConfig;
+      // Dump only after every value and the record constructor have validated successfully. A
+      // malformed value therefore cannot cause a partially defaulted configuration to be saved.
+      config.save(header);
       return out;
-    } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+    } catch (InvocationTargetException e) {
+      if (e.getCause() instanceof RuntimeException runtime) throw runtime;
+      throw new RuntimeException(
+          "Failed to instantiate config: " + configClass.getSimpleName(), e.getCause());
+    } catch (InstantiationException | IllegalAccessException e) {
       throw new RuntimeException("Failed to instantiate config: " + configClass.getSimpleName(), e);
     }
   }

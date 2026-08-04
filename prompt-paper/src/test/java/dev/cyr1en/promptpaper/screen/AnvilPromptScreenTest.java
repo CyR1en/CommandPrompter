@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptui.AnvilInputScreen;
@@ -14,6 +15,7 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +58,28 @@ class AnvilPromptScreenTest extends MockBukkitTest {
 
         assertTrue(screen.isOpen());
         verify(mockAnvil).open();
+    }
+
+    @Test
+    void asynchronousProviderFailureFallsBackToChat() {
+        var player = createPlayer();
+        var mockProvider = mock(ScreenProvider.class);
+        var mockAnvil = mock(AnvilInputScreen.class);
+        var failureCallback = new AtomicReference<Consumer<Throwable>>();
+        doAnswer(invocation -> {
+            failureCallback.set(invocation.getArgument(0));
+            return null;
+        }).when(mockAnvil).onOpenFailure(any());
+        when(mockProvider.createAnvil(any(CommandPrompter.class), any(), anyString()))
+                .thenReturn(mockAnvil);
+
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), List.of(mockProvider));
+        screen.open();
+
+        assertNotNull(failureCallback.get());
+        failureCallback.get().accept(new IllegalStateException("async open failed"));
+        assertTrue(screen.isOpen());
+        verify(mockAnvil).close();
     }
 
     @Test

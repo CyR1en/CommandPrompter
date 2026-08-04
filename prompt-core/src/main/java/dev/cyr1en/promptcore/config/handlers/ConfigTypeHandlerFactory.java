@@ -16,10 +16,14 @@ public class ConfigTypeHandlerFactory {
 
   static {
     handlers.put(int.class, new IntegerHandler());
+    handlers.put(Integer.class, new IntegerHandler());
     handlers.put(boolean.class, new BooleanHandler());
+    handlers.put(Boolean.class, new BooleanHandler());
     handlers.put(String.class, new StringHandler());
     handlers.put(double.class, new DoubleHandler());
+    handlers.put(Double.class, new DoubleHandler());
     handlers.put(float.class, new FloatHandler());
+    handlers.put(Float.class, new FloatHandler());
     handlers.put(List.class, new ListHandler());
   }
 

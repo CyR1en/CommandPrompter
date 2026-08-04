@@ -63,24 +63,68 @@ public final class AnvilInventoryImpl extends AnvilInventory {
             throw new IllegalStateException("createInventory() must be called before open()");
         }
         var nmsPlayer = craftPlayer.getHandle();
-        nmsPlayer.connection.send(new ClientboundContainerClosePacket(0));
-        Component title = container.getTitle();
-        int id = container.containerId;
-        nmsPlayer.connection.send(new ClientboundOpenScreenPacket(id, MenuType.ANVIL, title));
-        nmsPlayer.containerMenu = container;
-        nmsPlayer.initMenu(container);
-        opened = true;
+        if (opened && nmsPlayer.containerMenu == container) {
+            return;
+        }
+        try {
+            closeExistingMenu(nmsPlayer);
+            Component title = container.getTitle();
+            int id = container.containerId;
+            nmsPlayer.connection.send(new ClientboundOpenScreenPacket(id, MenuType.ANVIL, title));
+            nmsPlayer.containerMenu = container;
+            nmsPlayer.initMenu(container);
+            opened = true;
+        } catch (RuntimeException | Error failure) {
+            opened = false;
+            restoreInventoryMenu(nmsPlayer);
+            throw failure;
+        }
     }
 
     /**
      * Closes the anvil screen using NMS packets.
      */
     public void close() {
-        if (!opened || container == null) return;
         opened = false;
+        if (container == null) return;
         var nmsPlayer = craftPlayer.getHandle();
-        nmsPlayer.connection.send(new ClientboundContainerClosePacket(container.containerId));
+        if (nmsPlayer.containerMenu == container) {
+            nmsPlayer.connection.send(new ClientboundContainerClosePacket(container.containerId));
+            nmsPlayer.doCloseContainer();
+            restoreInventoryMenu(nmsPlayer);
+        }
+    }
+
+    /** Returns whether this NMS container is currently installed for the player. */
+    public boolean isOpened() {
+        return opened;
+    }
+
+    /** Clears callbacks and parent links after the screen reaches a terminal state. */
+    public void clearCallbacks() {
+        nameChangeCallback = null;
+        if (container != null) {
+            container.setParent(null);
+        }
+    }
+
+    private void closeExistingMenu(net.minecraft.server.level.ServerPlayer nmsPlayer) {
+        var active = nmsPlayer.containerMenu;
+        if (active == null || active == nmsPlayer.inventoryMenu || active == container) {
+            return;
+        }
+        // The client must receive the id of the menu it actually has open;
+        // container id 0 is only the player's inventory menu.
+        nmsPlayer.connection.send(new ClientboundContainerClosePacket(active.containerId));
         nmsPlayer.doCloseContainer();
+        restoreInventoryMenu(nmsPlayer);
+    }
+
+    private void restoreInventoryMenu(net.minecraft.server.level.ServerPlayer nmsPlayer) {
+        if (nmsPlayer.containerMenu != nmsPlayer.inventoryMenu
+                && nmsPlayer.containerMenu == container) {
+            nmsPlayer.doCloseContainer();
+        }
     }
 
     /**
