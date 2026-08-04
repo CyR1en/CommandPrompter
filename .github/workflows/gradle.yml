@@ -84,12 +84,10 @@ jobs:
           version: ${{ github.event.release.tag_name }}
           version-type: release
           changelog: ${{ github.event.release.body }}
-
           loaders: |
             paper
             purpur
           game-versions: |
-            26.1.2
+            26.1
             26.2
-
           files: prompt-paper/build/libs/CommandPrompterPaper-${{ steps.verify-release.outputs.version }}.jar
