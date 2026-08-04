@@ -55,17 +55,19 @@ public final class HumanEntityCache {
      *
      * @param entity the human entity
      * @param item   the item to add to the cached inventory
+     * @return true if the item was stored, or false if the entity is not cached or the cache is full
      */
-    public void add(@NotNull HumanEntity entity, @NotNull ItemStack item) {
+    public boolean add(@NotNull HumanEntity entity, @NotNull ItemStack item) {
         ItemStack[] saved = cache.get(entity);
         if (saved != null) {
             for (int i = 0; i < 36; i++) {
                 if (saved[i] == null) {
                     saved[i] = item;
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     /**

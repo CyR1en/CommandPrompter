@@ -16,6 +16,7 @@ import org.bukkit.Material;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -134,6 +135,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
     @Override
     public void close() {
         if (!open) return;
+        HandlerList.unregisterAll(this);
         open = false;
         plugin.getSLF4JLogger().debug("SignScreen closing: player={}", player.getName());
         player.getScheduler().run(plugin, scheduledTask -> {
@@ -170,6 +172,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
 
     /** Callback from {@link SignInterceptor}: removes the virtual sign and delivers the result. */
     private void handleSignFinish(String[] lines) {
+        HandlerList.unregisterAll(this);
         open = false;
         var nmsPlayer = ((CraftPlayer) player).getHandle();
         var pipeline = nmsPlayer.connection.connection.channel.pipeline();

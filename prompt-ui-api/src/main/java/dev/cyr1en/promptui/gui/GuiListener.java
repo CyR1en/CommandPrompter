@@ -128,11 +128,13 @@ public final class GuiListener implements Listener {
         Gui gui = Gui.getGui(event.getInventory());
         if (gui == null) return;
 
-        gui.callOnClose(event);
-        activeGuis.remove(gui);
-
-        HumanEntity player = event.getPlayer();
-        gui.getHumanEntityCache().restoreAndForget(player);
+        try {
+            gui.callOnClose(event);
+        } finally {
+            activeGuis.remove(gui);
+            HumanEntity player = event.getPlayer();
+            gui.getHumanEntityCache().restoreAndForget(player);
+        }
     }
 
     // -- Entity Pickup Item --
@@ -146,9 +148,11 @@ public final class GuiListener implements Listener {
         if (!(event.getEntity() instanceof HumanEntity player)) return;
         for (Gui gui : activeGuis) {
             if (gui.getHumanEntityCache().contains(player)) {
-                gui.getHumanEntityCache().add(player, event.getItem().getItemStack());
-                event.getItem().remove();
-                event.setCancelled(true);
+                boolean stored = gui.getHumanEntityCache().add(player, event.getItem().getItemStack());
+                if (stored) {
+                    event.getItem().remove();
+                    event.setCancelled(true);
+                }
                 break;
             }
         }

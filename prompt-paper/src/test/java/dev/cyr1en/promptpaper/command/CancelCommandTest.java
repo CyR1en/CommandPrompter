@@ -7,9 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.screen.ScreenManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,11 +20,14 @@ class CancelCommandTest extends MockBukkitTest {
 
     private CancelCommand cmd;
     private PromptEngine engine;
+    private ScreenManager screenManager;
 
     @BeforeEach
     void setUp() {
         engine = mock(PromptEngine.class);
         when(plugin.getEngine()).thenReturn(engine);
+        screenManager = mock(ScreenManager.class);
+        when(plugin.getScreenManager()).thenReturn(screenManager);
         cmd = new CancelCommand(plugin);
     }
 
@@ -33,7 +36,7 @@ class CancelCommandTest extends MockBukkitTest {
         var sender = mock(CommandSender.class);
         cmd.executeCancel(sender);
         verify(sender, times(1)).sendMessage(any(Component.class));
-        verify(engine, never()).cancel(any(), any());
+        verify(screenManager, never()).cancelAll(any());
     }
 
     @Test
@@ -41,7 +44,7 @@ class CancelCommandTest extends MockBukkitTest {
         PlayerMock player = createPlayer("Alice");
         when(engine.hasActiveSession(player)).thenReturn(false);
         cmd.executeCancel(player);
-        verify(engine, never()).cancel(any(), any());
+        verify(screenManager, never()).cancelAll(any());
     }
 
     @Test
@@ -49,7 +52,7 @@ class CancelCommandTest extends MockBukkitTest {
         PlayerMock player = createPlayer("Bob");
         when(engine.hasActiveSession(player)).thenReturn(true);
         cmd.executeCancel(player);
-        verify(engine, times(1)).cancel(player, CancelReason.MANUAL);
+        verify(screenManager, times(1)).cancelAll(player);
     }
 
     @Test

@@ -75,11 +75,18 @@ public class CommandLineParser {
     String escPattern = Pattern.quote(config.escape());
     this.tagPattern =
         Pattern.compile(
-            "(?<!" + escPattern + ")" + Pattern.quote(open) + "(.*?)" + Pattern.quote(close));
+            "(?<!"
+                + escPattern
+                + ")"
+                + Pattern.quote(open)
+                + "(.*?)(?<!"
+                + escPattern
+                + ")"
+                + Pattern.quote(close));
     this.pcmPrefix = Pattern.compile("^!");
     this.pcmCancelPrefix = Pattern.compile("^!!");
     this.pcmDelay = Pattern.compile("^!:(\\d+)");
-    this.pcmTarget = Pattern.compile("@(console|player)");
+    this.pcmTarget = Pattern.compile("@(console|player)(?=\\s|$)");
     this.answerRef = Pattern.compile("\\{(\\d+)}");
     this.validatorFlag = Pattern.compile("-iv:(\\w+)");
     this.dsFlag = Pattern.compile("-ds\\b");
@@ -189,7 +196,12 @@ public class CommandLineParser {
         end++;
       }
       if (end > 1) {
-        delay = Integer.parseInt(content.substring(1, end));
+        try {
+          delay = Integer.parseInt(content.substring(1, end));
+        } catch (NumberFormatException e) {
+          LOG.warning("PCM delay value too large, ignoring: " + content.substring(1, end));
+          delay = 0;
+        }
         content = content.substring(end);
       }
     }
@@ -226,7 +238,11 @@ public class CommandLineParser {
     var indices = new ArrayList<Integer>();
     var refMatcher = answerRef.matcher(content);
     while (refMatcher.find()) {
-      indices.add(Integer.parseInt(refMatcher.group(1)));
+      try {
+        indices.add(Integer.parseInt(refMatcher.group(1)));
+      } catch (NumberFormatException e) {
+        LOG.warning("Answer reference index too large, ignoring: " + refMatcher.group(1));
+      }
     }
 
     // Clean up command text
@@ -373,6 +389,24 @@ public class CommandLineParser {
     return false;
   }
 
+  private static List<String> splitCompound(String s) {
+    var parts = new ArrayList<String>();
+    var depth = 0;
+    var start = 0;
+    for (var i = 0; i < s.length() - 1; i++) {
+      var c = s.charAt(i);
+      if (c == '[') depth++;
+      else if (c == ']') depth--;
+      else if (depth == 0 && c == '&' && s.charAt(i + 1) == '&') {
+        parts.add(s.substring(start, i));
+        i++;
+        start = i + 1;
+      }
+    }
+    parts.add(s.substring(start));
+    return parts;
+  }
+
   /**
    * Parse a compound dialog tag ({@code <d:filter1:disp1 && d:filter2:disp2>}). Block-level flags
    * are extracted first and stripped before splitting on {@code &&}.
@@ -394,7 +428,7 @@ public class CommandLineParser {
             .replaceAll("-str\\b", "")
             .trim();
 
-    var subContents = stripped.split("&&");
+    var subContents = splitCompound(stripped);
     var subTags = new ArrayList<PromptTag>();
     for (var sub : subContents) {
       var trimmed = sub.trim();

@@ -17,6 +17,8 @@ import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -36,7 +38,8 @@ public class PlayerUIScreen implements InputScreen {
     private PaginatedPane headPane;
     private List<ItemStack> currentHeads;
     private boolean open;
-    private org.bukkit.event.Listener searchListener;
+    private Listener searchListener;
+    private Listener quitListener;
 
     public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag, dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt) {
         this.plugin = plugin;
@@ -119,6 +122,7 @@ public class PlayerUIScreen implements InputScreen {
         gui.setOnClose(event -> {
             if (open) {
                 open = false;
+                unregisterListeners();
                 if (callback != null) {
                     callback.accept(ScreenResult.cancel());
                 }
@@ -258,6 +262,10 @@ public class PlayerUIScreen implements InputScreen {
         player.closeInventory();
         player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
 
+        if (searchListener != null) {
+            HandlerList.unregisterAll(searchListener);
+            searchListener = null;
+        }
         var listener = new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
             public void onChat(org.bukkit.event.player.AsyncPlayerChatEvent event) {
@@ -268,7 +276,7 @@ public class PlayerUIScreen implements InputScreen {
                 player.getScheduler().run(plugin, st -> {
                     plugin.getPluginLogger().debug("PlayerUI search: term=" + search
                             + " pre-filter=" + currentHeads.size());
-                    org.bukkit.event.HandlerList.unregisterAll(this);
+                    HandlerList.unregisterAll(this);
                     searchListener = null;
                     var filtered = currentHeads.stream()
                             .filter(item -> {
@@ -288,17 +296,30 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     private void registerQuitListener() {
-        Bukkit.getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+        if (quitListener != null) {
+            HandlerList.unregisterAll(quitListener);
+        }
+        var listener = new Listener() {
             @org.bukkit.event.EventHandler
             public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
                 if (event.getPlayer().getUniqueId().equals(player.getUniqueId())) {
-                    if (searchListener != null) {
-                        org.bukkit.event.HandlerList.unregisterAll(searchListener);
-                        searchListener = null;
-                    }
+                    unregisterListeners();
                 }
             }
-        }, plugin);
+        };
+        quitListener = listener;
+        Bukkit.getPluginManager().registerEvents(listener, plugin);
+    }
+
+    private void unregisterListeners() {
+        if (searchListener != null) {
+            HandlerList.unregisterAll(searchListener);
+            searchListener = null;
+        }
+        if (quitListener != null) {
+            HandlerList.unregisterAll(quitListener);
+            quitListener = null;
+        }
     }
 
     private GuiItem buildItem(String materialName, int cmd, String displayName,
@@ -317,14 +338,14 @@ public class PlayerUIScreen implements InputScreen {
 
     @Override
     public void close() {
-        if (!open && gui == null) return;
+        if (!open && gui == null) {
+            unregisterListeners();
+            return;
+        }
         open = false;
         plugin.getPluginLogger().debug("PlayerUI closing for " + player.getName()
                 + " searchActive=" + (searchListener != null));
-        if (searchListener != null) {
-            org.bukkit.event.HandlerList.unregisterAll(searchListener);
-            searchListener = null;
-        }
+        unregisterListeners();
         if (gui != null) {
             player.closeInventory();
             gui = null;

@@ -79,8 +79,13 @@ public class ScreenManager {
                 + " mode=" + mode + " permKey=" + permissionKey);
         var parsed = engine.intercept(target, commandLine);
         if (parsed.isEmpty()) {
-            plugin.getPluginLogger().debug("No prompts, dispatching directly");
-            dispatchDirect(target, commandLine, mode, permissionKey);
+            if (!engine.commandHasTagForm(commandLine)) {
+                plugin.getPluginLogger().debug("No prompts, dispatching directly");
+                dispatchDirect(target, commandLine, mode, permissionKey);
+            } else {
+                plugin.getPluginLogger().debug("Command had tag form but intercept rejected it "
+                        + "(missing preset, no permission, or active session); not dispatching");
+            }
             return;
         }
         if (mode != DispatchMode.NORMAL) {
@@ -198,6 +203,8 @@ public class ScreenManager {
                 + " cancelled=" + result.cancelled());
 
         if (result.cancelled()) {
+            dispatchModes.remove(player.getUniqueId());
+            attachmentKeys.remove(player.getUniqueId());
             engine.cancel(player, CancelReason.GUI_EXIT);
             player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
             return;
@@ -233,6 +240,8 @@ public class ScreenManager {
         }
 
         if (isCancelKeyword) {
+            dispatchModes.remove(player.getUniqueId());
+            attachmentKeys.remove(player.getUniqueId());
             engine.cancel(player, CancelReason.MANUAL);
             player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
             return;

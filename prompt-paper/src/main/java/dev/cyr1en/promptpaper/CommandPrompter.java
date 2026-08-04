@@ -19,6 +19,7 @@ import dev.cyr1en.promptpaper.util.PluginLogger;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bstats.bukkit.Metrics;
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -170,6 +171,9 @@ public class CommandPrompter extends JavaPlugin implements Listener {
         }
         if (hookContainer != null) hookContainer.disableAll();
         if (engine != null) engine.cancelAll();
+        if (screenManager != null) {
+            Bukkit.getOnlinePlayers().forEach(screenManager::cancelAll);
+        }
         if (pluginLogger != null) {
             pluginLogger.info("CommandPrompterPaper disabled.");
         }

@@ -105,10 +105,20 @@ public record ParsedCommand(
           answerIdx++;
         }
         var joined = parts.stream().filter(p -> !p.isEmpty()).collect(Collectors.joining(" "));
-        command = command.replace(tag.rawTag(), joined);
+        int idx = command.indexOf(tag.rawTag());
+        if (idx >= 0) {
+          command =
+              command.substring(0, idx) + joined + command.substring(idx + tag.rawTag().length());
+        }
       } else {
         String replacement = answerIdx < answers.size() ? answers.get(answerIdx) : "";
-        command = command.replace(tag.rawTag(), replacement);
+        int idx = command.indexOf(tag.rawTag());
+        if (idx >= 0) {
+          command =
+              command.substring(0, idx)
+                  + replacement
+                  + command.substring(idx + tag.rawTag().length());
+        }
         answerIdx++;
       }
     }

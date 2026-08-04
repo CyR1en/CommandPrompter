@@ -640,7 +640,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         // Clamp bounds to prevent client crash
         maxLength = Math.max(1, Math.min(8192, maxLength));
         maxLines = Math.max(1, Math.min(8192, maxLines));
-        width = Math.max(1, Math.min(8192, width));
+        width = Math.max(1, Math.min(1024, width));
 
         return new DialogConstraints(
                 DialogInputKind.TEXT, "", 
@@ -973,7 +973,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
      * from the player scheduler.
      */
     private void onCancelFromView(DialogResponseView view) {
-        if (callback != null) callback.accept(ScreenResult.cancel());
+        player.getScheduler().run(plugin, scheduledTask -> {
+            if (!open) return;
+            open = false;
+            plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
+            if (callback != null) callback.accept(ScreenResult.cancel());
+        }, null);
     }
 
     /**
