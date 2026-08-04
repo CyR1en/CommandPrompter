@@ -5,6 +5,7 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Properties
 import java.util.jar.JarFile
+import org.gradle.api.file.DuplicatesStrategy
 
 plugins {
     java
@@ -84,14 +85,20 @@ tasks.shadowJar {
     archiveBaseName.set("CommandPrompterPaper")
     archiveClassifier.set("")
     archiveVersion.set(project.version.toString())
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
     dependsOn(":prompt-ui-26.1:jar", ":prompt-ui-26.2:jar")
+    val screenProviderService = "META-INF/services/dev.cyr1en.promptui.ScreenProvider"
     // MUST use zipTree — avoids Java 25 NMS classes on Java 21 API classpath
     val nms26_1 = project(":prompt-ui-26.1").tasks.named("jar", Jar::class)
-    from(nms26_1.map { zipTree(it.archiveFile) })
+    from(nms26_1.map { zipTree(it.archiveFile) }) {
+        exclude(screenProviderService)
+    }
     
     val nms26_2 = project(":prompt-ui-26.2").tasks.named("jar", Jar::class)
-    from(nms26_2.map { zipTree(it.archiveFile) })
+    from(nms26_2.map { zipTree(it.archiveFile) }) {
+        exclude(screenProviderService)
+    }
 
     // Paper supplies Adventure. Keep those API/serializer classes out of the plugin jar and
     // isolate bStats from other plugins that may ship a different bStats version.
