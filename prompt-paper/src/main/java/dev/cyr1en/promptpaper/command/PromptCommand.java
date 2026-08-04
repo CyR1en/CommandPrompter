@@ -26,6 +26,9 @@ import java.util.List;
  */
 public abstract class PromptCommand {
 
+    /** Master permission granted by Paper to all CommandPrompter commands. */
+    private static final String ADMIN_PERMISSION = "promptpaper.admin";
+
     private final String name;
     private final String description;
     private final List<String> aliases;
@@ -61,11 +64,15 @@ public abstract class PromptCommand {
 
     /**
      * Returns true if the given sender may use this command. Combines the
-     * optional {@code permission} and {@code senderFilter} into a single
-     * predicate. Either check being absent is treated as a pass.
+     * optional {@code permission}, master admin permission, and sender filter
+     * into a single predicate. An explicit command permission remains valid on
+     * its own; {@code promptpaper.admin} is an override for every command.
      */
     public final boolean allowed(CommandSender sender) {
-        if (permission != null && !sender.hasPermission(permission)) {
+        if (sender == null) return false;
+        if (permission != null
+                && !sender.hasPermission(permission)
+                && !sender.hasPermission(ADMIN_PERMISSION)) {
             return false;
         }
         if (senderFilter != null && !senderFilter.isInstance(sender)) {

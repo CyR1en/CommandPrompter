@@ -67,7 +67,7 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
 
         assertEquals(com.mojang.brigadier.Command.SINGLE_SUCCESS, result);
         verify(screenManager, times(1)).startDelegatedSession(
-                target, "msg Alice hi", DispatchMode.ATTACHMENT, "GAMEMODE");
+                target, "msg %target_player% hi", DispatchMode.ATTACHMENT, "GAMEMODE");
     }
 
     @Test

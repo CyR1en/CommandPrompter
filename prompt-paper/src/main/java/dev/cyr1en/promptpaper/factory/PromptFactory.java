@@ -15,6 +15,7 @@ import dev.cyr1en.promptui.ScreenProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.ServiceConfigurationError;
 import org.bukkit.entity.Player;
 
 /**
@@ -56,6 +57,8 @@ import org.bukkit.entity.Player;
  */
 public class PromptFactory {
 
+  private static final List<String> SUPPORTED_TARGETS = List.of("26.1", "26.2");
+
   private final CommandPrompter plugin;
   private final List<ScreenProvider> providers;
   private final MaterialMapper materialMapper;
@@ -75,14 +78,20 @@ public class PromptFactory {
       for (var provider : loader) {
         loaded.add(provider);
       }
-    } catch (Exception e) {
+    } catch (ServiceConfigurationError | LinkageError e) {
+      plugin.getPluginLogger().warn("Failed to load screen providers: " + e.getMessage());
+    } catch (RuntimeException e) {
       plugin.getPluginLogger().warn("Failed to load screen providers: " + e.getMessage());
     }
 
+    String serverVersion = org.bukkit.Bukkit.getMinecraftVersion();
     if (loaded.isEmpty()) {
       plugin.getPluginLogger().info("No GUI screen providers found — GUI prompts will fall back to chat.");
+      plugin.getPluginLogger().warn("Supported screen targets: " + SUPPORTED_TARGETS
+          + "; current server version: " + serverVersion + ".");
     } else {
-      // Sort providers descending to fall back to the newest available NMS module.
+      // Prefer the highest matching target when more than one module is on the
+      // class path. An unmatched server deliberately leaves this list empty.
       loaded.sort((p1, p2) -> {
         String t1 = p1.getTargetVersion();
         String t2 = p2.getTargetVersion();
@@ -103,7 +112,6 @@ public class PromptFactory {
         return 0;
       });
 
-      String serverVersion = org.bukkit.Bukkit.getMinecraftVersion();
       ScreenProvider bestMatch = null;
       
       for (var provider : loaded) {
@@ -118,12 +126,9 @@ public class PromptFactory {
         providers.add(bestMatch);
         plugin.getPluginLogger().info("Loaded screen provider for Minecraft " + serverVersion + ": " + bestMatch.getClass().getName());
       } else {
-        // Fallback to the newest provider.
-        bestMatch = loaded.get(0);
-        providers.add(bestMatch);
-        plugin.getPluginLogger().warn("No specific NMS module found for Minecraft " + serverVersion + ".");
-        plugin.getPluginLogger().warn("Falling back to the NMS module for " + bestMatch.getTargetVersion() + " (" + bestMatch.getClass().getSimpleName() + ").");
-        plugin.getPluginLogger().warn("Most features should still work, but some GUI elements might fall back to chat if internal server code has changed.");
+        plugin.getPluginLogger().warn("No screen provider matches Minecraft " + serverVersion + ".");
+        plugin.getPluginLogger().warn("Supported screen targets: " + SUPPORTED_TARGETS
+            + "; current server version: " + serverVersion + ". GUI prompts will fall back to chat.");
       }
     }
 

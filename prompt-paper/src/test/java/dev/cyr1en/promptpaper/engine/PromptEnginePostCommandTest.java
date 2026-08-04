@@ -5,6 +5,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import dev.cyr1en.promptcore.CancelReason;
+import dev.cyr1en.promptcore.DispatchTarget;
+import dev.cyr1en.promptcore.PostCommandMeta;
+import dev.cyr1en.promptcore.SessionResult;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
@@ -162,6 +165,67 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
   }
 
   @Test
+  void presetOnCompleteWithCancelMarkerRunsOnCompletion() {
+    var def = new PostCommand(
+        "audit",
+        "say audit-complete",
+        ExecutionPolicy.ON_COMPLETE,
+        ExecuteAs.CONSOLE,
+        0);
+    when(registry.getPostCommand("audit")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    engine.intercept(player, "/cmd <a:why> <!!@audit>");
+    var result = engine.submit(player, "value");
+    assertTrue(result.isPresent());
+
+    engine.dispatchPCMs(player, result.get(), false);
+    performTicks(1);
+
+    assertEquals(1, captured.size());
+    assertEquals("say audit-complete", captured.get(0).command());
+  }
+
+  @Test
+  void presetOnCancelWithCompleteMarkerRunsOnCancellation() {
+    var def = new PostCommand(
+        "audit_cancel",
+        "say audit-cancel",
+        ExecutionPolicy.ON_CANCEL,
+        ExecuteAs.CONSOLE,
+        0);
+    when(registry.getPostCommand("audit_cancel")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    engine.intercept(player, "/cmd <a:why> <!@audit_cancel>");
+    engine.cancel(player, CancelReason.MANUAL);
+
+    performTicks(1);
+
+    assertEquals(1, captured.size());
+    assertEquals("say audit-cancel", captured.get(0).command());
+  }
+
+  @Test
+  void duplicatePresetReferenceIsDispatchedAtMostOnce() {
+    var def = new PostCommand(
+        "once",
+        "say once",
+        ExecutionPolicy.ON_COMPLETE,
+        ExecuteAs.CONSOLE,
+        0);
+    when(registry.getPostCommand("once")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    engine.intercept(player, "/cmd <a:why> <!@once> <!!@once>");
+    var result = engine.submit(player, "value");
+    assertTrue(result.isPresent());
+
+    engine.dispatchPCMs(player, result.get(), false);
+    performTicks(1);
+
+    assertEquals(1, captured.size());
+    assertEquals("say once", captured.get(0).command());
+  }
+
+  @Test
   void presetOnCancelDoesNotFireOnCompletion() {
     var def = new PostCommand(
             "refund",
@@ -299,5 +363,104 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
     performTicks(20);
     assertEquals(1, captured.size());
     assertTrue(captured.get(0).sender() instanceof org.bukkit.entity.Player);
+  }
+
+  // --- attachment permission snapshots ---
+
+  private SessionResult attachmentResult(int delayTicks) {
+    var pcm = new PostCommandMeta(
+        "say attached",
+        new int[0],
+        delayTicks,
+        false,
+        DispatchTarget.PASSTHROUGH,
+        false);
+    return new SessionResult("say attached", List.of(), List.of(pcm), List.of());
+  }
+
+  private PromptEngine.DispatchContext attachmentContext(List<String> permissions) {
+    return new PromptEngine.DispatchContext(
+        ExecuteAs.PLAYER, "KEY", true, permissions);
+  }
+
+  @Test
+  void delayedAttachmentUsesUnchangedCapturedPermissions() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.old"});
+    var player = createPlayer("TestUser");
+
+    engine.dispatchPCMs(
+        player, attachmentResult(5), false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertEquals(1, captured.size());
+    assertTrue(captured.get(0).sender() instanceof org.bukkit.entity.Player);
+  }
+
+  @Test
+  void delayedAttachmentSkipsWhenPermissionsIncrease() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.new"});
+    var player = createPlayer("TestUser");
+
+    engine.dispatchPCMs(
+        player, attachmentResult(5), false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertEquals(0, captured.size());
+  }
+
+  @Test
+  void delayedAttachmentSkipsWhenPermissionsDecrease() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.old"});
+    var player = createPlayer("TestUser");
+
+    engine.dispatchPCMs(
+        player, attachmentResult(5), false, attachmentContext(List.of("perm.old", "perm.other")));
+    performTicks(5);
+
+    assertEquals(0, captured.size());
+  }
+
+  @Test
+  void delayedAttachmentSkipsWhenKeyIsRemoved() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(null);
+    var player = createPlayer("TestUser");
+
+    engine.dispatchPCMs(
+        player, attachmentResult(5), false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertEquals(0, captured.size());
+  }
+
+  @Test
+  void attachmentDispatchNeverUsesPermissionsBeyondCapturedSnapshot() {
+    when(config.getPermissionAttachment("KEY"))
+        .thenReturn(new String[]{"perm.new"});
+    when(config.permissionAttachmentTicks()).thenReturn(20);
+    var player = createPlayer("TestUser");
+
+    // Instant attachment dispatch deliberately does not re-resolve the key. It must use the
+    // immutable list captured at completion, even if the current config has a different list.
+    engine.dispatchPCMs(
+        player, attachmentResult(0), false, attachmentContext(List.of("perm.old")));
+
+    assertEquals(1, captured.size());
+    assertTrue(player.hasPermission("perm.old"));
+    assertFalse(player.hasPermission("perm.new"));
+  }
+
+  @Test
+  void delayedAttachmentUsesOnlyCapturedPermissions() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.old"});
+    when(config.permissionAttachmentTicks()).thenReturn(20);
+    var player = createPlayer("TestUser");
+
+    engine.dispatchPCMs(
+        player, attachmentResult(5), false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertEquals(1, captured.size());
+    assertTrue(player.hasPermission("perm.old"));
+    assertFalse(player.hasPermission("perm.extra"));
   }
 }

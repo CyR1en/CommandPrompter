@@ -3,6 +3,8 @@ package dev.cyr1en.promptcore.parser;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.cyr1en.promptcore.*;
+import java.time.Duration;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -698,6 +700,48 @@ class CommandLineParserTest {
     var result = p.parse("/say <red>Hello</red> <a:Name?>");
     // Without a filter, <red>, </red>, and <a:Name?> are all treated as prompt tags.
     assertEquals(3, result.promptTags().size());
+  }
+
+  @Test
+  void pcmTargetRequiresBothTokenBoundaries() {
+    var result = parser.parse("/say <!hello@console>");
+    var pcm = result.postCmds().get(0);
+
+    assertEquals("hello@console", pcm.command());
+    assertEquals(DispatchTarget.PASSTHROUGH, pcm.dispatchTarget());
+  }
+
+  @Test
+  void flagsDoNotMatchDisplayTextSubstrings() {
+    var result = parser.parse("/say <a:cost-int cost-str cost-ds cost-iv:required>");
+    var tag = result.promptTags().get(0);
+
+    assertEquals(PromptTag.AnswerType.NONE, tag.type());
+    assertTrue(tag.sanitize());
+    assertNull(tag.validatorAlias());
+    assertEquals("cost-int cost-str cost-ds cost-iv:required", tag.displayText());
+  }
+
+  @Test
+  void parsedPcmSpansRemoveOnlyTheExactParsedTag() {
+    var filtered =
+        new CommandLineParser(ParserConfig.ANGLE_BRACKETS, content -> content.startsWith("!"));
+    var parsed = filtered.parse("/say \\<!kept> <!removed>");
+
+    assertTrue(parsed.postCmds().isEmpty());
+    assertEquals("/say <!kept> <!removed> ", ParsedCommand.buildPartialCommand(parsed, List.of()));
+  }
+
+  @Test
+  void unterminatedRepeatedOpenersAreScannedInLinearTime() {
+    var input = "<".repeat(200_000);
+
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () -> {
+          assertFalse(parser.hasTagForm(input));
+          assertTrue(parser.parse(input).promptTags().isEmpty());
+        });
   }
 
   @Test

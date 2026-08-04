@@ -8,6 +8,7 @@ import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenResult;
 import java.time.Duration;
+import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
@@ -93,13 +94,46 @@ public class TitleWrapperScreen implements InputScreen {
             + " ticks=" + ticks + " ticks, then opening " + delegate.getClass().getSimpleName());
 
     open = true;
-    pendingTask =
-        scheduler.runLater(
-            () -> {
+    var uuid = player.getUniqueId();
+    var task =
+        player.getScheduler().runDelayed(
+            plugin,
+            scheduledTask -> {
               pendingTask = null;
-              delegate.open();
+              try {
+                delegate.open();
+              } catch (Throwable e) {
+                open = false;
+                clearRetiredState(uuid);
+                plugin.getPluginLogger().err("Unable to open wrapped prompt screen: "
+                    + e.getMessage());
+              }
             },
+            () -> clearRetiredState(uuid),
             ticks);
+    if (task == null) {
+      pendingTask = null;
+      open = false;
+      clearRetiredState(uuid);
+    } else {
+      pendingTask = task::cancel;
+    }
+  }
+
+  private void clearRetiredState(UUID uuid) {
+    var screenManager = plugin.getScreenManager();
+    if (screenManager != null) screenManager.discardState(uuid);
+  }
+
+  void invalidateCallbacks() {
+    open = false;
+    if (pendingTask != null) {
+      pendingTask.cancel();
+      pendingTask = null;
+    }
+    if (delegate instanceof dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreen playerUIScreen) {
+      playerUIScreen.invalidateCallbacks();
+    }
   }
 
   /** Cancels any pending delegate open, clears the title, and closes the delegate. */

@@ -38,6 +38,15 @@ class PromptCommandTest extends MockBukkitTest {
     }
 
     @Test
+    void allowedPassesWithMasterAdminPermission() {
+        var sender = mock(CommandSender.class);
+        when(sender.hasPermission("promptpaper.admin")).thenReturn(true);
+        when(sender.hasPermission("promptpaper.test")).thenReturn(false);
+        var cmd = new TestCommand(plugin, "x", "promptpaper.test", null, "desc", List.of());
+        assertTrue(cmd.allowed(sender));
+    }
+
+    @Test
     void allowedFailsWhenSenderFilterMismatched() {
         var sender = mock(CommandSender.class);
         var cmd = new TestCommand(plugin, "x", null, ConsoleCommandSender.class, "desc", List.of());

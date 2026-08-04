@@ -76,6 +76,19 @@ class PlayerCommandListenerTest extends MockBukkitTest {
     }
 
     @Test
+    void pluginCommandPrefixesAreNotExcluded() {
+        when(screenManager.hasActiveScreen(any())).thenReturn(false, true);
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        var player = createPlayer();
+        var event = new PlayerCommandPreprocessEvent(player, "/cmdpfoo <value>");
+
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled());
+        verify(screenManager).startSession(eq(player), eq("cmdpfoo <value>"));
+    }
+
+    @Test
     void cancelledEventIsSkipped() {
         var player = createPlayer();
         var event = new PlayerCommandPreprocessEvent(player, "/some command");
@@ -165,5 +178,20 @@ class PlayerCommandListenerTest extends MockBukkitTest {
 
         assertFalse(event.isCancelled(),
                 "Permission-denied commands must not be cancelled by the listener");
+    }
+
+    @Test
+    void taggedCommandIsCancelledWhileReloadBarrierIsActive() {
+        when(screenManager.hasActiveScreen(any())).thenReturn(false);
+        when(engine.isReloadInProgress()).thenReturn(true);
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        var player = createPlayer();
+        var event = new PlayerCommandPreprocessEvent(player, "/cmd <value>");
+
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled());
+        verify(engine).rejectIfReloading(eq(player));
+        verify(screenManager, org.mockito.Mockito.never()).startSession(any(), anyString());
     }
 }

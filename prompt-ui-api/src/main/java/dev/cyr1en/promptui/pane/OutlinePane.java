@@ -101,10 +101,20 @@ public final class OutlinePane extends Pane {
     public GuiItemContainer display() {
         GuiItemContainer container = new GuiItemContainer(getLength(), getHeight());
         Iterator<GuiItem> iterator = items.iterator();
-        for (int y = 0; y < getHeight(); y++) {
+        if (orientation == Orientation.VERTICAL) {
             for (int x = 0; x < getLength(); x++) {
-                if (iterator.hasNext() && isMaskEnabled(x, y)) {
-                    container.setItem(x, y, iterator.next());
+                for (int y = 0; y < getHeight(); y++) {
+                    if (iterator.hasNext() && isMaskEnabled(x, y)) {
+                        container.setItem(x, y, iterator.next());
+                    }
+                }
+            }
+        } else {
+            for (int y = 0; y < getHeight(); y++) {
+                for (int x = 0; x < getLength(); x++) {
+                    if (iterator.hasNext() && isMaskEnabled(x, y)) {
+                        container.setItem(x, y, iterator.next());
+                    }
                 }
             }
         }
@@ -133,16 +143,33 @@ public final class OutlinePane extends Pane {
      */
     private GuiItem getItemAt(@NotNull Slot slot) {
         Iterator<GuiItem> iterator = items.iterator();
-        for (int y = 0; y < getHeight(); y++) {
+        if (orientation == Orientation.VERTICAL) {
             for (int x = 0; x < getLength(); x++) {
-                if (isMaskEnabled(x, y)) {
-                    if (iterator.hasNext()) {
-                        GuiItem item = iterator.next();
-                        if (x == slot.x() && y == slot.y()) {
-                            return item;
+                for (int y = 0; y < getHeight(); y++) {
+                    if (isMaskEnabled(x, y)) {
+                        if (iterator.hasNext()) {
+                            GuiItem item = iterator.next();
+                            if (x == slot.x() && y == slot.y()) {
+                                return item;
+                            }
+                        } else {
+                            return null;
                         }
-                    } else {
-                        return null;
+                    }
+                }
+            }
+        } else {
+            for (int y = 0; y < getHeight(); y++) {
+                for (int x = 0; x < getLength(); x++) {
+                    if (isMaskEnabled(x, y)) {
+                        if (iterator.hasNext()) {
+                            GuiItem item = iterator.next();
+                            if (x == slot.x() && y == slot.y()) {
+                                return item;
+                            }
+                        } else {
+                            return null;
+                        }
                     }
                 }
             }

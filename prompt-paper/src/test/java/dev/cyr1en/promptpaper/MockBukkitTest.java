@@ -14,6 +14,7 @@ import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.testutil.MockScheduler;
+import dev.cyr1en.promptpaper.testutil.TestPlayerMock;
 import dev.cyr1en.promptpaper.util.PluginLogger;
 import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
@@ -99,7 +100,7 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(i18n.get(eq("command.version"), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
         when(i18n.get(eq("dialog.too_many_options"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
 
@@ -111,9 +112,9 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Unknown permission key."));
         when(i18n.get(eq("command.version"), any(Player.class), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
         when(i18n.get(eq("command.version"), isNull(), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
         when(i18n.get(eq("dialog.no_options"), any(Player.class)))
                 .thenReturn(Component.text("No options available, enter argument manually."));
         when(i18n.get(eq("dialog.too_many_options"), any(Player.class), any(Placeholder[].class)))
@@ -137,11 +138,13 @@ public class MockBukkitTest {
     }
 
     protected PlayerMock createPlayer() {
-        return server.addPlayer();
+        return createPlayer("Player");
     }
 
     protected PlayerMock createPlayer(String name) {
-        return server.addPlayer(name);
+        var player = new TestPlayerMock(server, name);
+        server.addPlayer(player);
+        return player;
     }
 
     protected void performTicks(long ticks) {

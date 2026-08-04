@@ -5,8 +5,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Caches player inventories when a GUI is shown and restores them on close.
@@ -17,21 +19,52 @@ import java.util.Map;
  */
 public final class HumanEntityCache {
 
-    private final Map<HumanEntity, ItemStack[]> cache = new HashMap<>();
+    /**
+     * The cache is accessed by inventory events and by player-affine tasks.  A
+     * concurrent map keeps the lifecycle safe when those paths happen on
+     * different region threads; the individual snapshots are synchronized when
+     * their slots are modified or restored.
+     */
+    private final Map<HumanEntity, ItemStack[]> cache = new ConcurrentHashMap<>();
 
     /**
      * Saves and clears the player's inventory (slots 0-35).
      *
      * @param entity the human entity whose inventory to cache
      */
-    public void storeAndClear(@NotNull HumanEntity entity) {
+    public synchronized boolean storeAndClear(@NotNull HumanEntity entity) {
+        /*
+         * The contains/put pair is protected by this cache's monitor. Calling
+         * show() twice for the same viewer must not replace the original
+         * snapshot with the already empty temporary inventory from the first
+         * call.
+         */
+        if (cache.containsKey(entity)) {
+            return false;
+        }
+
+        cache.put(entity, snapshotAndClear(entity));
+        return true;
+    }
+
+    private ItemStack[] snapshotAndClear(HumanEntity entity) {
         PlayerInventory inventory = entity.getInventory();
         ItemStack[] saved = new ItemStack[36];
-        for (int i = 0; i < 36; i++) {
-            saved[i] = inventory.getItem(i);
-            inventory.setItem(i, null);
+        try {
+            for (int i = 0; i < 36; i++) {
+                ItemStack item = inventory.getItem(i);
+                saved[i] = item == null ? null : item.clone();
+                inventory.setItem(i, null);
+            }
+            return saved;
+        } catch (RuntimeException | Error failure) {
+            // Do not leave a partially cleared inventory if the platform API
+            // rejects one of the slot operations.
+            for (int i = 0; i < 36; i++) {
+                inventory.setItem(i, saved[i]);
+            }
+            throw failure;
         }
-        cache.put(entity, saved);
     }
 
     /**
@@ -39,12 +72,14 @@ public final class HumanEntityCache {
      *
      * @param entity the human entity whose inventory to restore
      */
-    public void restoreAndForget(@NotNull HumanEntity entity) {
+    public synchronized void restoreAndForget(@NotNull HumanEntity entity) {
         ItemStack[] saved = cache.remove(entity);
         if (saved != null) {
-            PlayerInventory inventory = entity.getInventory();
-            for (int i = 0; i < 36; i++) {
-                inventory.setItem(i, saved[i]);
+            synchronized (saved) {
+                PlayerInventory inventory = entity.getInventory();
+                for (int i = 0; i < 36; i++) {
+                    inventory.setItem(i, saved[i]);
+                }
             }
         }
     }
@@ -55,24 +90,47 @@ public final class HumanEntityCache {
      *
      * @param entity the human entity
      * @param item   the item to add to the cached inventory
+     * @return true if the item was stored, or false if the entity is not cached or the cache is full
      */
-    public void add(@NotNull HumanEntity entity, @NotNull ItemStack item) {
+    public synchronized boolean add(@NotNull HumanEntity entity, @NotNull ItemStack item) {
         ItemStack[] saved = cache.get(entity);
         if (saved != null) {
-            for (int i = 0; i < 36; i++) {
-                if (saved[i] == null) {
-                    saved[i] = item;
-                    return;
+            synchronized (saved) {
+                for (int i = 0; i < 36; i++) {
+                    if (saved[i] == null) {
+                        saved[i] = item.clone();
+                        return true;
+                    }
                 }
             }
         }
+        return false;
     }
 
     /**
      * Returns whether the entity has a cached inventory.
      */
-    public boolean contains(@NotNull HumanEntity entity) {
+    public synchronized boolean contains(@NotNull HumanEntity entity) {
         return cache.containsKey(entity);
+    }
+
+    /**
+     * Returns a stable snapshot of entities with cached inventories.
+     */
+    @NotNull
+    public List<HumanEntity> getCachedEntities() {
+        return new ArrayList<>(cache.keySet());
+    }
+
+    /**
+     * Restores every cached inventory and clears the cache.  This is used by
+     * plugin-wide GUI shutdown so a close event is not required for cleanup.
+     */
+    public synchronized void restoreAll() {
+        for (HumanEntity entity : getCachedEntities()) {
+            restoreAndForget(entity);
+        }
+        cache.clear();
     }
 
     /**

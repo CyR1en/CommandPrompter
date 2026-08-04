@@ -203,6 +203,28 @@ class PresetRegistryTest extends MockBukkitTest {
     assertTrue(registry.getPrompt("reason_prompt").isPresent());
   }
 
+  @Test
+  void malformedPromptIsWrappedWithIdAndPathContext() throws IOException {
+    Files.writeString(
+        promptsFile.toPath(),
+        """
+        {
+          "prompts": [
+            {"type": "chat", "id": "broken_prompt", "prompt_text": "Missing cancel"}
+          ],
+          "post_commands": []
+        }
+        """,
+        StandardCharsets.UTF_8);
+
+    var registry = newRegistry(null);
+    var failure = assertThrows(PresetRegistry.PresetLoadException.class, registry::reload);
+
+    assertTrue(failure.getMessage().contains("broken_prompt"));
+    assertTrue(failure.getMessage().contains("prompts[0]"));
+    assertTrue(failure.getMessage().contains(promptsFile.getAbsolutePath()));
+  }
+
   // --------------------------------------------------------------
   // Default-resource extraction
   // --------------------------------------------------------------

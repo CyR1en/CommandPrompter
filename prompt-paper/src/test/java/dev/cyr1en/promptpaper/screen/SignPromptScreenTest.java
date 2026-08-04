@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptui.ScreenProvider;
@@ -13,6 +14,7 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +59,28 @@ class SignPromptScreenTest extends MockBukkitTest {
 
         assertTrue(screen.isOpen());
         verify(mockSign).open();
+    }
+
+    @Test
+    void asynchronousProviderFailureFallsBackToChat() {
+        var player = createPlayer();
+        var mockProvider = mock(ScreenProvider.class);
+        var mockSign = mock(SignInputScreen.class);
+        var failureCallback = new AtomicReference<Consumer<Throwable>>();
+        doAnswer(invocation -> {
+            failureCallback.set(invocation.getArgument(0));
+            return null;
+        }).when(mockSign).onOpenFailure(any());
+        when(mockProvider.createSign(any(CommandPrompter.class), any(), any()))
+                .thenReturn(mockSign);
+
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter:", java.util.List.of(), true), List.of(mockProvider));
+        screen.open();
+
+        assertNotNull(failureCallback.get());
+        failureCallback.get().accept(new IllegalStateException("async open failed"));
+        assertTrue(screen.isOpen());
+        verify(mockSign).close();
     }
 
     @Test

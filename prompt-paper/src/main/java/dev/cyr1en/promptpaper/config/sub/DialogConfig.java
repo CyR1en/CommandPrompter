@@ -66,6 +66,20 @@ public record DialogConfig(
     ) {
         public static final NumberDefaults DEFAULTS = new NumberDefaults(0.0f, 100.0f, 1.0f, null);
 
+        public NumberDefaults {
+            if (!Float.isFinite(min) || !Float.isFinite(max) || !Float.isFinite(step)
+                    || min >= max || step <= 0.0f
+                    || !Float.isFinite((min + max) / 2.0f)
+                    || (initial != null && !Float.isFinite(initial))) {
+                throw new IllegalArgumentException(
+                        "Dialog number defaults must have finite values with min < max and step > 0");
+            }
+            if (initial != null && (initial < min || initial > max)) {
+                throw new IllegalArgumentException(
+                        "Dialog number initial value must be within the configured range");
+            }
+        }
+
         /** Effective initial value when no override is given: midpoint. */
         public float effectiveInitial() {
             return initial != null ? initial : (min + max) / 2.0f;

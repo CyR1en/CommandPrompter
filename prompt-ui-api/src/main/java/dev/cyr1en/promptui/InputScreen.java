@@ -38,4 +38,16 @@ public interface InputScreen {
      * @param callback invoked once with the result, then discarded
      */
     void onResult(Consumer<ScreenResult> callback);
+
+    /**
+     * Registers an optional callback for failures that occur after
+     * {@link #open()} has scheduled platform work. Existing implementations may
+     * ignore this hook; NMS-backed screens use it so wrappers can fall back to
+     * chat without leaving a half-open screen.
+     *
+     * @param callback invoked at most once when asynchronous opening fails
+     */
+    default void onOpenFailure(Consumer<Throwable> callback) {
+        // Optional lifecycle extension for backwards-compatible providers.
+    }
 }

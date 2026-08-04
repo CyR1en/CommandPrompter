@@ -1,6 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CommandPrompter JSON Configuration",
+  "description": "Documentation schema for presets.json. The runtime currently does not validate this file against JSON Schema.",
   "type": "object",
   "additionalProperties": false,
   "required": ["prompts", "post_commands"],
@@ -26,6 +27,17 @@
     }
   },
   "$defs": {
+    "titleDisplay": {
+      "type": "object",
+      "description": "Optional Adventure title wrapper used by every prompt record.",
+      "additionalProperties": false,
+      "required": ["main"],
+      "properties": {
+        "main": { "type": "string" },
+        "sub": { "type": ["string", "null"] },
+        "ticks": { "type": ["integer", "null"] }
+      }
+    },
     "cancelBehavior": {
       "type": "object",
       "additionalProperties": false,
@@ -71,6 +83,7 @@
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
         "sanitize": { "type": "boolean", "default": true },
+        "title_display": { "$ref": "#/$defs/titleDisplay" },
         "cancel": { "$ref": "#/$defs/cancelBehavior" }
       }
     },
@@ -84,6 +97,7 @@
         "title": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
         "sanitize": { "type": "boolean", "default": true },
+        "title_display": { "$ref": "#/$defs/titleDisplay" },
         "left_button": { "$ref": "#/$defs/anvilButton" },
         "right_button": { "$ref": "#/$defs/anvilButton" }
       }
@@ -97,6 +111,7 @@
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
         "sanitize": { "type": "boolean", "default": true },
+        "title_display": { "$ref": "#/$defs/titleDisplay" },
         "filter": { "type": "string" },
         "cancel_button": { "$ref": "#/$defs/uiButton" },
         "previous_button": { "$ref": "#/$defs/uiButton" },
@@ -112,6 +127,7 @@
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
         "sanitize": { "type": "boolean", "default": true },
+        "title_display": { "$ref": "#/$defs/titleDisplay" },
         "default_lines": { 
           "type": "array", 
           "items": { "type": "string" },
@@ -205,6 +221,7 @@
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
         "sanitize": { "type": "boolean", "default": true },
+        "title_display": { "$ref": "#/$defs/titleDisplay" },
         "base": {
           "type": "object",
           "properties": {

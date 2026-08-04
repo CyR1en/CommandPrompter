@@ -12,6 +12,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -24,8 +25,8 @@ import static io.papermc.paper.command.brigadier.Commands.argument;
  * {@code /playerdelegate <target> <permissionKey> <command>} — starts a
  * prompted command session as the target player with a temporary permission
  * attachment resolved from {@code permissionKey} in the plugin config. The
- * {@code %target_player%} placeholder in the command string is replaced
- * with the target player's name.
+ * {@code %target_player%} placeholder is resolved on the target's region
+ * thread.
  *
  * <p>Restricted to console senders with {@code promptpaper.playerdelegate}.
  * The {@code permissionKey} argument is tab-completed from the configured
@@ -60,10 +61,18 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
     @Override
     public int run(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         var resolver = context.getArgument("target", PlayerSelectorArgumentResolver.class);
-        var target = resolver.resolve(context.getSource()).getFirst();
+        var targets = resolver.resolve(context.getSource());
+        var sender = context.getSource().getSender();
+        if (targets == null || targets.isEmpty()) {
+            sender.sendMessage(Component.text("No players matched the selector."));
+            return 0;
+        }
         var permKey = StringArgumentType.getString(context, "permissionKey");
         var command = StringArgumentType.getString(context, "command");
-        return executeDispatch(context.getSource().getSender(), target, permKey, command);
+        for (var target : targets) {
+            executeDispatch(sender, target, permKey, command);
+        }
+        return Command.SINGLE_SUCCESS;
     }
 
     /**
@@ -73,19 +82,12 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
      * the unknown-permission-key error path.
      */
     public int executeDispatch(CommandSender sender, Player target, String permKey, String command) {
-        if (plugin.getEngine().hasActiveSession(target)) {
-            plugin.getPluginLogger().warn("Cannot delegate prompt to " + target.getName() + " because they are already in an active prompt session.");
-            return Command.SINGLE_SUCCESS;
-        }
-        if (command.startsWith("/")) {
-            command = command.substring(1);
-        }
-        if (command.contains("%target_player%")) {
-            command = command.replace("%target_player%", target.getName());
-        }
+        if (command.startsWith("/")) command = command.substring(1);
         var config = plugin.getConfigLoader().getConfig();
-        var perms = config.getPermissionAttachment(permKey);
-        if (perms.length == 0) {
+        var perms = config == null || permKey == null || permKey.isBlank()
+                ? null
+                : config.getPermissionAttachment(permKey);
+        if (perms == null || perms.length == 0) {
             var senderPlayer = sender instanceof Player p ? p : null;
             sender.sendMessage(plugin.getConfigLoader().getI18n().get(
                     "command.delegate.unknown_permission",
@@ -94,12 +96,7 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
             return Command.SINGLE_SUCCESS;
         }
         plugin.getPluginLogger().info(sender.getName()
-                + " used /playerdelegate -> " + target.getName()
-                + " permKey=" + permKey + ": " + command);
-        plugin.getPluginLogger().debug("PlayerDelegate: target=" + target.getName()
-                + " uuid=" + target.getUniqueId()
-                + " permKey=" + permKey + " perms=" + perms.length
-                + " mode=ATTACHMENT");
+                + " used /playerdelegate permKey=" + permKey + ": " + command);
         plugin.getScreenManager().startDelegatedSession(target, command,
                 ScreenManager.DispatchMode.ATTACHMENT, permKey);
         return Command.SINGLE_SUCCESS;

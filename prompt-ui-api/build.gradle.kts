@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+    compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testImplementation("net.kyori:adventure-api:4.26.1")

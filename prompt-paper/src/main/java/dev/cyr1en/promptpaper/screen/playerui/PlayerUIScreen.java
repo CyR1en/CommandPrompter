@@ -13,10 +13,13 @@ import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -35,15 +38,17 @@ public class PlayerUIScreen implements InputScreen {
     private ChestGui gui;
     private PaginatedPane headPane;
     private List<ItemStack> currentHeads;
+    private final AtomicLong lifecycleToken = new AtomicLong();
     private boolean open;
-    private org.bukkit.event.Listener searchListener;
+    private Listener searchListener;
+    private Listener quitListener;
 
     public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag, dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt) {
         this.plugin = plugin;
         this.player = player;
         this.tag = tag;
         this.puiPrompt = puiPrompt;
-        this.currentHeads = new ArrayList<>();
+        this.currentHeads = null;
     }
 
     /**
@@ -52,6 +57,8 @@ public class PlayerUIScreen implements InputScreen {
      */
     @Override
     public void open() {
+        var token = lifecycleToken.get();
+        var uuid = player.getUniqueId();
         var headCache = plugin.getHeadCache();
         int onlineCount = (int) Bukkit.getOnlinePlayers().stream()
                 .filter(p -> !headCache.isVanished(p))
@@ -60,14 +67,33 @@ public class PlayerUIScreen implements InputScreen {
             plugin.getPluginLogger().debug("PlayerUI cache mismatch: cache="
                     + headCache.size() + " online=" + onlineCount
                     + " — rebuilding before open");
-            headCache.buildCache(this::openInternal);
+            headCache.buildCache(() -> {
+                if (lifecycleToken.get() != token) return;
+                try {
+                    var task = player.getScheduler().run(
+                            plugin,
+                            scheduledTask -> {
+                                if (lifecycleToken.get() == token) openInternal(token);
+                            },
+                            () -> {});
+                    if (task == null) discardScreenState(uuid);
+                } catch (Exception e) {
+                    plugin.getPluginLogger().debug("PlayerUI cache completion was retired for " + uuid);
+                    discardScreenState(uuid);
+                }
+            });
             return;
         }
-        openInternal();
+        openInternal(token);
     }
 
     private void openInternal() {
-        if (currentHeads.isEmpty())
+        openInternal(lifecycleToken.get());
+    }
+
+    private void openInternal(long token) {
+        if (lifecycleToken.get() != token) return;
+        if (currentHeads == null)
             currentHeads = getFilteredHeads();
 
         registerQuitListener();
@@ -119,6 +145,7 @@ public class PlayerUIScreen implements InputScreen {
         gui.setOnClose(event -> {
             if (open) {
                 open = false;
+                unregisterListeners();
                 if (callback != null) {
                     callback.accept(ScreenResult.cancel());
                 }
@@ -253,34 +280,47 @@ public class PlayerUIScreen implements InputScreen {
      * to use as a search term, then reopens with filtered results.
      */
     private void startSearch() {
+        var token = lifecycleToken.get();
+        var playerUuid = player.getUniqueId();
         plugin.getPluginLogger().debug("PlayerUI search started for " + player.getName());
         open = false;
         player.closeInventory();
         player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
 
+        if (searchListener != null) {
+            HandlerList.unregisterAll(searchListener);
+            searchListener = null;
+        }
         var listener = new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
             public void onChat(org.bukkit.event.player.AsyncPlayerChatEvent event) {
-                if (!event.getPlayer().getUniqueId().equals(player.getUniqueId())) return;
+                if (!event.getPlayer().getUniqueId().equals(playerUuid)) return;
+                if (lifecycleToken.get() != token) return;
                 event.setCancelled(true);
                 var search = event.getMessage();
 
-                player.getScheduler().run(plugin, st -> {
-                    plugin.getPluginLogger().debug("PlayerUI search: term=" + search
-                            + " pre-filter=" + currentHeads.size());
-                    org.bukkit.event.HandlerList.unregisterAll(this);
-                    searchListener = null;
-                    var filtered = currentHeads.stream()
-                            .filter(item -> {
-                                var meta = item.getItemMeta();
-                                if (meta == null) return false;
-                                var name = meta.getDisplayName();
-                                return name.toLowerCase().contains(search.toLowerCase());
-                            })
-                            .toList();
-                    currentHeads = new ArrayList<>(filtered);
-                    open();
-                }, null);
+                try {
+                    var task = player.getScheduler().run(plugin, st -> {
+                        if (lifecycleToken.get() != token || currentHeads == null) return;
+                        plugin.getPluginLogger().debug("PlayerUI search: term=" + search
+                                + " pre-filter=" + currentHeads.size());
+                        HandlerList.unregisterAll(this);
+                        searchListener = null;
+                        var filtered = currentHeads.stream()
+                                .filter(item -> {
+                                    var meta = item.getItemMeta();
+                                    if (meta == null) return false;
+                                    var name = meta.getDisplayName();
+                                    return name.toLowerCase().contains(search.toLowerCase());
+                                })
+                                .toList();
+                        currentHeads = new ArrayList<>(filtered);
+                        open();
+                    }, () -> {});
+                    if (task == null) discardScreenState(playerUuid);
+                } catch (Exception e) {
+                    discardScreenState(playerUuid);
+                }
             }
         };
         this.searchListener = listener;
@@ -288,17 +328,31 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     private void registerQuitListener() {
-        Bukkit.getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+        if (quitListener != null) {
+            HandlerList.unregisterAll(quitListener);
+        }
+        var listener = new Listener() {
             @org.bukkit.event.EventHandler
             public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
                 if (event.getPlayer().getUniqueId().equals(player.getUniqueId())) {
-                    if (searchListener != null) {
-                        org.bukkit.event.HandlerList.unregisterAll(searchListener);
-                        searchListener = null;
-                    }
+                    invalidateCallbacks();
+                    unregisterListeners();
                 }
             }
-        }, plugin);
+        };
+        quitListener = listener;
+        Bukkit.getPluginManager().registerEvents(listener, plugin);
+    }
+
+    private void unregisterListeners() {
+        if (searchListener != null) {
+            HandlerList.unregisterAll(searchListener);
+            searchListener = null;
+        }
+        if (quitListener != null) {
+            HandlerList.unregisterAll(quitListener);
+            quitListener = null;
+        }
     }
 
     private GuiItem buildItem(String materialName, int cmd, String displayName,
@@ -317,18 +371,25 @@ public class PlayerUIScreen implements InputScreen {
 
     @Override
     public void close() {
-        if (!open && gui == null) return;
+        lifecycleToken.incrementAndGet();
         open = false;
         plugin.getPluginLogger().debug("PlayerUI closing for " + player.getName()
                 + " searchActive=" + (searchListener != null));
-        if (searchListener != null) {
-            org.bukkit.event.HandlerList.unregisterAll(searchListener);
-            searchListener = null;
-        }
+        unregisterListeners();
         if (gui != null) {
             player.closeInventory();
             gui = null;
         }
+    }
+
+    public void invalidateCallbacks() {
+        lifecycleToken.incrementAndGet();
+        open = false;
+    }
+
+    private void discardScreenState(java.util.UUID uuid) {
+        var manager = plugin.getScreenManager();
+        if (manager != null) manager.discardState(uuid);
     }
 
     @Override

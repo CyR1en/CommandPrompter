@@ -1,6 +1,11 @@
 allprojects {
     group = "dev.cyr1en"
-    version = "3.1.0"
+    version = "3.1.1"
+}
+
+tasks.register("printVersion") {
+    description = "Print the Gradle project version for release checks."
+    doLast { println(project.version) }
 }
 
 subprojects {

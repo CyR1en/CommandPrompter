@@ -39,7 +39,10 @@ public abstract class AbstractI18n<T, C> {
   protected final String locale;
   protected final File baseDir;
   protected final ClassLoader pluginClassLoader;
-  protected final Properties merged;
+
+  /** Immutable-after-publication snapshot; the reference is swapped atomically on reload. */
+  protected volatile Properties merged;
+
   protected final Logger logger;
 
   /**
@@ -57,7 +60,7 @@ public abstract class AbstractI18n<T, C> {
     this.pluginClassLoader = pluginClassLoader;
     this.merged = new Properties();
     this.logger = logger;
-    load();
+    reload();
   }
 
   public String getLocale() {
@@ -77,7 +80,8 @@ public abstract class AbstractI18n<T, C> {
    * @return the formatted result, or a fallback value if the key is missing
    */
   public T get(String key, C context, Placeholder... placeholders) {
-    var raw = merged.getProperty(key);
+    var snapshot = merged;
+    var raw = snapshot.getProperty(key);
     if (raw == null) {
       return missing(key);
     }
@@ -103,8 +107,19 @@ public abstract class AbstractI18n<T, C> {
    * without a full server restart.
    */
   public void reload() {
-    merged.clear();
-    load();
+    try {
+      // Build everything off to the side. Properties is mutable, so publishing a single fully
+      // loaded instance is essential: clearing and repopulating the live object exposes partial
+      // translations to scheduler threads.
+      merged = loadSnapshot();
+    } catch (RuntimeException e) {
+      if (logger != null) {
+        logger.warning("[I18n] Reload failed for locale " + locale + ": " + e.getMessage());
+      }
+      // Keep the old snapshot visible and let the caller decide whether the overall config reload
+      // should fail. No reader can observe a partially loaded set.
+      throw e;
+    }
   }
 
   /**
@@ -162,44 +177,52 @@ public abstract class AbstractI18n<T, C> {
    * Populates {@link #merged} using the three-level fallback chain. Later levels take priority, so
    * user-override properties are loaded last and overwrite JAR-provided defaults.
    */
-  private void load() {
+  private Properties loadSnapshot() {
+    var snapshot = new Properties();
     // Ultimate JAR fallback (en_US)
-    loadFromJar("messages_en_US.properties");
+    loadFromJar(snapshot, "messages_en_US.properties");
 
     // Locale-specific JAR bundle
     if (!"en_US".equals(locale)) {
-      loadFromJar("messages_" + locale + ".properties");
+      loadFromJar(snapshot, "messages_" + locale + ".properties");
     }
 
     // User-override file on disk (highest priority)
-    loadFromDisk(locale);
+    loadFromDisk(snapshot, locale);
+    return snapshot;
   }
 
-  private void loadFromJar(String resourceName) {
+  private void loadFromJar(Properties snapshot, String resourceName) {
     try (InputStream in = pluginClassLoader.getResourceAsStream(resourceName)) {
       if (in == null) return;
       try (var reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-        merged.load(reader);
+        loadProperties(snapshot, reader, "classpath:" + resourceName);
       }
     } catch (IOException e) {
-      if (logger != null) {
-        logger.warning("[I18n] Failed to load bundled " + resourceName + ": " + e.getMessage());
-      }
+      throw new IllegalStateException(
+          "Failed to load bundled properties classpath:" + resourceName, e);
     }
   }
 
-  private void loadFromDisk(String locale) {
+  private void loadFromDisk(Properties snapshot, String locale) {
     var localesDir = new File(baseDir, LOCALES_DIR);
     var overrideFile = new File(localesDir, "messages_" + locale + ".properties");
     if (!overrideFile.exists()) return;
     try (var reader =
         new InputStreamReader(new FileInputStream(overrideFile), StandardCharsets.UTF_8)) {
-      merged.load(reader);
+      loadProperties(snapshot, reader, overrideFile.getAbsolutePath());
     } catch (IOException e) {
-      if (logger != null) {
-        logger.warning(
-            "[I18n] Failed to load override " + overrideFile.getName() + ": " + e.getMessage());
-      }
+      throw new IllegalStateException(
+          "Failed to load override properties " + overrideFile.getAbsolutePath(), e);
+    }
+  }
+
+  private static void loadProperties(Properties snapshot, InputStreamReader reader, String source)
+      throws IOException {
+    try {
+      snapshot.load(reader);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("Malformed properties in " + source, e);
     }
   }
 }

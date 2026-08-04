@@ -111,12 +111,21 @@ public class PostCommandResolver {
           "Preset post-command '" + def.id() + "' has empty command after placeholder resolution");
       return Optional.empty();
     }
-    return Optional.of(new Resolved(command, def.executeAs(), def.delayTicks(), def.id(), true));
+    return Optional.of(new Resolved(command, def.executeAs(), def.delayTicks(), def.id(), true, false));
   }
 
   private Optional<Resolved> resolveLegacy(
       Player player, PostCommandMeta pcm, boolean wasCancelled) {
-    // Legacy PCMs are pre-filtered by the session's completion state.
+    // Legacy PCMs retain the parser marker as their lifecycle authority. PromptEngine iterates the
+    // union of the parser-prefiltered lists so preset policy can override its source marker; this
+    // explicit check keeps ordinary PCMs from leaking into the opposite lifecycle.
+    if (pcm.onCancel() != wasCancelled) {
+      plugin.getPluginLogger().debug(
+          "Legacy post-command '" + pcm.command()
+              + "' does not match session state (onCancel=" + pcm.onCancel()
+              + ", wasCancelled=" + wasCancelled + ") — skipping");
+      return Optional.empty();
+    }
     if (pcm.command() == null || pcm.command().isEmpty()) {
       plugin.getPluginLogger().debug("Skipping empty legacy PCM");
       return Optional.empty();
@@ -132,7 +141,8 @@ public class PostCommandResolver {
             mapDispatchTarget(pcm.dispatchTarget()),
             pcm.delayTicks(),
             null,
-            false));
+            false,
+            pcm.dispatchTarget() == DispatchTarget.PASSTHROUGH));
   }
 
   private static boolean policyMatches(ExecutionPolicy policy, boolean wasCancelled) {
@@ -160,5 +170,15 @@ public class PostCommandResolver {
    * @param preset whether this command originated from a preset
    */
   public record Resolved(
-      String command, ExecuteAs executeAs, int delayTicks, String sourceId, boolean preset) {}
+      String command,
+      ExecuteAs executeAs,
+      int delayTicks,
+      String sourceId,
+      boolean preset,
+      boolean inheritDispatch) {
+    public Resolved(
+        String command, ExecuteAs executeAs, int delayTicks, String sourceId, boolean preset) {
+      this(command, executeAs, delayTicks, sourceId, preset, false);
+    }
+  }
 }

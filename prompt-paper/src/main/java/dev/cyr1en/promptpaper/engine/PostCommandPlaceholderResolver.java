@@ -65,7 +65,13 @@ public class PostCommandPlaceholderResolver {
     var sb = new StringBuilder();
     while (matcher.find()) {
       var digits = matcher.group(1);
-      int idx = (digits == null) ? 1 : Integer.parseInt(digits);
+      int idx;
+      try {
+        idx = (digits == null) ? 1 : Integer.parseInt(digits);
+      } catch (NumberFormatException e) {
+        // An oversized decimal index is invalid but must not abort PCM dispatch.
+        idx = -1;
+      }
       String replacement;
       if (idx >= 1 && idx <= answers.size()) {
         replacement = answers.get(idx - 1);

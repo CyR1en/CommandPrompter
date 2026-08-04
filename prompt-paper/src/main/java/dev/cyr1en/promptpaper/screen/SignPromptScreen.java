@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.screen;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.SignInputScreen;
+import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
@@ -57,29 +58,68 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
                 + " location=" + promptConfig.inputFieldLocation());
 
         for (var provider : providers) {
+            InputScreen candidate = null;
             try {
                 plugin.getPluginLogger().debug("Attempting sign provider: "
                         + provider.getClass().getSimpleName());
                 var nms = provider.createSign(plugin, player, arranged);
+                candidate = nms;
                 if (nms instanceof SignInputScreen signScreen) {
                     signScreen.configure(config);
                     signScreen.onResult(this::handleResult);
-                    signScreen.open();
                     this.wrapped = signScreen;
                     this.open = true;
+                    signScreen.onOpenFailure(failure -> handleAsyncProviderFailure(signScreen, failure));
+                    signScreen.open();
                     plugin.getPluginLogger().debug("Sign provider succeeded: "
                             + provider.getClass().getSimpleName());
                     return;
                 }
             } catch (Throwable t) {
+                open = false;
+                if (candidate != null) {
+                    try {
+                        candidate.close();
+                    } catch (Throwable closeFailure) {
+                        plugin.getPluginLogger().debug("Sign provider cleanup failed: "
+                                + closeFailure.getMessage());
+                    }
+                }
                 plugin.getPluginLogger().debug("Sign provider "
                         + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
             }
         }
         plugin.getPluginLogger().debug("All sign providers failed, falling back to chat");
         wrapped = fallbackToChat();
-        wrapped.open();
         open = true;
+        try {
+            wrapped.open();
+        } catch (Throwable failure) {
+            open = false;
+            plugin.getPluginLogger().warn("Chat fallback for sign prompt failed: "
+                    + failure.getMessage());
+        }
+    }
+
+    private void handleAsyncProviderFailure(SignInputScreen failed, Throwable failure) {
+        if (!open || wrapped != failed) return;
+        plugin.getPluginLogger().debug("Asynchronous sign provider failed: " + failure.getMessage());
+        open = false;
+        try {
+            failed.close();
+        } catch (Throwable closeFailure) {
+            plugin.getPluginLogger().debug("Sign provider cleanup failed: " + closeFailure.getMessage());
+        }
+        try {
+            var fallback = fallbackToChat();
+            wrapped = fallback;
+            open = true;
+            fallback.open();
+        } catch (Throwable fallbackFailure) {
+            open = false;
+            plugin.getPluginLogger().warn("Chat fallback for sign prompt failed: "
+                    + fallbackFailure.getMessage());
+        }
     }
 
     private Map<String, String> buildConfig(PromptConfig cfg) {

@@ -3,7 +3,9 @@ package dev.cyr1en.promptpaper.engine;
 import dev.cyr1en.promptcore.*;
 import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptcore.session.PromptSession;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.util.MiniMessageTagFilter;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
@@ -11,7 +13,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.PermissionAttachment;
 
 /**
  * Manages the lifecycle of interactive prompt sessions for players.
@@ -21,16 +26,49 @@ import org.bukkit.entity.Player;
  */
 public class PromptEngine {
 
+    /** Immutable dispatch context captured before ScreenManager clears its per-player maps. */
+    public record DispatchContext(
+            ExecuteAs executeAs,
+            String permissionKey,
+            boolean attachmentRequired,
+            List<String> permissionSnapshot) {
+        public DispatchContext {
+            if (executeAs == null) executeAs = ExecuteAs.PLAYER;
+            permissionSnapshot = permissionSnapshot == null
+                    ? List.of()
+                    : List.copyOf(permissionSnapshot);
+        }
+
+        public DispatchContext(ExecuteAs executeAs, String permissionKey, boolean attachmentRequired) {
+            this(executeAs, permissionKey, attachmentRequired, List.of());
+        }
+
+        public DispatchContext(ExecuteAs executeAs, String permissionKey) {
+            this(executeAs, permissionKey, permissionKey != null, List.of());
+        }
+
+        public static DispatchContext player() {
+            return new DispatchContext(ExecuteAs.PLAYER, null, false, List.of());
+        }
+    }
+
     private final CommandPrompter plugin;
     private volatile CommandLineParser parser;
     private final Map<UUID, PromptSession> sessions;
+    private final Map<SessionResult, List<PostCommandMeta>> dispatchPcmSnapshots;
     private final Scheduler scheduler;
+    private final Object sessionLifecycleMonitor;
+    private final AtomicBoolean reloadInProgress;
 
     public PromptEngine(CommandPrompter plugin, Scheduler scheduler) {
         this.plugin = plugin;
         this.parser = buildParser(plugin);
         this.sessions = new ConcurrentHashMap<>();
+        this.dispatchPcmSnapshots = java.util.Collections.synchronizedMap(
+                new java.util.IdentityHashMap<>());
         this.scheduler = scheduler;
+        this.sessionLifecycleMonitor = new Object();
+        this.reloadInProgress = new AtomicBoolean();
     }
 
     /**
@@ -71,6 +109,66 @@ public class PromptEngine {
     }
 
     /**
+     * Acquires the reload barrier before any player teardown is scheduled.
+     *
+     * <p>The monitor makes the gate transition atomic with the session-creation path. A prompt
+     * that is already in the small hand-off between parsing and screen creation either completes
+     * that hand-off before the barrier is acquired or is rejected before it can create screen
+     * state.
+     *
+     * @return {@code true} when this caller owns the barrier, or {@code false} when another reload
+     *     is already in progress
+     */
+    public boolean beginReload() {
+        synchronized (sessionLifecycleMonitor) {
+            return reloadInProgress.compareAndSet(false, true);
+        }
+    }
+
+    /** Releases the reload barrier after the complete reload attempt has finished. */
+    public void endReload() {
+        synchronized (sessionLifecycleMonitor) {
+            reloadInProgress.set(false);
+        }
+    }
+
+    /** Whether new prompt sessions are currently blocked by a configuration reload. */
+    public boolean isReloadInProgress() {
+        return reloadInProgress.get();
+    }
+
+    /**
+     * Sends the reload-gate feedback when a new player session is rejected.
+     *
+     * <p>This uses an existing localized reload failure key because the message catalog is owned
+     * by the resource/configuration lane. The raw tagged command is still rejected by the caller.
+     */
+    public boolean rejectIfReloading(Player player) {
+        if (!reloadInProgress.get()) return false;
+        try {
+            player.sendMessage(plugin.getConfigLoader().getI18n().get(
+                    "command.reload.failed",
+                    Placeholder.of("error", "a configuration reload is in progress")));
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to send reload-gate feedback: " + e.getMessage());
+        }
+        return true;
+    }
+
+    /**
+     * Runs the final session-to-screen hand-off while holding the same monitor used by the reload
+     * barrier. This prevents a reload from being acquired between session acceptance and creation
+     * of screen/timeout state.
+     */
+    public boolean runIfReloadNotInProgress(Runnable action) {
+        synchronized (sessionLifecycleMonitor) {
+            if (reloadInProgress.get()) return false;
+            action.run();
+            return true;
+        }
+    }
+
+    /**
      * Parses a command line and, if it contains prompt tags, starts a new
      * session for the player and returns the parsed result.
      *
@@ -98,6 +196,7 @@ public class PromptEngine {
      *     (or the command was rejected by the fail-fast check)
      */
     public Optional<ParsedCommand> intercept(Player player, String commandLine) {
+        if (rejectIfReloading(player)) return Optional.empty();
         var config = plugin.getConfigLoader().getConfig();
         if (config.enablePermission() && !player.hasPermission("promptpaper.use")) {
             plugin.getPluginLogger().debug("Player " + player.getName()
@@ -125,7 +224,28 @@ public class PromptEngine {
             return Optional.empty();
         }
 
-        sessions.put(player.getUniqueId(), PromptSession.start(player.getUniqueId().toString(), parsed));
+        var accepted = new AtomicBoolean();
+        boolean rejectedByReload;
+        synchronized (sessionLifecycleMonitor) {
+            rejectedByReload = reloadInProgress.get();
+            if (!rejectedByReload) {
+                sessions.compute(player.getUniqueId(), (uuid, existing) -> {
+                    if (existing != null && existing.isActive()) return existing;
+                    accepted.set(true);
+                    return PromptSession.start(uuid.toString(), parsed);
+                });
+            }
+        }
+        if (rejectedByReload) {
+            rejectIfReloading(player);
+            return Optional.empty();
+        }
+        if (!accepted.get()) {
+            plugin.getPluginLogger().debug("Player " + player.getName()
+                    + " already has an active session, aborting new session");
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            return Optional.empty();
+        }
         plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
                 + " prompts for " + player.getName());
         return Optional.of(parsed);
@@ -161,20 +281,31 @@ public class PromptEngine {
      * @return the completed session result if all prompts are now answered, or empty
      */
     public Optional<SessionResult> submit(Player player, String answer) {
-        var session = sessions.get(player.getUniqueId());
-        if (session == null || !session.isActive()) {
+        var found = new AtomicBoolean();
+        var completed = new AtomicReference<SessionResult>();
+        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+            if (session == null || !session.isActive()) return session;
+            found.set(true);
+            var next = session.submitAnswer(answer);
+            if (next.isComplete()) {
+                var result = next.finish();
+                rememberAllPCMs(next, result);
+                completed.set(result);
+                return null;
+            }
+            return next;
+        });
+        if (!found.get()) {
             plugin.getPluginLogger().debug("No active session for " + player.getName() + " on submit");
             return Optional.empty();
         }
-        session = session.submitAnswer(answer);
-        sessions.put(player.getUniqueId(), session);
-        if (session.isComplete()) {
-            sessions.remove(player.getUniqueId());
+        if (completed.get() != null) {
             plugin.getPluginLogger().debug("Session complete for " + player.getName());
-            return Optional.of(session.finish());
+            return Optional.of(completed.get());
         }
+        var session = sessions.get(player.getUniqueId());
         plugin.getPluginLogger().debug("Answer accepted for " + player.getName()
-                + ", " + session.remainingCount() + " remaining");
+                + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
         return Optional.empty();
     }
 
@@ -185,20 +316,31 @@ public class PromptEngine {
      * the size-validation rules.
      */
     public Optional<SessionResult> submitAnswers(Player player, java.util.List<String> answers) {
-        var session = sessions.get(player.getUniqueId());
-        if (session == null || !session.isActive()) {
+        var found = new AtomicBoolean();
+        var completed = new AtomicReference<SessionResult>();
+        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+            if (session == null || !session.isActive()) return session;
+            found.set(true);
+            var next = session.submitAnswers(answers);
+            if (next.isComplete()) {
+                var result = next.finish();
+                rememberAllPCMs(next, result);
+                completed.set(result);
+                return null;
+            }
+            return next;
+        });
+        if (!found.get()) {
             plugin.getPluginLogger().debug("No active session for " + player.getName() + " on submitAnswers");
             return Optional.empty();
         }
-        session = session.submitAnswers(answers);
-        sessions.put(player.getUniqueId(), session);
-        if (session.isComplete()) {
-            sessions.remove(player.getUniqueId());
+        if (completed.get() != null) {
             plugin.getPluginLogger().debug("Session complete for " + player.getName());
-            return Optional.of(session.finish());
+            return Optional.of(completed.get());
         }
+        var session = sessions.get(player.getUniqueId());
         plugin.getPluginLogger().debug("Compound answers accepted for " + player.getName()
-                + ", " + session.remainingCount() + " remaining");
+                + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
         return Optional.empty();
     }
 
@@ -213,16 +355,28 @@ public class PromptEngine {
      * Cancels the player's active session and dispatches on-cancel commands if present.
      */
     public void cancel(Player player, CancelReason reason) {
-        var session = sessions.remove(player.getUniqueId());
-        if (session == null) {
+        cancel(player, reason, DispatchContext.player());
+    }
+
+    /** Atomically cancels a session and dispatches its PCMs with the captured context. */
+    public void cancel(Player player, CancelReason reason, DispatchContext dispatchContext) {
+        var cancelledResult = new AtomicReference<SessionResult>();
+        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+            if (session == null || !session.isActive()) return session;
+            var cancelled = session.cancel(reason);
+            if (cancelled.isCancelled()) {
+                var result = cancelled.finish();
+                rememberAllPCMs(cancelled, result);
+                cancelledResult.set(result);
+            }
+            return null;
+        });
+        if (cancelledResult.get() == null) {
             plugin.getPluginLogger().debug("No session to cancel for " + player.getName());
             return;
         }
         plugin.getPluginLogger().debug("Session cancelled for " + player.getName() + " reason=" + reason);
-        var cancelled = session.cancel(reason);
-        if (cancelled.isCancelled()) {
-            dispatchPCMs(player, cancelled.finish(), true);
-        }
+        dispatchPCMs(player, cancelledResult.get(), true, dispatchContext);
     }
 
     /**
@@ -232,9 +386,32 @@ public class PromptEngine {
         var snapshot = new java.util.ArrayList<>(sessions.keySet());
         for (var uuid : snapshot) {
             var player = plugin.getServer().getPlayer(uuid);
-            if (player != null) cancel(player, CancelReason.MANUAL);
+            if (player == null) {
+                sessions.remove(uuid);
+                continue;
+            }
+            try {
+                var task = player.getScheduler().run(
+                        plugin,
+                        scheduledTask -> cancel(player, CancelReason.MANUAL),
+                        () -> discard(uuid));
+                if (task == null) discard(uuid);
+            } catch (Throwable t) {
+                plugin.getPluginLogger().debug("Unable to cancel session for retired player " + uuid);
+                discard(uuid);
+            }
         }
+    }
+
+    /** Drops session state without dispatching cancellation PCMs. */
+    public void discard(UUID uuid) {
+        if (uuid != null) sessions.remove(uuid);
+    }
+
+    /** Drops all session state without invoking player-affine work. */
+    public void discardAll() {
         sessions.clear();
+        dispatchPcmSnapshots.clear();
     }
 
     /**
@@ -246,6 +423,47 @@ public class PromptEngine {
     }
 
     /**
+     * Remembers the complete parsed PCM source list for a finished result.
+     *
+     * <p>Prompt-core intentionally puts only the marker-matching list in a normal
+     * {@link SessionResult}. The runtime dispatcher must also see the opposite-marker preset
+     * references so their configured execution policy can be authoritative. Legacy references are
+     * re-resolved here and are still filtered by {@link PostCommandResolver} using their marker.
+     */
+    private void rememberAllPCMs(PromptSession finishedSession, SessionResult result) {
+        var all = finishedSession.parsedCommand().postCmds().stream()
+                .map(pcm -> resolvePCMReferences(pcm, result.answers()))
+                .toList();
+        dispatchPcmSnapshots.put(result, all);
+    }
+
+    /** Mirrors the core session's one-pass substitution for the PCMs added from the opposite list. */
+    private PostCommandMeta resolvePCMReferences(PostCommandMeta pcm, List<String> answers) {
+        var matcher = java.util.regex.Pattern.compile("\\{(\\d+)}").matcher(pcm.command());
+        var resolved = new StringBuffer();
+        while (matcher.find()) {
+            int index;
+            try {
+                index = Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException e) {
+                index = -1;
+            }
+            var replacement = index >= 0 && index < answers.size() ? answers.get(index) : "";
+            matcher.appendReplacement(
+                    resolved, java.util.regex.Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(resolved);
+        var command = resolved.toString().replaceAll("\\s+", " ").trim();
+        return new PostCommandMeta(
+                command,
+                pcm.answerIndices(),
+                pcm.delayTicks(),
+                pcm.onCancel(),
+                pcm.dispatchTarget(),
+                pcm.preset());
+    }
+
+    /**
      * Dispatches post-completion or on-cancel commands (PCMs) from a session result.
      *
      * <p>Each PCM is routed through {@link PostCommandResolver}, which:
@@ -253,10 +471,8 @@ public class PromptEngine {
      * <ul>
      *   <li>Resolves preset references ({@code <!@id>}) against the
      *       {@code PresetRegistry}.
-     *   <li>Filters by the preset's {@code executionPolicy} (or, for legacy
-     *       PCMs, by the parser's {@code onCancel} hint, which is already
-     *       aligned with the session state via the pre-filtered
-     *       {@code onCompleteCmds} / {@code onCancelCmds} lists).
+     *   <li>Filters by the preset's {@code executionPolicy}; legacy PCMs retain
+     *       the parser's {@code onCancel} lifecycle hint.
      *   <li>Resolves session-scoped placeholders ({@code {player}},
      *       {@code {input}}, {@code {input:N}}, PAPI {@code %…%}).
      *   <li>Schedules the dispatch with the preset's / legacy delay via the
@@ -266,10 +482,31 @@ public class PromptEngine {
      * <p>Commands with a positive delay are scheduled; others run synchronously.
      */
     public void dispatchPCMs(Player player, SessionResult result, boolean wasCancelled) {
-        var pcms = wasCancelled ? result.onCancelCmds() : result.onCompleteCmds();
+        dispatchPCMs(player, result, wasCancelled, DispatchContext.player());
+    }
+
+    /** Dispatches PCMs using an immutable snapshot of the original dispatch context. */
+    public void dispatchPCMs(
+            Player player,
+            SessionResult result,
+            boolean wasCancelled,
+            DispatchContext dispatchContext) {
+        if (dispatchContext == null) dispatchContext = DispatchContext.player();
+        // SessionResult's public lifecycle lists are parser-prefiltered. The engine keeps an
+        // identity-bound snapshot of the complete parsed PCM source list for results it creates;
+        // use that snapshot so a preset whose source marker disagrees with its configured policy
+        // is still considered. The resolver applies the authoritative preset policy below.
+        List<PostCommandMeta> pcms;
+        synchronized (dispatchPcmSnapshots) {
+            pcms = dispatchPcmSnapshots.remove(result);
+        }
+        if (pcms == null) {
+            pcms = wasCancelled ? result.onCancelCmds() : result.onCompleteCmds();
+        }
         plugin.getPluginLogger().debug("Dispatching " + pcms.size() + " PCMs for "
                 + player.getName() + " (cancelled=" + wasCancelled + ")");
         var resolver = new PostCommandResolver(plugin);
+        var dispatchedPresetIds = new java.util.HashSet<String>();
         for (var pcm : pcms) {
             var resolved = resolver.resolve(player, pcm, wasCancelled, result.answers());
             if (resolved.isEmpty()) {
@@ -279,26 +516,75 @@ public class PromptEngine {
                                 + " onCancel=" + pcm.onCancel());
                 continue;
             }
-            schedule(player, resolved.get());
+            if (resolved.get().preset()
+                    && !dispatchedPresetIds.add(resolved.get().sourceId())) {
+                plugin.getPluginLogger().debug(
+                        "Skipping duplicate preset PCM: " + resolved.get().sourceId());
+                continue;
+            }
+            schedule(player, resolved.get(), dispatchContext);
         }
     }
 
     /** Schedules a single resolved post-command for execution. */
-    private void schedule(Player player, PostCommandResolver.Resolved resolved) {
-        Runnable task = () -> executeResolved(player, resolved);
+    private void schedule(
+            Player player,
+            PostCommandResolver.Resolved resolved,
+            DispatchContext dispatchContext) {
+        var effectiveExecuteAs = resolved.inheritDispatch()
+                ? dispatchContext.executeAs()
+                : resolved.executeAs();
+        if (effectiveExecuteAs == ExecuteAs.PLAYER) {
+            if (resolved.delayTicks() > 0) {
+                plugin.getPluginLogger().debug(
+                        "Scheduling PCM: source=" + resolved.sourceId()
+                                + " preset=" + resolved.preset()
+                                + " delay=" + resolved.delayTicks() + "t"
+                                + " target=" + effectiveExecuteAs
+                                + " cmd=" + resolved.command());
+                try {
+                    player.getScheduler().runDelayed(
+                            plugin,
+                            scheduledTask -> executeResolved(player, resolved, dispatchContext),
+                            null,
+                            resolved.delayTicks());
+                } catch (Throwable t) {
+                    plugin.getPluginLogger().debug("Player PCM task retired before scheduling: "
+                            + t.getMessage());
+                }
+            } else {
+                plugin.getPluginLogger().debug(
+                        "Dispatching PCM: source=" + resolved.sourceId()
+                                + " preset=" + resolved.preset()
+                                + " target=" + effectiveExecuteAs
+                                + " cmd=" + resolved.command());
+                try {
+                    player.getScheduler().run(
+                            plugin,
+                            scheduledTask -> executeResolved(player, resolved, dispatchContext),
+                            null);
+                } catch (Throwable t) {
+                    plugin.getPluginLogger().debug("Player PCM task retired before scheduling: "
+                            + t.getMessage());
+                }
+            }
+            return;
+        }
+
+        Runnable task = () -> executeResolved(player, resolved, dispatchContext);
         if (resolved.delayTicks() > 0) {
             plugin.getPluginLogger().debug(
                     "Scheduling PCM: source=" + resolved.sourceId()
                             + " preset=" + resolved.preset()
                             + " delay=" + resolved.delayTicks() + "t"
-                            + " target=" + resolved.executeAs()
+                            + " target=" + effectiveExecuteAs
                             + " cmd=" + resolved.command());
             scheduler.runLater(task, resolved.delayTicks());
         } else {
             plugin.getPluginLogger().debug(
                     "Dispatching PCM: source=" + resolved.sourceId()
                             + " preset=" + resolved.preset()
-                            + " target=" + resolved.executeAs()
+                            + " target=" + effectiveExecuteAs
                             + " cmd=" + resolved.command());
             scheduler.runSync(task);
         }
@@ -310,12 +596,154 @@ public class PromptEngine {
      * the server console; {@link dev.cyr1en.promptpaper.preset.ExecuteAs#PLAYER}
      * uses the player.
      */
-    private void executeResolved(Player player, PostCommandResolver.Resolved resolved) {
-        var sender = switch (resolved.executeAs()) {
+    private void executeResolved(
+            Player player,
+            PostCommandResolver.Resolved resolved,
+            DispatchContext dispatchContext) {
+        var executeAs = resolved.inheritDispatch()
+                ? dispatchContext.executeAs()
+                : resolved.executeAs();
+        if (resolved.inheritDispatch()
+                && executeAs == ExecuteAs.PLAYER
+                && dispatchContext.attachmentRequired()) {
+            executeWithAttachment(
+                    player,
+                    resolved.command(),
+                    dispatchContext.permissionKey(),
+                    dispatchContext.permissionSnapshot(),
+                    resolved.delayTicks() > 0);
+            return;
+        }
+        var sender = switch (executeAs) {
             case CONSOLE -> plugin.getServer().getConsoleSender();
             case PLAYER -> player;
         };
-        plugin.getServer().dispatchCommand(sender, resolved.command());
+        try {
+            if (!plugin.getServer().dispatchCommand(sender, resolved.command())) {
+                reportCommandFailure(player, resolved.command(), "dispatch returned false");
+            }
+        } catch (Exception e) {
+            reportCommandFailure(player, resolved.command(), e.getMessage());
+        }
+    }
+
+    private void executeWithAttachment(
+            Player player,
+            String command,
+            String permissionKey,
+            List<String> capturedPermissions,
+            boolean delayed) {
+        if (permissionKey == null || permissionKey.isBlank()
+                || capturedPermissions == null || capturedPermissions.isEmpty()) {
+            plugin.getPluginLogger().err(
+                    "Refusing post-command attachment dispatch for invalid captured key/snapshot: "
+                            + permissionKey);
+            reportCommandFailure(player, command, "invalid permission attachment");
+            return;
+        }
+
+        if (delayed) {
+            var currentPermissions = readPermissionSnapshot(permissionKey);
+            if (currentPermissions.isEmpty()) {
+                plugin.getPluginLogger().err(
+                        "Skipping delayed attachment PCM '" + command
+                                + "': permission key was removed or is unavailable: "
+                                + permissionKey);
+                reportCommandFailure(player, command, "permission attachment changed after scheduling");
+                return;
+            }
+            if (!currentPermissions.get().equals(capturedPermissions)) {
+                plugin.getPluginLogger().err(
+                        "Skipping delayed attachment PCM '" + command
+                                + "': permissions for key " + permissionKey
+                                + " changed from " + capturedPermissions + " to "
+                                + currentPermissions.get());
+                reportCommandFailure(player, command, "permission attachment changed after scheduling");
+                return;
+            }
+        }
+
+        var permissions = capturedPermissions.toArray(new String[0]);
+        var config = plugin.getConfigLoader().getConfig();
+
+        var attachment = new AtomicReference<PermissionAttachment>();
+        var removed = new AtomicBoolean();
+        Runnable remove = () -> {
+            var current = attachment.get();
+            if (current != null && removed.compareAndSet(false, true)) {
+                try {
+                    player.removeAttachment(current);
+                } catch (Exception e) {
+                    plugin.getPluginLogger().debug("Unable to remove permission attachment");
+                }
+            }
+        };
+        boolean removalScheduled = false;
+        boolean failed = false;
+        try {
+            attachment.set(player.addAttachment(plugin));
+            if (attachment.get() == null) {
+                reportCommandFailure(player, command, "unable to create permission attachment");
+                return;
+            }
+            for (var permission : permissions) attachment.get().setPermission(permission, true);
+            attachment.get().getPermissible().recalculatePermissions();
+            if (!plugin.getServer().dispatchCommand(player, command)) {
+                reportCommandFailure(player, command, "dispatch returned false");
+            }
+        } catch (Exception e) {
+            failed = true;
+            reportCommandFailure(player, command, e.getMessage());
+        }
+        if (!failed && !removed.get() && config != null && config.permissionAttachmentTicks() > 0) {
+            try {
+                var task = player.getScheduler().runDelayed(
+                        plugin,
+                        scheduledTask -> remove.run(),
+                        () -> {},
+                        config.permissionAttachmentTicks());
+                removalScheduled = task != null;
+            } catch (Exception e) {
+                plugin.getPluginLogger().debug("Attachment removal scheduling failed: "
+                        + e.getMessage());
+            }
+        }
+        if (!removalScheduled) remove.run();
+    }
+
+    /** Reads the current attachment definition only for delayed fail-closed validation. */
+    private Optional<List<String>> readPermissionSnapshot(String permissionKey) {
+        if (permissionKey == null || permissionKey.isBlank()) return Optional.empty();
+        try {
+            var config = plugin.getConfigLoader().getConfig();
+            var permissions = config == null ? null : config.getPermissionAttachment(permissionKey);
+            if (permissions == null || permissions.length == 0) return Optional.empty();
+            return Optional.of(List.copyOf(java.util.Arrays.asList(permissions)));
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug(
+                    "Unable to revalidate permission attachment key " + permissionKey + ": "
+                            + e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private void reportCommandFailure(Player player, String command, String detail) {
+        var message = detail != null ? detail : "unknown error";
+        plugin.getPluginLogger().info("Command dispatch failed for '" + command + "': " + message);
+        try {
+            var task = player.getScheduler().run(
+                    plugin,
+                    scheduledTask -> player.sendMessage(plugin.getConfigLoader().getI18n().get(
+                            "prompt.error.command_failed",
+                            player,
+                            Placeholder.of("message", message))),
+                    null);
+            if (task == null) {
+                plugin.getPluginLogger().debug("Unable to send command failure to retired player");
+            }
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to send command failure feedback: " + e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------

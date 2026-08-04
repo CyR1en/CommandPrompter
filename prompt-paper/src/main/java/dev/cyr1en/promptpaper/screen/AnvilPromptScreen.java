@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.screen;
 import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
@@ -34,29 +35,68 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         var config = buildConfig(promptConfig);
 
         for (var provider : providers) {
+            InputScreen candidate = null;
             try {
                 plugin.getPluginLogger().debug("Attempting anvil provider: "
                         + provider.getClass().getSimpleName());
                 var nms = provider.createAnvil(plugin, player, displayText);
+                candidate = nms;
                 if (nms instanceof AnvilInputScreen anvilScreen) {
                     anvilScreen.configure(config);
                     anvilScreen.onResult(this::handleResult);
-                    anvilScreen.open();
                     this.wrapped = anvilScreen;
                     this.open = true;
+                    anvilScreen.onOpenFailure(failure -> handleAsyncProviderFailure(anvilScreen, failure));
+                    anvilScreen.open();
                     plugin.getPluginLogger().debug("Anvil provider succeeded: "
                             + provider.getClass().getSimpleName());
                     return;
                 }
             } catch (Throwable t) {
+                open = false;
+                if (candidate != null) {
+                    try {
+                        candidate.close();
+                    } catch (Throwable closeFailure) {
+                        plugin.getPluginLogger().debug("Anvil provider cleanup failed: "
+                                + closeFailure.getMessage());
+                    }
+                }
                 plugin.getPluginLogger().debug("Anvil provider "
                         + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
             }
         }
         plugin.getPluginLogger().debug("All anvil providers failed, falling back to chat");
         wrapped = fallbackToChat();
-        wrapped.open();
         open = true;
+        try {
+            wrapped.open();
+        } catch (Throwable failure) {
+            open = false;
+            plugin.getPluginLogger().warn("Chat fallback for anvil prompt failed: "
+                    + failure.getMessage());
+        }
+    }
+
+    private void handleAsyncProviderFailure(AnvilInputScreen failed, Throwable failure) {
+        if (!open || wrapped != failed) return;
+        plugin.getPluginLogger().debug("Asynchronous anvil provider failed: " + failure.getMessage());
+        open = false;
+        try {
+            failed.close();
+        } catch (Throwable closeFailure) {
+            plugin.getPluginLogger().debug("Anvil provider cleanup failed: " + closeFailure.getMessage());
+        }
+        try {
+            var fallback = fallbackToChat();
+            wrapped = fallback;
+            open = true;
+            fallback.open();
+        } catch (Throwable fallbackFailure) {
+            open = false;
+            plugin.getPluginLogger().warn("Chat fallback for anvil prompt failed: "
+                    + fallbackFailure.getMessage());
+        }
     }
 
     private Map<String, String> buildConfig(PromptConfig cfg) {

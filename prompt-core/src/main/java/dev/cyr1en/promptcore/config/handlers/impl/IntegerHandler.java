@@ -1,5 +1,6 @@
 package dev.cyr1en.promptcore.config.handlers.impl;
 
+import dev.cyr1en.promptcore.config.ConfigurationException;
 import dev.cyr1en.promptcore.config.YamlDocument;
 import dev.cyr1en.promptcore.config.annotations.field.IntegerConstraint;
 import dev.cyr1en.promptcore.config.annotations.field.NodeDefault;
@@ -12,10 +13,21 @@ import java.lang.reflect.Field;
 public class IntegerHandler implements ConfigTypeHandler<Integer> {
   @Override
   public Integer getValue(YamlDocument config, String nodeName, Field field) {
-    int val = config.getInt(nodeName);
+    final int val;
+    try {
+      val = config.getInt(nodeName);
+    } catch (ConfigurationException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      throw new ConfigurationException(
+          "Invalid integer configuration value for '" + nodeName + "'", e);
+    }
+    int constrained = val;
     IntegerConstraint constraint = field.getAnnotation(IntegerConstraint.class);
-    if (constraint != null) val = Math.min(Math.max(val, constraint.min()), constraint.max());
-    return val;
+    if (constraint != null) {
+      constrained = Math.min(Math.max(constrained, constraint.min()), constraint.max());
+    }
+    return constrained;
   }
 
   @Override
@@ -30,7 +42,9 @@ public class IntegerHandler implements ConfigTypeHandler<Integer> {
       try {
         return Integer.parseInt(defaultAnnotation.value());
       } catch (NumberFormatException e) {
-        return 0;
+        throw new IllegalArgumentException(
+            "Invalid integer default for '" + field.getName() + "': " + defaultAnnotation.value(),
+            e);
       }
     }
     return 0;

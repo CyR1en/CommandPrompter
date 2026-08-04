@@ -4,9 +4,11 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.hook.annotations.TargetPlugin;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import net.draycia.carbon.api.CarbonChatProvider;
+import net.draycia.carbon.api.event.CarbonEventSubscription;
 import net.draycia.carbon.api.event.events.CarbonChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
+import java.util.ServiceConfigurationError;
 
 /**
  * Hook for the CarbonChat plugin. Subscribes to CarbonChat's event bus
@@ -15,6 +17,9 @@ import org.bukkit.Bukkit;
  */
 @TargetPlugin(pluginName = "CarbonChat")
 public class CarbonChatHook extends BaseHook implements ChatListenerHook {
+
+    private CarbonEventSubscription<CarbonChatEvent> subscription;
+    private boolean available;
 
     public CarbonChatHook(CommandPrompter plugin) {
         super(plugin);
@@ -26,22 +31,94 @@ public class CarbonChatHook extends BaseHook implements ChatListenerHook {
      */
     @Override
     public boolean subscribe(ScreenManager screenManager) {
-        var cc = CarbonChatProvider.carbonChat();
+        disposeSubscription();
+
+        final var cc = getCarbonChat();
         if (cc == null) {
-            getPlugin().getPluginLogger().debug("CarbonChat not available, subscription failed");
             return false;
         }
-        getPlugin().getPluginLogger().debug("Subscribing to CarbonChat events");
-        cc.eventHandler().subscribe(CarbonChatEvent.class, -100, false, event -> {
-            var player = Bukkit.getPlayer(event.sender().uuid());
-            if (player == null || !screenManager.hasChatScreen(player)) return;
-            event.cancelled(true);
-            event.recipients().clear();
-            var msg = PlainTextComponentSerializer.plainText().serialize(event.message());
-            getPlugin().getPluginLogger().debug("CarbonChat captured: player=" + player.getName()
-                    + " msg=" + msg);
-            player.getScheduler().run(getPlugin(), st -> screenManager.handleChatInput(player, msg), null);
-        });
-        return true;
+
+        try {
+            getPlugin().getPluginLogger().debug("Subscribing to CarbonChat events");
+            var registered = cc.eventHandler().subscribe(CarbonChatEvent.class, -100, false, event -> {
+                var player = Bukkit.getPlayer(event.sender().uuid());
+                if (player == null || !screenManager.hasChatScreen(player)) return;
+                event.cancelled(true);
+                event.recipients().clear();
+                var msg = PlainTextComponentSerializer.plainText().serialize(event.message());
+                getPlugin().getPluginLogger().debug("CarbonChat captured: player=" + player.getName()
+                        + " msg=" + msg);
+                player.getScheduler().run(getPlugin(), st -> screenManager.handleChatInput(player, msg), null);
+            });
+            if (registered == null) {
+                available = false;
+                getPlugin().getPluginLogger().debug("CarbonChat returned no subscription handle");
+                return false;
+            }
+            subscription = registered;
+            available = true;
+            return true;
+        } catch (ServiceConfigurationError e) {
+            markUnavailable("CarbonChat event API could not be configured", e);
+        } catch (LinkageError e) {
+            markUnavailable("CarbonChat event API is unavailable", e);
+        } catch (Exception e) {
+            markUnavailable("CarbonChat subscription failed", e);
+        }
+        return false;
+    }
+
+    /**
+     * CarbonChat throws {@link IllegalStateException} until its provider has been initialized.
+     * Treat that state as a normal optional-hook miss so the Bukkit listener can be selected.
+     */
+    private net.draycia.carbon.api.CarbonChat getCarbonChat() {
+        try {
+            var cc = CarbonChatProvider.carbonChat();
+            if (cc == null) {
+                markUnavailable("CarbonChat provider returned null", null);
+                return null;
+            }
+            return cc;
+        } catch (IllegalStateException e) {
+            markUnavailable("CarbonChat is not initialized", e);
+        } catch (ServiceConfigurationError e) {
+            markUnavailable("CarbonChat provider could not be configured", e);
+        } catch (LinkageError e) {
+            markUnavailable("CarbonChat provider is unavailable", e);
+        } catch (Exception e) {
+            markUnavailable("CarbonChat provider lookup failed", e);
+        }
+        return null;
+    }
+
+    @Override
+    public void onDisable() {
+        disposeSubscription();
+        available = false;
+    }
+
+    private void disposeSubscription() {
+        var current = subscription;
+        subscription = null;
+        if (current == null) return;
+        try {
+            current.dispose();
+        } catch (ServiceConfigurationError e) {
+            markUnavailable("CarbonChat subscription disposal failed", e);
+        } catch (LinkageError e) {
+            markUnavailable("CarbonChat subscription disposal failed", e);
+        } catch (Exception e) {
+            markUnavailable("CarbonChat subscription disposal failed", e);
+        }
+    }
+
+    private void markUnavailable(String message, Throwable failure) {
+        available = false;
+        if (failure == null) {
+            getPlugin().getPluginLogger().debug(message);
+        } else {
+            getPlugin().getPluginLogger().debug(message + ": " + failure.getMessage());
+        }
     }
 }

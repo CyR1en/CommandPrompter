@@ -290,7 +290,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .build())
                 .type(io.papermc.paper.registry.data.dialog.type.DialogType.multiAction(List.copyOf(buttons), buildExitButton(), 1)));
     }
@@ -341,7 +341,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(List.of(DialogBody.plainMessage(notice)))
                         .inputs(List.of(input))
                         .build())
@@ -394,7 +394,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         return Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(bodies)
                         .inputs(inputs)
                         .build())
@@ -536,7 +536,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
         player.showDialog(Dialog.create(factory -> factory.empty()
                 .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
+                        .canCloseWithEscape(false)
                         .body(body)
                         .inputs(inputs)
                         .build())
@@ -640,7 +640,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         // Clamp bounds to prevent client crash
         maxLength = Math.max(1, Math.min(8192, maxLength));
         maxLines = Math.max(1, Math.min(8192, maxLines));
-        width = Math.max(1, Math.min(8192, width));
+        width = Math.max(1, Math.min(1024, width));
 
         return new DialogConstraints(
                 DialogInputKind.TEXT, "", 
@@ -973,7 +973,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
      * from the player scheduler.
      */
     private void onCancelFromView(DialogResponseView view) {
-        if (callback != null) callback.accept(ScreenResult.cancel());
+        player.getScheduler().run(plugin, scheduledTask -> {
+            if (!open) return;
+            open = false;
+            plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
+            if (callback != null) callback.accept(ScreenResult.cancel());
+        }, null);
     }
 
     /**

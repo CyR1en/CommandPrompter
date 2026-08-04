@@ -13,12 +13,15 @@ import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
+import dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreen;
 import dev.cyr1en.promptpaper.util.CancellableTask;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -41,8 +44,11 @@ public class ScreenManager {
     private final Scheduler scheduler;
     private final Map<UUID, InputScreen> activeScreens;
     private final Map<UUID, CancellableTask> timeoutTasks;
+    private final Map<UUID, Long> timeoutTokens;
+    private final AtomicLong timeoutSequence;
     private final Map<UUID, DispatchMode> dispatchModes;
     private final Map<UUID, String> attachmentKeys;
+    private final Set<UUID> teardownInProgress;
 
     public ScreenManager(CommandPrompter plugin, PromptEngine engine, PromptFactory factory, Scheduler scheduler) {
         this.plugin = plugin;
@@ -51,8 +57,11 @@ public class ScreenManager {
         this.scheduler = scheduler;
         this.activeScreens = new ConcurrentHashMap<>();
         this.timeoutTasks = new ConcurrentHashMap<>();
+        this.timeoutTokens = new ConcurrentHashMap<>();
+        this.timeoutSequence = new AtomicLong();
         this.dispatchModes = new ConcurrentHashMap<>();
         this.attachmentKeys = new ConcurrentHashMap<>();
+        this.teardownInProgress = ConcurrentHashMap.newKeySet();
     }
 
     /**
@@ -67,7 +76,12 @@ public class ScreenManager {
         }
         plugin.getPluginLogger().debug("Starting session for " + player.getName()
                 + " with " + parsed.get().promptTags().size() + " prompts");
-        showNextPrompt(player);
+        var started = engine.runIfReloadNotInProgress(() -> showNextPrompt(player));
+        if (!started) {
+            engine.discard(player.getUniqueId());
+            engine.rejectIfReloading(player);
+            return;
+        }
     }
 
     /**
@@ -75,27 +89,65 @@ public class ScreenManager {
      * permission key for post-session command execution.
      */
     public void startDelegatedSession(Player target, String commandLine, DispatchMode mode, String permissionKey) {
-        plugin.getPluginLogger().debug("Delegated session: target=" + target.getName()
-                + " mode=" + mode + " permKey=" + permissionKey);
-        var parsed = engine.intercept(target, commandLine);
-        if (parsed.isEmpty()) {
-            plugin.getPluginLogger().debug("No prompts, dispatching directly");
-            dispatchDirect(target, commandLine, mode, permissionKey);
-            return;
+        var uuid = target.getUniqueId();
+        try {
+            var task = target.getScheduler().run(
+                    plugin,
+                    scheduledTask -> startDelegatedSessionOnPlayer(
+                            target, commandLine, mode, permissionKey),
+                    () -> discardState(uuid));
+            if (task == null) discardState(uuid);
+        } catch (Throwable t) {
+            plugin.getPluginLogger().err("Unable to schedule delegated session for " + uuid
+                    + ": " + t.getMessage());
+            discardState(uuid);
         }
-        if (mode != DispatchMode.NORMAL) {
-            dispatchModes.put(target.getUniqueId(), mode);
-            if (permissionKey != null) {
-                attachmentKeys.put(target.getUniqueId(), permissionKey);
+    }
+
+    private void startDelegatedSessionOnPlayer(
+            Player target, String commandLine, DispatchMode mode, String permissionKey) {
+        var uuid = target.getUniqueId();
+        try {
+            plugin.getPluginLogger().debug("Delegated session: target=" + target.getName()
+                    + " mode=" + mode + " permKey=" + permissionKey);
+            var normalized = commandLine.startsWith("/")
+                    ? commandLine.substring(1)
+                    : commandLine;
+            normalized = normalized.replace("%target_player%", target.getName());
+            var parsed = engine.intercept(target, normalized);
+            if (parsed.isEmpty()) {
+                if (!engine.commandHasTagForm(normalized)) {
+                    plugin.getPluginLogger().debug("No prompts, dispatching directly");
+                    dispatchDirect(target, normalized, mode, permissionKey);
+                } else {
+                    plugin.getPluginLogger().debug("Command had tag form but intercept rejected it "
+                            + "(missing preset, no permission, or active session); not dispatching");
+                }
+                return;
             }
+            var started = engine.runIfReloadNotInProgress(() -> {
+                if (mode != DispatchMode.NORMAL) {
+                    dispatchModes.put(uuid, mode);
+                    if (permissionKey != null) attachmentKeys.put(uuid, permissionKey);
+                }
+                showNextPrompt(target);
+            });
+            if (!started) {
+                engine.discard(uuid);
+                engine.rejectIfReloading(target);
+            }
+        } catch (Throwable t) {
+            plugin.getPluginLogger().err("Delegated session failed for " + uuid
+                    + ": " + t.getMessage());
+            discardState(uuid);
         }
-        showNextPrompt(target);
     }
 
     private void dispatchDirect(Player target, String commandLine, DispatchMode mode, String permissionKey) {
         switch (mode) {
             case CONSOLE -> dispatchAsConsole(target, commandLine);
-            case ATTACHMENT -> dispatchWithAttachment(target, commandLine, permissionKey);
+            case ATTACHMENT -> dispatchWithAttachment(
+                    target, commandLine, permissionKey, capturePermissionSnapshot(permissionKey));
             default -> dispatchAssembledCommand(target, commandLine);
         }
     }
@@ -127,27 +179,45 @@ public class ScreenManager {
      * screen via the router, and opens it for the player.
      */
     private void showPrompt(Player player, PromptTag tag) {
-        var displayText = resolvePlaceholders(player, tag.displayText());
-        var resolvedTag =
-            new PromptTag(
-                tag.rawTag(),
-                tag.key(),
-                tag.filter(),
-                displayText,
-                tag.sanitize(),
-                tag.validatorAlias(),
-                tag.type(),
-                tag.subTags(),
-                tag.preset(),
-                tag.title());
-        var context = buildCompletionContext(player, resolvedTag);
-        var screen = factory.createFromTag(player, resolvedTag, context);
-        plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
-                + " key=" + tag.key() + " screen=" + screen.getClass().getSimpleName());
-        activeScreens.put(player.getUniqueId(), screen);
-        screen.onResult(result -> handleResult(player, result));
-        screen.open();
-        scheduleTimeout(player);
+        InputScreen screen = null;
+        var uuid = player.getUniqueId();
+        try {
+            var displayText = resolvePlaceholders(player, tag.displayText());
+            var resolvedTag =
+                new PromptTag(
+                    tag.rawTag(),
+                    tag.key(),
+                    tag.filter(),
+                    displayText,
+                    tag.sanitize(),
+                    tag.validatorAlias(),
+                    tag.type(),
+                    tag.subTags(),
+                    tag.preset(),
+                    tag.title());
+            var context = buildCompletionContext(player, resolvedTag);
+            screen = factory.createFromTag(player, resolvedTag, context);
+            plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
+                    + " key=" + tag.key() + " screen=" + screen.getClass().getSimpleName());
+            activeScreens.put(uuid, screen);
+            screen.onResult(result -> handleResult(player, result));
+            screen.open();
+            scheduleTimeout(player);
+        } catch (Throwable e) {
+            if (screen != null) {
+                try {
+                    screen.close();
+                } catch (Exception ignored) {
+                    // The owning player may already be retired after an open failure.
+                }
+            }
+            discardState(uuid);
+            plugin.getPluginLogger().err("Unable to open prompt screen for " + uuid
+                    + ": " + e.getMessage());
+            if (e instanceof RuntimeException runtimeException) throw runtimeException;
+            if (e instanceof Error error) throw error;
+            throw new IllegalStateException("Prompt screen open failed", e);
+        }
     }
 
     /**
@@ -191,17 +261,18 @@ public class ScreenManager {
      * payloads, and either advances the session or dispatches the command.
      */
     private void handleResult(Player player, ScreenResult result) {
-        cancelTimeout(player);
-        activeScreens.remove(player.getUniqueId());
-
         plugin.getPluginLogger().debug("Screen result for " + player.getName()
                 + " cancelled=" + result.cancelled());
 
         if (result.cancelled()) {
-            engine.cancel(player, CancelReason.GUI_EXIT);
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+            cancelTimeout(player);
+            activeScreens.remove(player.getUniqueId());
+            teardown(player, CancelReason.GUI_EXIT, false, true);
             return;
         }
+
+        cancelTimeout(player);
+        activeScreens.remove(player.getUniqueId());
 
         var sessionOpt = engine.getSession(player);
         if (sessionOpt.isEmpty()) {
@@ -233,8 +304,7 @@ public class ScreenManager {
         }
 
         if (isCancelKeyword) {
-            engine.cancel(player, CancelReason.MANUAL);
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+            teardown(player, CancelReason.MANUAL, false, true);
             return;
         }
 
@@ -255,8 +325,10 @@ public class ScreenManager {
             var sessionResult = submitted.get();
             plugin.getPluginLogger().debug("Session complete, dispatching: "
                     + sessionResult.assembledCommand());
-            dispatchAssembledCommand(player, sessionResult.assembledCommand());
-            engine.dispatchPCMs(player, sessionResult, false);
+            var dispatchContext = dispatchAssembledCommand(
+                    player, sessionResult.assembledCommand());
+            sendCompletedCommand(player, sessionResult.assembledCommand());
+            engine.dispatchPCMs(player, sessionResult, false, dispatchContext);
         } else {
             plugin.getPluginLogger().debug("Answer accepted, showing next prompt");
             showNextPrompt(player);
@@ -290,8 +362,10 @@ public class ScreenManager {
             var sessionResult = submitted.get();
             plugin.getPluginLogger().debug("Session complete, dispatching: "
                     + sessionResult.assembledCommand());
-            dispatchAssembledCommand(player, sessionResult.assembledCommand());
-            engine.dispatchPCMs(player, sessionResult, false);
+            var dispatchContext = dispatchAssembledCommand(
+                    player, sessionResult.assembledCommand());
+            sendCompletedCommand(player, sessionResult.assembledCommand());
+            engine.dispatchPCMs(player, sessionResult, false, dispatchContext);
         } else {
             plugin.getPluginLogger().debug("Compound answers accepted, showing next prompt");
             showNextPrompt(player);
@@ -397,82 +471,159 @@ public class ScreenManager {
      * Dispatches the final command according to the player's active
      * dispatch mode (normal, console, or permission-attachment).
      */
-    private void dispatchAssembledCommand(Player player, String cmd) {
-        var mode = dispatchModes.remove(player.getUniqueId());
+    private PromptEngine.DispatchContext dispatchAssembledCommand(Player player, String cmd) {
+        var uuid = player.getUniqueId();
+        var mode = dispatchModes.remove(uuid);
         if (mode == null) mode = DispatchMode.NORMAL;
+        var key = attachmentKeys.remove(uuid);
+        var permissionSnapshot = mode == DispatchMode.ATTACHMENT
+                ? capturePermissionSnapshot(key)
+                : List.<String>of();
+        var dispatchContext = switch (mode) {
+            case CONSOLE -> new PromptEngine.DispatchContext(
+                    dev.cyr1en.promptpaper.preset.ExecuteAs.CONSOLE, null, false);
+            case ATTACHMENT -> new PromptEngine.DispatchContext(
+                    dev.cyr1en.promptpaper.preset.ExecuteAs.PLAYER,
+                    key,
+                    true,
+                    permissionSnapshot);
+            default -> PromptEngine.DispatchContext.player();
+        };
         plugin.getPluginLogger().debug("Dispatching for " + player.getName()
                 + " mode=" + mode + " cmd=" + cmd);
         switch (mode) {
             case CONSOLE -> dispatchAsConsole(player, cmd);
-            case ATTACHMENT -> {
-                var key = attachmentKeys.remove(player.getUniqueId());
-                dispatchWithAttachment(player, cmd, key);
-            }
+            case ATTACHMENT -> dispatchWithAttachment(player, cmd, key, permissionSnapshot);
             default -> {
                 var toExecute = cmd.startsWith("/") ? cmd.substring(1) : cmd;
-                player.getScheduler().run(plugin, scheduledTask -> {
-                    try {
-                        player.performCommand(toExecute);
-                    } catch (Exception e) {
-                        var msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
-                        plugin.getPluginLogger().info("Command dispatch failed: " + msg);
-                        player.sendMessage(plugin.getConfigLoader().getI18n().get(
-                                "prompt.error.command_failed",
-                                player,
-                                Placeholder.of("message", msg != null ? msg : "")));
-                    }
-                }, null);
+                try {
+                    var task = player.getScheduler().run(plugin, scheduledTask -> {
+                        try {
+                            if (!player.performCommand(toExecute)) {
+                                sendCommandFailure(player, toExecute, "dispatch returned false");
+                            }
+                        } catch (Exception e) {
+                            var msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                            sendCommandFailure(player, toExecute, msg);
+                        }
+                    }, null);
+                    if (task == null) sendCommandFailure(player, toExecute, "player retired");
+                } catch (Exception e) {
+                    sendCommandFailure(player, toExecute, e.getMessage());
+                }
             }
         }
+        return dispatchContext;
     }
 
     private void dispatchAsConsole(Player player, String cmd) {
         var toExecute = cmd.startsWith("/") ? cmd.substring(1) : cmd;
         plugin.getPluginLogger().debug("Dispatching as console: " + toExecute);
-        scheduler.runSync(() ->
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), toExecute));
+        scheduler.runSync(() -> {
+            try {
+                if (!Bukkit.dispatchCommand(Bukkit.getConsoleSender(), toExecute)) {
+                    sendCommandFailure(player, toExecute, "dispatch returned false");
+                }
+            } catch (Exception e) {
+                sendCommandFailure(player, toExecute, e.getMessage());
+            }
+        });
     }
 
     /**
      * Temporarily grants permissions, dispatches the command as the
      * player, then revokes the attachment.
      */
-    private void dispatchWithAttachment(Player player, String cmd, String permissionKey) {
-        if (permissionKey == null) {
-            plugin.getPluginLogger().debug("No permission key, falling back to console dispatch");
-            dispatchAsConsole(player, cmd);
+    private void dispatchWithAttachment(
+            Player player,
+            String cmd,
+            String permissionKey,
+            List<String> permissionSnapshot) {
+        if (permissionKey == null || permissionKey.isBlank()) {
+            plugin.getPluginLogger().err("Refusing attachment dispatch with an invalid permission key");
+            sendCommandFailure(player, cmd, "invalid permission attachment");
+            return;
+        }
+        if (permissionSnapshot == null || permissionSnapshot.isEmpty()) {
+            plugin.getPluginLogger().err("Refusing attachment dispatch for unknown permission key: "
+                    + permissionKey);
+            sendCommandFailure(player, cmd, "invalid permission attachment");
             return;
         }
         var config = plugin.getConfigLoader().getConfig();
-        var perms = config.getPermissionAttachment(permissionKey);
-        if (perms == null || perms.length == 0) {
-            plugin.getPluginLogger().debug("Permission key " + permissionKey
-                    + " has no permissions, falling back to console dispatch");
-            dispatchAsConsole(player, cmd);
-            return;
-        }
+        var permissions = permissionSnapshot.toArray(new String[0]);
         var toExecute = cmd.startsWith("/") ? cmd.substring(1) : cmd;
         plugin.getPluginLogger().debug("Dispatching with attachment key="
-                + permissionKey + " perms=" + java.util.Arrays.toString(perms));
-        player.getScheduler().run(plugin, scheduledTask -> {
-            var attachment = player.addAttachment(plugin);
-            if (attachment == null) {
-                plugin.getPluginLogger().err("Unable to create PermissionAttachment for " + player.getName());
-                return;
-            }
-            try {
-                for (var perm : perms) {
-                    attachment.setPermission(perm, true);
+                + permissionKey + " perms=" + java.util.Arrays.toString(permissions));
+        try {
+            var scheduled = player.getScheduler().run(plugin, scheduledTask -> {
+                var attachment = player.addAttachment(plugin);
+                if (attachment == null) {
+                    sendCommandFailure(player, toExecute, "unable to create permission attachment");
+                    return;
                 }
-                attachment.getPermissible().recalculatePermissions();
-                plugin.getPluginLogger().debug("Dispatching with attachment: player="
-                        + player.getName() + " perms=" + perms.length);
-                Bukkit.dispatchCommand(player, toExecute);
-            } finally {
-                player.removeAttachment(attachment);
-                plugin.getPluginLogger().debug("Attachment removed for " + player.getName());
+                var removed = new java.util.concurrent.atomic.AtomicBoolean();
+                Runnable remove = () -> {
+                    if (removed.compareAndSet(false, true)) {
+                        try {
+                            player.removeAttachment(attachment);
+                        } catch (Exception e) {
+                            plugin.getPluginLogger().debug("Unable to remove permission attachment");
+                        }
+                    }
+                };
+                boolean removalScheduled = false;
+                boolean failed = false;
+                try {
+                    for (var perm : permissions) attachment.setPermission(perm, true);
+                    attachment.getPermissible().recalculatePermissions();
+                    plugin.getPluginLogger().debug("Dispatching with attachment: player="
+                            + player.getName() + " perms=" + permissions.length);
+                    if (!Bukkit.dispatchCommand(player, toExecute)) {
+                        sendCommandFailure(player, toExecute, "dispatch returned false");
+                    }
+                } catch (Exception e) {
+                    failed = true;
+                    sendCommandFailure(player, toExecute, e.getMessage());
+                }
+                if (!failed && !removed.get() && config != null
+                        && config.permissionAttachmentTicks() > 0) {
+                    try {
+                        var removalTask = player.getScheduler().runDelayed(
+                                plugin,
+                                scheduledRemoval -> remove.run(),
+                                () -> {},
+                                config.permissionAttachmentTicks());
+                        removalScheduled = removalTask != null;
+                    } catch (Exception e) {
+                        plugin.getPluginLogger().debug("Attachment removal scheduling failed: "
+                                + e.getMessage());
+                    }
+                }
+                if (!removalScheduled) remove.run();
+            }, null);
+            if (scheduled == null) {
+                plugin.getPluginLogger().debug("Attachment dispatch skipped for retired player");
             }
-        }, null);
+        } catch (Exception e) {
+            sendCommandFailure(player, toExecute, e.getMessage());
+        }
+    }
+
+    private void sendCommandFailure(Player player, String command, String detail) {
+        var message = detail != null ? detail : "unknown error";
+        plugin.getPluginLogger().info("Command dispatch failed for '" + command + "': " + message);
+        try {
+            player.getScheduler().run(
+                    plugin,
+                    scheduledTask -> player.sendMessage(plugin.getConfigLoader().getI18n().get(
+                            "prompt.error.command_failed",
+                            player,
+                            Placeholder.of("message", message))),
+                    null);
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug("Unable to send command failure feedback: " + e.getMessage());
+        }
     }
 
     public boolean hasActiveScreen(Player player) {
@@ -491,13 +642,97 @@ public class ScreenManager {
      * Cancels the active screen, timeout, and session for the player.
      */
     public void cancelAll(Player player) {
-        cancelTimeout(player);
-        var screen = activeScreens.remove(player.getUniqueId());
-        if (screen != null) screen.close();
-        dispatchModes.remove(player.getUniqueId());
-        attachmentKeys.remove(player.getUniqueId());
-        engine.cancel(player, CancelReason.MANUAL);
+        cancelAll(player, false);
+    }
+
+    /**
+     * Cancels the active screen, timeout, and session for the player, optionally notifying
+     * players whose active prompt was cancelled.
+     */
+    public void cancelAll(Player player, boolean notifyCancelled) {
+        var hadActiveSession = engine.hasActiveSession(player);
+        teardown(player, CancelReason.MANUAL, true, notifyCancelled && hadActiveSession);
         plugin.getPluginLogger().debug("Cancelled all for " + player.getName());
+    }
+
+    /** Clears state after a player scheduler retires without invoking player APIs. */
+    public void discardState(UUID uuid) {
+        if (uuid == null) return;
+        cancelTimeout(uuid);
+        var screen = activeScreens.remove(uuid);
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            wrapper.invalidateCallbacks();
+        } else if (screen instanceof PlayerUIScreen playerUIScreen) {
+            playerUIScreen.invalidateCallbacks();
+        }
+        dispatchModes.remove(uuid);
+        attachmentKeys.remove(uuid);
+        engine.discard(uuid);
+    }
+
+    private void teardown(
+            Player player, CancelReason reason, boolean closeScreen, boolean notifyCancelled) {
+        var uuid = player.getUniqueId();
+        if (!teardownInProgress.add(uuid)) return;
+        try {
+            cancelTimeout(uuid);
+            var screen = activeScreens.remove(uuid);
+            if (closeScreen && screen != null) {
+                try {
+                    screen.close();
+                } catch (Exception e) {
+                    plugin.getPluginLogger().debug("Unable to close screen for " + uuid + ": "
+                            + e.getMessage());
+                }
+            }
+            var dispatchContext = takeDispatchContext(uuid);
+            engine.cancel(player, reason, dispatchContext);
+            if (notifyCancelled && plugin.getConfigLoader().getConfig().showCancelled()) {
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+            }
+        } finally {
+            teardownInProgress.remove(uuid);
+        }
+    }
+
+    private PromptEngine.DispatchContext takeDispatchContext(UUID uuid) {
+        var mode = dispatchModes.remove(uuid);
+        var key = attachmentKeys.remove(uuid);
+        if (mode == DispatchMode.CONSOLE) {
+            return new PromptEngine.DispatchContext(
+                    dev.cyr1en.promptpaper.preset.ExecuteAs.CONSOLE, null, false);
+        }
+        if (mode == DispatchMode.ATTACHMENT) {
+            var permissionSnapshot = capturePermissionSnapshot(key);
+            return new PromptEngine.DispatchContext(
+                    dev.cyr1en.promptpaper.preset.ExecuteAs.PLAYER,
+                    key,
+                    true,
+                    permissionSnapshot);
+        }
+        return PromptEngine.DispatchContext.player();
+    }
+
+    /** Captures the exact attachment list at the session completion/cancellation boundary. */
+    private List<String> capturePermissionSnapshot(String permissionKey) {
+        if (permissionKey == null || permissionKey.isBlank()) return List.of();
+        try {
+            var config = plugin.getConfigLoader().getConfig();
+            var permissions = config == null ? null : config.getPermissionAttachment(permissionKey);
+            if (permissions == null || permissions.length == 0) return List.of();
+            return List.copyOf(java.util.Arrays.asList(permissions));
+        } catch (Exception e) {
+            plugin.getPluginLogger().debug(
+                    "Unable to capture permission attachment key " + permissionKey + ": "
+                            + e.getMessage());
+            return List.of();
+        }
+    }
+
+    private void sendCompletedCommand(Player player, String command) {
+        if (plugin.getConfigLoader().getConfig().showCompleted()) {
+            player.sendMessage(net.kyori.adventure.text.Component.text(command));
+        }
     }
 
     /**
@@ -508,21 +743,53 @@ public class ScreenManager {
         cancelTimeout(player);
         var timeoutSecs = plugin.getConfigLoader().getConfig().promptTimeout();
         if (timeoutSecs <= 0) return;
+        var uuid = player.getUniqueId();
+        var token = timeoutSequence.incrementAndGet();
+        timeoutTokens.put(uuid, token);
         plugin.getPluginLogger().debug("Scheduling timeout for " + player.getName()
                 + " in " + timeoutSecs + "s");
-        var task = scheduler.runLater(() -> {
-            var session = engine.getSession(player);
-            if (session.isPresent() && session.get().isActive()) {
-                plugin.getPluginLogger().debug("Timeout triggered for " + player.getName());
-                cancelAll(player);
-                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out"));
+        try {
+            var task = player.getScheduler().runDelayed(
+                    plugin,
+                    scheduledTask -> {
+                        if (!timeoutTokens.remove(uuid, token)) return;
+                        timeoutTasks.remove(uuid);
+                        var session = engine.getSession(player);
+                        if (session.isPresent() && session.get().isActive()) {
+                            plugin.getPluginLogger().debug("Timeout triggered for " + player.getName());
+                            teardown(player, CancelReason.MANUAL, true, false);
+                            if (plugin.getConfigLoader().getConfig().showCancelled()) {
+                                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out"));
+                            }
+                        }
+                    },
+                    () -> discardTimeoutState(uuid, token),
+                    timeoutSecs * 20L);
+            if (task == null) {
+                discardTimeoutState(uuid, token);
+            } else if (timeoutTokens.get(uuid) == token) {
+                timeoutTasks.put(uuid, task::cancel);
+            } else {
+                task.cancel();
             }
-        }, timeoutSecs * 20L);
-        timeoutTasks.put(player.getUniqueId(), task);
+        } catch (Throwable t) {
+            discardTimeoutState(uuid, token);
+        }
     }
 
     private void cancelTimeout(Player player) {
-        var task = timeoutTasks.remove(player.getUniqueId());
+        cancelTimeout(player.getUniqueId());
+    }
+
+    private void cancelTimeout(UUID uuid) {
+        timeoutTokens.remove(uuid);
+        var task = timeoutTasks.remove(uuid);
         if (task != null) task.cancel();
+    }
+
+    private void discardTimeoutState(UUID uuid, long token) {
+        if (timeoutTokens.remove(uuid, token)) {
+            discardState(uuid);
+        }
     }
 }

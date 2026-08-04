@@ -154,6 +154,46 @@ class PromptSessionTest {
   }
 
   @Test
+  void compoundAnswersAppendToPriorHistoryAndResolveAllPCMReferences() {
+    var parsed =
+        parser.parse("/ban <a:Reason> <d:text:Name && d:num[0,24]:Days> <!audit {0} {1} {2}>");
+    var session = PromptSession.start("user1", parsed).submitAnswer("griefing");
+    var completed = session.submitAnswers(List.of("Steve", "7"));
+
+    assertEquals(List.of("griefing", "Steve", "7"), completed.answers());
+    assertEquals("/ban griefing Steve 7", completed.finish().assembledCommand());
+    assertEquals("audit griefing Steve 7", completed.finish().onCompleteCmds().get(0).command());
+  }
+
+  @Test
+  void pcmAnswerTextIsNotRescannedForLaterReferences() {
+    var parsed = parser.parse("/cmd <a:first -ds> <a:second> <!log {0} {1}>");
+    var completed =
+        PromptSession.start("user1", parsed).submitAnswer("{1}").submitAnswer("literal");
+
+    assertEquals("log {1} literal", completed.finish().onCompleteCmds().get(0).command());
+  }
+
+  @Test
+  void compoundAnswersRejectNullElementsBeforeSanitization() {
+    var parsed = parser.parse("/cmd <d:text:One && d:text:Two>");
+    var session = PromptSession.start("user1", parsed);
+    var answers = new java.util.ArrayList<String>();
+    answers.add("ok");
+    answers.add(null);
+
+    assertThrows(NullPointerException.class, () -> session.submitAnswers(answers));
+  }
+
+  @Test
+  void escapedDelimiterInsidePromptRemainsReplaceable() {
+    var parsed = parser.parse("/ask <a:Why? \\>>");
+    var completed = PromptSession.start("user1", parsed).submitAnswer("because");
+
+    assertEquals("/ask because", completed.finish().assembledCommand());
+  }
+
+  @Test
   void finish_cancelled_returnsOnCancelPCMs() {
     var parsed = parser.parse("/kick <a:Why?> <!! msg {0}>");
     var session = PromptSession.start("user1", parsed).cancel(CancelReason.MANUAL);

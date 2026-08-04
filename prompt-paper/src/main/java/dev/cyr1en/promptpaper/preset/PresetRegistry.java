@@ -1,12 +1,18 @@
 package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonParseException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,8 +42,8 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * <h2>Failure semantics</h2>
  *
- * <p>I/O and parse failures throw {@link PresetLoadException}. The previous cache is left
- * untouched so a broken edit on disk does not silently wipe live presets.
+ * <p>I/O, JSON, and preset-constructor validation failures throw {@link PresetLoadException}. The
+ * previous cache is left untouched so a broken edit on disk does not silently wipe live presets.
  */
 public class PresetRegistry {
 
@@ -85,7 +91,8 @@ public class PresetRegistry {
    * <ol>
    *   <li>If the file is missing, extract the bundled default resource (no-op when this
    *       instance was built via the test-only constructor and the supplier is {@code null}).
-   *   <li>Read and parse the file as a {@link PresetConfig}.
+   *   <li>Read and parse the JSON document, then deserialize each entry independently so failures
+   *       can identify the preset id and array path.
    *   <li>Build immutable prompt and post-command maps keyed by {@code id}.
    *   <li>Atomically swap them in via the {@code volatile} references.
    * </ol>
@@ -97,23 +104,35 @@ public class PresetRegistry {
     try {
       ensureFileExists();
       try (var reader = Files.newBufferedReader(promptsFile.toPath(), StandardCharsets.UTF_8)) {
-        var config = gson.fromJson(reader, PresetConfig.class);
-        if (config == null) {
+        var document = JsonParser.parseReader(reader);
+        if (document == null || document.isJsonNull()) {
           // Gson returns null for an empty document. Treat as cleared.
           this.prompts = Map.of();
           this.postCommands = Map.of();
           logInfo("presets.json is empty; registry cleared");
           return;
         }
-        var newPrompts = buildIdMap(
-            config.prompts(), PromptDefinition::id, "prompt", this::logWarning);
-        var newPostCommands = buildIdMap(
-            config.postCommands(), PostCommand::id, "post-command", this::logWarning);
+        if (!document.isJsonObject()) {
+          throw malformed("document", "<root>", "root",
+              new IllegalArgumentException("expected a JSON object"));
+        }
+        var root = document.getAsJsonObject();
+        var newPrompts = loadPrompts(root);
+        var newPostCommands = loadPostCommands(root);
         this.prompts = newPrompts;
         this.postCommands = newPostCommands;
       }
-    } catch (IOException | JsonParseException e) {
-      throw new PresetLoadException("Failed to load " + FILE_NAME + ": " + e.getMessage(), e);
+    } catch (PresetLoadException e) {
+      throw e;
+    } catch (IOException | JsonParseException | IllegalArgumentException | NullPointerException e) {
+      throw new PresetLoadException(
+          "Failed to load presets from '" + sourcePath() + "': " + safeMessage(e), e);
+    } catch (RuntimeException e) {
+      // Gson and record adapters can surface other runtime validation failures (for example
+      // JsonSyntaxException wrappers). Reload must expose one predictable failure type and keep
+      // the previous snapshot intact.
+      throw new PresetLoadException(
+          "Failed to load presets from '" + sourcePath() + "': " + safeMessage(e), e);
     }
   }
 
@@ -158,6 +177,87 @@ public class PresetRegistry {
   // Internals
   // ------------------------------------------------------------------
 
+  private Map<String, PromptDefinition> loadPrompts(JsonObject root) {
+    var array = readArray(root, "prompts");
+    if (array == null || array.isEmpty()) return Map.of();
+
+    var definitions = new ArrayList<PromptDefinition>(array.size());
+    for (var index = 0; index < array.size(); index++) {
+      var element = array.get(index);
+      var location = "prompts[" + index + "]";
+      var id = readId(element);
+      try {
+        var definition = gson.fromJson(element, PromptDefinition.class);
+        if (definition == null) {
+          throw new NullPointerException("prompt definition deserialized to null");
+        }
+        definitions.add(definition);
+      } catch (RuntimeException e) {
+        throw malformed("prompt", id, location, e);
+      }
+    }
+    return buildIdMap(definitions, PromptDefinition::id, "prompt", this::logWarning);
+  }
+
+  private Map<String, PostCommand> loadPostCommands(JsonObject root) {
+    var array = readArray(root, "post_commands");
+    if (array == null || array.isEmpty()) return Map.of();
+
+    var definitions = new ArrayList<PostCommand>(array.size());
+    for (var index = 0; index < array.size(); index++) {
+      var element = array.get(index);
+      var location = "post_commands[" + index + "]";
+      var id = readId(element);
+      try {
+        var definition = gson.fromJson(element, PostCommand.class);
+        if (definition == null) {
+          throw new NullPointerException("post-command definition deserialized to null");
+        }
+        definitions.add(definition);
+      } catch (RuntimeException e) {
+        throw malformed("post-command", id, location, e);
+      }
+    }
+    return buildIdMap(definitions, PostCommand::id, "post-command", this::logWarning);
+  }
+
+  private JsonArray readArray(JsonObject root, String name) {
+    var element = root.get(name);
+    if (element == null || element.isJsonNull()) return null;
+    if (!element.isJsonArray()) {
+      throw malformed(name, "<unknown>", name,
+          new IllegalArgumentException("expected an array"));
+    }
+    return element.getAsJsonArray();
+  }
+
+  private static String readId(JsonElement element) {
+    if (element == null || !element.isJsonObject()) return "<unknown>";
+    try {
+      var id = element.getAsJsonObject().get("id");
+      return id != null && id.isJsonPrimitive() ? id.getAsString() : "<unknown>";
+    } catch (RuntimeException ignored) {
+      return "<unknown>";
+    }
+  }
+
+  private PresetLoadException malformed(String kind, String id, String location, Throwable cause) {
+    return new PresetLoadException(
+        "Invalid " + kind + " preset id '" + id + "' at '" + sourcePath() + "' ("
+            + location + "): " + safeMessage(cause),
+        cause);
+  }
+
+  private String sourcePath() {
+    return promptsFile.toPath().toAbsolutePath().normalize().toString();
+  }
+
+  private static String safeMessage(Throwable throwable) {
+    return throwable.getMessage() == null
+        ? throwable.getClass().getSimpleName()
+        : throwable.getMessage();
+  }
+
   private void ensureFileExists() throws IOException {
     if (promptsFile.exists()) return;
     if (plugin != null) {
@@ -197,7 +297,7 @@ public class PresetRegistry {
         warn.accept("Duplicate " + label + " id '" + id + "' (keeping the last definition)");
       }
     }
-    return Map.copyOf(map);
+    return Collections.unmodifiableMap(new LinkedHashMap<>(map));
   }
 
   private void logInfo(String msg) {

@@ -4,7 +4,6 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -53,7 +52,9 @@ public class CancelCommand extends PromptCommand implements Command<CommandSourc
             player.sendMessage(i18n.get("command.cancel.no_active_prompt"));
             return;
         }
-        plugin.getEngine().cancel(player, CancelReason.MANUAL);
-        player.sendMessage(i18n.get("prompt.cancelled"));
+        plugin.getScreenManager().cancelAll(player);
+        if (plugin.getConfigLoader().getConfig().showCancelled()) {
+            player.sendMessage(i18n.get("prompt.cancelled"));
+        }
     }
 }

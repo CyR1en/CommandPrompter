@@ -11,6 +11,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 
@@ -20,9 +21,9 @@ import static io.papermc.paper.command.brigadier.Commands.argument;
 
 /**
  * {@code /consoledelegate <target> <command>} — runs a prompted command on
- * behalf of the named target player, but the dispatcher is the console. The
- * {@code %target_player%} placeholder in the command string is replaced
- * with the target player's name before the session is started.
+ * behalf of each resolved target player, but the dispatcher is the console.
+ * The {@code %target_player%} placeholder is resolved on the target's region
+ * thread before the session is started.
  *
  * <p>Restricted to console senders with {@code promptpaper.consoledelegate}.
  * The target is parsed via {@link ArgumentTypes#player()} which gives us
@@ -50,9 +51,16 @@ public class ConsoleDelegateCommand extends PromptCommand implements Command<Com
     @Override
     public int run(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         var resolver = context.getArgument("target", PlayerSelectorArgumentResolver.class);
-        var target = resolver.resolve(context.getSource()).getFirst();
+        var targets = resolver.resolve(context.getSource());
+        var sender = context.getSource().getSender();
+        if (targets == null || targets.isEmpty()) {
+            sender.sendMessage(Component.text("No players matched the selector."));
+            return 0;
+        }
         var command = StringArgumentType.getString(context, "command");
-        startSession(context.getSource().getSender().getName(), target, command);
+        for (var target : targets) {
+            startSession(sender.getName(), target, command);
+        }
         return Command.SINGLE_SUCCESS;
     }
 
@@ -61,26 +69,13 @@ public class ConsoleDelegateCommand extends PromptCommand implements Command<Com
      * Brigadier executor so it can be unit-tested without constructing a
      * {@link CommandContext}.
      *
-     * <p>Normalization: a leading {@code /} is stripped (Bukkit would
-     * strip it on dispatch anyway, but keeping the slash out of session
-     * state keeps logs and parsed-template output consistent), and
-     * {@code %target_player%} is replaced with the target player's name.
+     * <p>Normalization: a leading {@code /} is stripped. Target-dependent
+     * normalization is completed by {@link ScreenManager} on the target's
+     * region thread.
      */
     public void startSession(String senderName, Player target, String command) {
-        if (plugin.getEngine().hasActiveSession(target)) {
-            plugin.getPluginLogger().warn("Cannot delegate prompt to " + target.getName() + " because they are already in an active prompt session.");
-            return;
-        }
-        if (command.startsWith("/")) {
-            command = command.substring(1);
-        }
-        if (command.contains("%target_player%")) {
-            command = command.replace("%target_player%", target.getName());
-        }
-        plugin.getPluginLogger().info(senderName
-                + " used /consoledelegate -> " + target.getName() + ": " + command);
-        plugin.getPluginLogger().debug("ConsoleDelegate: target=" + target.getName()
-                + " uuid=" + target.getUniqueId() + " mode=CONSOLE");
+        if (command.startsWith("/")) command = command.substring(1);
+        plugin.getPluginLogger().info(senderName + " used /consoledelegate: " + command);
         plugin.getScreenManager().startDelegatedSession(target, command,
                 ScreenManager.DispatchMode.CONSOLE, null);
     }
