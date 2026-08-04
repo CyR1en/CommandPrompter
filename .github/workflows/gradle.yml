@@ -70,7 +70,7 @@ jobs:
       - name: Upload Release Artifact
         env:
           GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        run:
+        run: |
           gh release upload "${{ github.event.release.tag_name }}" \
             "prompt-paper/build/libs/CommandPrompterPaper-${{ steps.verify-release.outputs.version }}.jar"
 
