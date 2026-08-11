@@ -16,6 +16,7 @@ import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogConstraints;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputBuilder;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
+import dev.cyr1en.promptpaper.screen.dialog.DialogLifecycle;
 import dev.cyr1en.promptpaper.screen.dialog.TabCompletionService;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.DialogScreen;
@@ -25,6 +26,7 @@ import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
+import io.papermc.paper.registry.data.dialog.DialogBase.DialogAfterAction;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
@@ -80,11 +82,10 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private final DialogConfig dialogConfig;
     private final DialogCompletionContext context;
     private final TabCompletionService tabCompletionService;
+    private final DialogLifecycle lifecycle;
     private final DialogInputKind kind;
     private final String customTitle;
     private final boolean useNewModel;
-    private Consumer<ScreenResult> callback;
-    private boolean open;
 
     // ------------------------------------------------------------------
     // Constructors
@@ -122,6 +123,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         this.dialogConfig = promptConfig.dialogConfig();
         this.context = context;
         this.tabCompletionService = new TabCompletionService();
+        this.lifecycle = new DialogLifecycle();
         this.kind = computeKind();
         this.useNewModel = false;
     }
@@ -166,6 +168,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         this.dialogConfig = promptConfig.dialogConfig();
         this.context = context;
         this.tabCompletionService = new TabCompletionService();
+        this.lifecycle = new DialogLifecycle();
         this.materialMapper = new MaterialMapper(plugin.getPluginLogger());
         this.customTitle = dialogPrompt.title();
 
@@ -245,7 +248,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         List<DialogInput> inputs = buildInputs();
         var dialog = buildDialogWithButtons(title, bodies, inputs);
         player.showDialog(dialog);
-        open = true;
+        lifecycle.opened();
     }
 
     private void openTab() {
@@ -266,7 +269,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 : buildTabFallbackDialog(completions.size());
 
         player.showDialog(dialog);
-        open = true;
+        lifecycle.opened();
     }
 
     private Dialog buildTabMultiActionDialog(List<String> completions) {
@@ -289,19 +292,17 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         }
 
         return Dialog.create(factory -> factory.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(false)
+                .base(promptBase(title)
                         .build())
                 .type(io.papermc.paper.registry.data.dialog.type.DialogType.multiAction(List.copyOf(buttons), buildExitButton(), 1)));
     }
 
     private void onTabClick(String completion) {
         player.getScheduler().run(plugin, scheduledTask -> {
-            if (!open) return;
-            open = false;
+            if (!lifecycle.isOpen()) return;
             plugin.getPluginLogger().debug("d:tab button clicked for " + player.getName()
                     + " completion=\"" + completion + "\"");
-            if (callback != null) callback.accept(ScreenResult.answer(completion));
+            finish(ScreenResult.answer(completion));
         }, null);
     }
 
@@ -340,8 +341,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 .build();
 
         return Dialog.create(factory -> factory.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(false)
+                .base(promptBase(title)
                         .body(List.of(DialogBody.plainMessage(notice)))
                         .inputs(List.of(input))
                         .build())
@@ -350,15 +350,14 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
     private void onTabFallbackConfirm(DialogResponseView view) {
         player.getScheduler().run(plugin, scheduledTask -> {
-            if (!open) return;
-            open = false;
+            if (!lifecycle.isOpen()) return;
             var v = view.getText("answer");
             if (v == null) v = "";
             // Apply the same text-input sanitization as the standard path.
             String answer = tag.sanitize() ? v : ComponentUtil.miniToLegacy(v);
             plugin.getPluginLogger().debug("d:tab fallback confirmed for " + player.getName()
                     + " answer=\"" + answer + "\"");
-            if (callback != null) callback.accept(ScreenResult.answer(answer));
+            finish(ScreenResult.answer(answer));
         }, null);
     }
 
@@ -393,8 +392,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 .build();
 
         return Dialog.create(factory -> factory.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(false)
+                .base(promptBase(title)
                         .body(bodies)
                         .inputs(inputs)
                         .build())
@@ -456,22 +454,20 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private void onConfirm(DialogResponseView view) {
         // Switch to player scheduler as dialog callbacks fire on network thread.
         player.getScheduler().run(plugin, scheduledTask -> {
-            if (!open) return;
-            open = false;
+            if (!lifecycle.isOpen()) return;
             var answers = readAnswers(view);
             plugin.getPluginLogger().debug("Dialog confirmed for " + player.getName()
                     + " key=" + tag.key() + " rows=" + rows.size()
                     + " answers=" + answers);
-            if (callback != null) callback.accept(ScreenResult.answer(encodeAnswers(answers)));
+            finish(ScreenResult.answer(encodeAnswers(answers)));
         }, null);
     }
 
     private void onCancel() {
         player.getScheduler().run(plugin, scheduledTask -> {
-            if (!open) return;
-            open = false;
+            if (!lifecycle.isOpen()) return;
             plugin.getPluginLogger().debug("Dialog cancelled for " + player.getName());
-            if (callback != null) callback.accept(ScreenResult.cancel());
+            finish(ScreenResult.cancel());
         }, null);
     }
 
@@ -535,13 +531,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         var dialogType = buildDialogTypeFromDialogPrompt();
 
         player.showDialog(Dialog.create(factory -> factory.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(false)
+                .base(promptBase(title)
                         .body(body)
                         .inputs(inputs)
                         .build())
                 .type(dialogType)));
-        open = true;
+        lifecycle.opened();
     }
 
     /**
@@ -881,9 +876,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 .action(DialogAction.customClick(
                         (view, audience) -> player.getScheduler().run(plugin,
                                 scheduledTask -> {
-                                    if (!open) return;
-                                    open = false;
-                                    if (callback != null) callback.accept(ScreenResult.answer(answerValue));
+                                    if (!lifecycle.isOpen()) return;
+                                    finish(ScreenResult.answer(answerValue));
                                 }, null),
                         clickOptions()))
                 .build();
@@ -973,12 +967,9 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
      * from the player scheduler.
      */
     private void onCancelFromView(DialogResponseView view) {
-        player.getScheduler().run(plugin, scheduledTask -> {
-            if (!open) return;
-            open = false;
-            plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
-            if (callback != null) callback.accept(ScreenResult.cancel());
-        }, null);
+        if (!lifecycle.isOpen()) return;
+        plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
+        finish(ScreenResult.cancel());
     }
 
     /**
@@ -987,13 +978,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
      * encoded answers.
      */
     private void onMultiActionConfirm(DialogResponseView view) {
-        if (!open) return;
-        open = false;
+        if (!lifecycle.isOpen()) return;
         var answers = readAnswersFromDialogPrompt(view);
         plugin.getPluginLogger().debug("Dialog confirmed for " + player.getName()
                 + " id=" + dialogPrompt.id() + " rows=" + inputRows.size()
                 + " answers=" + answers);
-        if (callback != null) callback.accept(ScreenResult.answer(encodeAnswers(answers)));
+        finish(ScreenResult.answer(encodeAnswers(answers)));
     }
 
     /**
@@ -1053,21 +1043,52 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         return dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding.encode(answers);
     }
 
+    /**
+     * Configures prompt dialogs so client-side component actions, such as
+     * {@code open_url}, do not dismiss the screen. CommandPrompter's own
+     * terminal actions close the dialog explicitly in {@link #finish(ScreenResult)}.
+     *
+     * <p>{@link DialogAfterAction#NONE} requires a non-pausing dialog.
+     */
+    private static DialogBase.Builder promptBase(Component title) {
+        return DialogBase.builder(title)
+                .canCloseWithEscape(false)
+                .pause(false)
+                .afterAction(DialogAfterAction.NONE);
+    }
+
+    /**
+     * Completes this screen exactly once. With {@link DialogAfterAction#NONE},
+     * the client no longer closes the dialog automatically after a submit
+     * action, so terminal actions must send an explicit close before handing
+     * the result back to the session manager.
+     */
+    private void finish(ScreenResult result) {
+        lifecycle.finish(result, this::closeClientDialog);
+    }
+
+    private void closeClientDialog() {
+        try {
+            player.closeDialog();
+        } catch (RuntimeException e) {
+            plugin.getPluginLogger().debug("Unable to close dialog for "
+                    + player.getUniqueId() + ": " + e.getMessage());
+        }
+    }
+
     @Override
     public void close() {
-        if (!open) return;
-        open = false;
+        if (!lifecycle.close(this::closeClientDialog)) return;
         plugin.getPluginLogger().debug("Dialog prompt closed for " + player.getName());
-        player.closeDialog();
     }
 
     @Override
     public boolean isOpen() {
-        return open;
+        return lifecycle.isOpen();
     }
 
     @Override
     public void onResult(Consumer<ScreenResult> callback) {
-        this.callback = callback;
+        lifecycle.onResult(callback);
     }
 }
