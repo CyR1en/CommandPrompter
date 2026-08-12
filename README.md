@@ -4,7 +4,7 @@
   <a href="https://github.com/CyR1en/CommandPrompter/actions/workflows/gradle.yml"><img src="https://img.shields.io/github/actions/workflow/status/cyr1en/commandprompter/gradle.yml?style=for-the-badge&logo=githubactions&logoColor=a6da95"></a>
   <a href="https://cyr1en.gitbook.io/commandprompter/"><img src="https://img.shields.io/badge/GitBook-docs-brightgreen?logo=gitbook&style=for-the-badge&color=7dc4e4"></a>
   <a href="https://modrinth.com/plugin/commandprompter"><img src="https://img.shields.io/modrinth/v/1Ne5mutD?style=for-the-badge&logo=modrinth&logoColor=cad3f5&labelColor=363a4f&color=%23a6da95"></a>
-  <a href="https://github.com/CyR1en/CommandPrompter/blob/master/LICENSE"><img src="https://img.shields.io/github/license/cyr1en/CommandPrompter?colorA=363a4f&colorB=91d7e3&style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KPHBhdGggZD0iTTIxNiwzMlYxOTJhOCw4LDAsMCwxLTgsOEg3MmExNiwxNiwwLDAsMC0xNiwxNkgxOTJhOCw4LDAsMCwxLDAsMTZINDhhOCw4LDAsMCwxLTgtOFY1NkEzMiwzMiwwLDAsMSw3MiwyNEgyMDhBOCw4LDAsMCwxLDIxNiwzMloiIHN0eWxlPSJmaWxsOiAjQ0FEM0Y1OyIvPgo8L3N2Zz4=&logoColor=cad3f5"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/cyr1en/CommandPrompter?colorA=363a4f&colorB=91d7e3&style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KPHBhdGggZD0iTTIxNiwzMlYxOTJhOCw4LDAsMCwxLTgsOEg3MmExNiwxNiwwLDAsMC0xNiwxNkgxOTJhOCw4LDAsMCwxLDAsMTZINDhhOCw4LDAsMCwxLTgtOFY1NkEzMiwzMiwwLDAsMSw3MiwyNEgyMDhBOCw4LDAsMCwxLDIxNiwzMloiIHN0eWxlPSJmaWxsOiAjQ0FEM0Y1OyIvPgo8L3N2Zz4=&logoColor=cad3f5"></a>
   <a href="https://discord.com/invite/qHM8kE4XHj"><img src="https://img.shields.io/discord/936346802402238514?style=for-the-badge&color=b7bdf8&labelColor=363a4f&logo=discord&logoColor=cad3f5"></a>
   <a href="https://ko-fi.com/cyr1en"><img src="https://img.shields.io/badge/Kofi-Support_Development-f5a97f?style=for-the-badge&logo=Kofi&logoColor=cad3f5&labelColor=363a4f"></a>
 </p>
@@ -50,4 +50,4 @@ cd CommandPrompter/
 </div>
 
 ## License
-CommandPrompter is licensed under the permissive [MIT license](https://github.com/CyR1en/CommandPrompter/blob/master/LICENSE). Please see LICENSE.txt for more info.
+CommandPrompter is licensed under the permissive [MIT license](LICENSE).
