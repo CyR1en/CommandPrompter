@@ -40,9 +40,6 @@ public class MockBukkitTest {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        server.getPluginManager().addPermission(
-                new org.bukkit.permissions.Permission("promptpaper.cancel", org.bukkit.permissions.PermissionDefault.TRUE)
-        );
 
         plugin = mock(CommandPrompter.class);
         when(plugin.getServer()).thenReturn(server);
@@ -133,8 +130,6 @@ public class MockBukkitTest {
 
         scheduler = new MockScheduler(plugin);
         when(plugin.getScheduler()).thenReturn(scheduler);
-
-        
     }
 
     @AfterEach

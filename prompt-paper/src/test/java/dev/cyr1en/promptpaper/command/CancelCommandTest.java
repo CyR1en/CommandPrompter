@@ -8,13 +8,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.beans.Transient;
-
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
@@ -75,10 +75,19 @@ class CancelCommandTest extends MockBukkitTest {
     }
 
     @Test
-    void nonOpPlayerCanCancelOwnSessionByDefault(){
-        PlayerMock player = createPlayer("Cassey");
+    void nonOpPlayerCanCancelOwnSessionByDefault() {
+        server.getPluginManager().addPermission(
+                new Permission("promptpaper.cancel", PermissionDefault.TRUE));
+
+        PlayerMock player = createPlayer("Casey");
         player.setOp(false);
+
+        assertFalse(player.isOp());
         assertTrue(cmd.allowed(player),
-            "promptpaper.cancel should default to true so non-op players can cancel their own prompt");
+                "promptpaper.cancel should allow non-op players by default");
+
+        player.addAttachment(plugin, "promptpaper.cancel", false);
+        assertFalse(cmd.allowed(player),
+                "an explicit permission denial should still disable self-cancellation");
     }
 }
