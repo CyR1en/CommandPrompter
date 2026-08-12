@@ -31,7 +31,8 @@ permissions:
   promptpaper.reload:
     description: Allows using /commandprompter reload
   promptpaper.cancel:
-    description: Allows cancelling active prompts
+    description: Allows cancelling your own active prompt
+    default: true
   promptpaper.version:
     description: Allows using /commandprompter version
   promptpaper.use:
