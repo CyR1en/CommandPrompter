@@ -71,8 +71,13 @@ public class HeadCache implements Listener {
     /**
      * Returns a cached {@link Material#PLAYER_HEAD} for the given player,
      * creating and styling it on cache miss.
+     *
+     * <p>Vanished players always return {@link Optional#empty()} without
+     * caching, so no path (filtered or unfiltered) can reveal them and no
+     * stale empty entry survives after the player unvanishes.</p>
      */
     public Optional<ItemStack> getHeadFor(Player player) {
+        if (isVanished(player)) return Optional.empty();
         return cache.computeIfAbsent(player.getUniqueId(), uuid -> {
             if (!Bukkit.getOnlinePlayers().contains(player)) return Optional.empty();
             var skull = new ItemStack(Material.PLAYER_HEAD);
@@ -94,10 +99,18 @@ public class HeadCache implements Listener {
         cache.remove(player.getUniqueId());
     }
 
+    /**
+     * Returns all cached heads, excluding entries whose owner is offline
+     * or has vanished after being cached.
+     */
     public List<ItemStack> getHeads() {
-        return cache.values().stream()
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        return cache.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .filter(entry -> {
+                    var cachedPlayer = Bukkit.getPlayer(entry.getKey());
+                    return cachedPlayer != null && !isVanished(cachedPlayer);
+                })
+                .map(entry -> entry.getValue().get())
                 .toList();
     }
 

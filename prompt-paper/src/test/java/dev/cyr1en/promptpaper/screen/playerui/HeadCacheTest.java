@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PromptConfig;
+import dev.cyr1en.promptpaper.hook.HookContainer;
+import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
+import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -75,8 +78,8 @@ class HeadCacheTest extends MockBukkitTest {
 
     @Test
     void sizeCountsNonEmptyEntries() {
-        UUID uuid = UUID.randomUUID();
-        injectEntry(uuid, Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
+        var player = createPlayer("CachedOne");
+        injectEntry(player.getUniqueId(), Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
 
         assertEquals(1, headCache.size());
         assertEquals(1, headCache.getHeads().size());
@@ -84,9 +87,9 @@ class HeadCacheTest extends MockBukkitTest {
 
     @Test
     void sizeCountsMixedEntries() {
-        UUID presentUuid = UUID.randomUUID();
+        var player = createPlayer("CachedMixed");
         UUID emptyUuid = UUID.randomUUID();
-        injectEntry(presentUuid, Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
+        injectEntry(player.getUniqueId(), Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
         injectEmptyEntry(emptyUuid);
 
         assertEquals(1, headCache.size(),
@@ -184,6 +187,75 @@ class HeadCacheTest extends MockBukkitTest {
         performOneTick();
         assertEquals(1, callbackCount.get());
         assertEquals(26, headCache.size());
+    }
+
+    @Test
+    void getHeadForReturnsEmptyForVanishedPlayer() {
+        var player = createPlayer("Ghost");
+        mockVanishHook(player);
+
+        Optional<ItemStack> head = headCache.getHeadFor(player);
+
+        assertTrue(head.isEmpty(), "vanished players must not receive a head");
+        assertEquals(0, headCache.size(), "vanished players must not be cached");
+    }
+
+    @Test
+    void getHeadForAfterUnvanishCreatesHead() {
+        var player = createPlayer("Phasing");
+        var vanishHook = mockVanishHook(player);
+
+        assertTrue(headCache.getHeadFor(player).isEmpty());
+
+        when(vanishHook.isInvisible(player)).thenReturn(false);
+
+        assertTrue(headCache.getHeadFor(player).isPresent(),
+                "an unvanished player must receive a cached head again");
+        assertEquals(1, headCache.size());
+    }
+
+    @Test
+    void getHeadsExcludesCachedVanishedPlayer() {
+        var visible = createPlayer("Visible");
+        var ghost = createPlayer("Ghost");
+        headCache.onPlayerJoin(new PlayerJoinEvent(visible, (Component) null));
+        headCache.onPlayerJoin(new PlayerJoinEvent(ghost, (Component) null));
+        assertEquals(2, headCache.size());
+
+        mockVanishHook(ghost);
+
+        assertEquals(1, headCache.getHeads().size(),
+                "getHeads() must exclude players that vanished after being cached");
+        assertEquals(1, headCache.getHeadsSorted().size(),
+                "getHeadsSorted() must exclude players that vanished after being cached");
+    }
+
+    @Test
+    void buildCacheExcludesVanishedPlayers() {
+        createPlayer("Visible");
+        var ghost = createPlayer("Ghost");
+        mockVanishHook(ghost);
+
+        var callbackCount = new AtomicInteger();
+        headCache.buildCache(callbackCount::incrementAndGet);
+
+        assertEquals(1, callbackCount.get());
+        assertEquals(1, headCache.size(), "buildCache() must not cache vanished players");
+    }
+
+    /**
+     * Installs a mocked vanish hook on the plugin's hook container that
+     * reports the given players as vanished.
+     */
+    private VanishHook mockVanishHook(Player... vanishedPlayers) {
+        var vanishHook = mock(VanishHook.class);
+        for (Player vanished : vanishedPlayers) {
+            when(vanishHook.isInvisible(vanished)).thenReturn(true);
+        }
+        var hookContainer = mock(HookContainer.class);
+        when(hookContainer.getFirstHooked(VanishHook.class)).thenReturn(Optional.of(vanishHook));
+        when(plugin.getHookContainer()).thenReturn(hookContainer);
+        return vanishHook;
     }
 
     private static Style findStyleWithColor(Component root) {
