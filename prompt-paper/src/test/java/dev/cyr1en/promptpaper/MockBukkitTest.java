@@ -47,6 +47,8 @@ public class MockBukkitTest {
         when(plugin.getLogger()).thenReturn(Logger.getLogger("CommandPrompterPaper"));
         when(plugin.getComponentLogger()).thenReturn(ComponentLogger.logger("CommandPrompterPaper"));
         when(plugin.isEnabled()).thenReturn(true);
+        when(plugin.getPluginLoader()).thenReturn(
+                new org.mockbukkit.mockbukkit.plugin.MockBukkitPluginLoader());
 
         config = mock(CommandPrompterConfig.class);
         when(config.fancyLogger()).thenReturn(false);

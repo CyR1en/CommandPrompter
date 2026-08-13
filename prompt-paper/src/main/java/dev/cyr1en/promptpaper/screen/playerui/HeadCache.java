@@ -7,11 +7,12 @@ import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import dev.cyr1en.promptui.ComponentUtil;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.Bukkit;
@@ -25,20 +26,36 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
 /**
- * Maintains a cache of player-head {@link ItemStack}s used by
+ * Maintains a bounded LRU cache of player-head {@link ItemStack}s used by
  * {@link PlayerUIScreen} for tab-completion buttons.
+ *
+ * <p>The cache is a memoization layer only, never the display source: the
+ * player list shown by {@link PlayerUIScreen} is derived fresh from Bukkit,
+ * so the cache bound ({@code PlayerUI.Cache-Size}, {@code <= 0} meaning
+ * unbounded) only limits how many heads are kept in memory (2.x parity).
+ * The most-recently-used entries survive eviction, and an evicted entry is
+ * simply recomputed on the next access.</p>
  */
 public class HeadCache implements Listener {
 
     private final CommandPrompter plugin;
     private final Scheduler scheduler;
+    private final int maxCacheSize;
     private final Map<UUID, Optional<ItemStack>> cache;
     private final List<CacheFilter> filters;
 
     public HeadCache(CommandPrompter plugin, Scheduler scheduler) {
         this.plugin = plugin;
         this.scheduler = scheduler;
-        this.cache = new ConcurrentHashMap<>();
+        this.maxCacheSize = plugin.getConfigLoader().getPromptConfig().cacheSize();
+        this.cache = Collections.synchronizedMap(
+                new LinkedHashMap<UUID, Optional<ItemStack>>(16, 0.75f, true) {
+                    @Override
+                    protected boolean removeEldestEntry(Map.Entry<UUID, Optional<ItemStack>> eldest) {
+                        int max = maxCacheSize;
+                        return max > 0 && size() > max;
+                    }
+                });
         this.filters = new ArrayList<>();
     }
 

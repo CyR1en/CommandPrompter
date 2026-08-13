@@ -124,6 +124,40 @@ class HeadCacheTest extends MockBukkitTest {
     }
 
     @Test
+    void cacheEvictsOldestEntryAtConfiguredSize() {
+        when(promptCfg.cacheSize()).thenReturn(2);
+        headCache = new HeadCache(plugin, scheduler);
+
+        var eldest = createPlayer("Eldest");
+        var second = createPlayer("Second");
+        var third = createPlayer("Third");
+        headCache.onPlayerJoin(new PlayerJoinEvent(eldest, (Component) null));
+        headCache.onPlayerJoin(new PlayerJoinEvent(second, (Component) null));
+        headCache.onPlayerJoin(new PlayerJoinEvent(third, (Component) null));
+
+        assertEquals(2, headCache.size());
+        assertFalse(readCacheMap().containsKey(eldest.getUniqueId()),
+                "the eldest entry must be evicted once the cache exceeds its configured size");
+        assertTrue(readCacheMap().containsKey(second.getUniqueId()),
+                "the second entry must survive eviction");
+        assertTrue(readCacheMap().containsKey(third.getUniqueId()),
+                "the most recent entry must survive eviction");
+    }
+
+    @Test
+    void unboundedWhenCacheSizeNotPositive() {
+        when(promptCfg.cacheSize()).thenReturn(0);
+        headCache = new HeadCache(plugin, scheduler);
+
+        for (int i = 0; i < 3; i++) {
+            headCache.onPlayerJoin(new PlayerJoinEvent(createPlayer("Unbounded" + i), (Component) null));
+        }
+
+        assertEquals(3, headCache.size(),
+                "a non-positive Cache-Size must disable eviction (unbounded cache)");
+    }
+
+    @Test
     void invalidateRemovesEntry() {
         var player = createPlayer("Target");
         headCache.onPlayerJoin(new PlayerJoinEvent(player, (Component) null));
@@ -408,6 +442,17 @@ class HeadCacheTest extends MockBukkitTest {
     @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
     private void injectEmptyEntry(UUID uuid) {
         injectEntry(uuid, Optional.empty());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<UUID, Optional<ItemStack>> readCacheMap() {
+        try {
+            Field field = HeadCache.class.getDeclaredField("cache");
+            field.setAccessible(true);
+            return (Map<UUID, Optional<ItemStack>>) field.get(headCache);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to read cache map", e);
+        }
     }
 
     @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})

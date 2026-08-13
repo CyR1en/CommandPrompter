@@ -248,7 +248,7 @@ public class PromptFactory {
     resolveUiButton(pui.cancelButton(), pui.id(), "cancel_button");
     resolveUiButton(pui.previousButton(), pui.id(), "previous_button");
     resolveUiButton(pui.nextButton(), pui.id(), "next_button");
-    return new PlayerUIScreen(plugin, player, tag, pui);
+    return new PlayerUIScreen(plugin, player, tag, pui, providers);
   }
 
   /**

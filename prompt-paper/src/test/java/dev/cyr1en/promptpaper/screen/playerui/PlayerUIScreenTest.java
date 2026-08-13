@@ -1,29 +1,40 @@
 package dev.cyr1en.promptpaper.screen.playerui;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptui.gui.GuiItem;
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class PlayerUIScreenTest extends MockBukkitTest {
 
@@ -66,8 +77,13 @@ class PlayerUIScreenTest extends MockBukkitTest {
         lenient().when(promptConfig.searchCustomModelData()).thenReturn(0);
         lenient().when(promptConfig.searchColumn()).thenReturn(9);
         lenient().when(promptConfig.searchText()).thenReturn("&6Search");
+        lenient().when(promptConfig.searchAnvilItemTitle()).thenReturn("&6&lPlayer Search");
+        lenient().when(promptConfig.searchAnvilItem()).thenReturn("NAME_TAG");
+        lenient().when(promptConfig.searchAnvilItemCustomModelData()).thenReturn(42);
+        lenient().when(promptConfig.searchAnvilItemText()).thenReturn("&7Type here");
+        lenient().when(promptConfig.cancelItem()).thenReturn("BARRIER");
 
-        screen = new PlayerUIScreen(plugin, player, tag, null);
+        screen = new PlayerUIScreen(plugin, player, tag, null, List.of());
         resultRef = new AtomicReference<>();
         screen.onResult(resultRef::set);
     }
@@ -85,7 +101,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
 
     @Test
     void onResultStoresCallback() {
-        var screen2 = new PlayerUIScreen(plugin, createPlayer(), tag, null);
+        var screen2 = new PlayerUIScreen(plugin, createPlayer(), tag, null, List.of());
         screen2.onResult(result -> {});
         assertNotNull(screen2);
     }
@@ -123,7 +139,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
         when(plugin.getHeadCache()).thenReturn(realCache);
 
         var filteredTag = new PromptTag("<p:w:Choose>", "p", "w", "Choose");
-        var filteredScreen = new PlayerUIScreen(plugin, player, filteredTag, null);
+        var filteredScreen = new PlayerUIScreen(plugin, player, filteredTag, null, List.of());
         filteredScreen.onResult(result -> {});
 
         var method = PlayerUIScreen.class.getDeclaredMethod("getFilteredHeads");
@@ -143,6 +159,160 @@ class PlayerUIScreenTest extends MockBukkitTest {
         assertFalse(skullNames.contains("Ghost"), "vanished players must not appear in filtered prompts");
         assertTrue(realCache.getHeadFor(ghost).isEmpty(),
                 "vanished players must not enter the head cache");
+    }
+
+    /**
+     * Regression for #85: the display list is decoupled from the head cache,
+     * so an unpopulated cache must never hide online players.
+     */
+    @Test
+    void unfilteredShowsPlayersRegardlessOfCacheState() throws Exception {
+        var realCache = stubRealCacheWithBuiltins();
+        createPlayer("Alpha");
+        createPlayer("Beta");
+        // Intentionally leave the cache unpopulated.
+        assertEquals(0, realCache.size());
+
+        var names = skullNames(screen);
+
+        assertTrue(names.contains("TestPlayer"), "prompting player must be shown from Bukkit");
+        assertTrue(names.contains("Alpha"), "online player must be shown despite empty cache");
+        assertTrue(names.contains("Beta"), "online player must be shown despite empty cache");
+    }
+
+    /**
+     * Regression for #86: the empty-state item must use the configured
+     * {@code PlayerUI.Empty-Message} on a BARRIER with no click action.
+     */
+    @Test
+    void buildEmptyStateItemUsesConfiguredMessage() throws Exception {
+        var method = PlayerUIScreen.class.getDeclaredMethod("buildEmptyStateItem", PromptConfig.class);
+        method.setAccessible(true);
+        var guiItem = (GuiItem) method.invoke(screen, promptConfig);
+
+        assertEquals(Material.BARRIER, guiItem.getItem().getType());
+        assertFalse(guiItem.hasAction(), "the empty-state item must not be clickable");
+        var meta = guiItem.getItem().getItemMeta();
+        assertNotNull(meta);
+        Component display = meta.displayName();
+        assertNotNull(display, "the empty-state item must carry the configured message");
+        Style coloredStyle = findStyleWithColor(display);
+        assertNotNull(coloredStyle, "expected a style with a color in the component tree");
+        assertEquals(NamedTextColor.RED, coloredStyle.color(),
+                "&c in the configured empty message should render as RED, not literal text");
+    }
+
+    /**
+     * Regression for #86: a filtered prompt with no matching players yields an
+     * empty head list (which the screen renders as the empty-state item).
+     */
+    @Test
+    void filteredHeadsEmptyWhenNoPlayers() throws Exception {
+        stubRealCacheWithBuiltins();
+        // The only online player is the prompting player, whom a radial filter
+        // includes by definition (distance 0); disconnect him so the server has
+        // no players matching r10 and the filtered list is empty.
+        ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).disconnect();
+
+        var names = skullNames(buildFilteredScreen("r10"));
+
+        assertTrue(names.isEmpty(), "no matching players must yield an empty head list");
+    }
+
+    /**
+     * Regression for #88: starting a search must prefer an anvil provider and
+     * configure it with the {@code PlayerUI.Search.AnvilItem.*} values; the
+     * anvil answer then filters the currently displayed heads.
+     */
+    @Test
+    void searchUsesAnvilWithConfiguredValues() throws Exception {
+        stubRealCacheWithBuiltins();
+        createPlayer("Nearby");
+        createPlayer("Other");
+
+        var anvilScreen = mock(AnvilInputScreen.class);
+        var provider = mock(ScreenProvider.class);
+        when(provider.createAnvil(any(), any(), any())).thenReturn(anvilScreen);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> configCaptor = ArgumentCaptor.forClass(Map.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Consumer<ScreenResult>> resultCaptor = ArgumentCaptor.forClass(Consumer.class);
+
+        var searchScreen = new PlayerUIScreen(plugin, player, tag, null, List.of(provider));
+
+        // Populate the private currentHeads from the (fresh-from-Bukkit) head list.
+        var getFilteredHeads = PlayerUIScreen.class.getDeclaredMethod("getFilteredHeads");
+        getFilteredHeads.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var heads = (List<ItemStack>) getFilteredHeads.invoke(searchScreen);
+        var currentHeadsField = PlayerUIScreen.class.getDeclaredField("currentHeads");
+        currentHeadsField.setAccessible(true);
+        currentHeadsField.set(searchScreen, heads);
+
+        var startSearch = PlayerUIScreen.class.getDeclaredMethod("startSearch");
+        startSearch.setAccessible(true);
+        startSearch.invoke(searchScreen);
+
+        verify(anvilScreen).configure(configCaptor.capture());
+        var config = configCaptor.getValue();
+        assertNotNull(config, "the anvil screen must be configured");
+        assertEquals("&6&lPlayer Search", config.get("customTitle"));
+        assertEquals("NAME_TAG", config.get("anvilItem"));
+        assertEquals("42", config.get("itemCustomModelData"));
+        assertEquals("&7Type here", config.get("promptMessage"));
+        assertEquals("true", config.get("enableTitle"));
+        assertEquals("true", config.get("enableCancelItem"));
+        assertEquals("BARRIER", config.get("anvilCancelItem"));
+
+        verify(anvilScreen).onResult(resultCaptor.capture());
+        var onResult = resultCaptor.getValue();
+        assertNotNull(onResult, "the anvil screen must receive a result callback");
+        onResult.accept(ScreenResult.answer("near"));
+        performOneTick();
+
+        @SuppressWarnings("unchecked")
+        var currentHeads = (List<ItemStack>) currentHeadsField.get(searchScreen);
+        assertEquals(List.of("Nearby"), owningPlayerNames(currentHeads),
+                "the anvil search term must filter the displayed heads case-insensitively");
+    }
+
+    /**
+     * Regression for #88: without any provider the search must fall back to the
+     * chat instruction and still filter the displayed heads via chat input.
+     */
+    @Test
+    void searchFallsBackToChatWithoutProviders() throws Exception {
+        stubRealCacheWithBuiltins();
+        createPlayer("Nearby");
+        createPlayer("Other");
+
+        var searchScreen = new PlayerUIScreen(plugin, player, tag, null, List.of());
+
+        var getFilteredHeads = PlayerUIScreen.class.getDeclaredMethod("getFilteredHeads");
+        getFilteredHeads.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        var heads = (List<ItemStack>) getFilteredHeads.invoke(searchScreen);
+        var currentHeadsField = PlayerUIScreen.class.getDeclaredField("currentHeads");
+        currentHeadsField.setAccessible(true);
+        currentHeadsField.set(searchScreen, heads);
+
+        var startSearch = PlayerUIScreen.class.getDeclaredMethod("startSearch");
+        startSearch.setAccessible(true);
+        startSearch.invoke(searchScreen);
+
+        String instruction = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextMessage();
+        assertNotNull(instruction, "chat fallback must send the search instruction");
+        assertTrue(instruction.toLowerCase().contains("search"),
+                "chat fallback message should mention search, was: " + instruction);
+
+        player.chat("near");
+        server.getScheduler().waitAsyncEventsFinished();
+
+        @SuppressWarnings("unchecked")
+        var currentHeads = (List<ItemStack>) currentHeadsField.get(searchScreen);
+        assertEquals(List.of("Nearby"), owningPlayerNames(currentHeads),
+                "the chat search term must filter the displayed heads case-insensitively");
     }
 
     /**
@@ -166,7 +336,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
      */
     private PlayerUIScreen buildFilteredScreen(String filter) {
         var filteredTag = new PromptTag("<p:" + filter + ":Choose>", "p", filter, "Choose");
-        var filteredScreen = new PlayerUIScreen(plugin, player, filteredTag, null);
+        var filteredScreen = new PlayerUIScreen(plugin, player, filteredTag, null, List.of());
         filteredScreen.onResult(result -> {});
         return filteredScreen;
     }
@@ -329,6 +499,28 @@ class PlayerUIScreenTest extends MockBukkitTest {
                 .map(Component::color)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    /**
+     * Extracts the owning-player names from a list of head item stacks.
+     */
+    private static List<String> owningPlayerNames(List<ItemStack> heads) {
+        return heads.stream()
+                .map(ItemStack::getItemMeta)
+                .filter(SkullMeta.class::isInstance)
+                .map(SkullMeta.class::cast)
+                .map(skull -> skull.getOwningPlayer() != null ? skull.getOwningPlayer().getName() : null)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private static Style findStyleWithColor(Component root) {
+        if (root.style().color() != null) return root.style();
+        for (Component child : root.children()) {
+            Style found = findStyleWithColor(child);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     /**

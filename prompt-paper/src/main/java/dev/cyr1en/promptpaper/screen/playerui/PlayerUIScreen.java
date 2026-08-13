@@ -1,7 +1,9 @@
 package dev.cyr1en.promptpaper.screen.playerui;
 
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.InputScreen;
+import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.ChestGui;
 import dev.cyr1en.promptui.gui.GuiItem;
@@ -12,7 +14,10 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;
@@ -34,6 +39,7 @@ public class PlayerUIScreen implements InputScreen {
     private final Player player;
     private final PromptTag tag;
     private final dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt;
+    private final List<ScreenProvider> providers;
     private Consumer<ScreenResult> callback;
     private ChestGui gui;
     private PaginatedPane headPane;
@@ -43,47 +49,29 @@ public class PlayerUIScreen implements InputScreen {
     private Listener searchListener;
     private Listener quitListener;
 
-    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag, dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt) {
+    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag,
+                          dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt,
+                          List<ScreenProvider> providers) {
         this.plugin = plugin;
         this.player = player;
         this.tag = tag;
         this.puiPrompt = puiPrompt;
+        this.providers = providers;
         this.currentHeads = null;
     }
 
     /**
-     * Checks for cache staleness and rebuilds if needed, then opens
-     * the chest GUI with the player's filtered head list.
+     * Opens the chest GUI with the player's filtered head list.
+     *
+     * <p>The display list is derived fresh from Bukkit inside
+     * {@link #getFilteredHeads()}; the head cache is only a bounded
+     * memoization layer and never gates the open (2.x parity, #85).</p>
      */
     @Override
     public void open() {
         var token = lifecycleToken.get();
-        var uuid = player.getUniqueId();
-        var headCache = plugin.getHeadCache();
-        int onlineCount = (int) Bukkit.getOnlinePlayers().stream()
-                .filter(p -> !headCache.isVanished(p))
-                .count();
-        if (onlineCount != headCache.size()) {
-            plugin.getPluginLogger().debug("PlayerUI cache mismatch: cache="
-                    + headCache.size() + " online=" + onlineCount
-                    + " — rebuilding before open");
-            headCache.buildCache(() -> {
-                if (lifecycleToken.get() != token) return;
-                try {
-                    var task = player.getScheduler().run(
-                            plugin,
-                            scheduledTask -> {
-                                if (lifecycleToken.get() == token) openInternal(token);
-                            },
-                            () -> {});
-                    if (task == null) discardScreenState(uuid);
-                } catch (Exception e) {
-                    plugin.getPluginLogger().debug("PlayerUI cache completion was retired for " + uuid);
-                    discardScreenState(uuid);
-                }
-            });
-            return;
-        }
+        plugin.getPluginLogger().debug("PlayerUI open for " + player.getName()
+                + " filter=" + tag.filter() + " (display decoupled from head cache)");
         openInternal(token);
     }
 
@@ -114,27 +102,37 @@ public class PlayerUIScreen implements InputScreen {
 
         headPane = new PaginatedPane(9, rows - 1);
         int pageSize = 9 * (rows - 1);
-        for (int i = 0; i < currentHeads.size(); i += pageSize) {
-            StaticPane page = new StaticPane(9, rows - 1);
-            for (int j = i; j < Math.min(i + pageSize, currentHeads.size()); j++) {
-                ItemStack head = currentHeads.get(j).clone();
-                int x = (j - i) % 9;
-                int y = (j - i) / 9;
-                page.addItem(new GuiItem(head, event -> {
-                    var meta = head.getItemMeta();
-                    if (meta instanceof SkullMeta skullMeta
-                            && skullMeta.getOwningPlayer() != null) {
-                        var name = skullMeta.getOwningPlayer().getName();
-                        if (name != null) {
-                            close();
-                            if (callback != null) {
-                                callback.accept(ScreenResult.answer(name));
+        if (currentHeads.isEmpty()) {
+            // Empty state (#86): a single non-clickable item centered in the
+            // pagination area replaces the head pages. The control pane stays
+            // so navigation semantics and the quit listener are unchanged.
+            var emptyPane = new StaticPane(9, rows - 1);
+            emptyPane.addItem(buildEmptyStateItem(promptConfig),
+                    4, Math.max(0, (rows - 2) / 2));
+            headPane.addPane(emptyPane);
+        } else {
+            for (int i = 0; i < currentHeads.size(); i += pageSize) {
+                StaticPane page = new StaticPane(9, rows - 1);
+                for (int j = i; j < Math.min(i + pageSize, currentHeads.size()); j++) {
+                    ItemStack head = currentHeads.get(j).clone();
+                    int x = (j - i) % 9;
+                    int y = (j - i) / 9;
+                    page.addItem(new GuiItem(head, event -> {
+                        var meta = head.getItemMeta();
+                        if (meta instanceof SkullMeta skullMeta
+                                && skullMeta.getOwningPlayer() != null) {
+                            var name = skullMeta.getOwningPlayer().getName();
+                            if (name != null) {
+                                close();
+                                if (callback != null) {
+                                    callback.accept(ScreenResult.answer(name));
+                                }
                             }
                         }
-                    }
-                }), x, y);
+                    }), x, y);
+                }
+                headPane.addPane(page);
             }
-            headPane.addPane(page);
         }
         gui.addPane(Slot.of(0, 0), headPane);
 
@@ -158,6 +156,21 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     /**
+     * Builds the single non-clickable empty-state item shown when the
+     * filtered player list is empty, using the configured
+     * {@code PlayerUI.Empty-Message}.
+     */
+    private GuiItem buildEmptyStateItem(PromptConfig cfg) {
+        var item = new ItemStack(Material.BARRIER);
+        var meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(ComponentUtil.mini("<!italic>" + cfg.emptyMessage()));
+            item.setItemMeta(meta);
+        }
+        return new GuiItem(item);
+    }
+
+    /**
      * Applies the tag's filter (world, radial, self, or custom) to the
      * head cache, returning the matching player heads.
      */
@@ -166,20 +179,25 @@ public class PlayerUIScreen implements InputScreen {
         var promptConfig = plugin.getConfigLoader().getPromptConfig();
 
         if (tag.filter() == null || tag.filter().isBlank()) {
-            int onlineCount = (int) Bukkit.getOnlinePlayers().stream()
+            // The display list comes fresh from Bukkit; the head cache is
+            // only a memoization layer (2.x parity), so an empty or
+            // half-loaded cache never hides online players.
+            var heads = Bukkit.getOnlinePlayers().stream()
                     .filter(p -> !headCache.isVanished(p))
-                    .count();
-            var heads = promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
-            // Fallback check if cache is empty but players are online.
-            if (heads.isEmpty() && onlineCount > 0) {
-                plugin.getPluginLogger().debug("PlayerUI heads empty but onlineVisible="
-                        + onlineCount + " cacheSize=" + headCache.size()
-                        + " — cache may still be loading");
+                    .map(headCache::getHeadFor)
+                    .filter(java.util.Optional::isPresent)
+                    .map(java.util.Optional::get)
+                    .toList();
+            plugin.getPluginLogger().debug("PlayerUI no filter, heads=" + heads.size());
+            var result = new ArrayList<>(heads);
+            if (promptConfig.sorted()) {
+                result.sort((s1, s2) -> {
+                    var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
+                    var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
+                    return n1.compareToIgnoreCase(n2);
+                });
             }
-            plugin.getPluginLogger().debug("PlayerUI no filter, heads=" + heads.size()
-                    + " cacheSize=" + headCache.size()
-                    + " onlineVisible=" + onlineCount);
-            return heads;
+            return result;
         }
 
         var filters = headCache.extractFilters(tag.filter());
@@ -306,8 +324,10 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     /**
-     * Closes the GUI and listens for the player's next chat message
-     * to use as a search term, then reopens with filtered results.
+     * Starts a search for a player: tries each {@link ScreenProvider} to open
+     * an anvil input first, and falls back to a chat message when no provider
+     * succeeds. The result filters the currently displayed heads and reopens
+     * the GUI with the matching subset.
      */
     private void startSearch() {
         var token = lifecycleToken.get();
@@ -315,6 +335,108 @@ public class PlayerUIScreen implements InputScreen {
         plugin.getPluginLogger().debug("PlayerUI search started for " + player.getName());
         open = false;
         player.closeInventory();
+
+        for (var provider : providers) {
+            if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+        }
+        startChatSearch(token, playerUuid);
+    }
+
+    /**
+     * Attempts to open an anvil search screen through the given provider.
+     *
+     * @return true if the provider produced an {@link AnvilInputScreen} that
+     *         was configured and opened; false otherwise
+     */
+    private boolean tryOpenAnvilSearch(ScreenProvider provider, long token, UUID playerUuid) {
+        try {
+            var cfg = plugin.getConfigLoader().getPromptConfig();
+            var candidate = provider.createAnvil(plugin, player, cfg.searchAnvilItemTitle());
+            if (candidate instanceof AnvilInputScreen anvilScreen) {
+                var config = new HashMap<String, String>();
+                config.put("enableTitle", "true");
+                config.put("customTitle", cfg.searchAnvilItemTitle());
+                config.put("promptMessage", cfg.searchAnvilItemText());
+                config.put("anvilItem", cfg.searchAnvilItem());
+                config.put("itemCustomModelData", String.valueOf(cfg.searchAnvilItemCustomModelData()));
+                config.put("displayText", cfg.searchAnvilItemText());
+                config.put("enableCancelItem", "true");
+                config.put("anvilCancelItem", cfg.cancelItem());
+                anvilScreen.configure(config);
+                anvilScreen.onResult(result -> handleSearchResult(result, token, anvilScreen));
+                anvilScreen.onOpenFailure(failure ->
+                        continueWithNextProviderOrChatFallback(provider, token, playerUuid));
+                anvilScreen.open();
+                plugin.getPluginLogger().debug("PlayerUI anvil search provider succeeded: "
+                        + provider.getClass().getSimpleName());
+                return true;
+            }
+        } catch (Throwable t) {
+            plugin.getPluginLogger().debug("PlayerUI anvil search provider "
+                    + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Continues the search after an anvil provider failed asynchronously:
+     * tries the remaining providers, then falls back to chat.
+     */
+    private void continueWithNextProviderOrChatFallback(
+            ScreenProvider failedProvider, long token, UUID playerUuid) {
+        if (lifecycleToken.get() != token) return;
+        plugin.getPluginLogger().debug("PlayerUI anvil search provider failed asynchronously: "
+                + failedProvider.getClass().getSimpleName());
+        for (var provider : providers) {
+            if (provider == failedProvider) continue;
+            if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+        }
+        startChatSearch(token, playerUuid);
+    }
+
+    /**
+     * Handles the result of an anvil search: a cancellation reopens the GUI
+     * with the existing heads, otherwise the answer filters the current head
+     * list (case-insensitive display-name match) before reopening.
+     */
+    private void handleSearchResult(ScreenResult result, long token, AnvilInputScreen source) {
+        if (lifecycleToken.get() != token) return;
+        plugin.getPluginLogger().debug("PlayerUI anvil search result for " + player.getName()
+                + " cancelled=" + result.cancelled() + " answer=" + result.answer()
+                + " source=" + source.getClass().getSimpleName());
+        if (result.cancelled()) {
+            open();
+            return;
+        }
+        var term = result.answer();
+        try {
+            var task = player.getScheduler().run(plugin, st -> {
+                if (lifecycleToken.get() != token || currentHeads == null) return;
+                plugin.getPluginLogger().debug("PlayerUI search: term=" + term
+                        + " pre-filter=" + currentHeads.size());
+                var filtered = currentHeads.stream()
+                        .filter(item -> {
+                            var meta = item.getItemMeta();
+                            if (meta == null) return false;
+                            var name = meta.getDisplayName();
+                            return name.toLowerCase().contains(term.toLowerCase());
+                        })
+                        .toList();
+                currentHeads = new ArrayList<>(filtered);
+                open();
+            }, () -> {});
+            if (task == null) discardScreenState(player.getUniqueId());
+        } catch (Exception e) {
+            discardScreenState(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Falls back to the chat-based search: instructs the player to type the
+     * search term and listens for the next chat message to filter the
+     * currently displayed heads.
+     */
+    private void startChatSearch(long token, UUID playerUuid) {
         player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
 
         if (searchListener != null) {
