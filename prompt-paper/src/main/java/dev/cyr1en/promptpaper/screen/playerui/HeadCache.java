@@ -61,11 +61,65 @@ public class HeadCache implements Listener {
 
     public List<CacheFilter> getFilters() { return List.copyOf(filters); }
 
-    public String makeFilteredPattern() {
-        var parts = filters.stream()
-                .map(f -> "(" + f.getRegexKey() + ")")
-                .toList();
-        return "p(?::(%s?)+)?".replace("%s", String.join("?", parts));
+    /**
+     * Parses a combined filter key (e.g. {@code r10s}) into the ordered list
+     * of {@link CacheFilter} instances it encodes.
+     *
+     * <p>The input is consumed deterministically from cursor 0. At each cursor
+     * position every registered filter is tried with its regex anchored at the
+     * cursor ({@code matcher.region(cursor, key.length())} +
+     * {@code matcher.lookingAt()}); the longest match wins, with ties going to
+     * the earliest registered filter — this prevents short keys (e.g. {@code w})
+     * from shadowing longer integration keys (e.g. {@code wgrm...;}). Each
+     * matched token is reconstructed via {@link CacheFilter#reConstruct(String)}
+     * on the exact matched substring so hooks can extract their parameters.</p>
+     *
+     * <p>If no filter matches at a cursor position, the entire unrecognized
+     * span is skipped (advancing until a position matches or the input ends),
+     * one debug line is logged with the skipped substring, and parsing
+     * continues. Returns {@link List#of()} for null/blank input and never
+     * returns null.</p>
+     */
+    public List<CacheFilter> extractFilters(String filterKey) {
+        if (filterKey == null || filterKey.isBlank()) return List.of();
+        var result = new ArrayList<CacheFilter>();
+        int cursor = 0;
+        while (cursor < filterKey.length()) {
+            var match = longestMatchAt(filterKey, cursor);
+            if (match == null) {
+                int skipStart = cursor;
+                do {
+                    cursor++;
+                } while (cursor < filterKey.length() && longestMatchAt(filterKey, cursor) == null);
+                plugin.getPluginLogger().debug("PlayerUI skipping unrecognized filter token: '"
+                        + filterKey.substring(skipStart, cursor) + "'");
+                continue;
+            }
+            var token = filterKey.substring(cursor, match.end());
+            result.add(match.filter().reConstruct(token));
+            cursor = match.end();
+        }
+        return result;
+    }
+
+    private record TokenMatch(CacheFilter filter, int end) {}
+
+    /**
+     * Returns the registered filter whose regex matches anchored at {@code pos}
+     * with the largest match end, or null if none match. Ties keep the earliest
+     * registered filter because iteration order is registration order and a
+     * candidate only replaces the best when it is strictly longer.
+     */
+    private TokenMatch longestMatchAt(String key, int pos) {
+        TokenMatch best = null;
+        for (CacheFilter filter : filters) {
+            var matcher = filter.getRegexKey().matcher(key);
+            matcher.region(pos, key.length());
+            if (matcher.lookingAt() && (best == null || matcher.end() > best.end())) {
+                best = new TokenMatch(filter, matcher.end());
+            }
+        }
+        return best;
     }
 
     /**

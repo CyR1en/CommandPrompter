@@ -182,34 +182,64 @@ public class PlayerUIScreen implements InputScreen {
             return heads;
         }
 
-        var filterOpt = headCache.getFilters().stream()
-                .filter(f -> f.getRegexKey().matcher(tag.filter()).find())
-                .map(f -> f.reConstruct(tag.filter()))
-                .findFirst();
-
-        if (filterOpt.isPresent()) {
-            plugin.getPluginLogger().debug("PlayerUI applying filter: " + tag.filter());
-            var filteredPlayers = filterOpt.get().filter(player);
+        var filters = headCache.extractFilters(tag.filter());
+        if (!filters.isEmpty()) {
+            plugin.getPluginLogger().debug("PlayerUI applying " + filters.size()
+                    + " filters: " + tag.filter());
+            var filteredPlayers = new ArrayList<Player>(Bukkit.getOnlinePlayers().stream()
+                    .filter(p -> !headCache.isVanished(p))
+                    .toList());
+            for (var filter : filters) {
+                filteredPlayers.retainAll(filter.filter(player));
+            }
             var heads = filteredPlayers.stream()
                     .map(headCache::getHeadFor)
                     .filter(java.util.Optional::isPresent)
                     .map(java.util.Optional::get)
                     .toList();
             plugin.getPluginLogger().debug("PlayerUI filtered heads=" + heads.size());
+            var result = new ArrayList<>(heads);
             if (promptConfig.sorted()) {
-                var sorted = new ArrayList<>(heads);
-                sorted.sort((s1, s2) -> {
+                result.sort((s1, s2) -> {
                     var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
                     var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
                     return n1.compareToIgnoreCase(n2);
                 });
-                return sorted;
             }
-            return heads;
+            return applyFirstFilterFormat(result, filters.get(0), promptConfig);
         }
 
         plugin.getPluginLogger().debug("PlayerUI no matching filter, using all heads");
         return promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
+    }
+
+    /**
+     * Applies the display format of the first (leftmost) combined filter to
+     * the given heads, returning cloned items so the shared head cache is
+     * never mutated. When the filter has no specific format configured
+     * (the {@code "%s"} default), the heads are returned unchanged and keep
+     * the global {@code PlayerUI.Skull-Name-Format} applied at cache time.
+     *
+     * <p>Only the first filter's format is queried; remaining filters
+     * contribute player sets only (2.16.0 semantics).</p>
+     */
+    private List<ItemStack> applyFirstFilterFormat(List<ItemStack> heads, CacheFilter firstFilter,
+                                                   PromptConfig config) {
+        var format = firstFilter.getFormat(config);
+        if (format == null || format.isBlank() || "%s".equals(format)) return heads;
+        var formatted = new ArrayList<ItemStack>(heads.size());
+        for (ItemStack head : heads) {
+            var clone = head.clone();
+            var meta = clone.getItemMeta();
+            if (meta instanceof SkullMeta skull && skull.getOwningPlayer() != null
+                    && skull.getOwningPlayer().getName() != null) {
+                skull.displayName(ComponentUtil.mini("<!italic>"
+                        + format.formatted(skull.getOwningPlayer().getName())));
+                clone.setItemMeta(skull);
+            }
+            formatted.add(clone);
+        }
+        return formatted;
     }
 
     private StaticPane buildControlPane(PromptConfig cfg) {

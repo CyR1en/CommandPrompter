@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.screen.playerui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -10,12 +11,15 @@ import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
+import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -241,6 +245,140 @@ class HeadCacheTest extends MockBukkitTest {
 
         assertEquals(1, callbackCount.get());
         assertEquals(1, headCache.size(), "buildCache() must not cache vanished players");
+    }
+
+    /**
+     * Returns a fresh {@link HeadCache} with the built-in filters registered
+     * and no integration-hook filters (mocked {@link HookContainer}).
+     */
+    private HeadCache registeredHeadCache() {
+        var hookContainer = mock(HookContainer.class);
+        when(hookContainer.getHooksImplementing(FilterHook.class)).thenReturn(List.of());
+        var cache = new HeadCache(plugin, scheduler);
+        cache.registerFilters(hookContainer);
+        return cache;
+    }
+
+    @Test
+    void extractFiltersParsesOrderedTokens() {
+        var filters = registeredHeadCache().extractFilters("r10s");
+
+        assertEquals(2, filters.size());
+        assertTrue(filters.get(0) instanceof CacheFilter.RadialFilter,
+                "first token must be the radial filter");
+        assertTrue(filters.get(1) instanceof CacheFilter.SelfFilter,
+                "second token must be the self filter");
+    }
+
+    @Test
+    void extractFiltersPreservesTokenOrder() {
+        var cache = registeredHeadCache();
+
+        assertFilterClasses(cache.extractFilters("sr10"),
+                CacheFilter.SelfFilter.class, CacheFilter.RadialFilter.class);
+        assertFilterClasses(cache.extractFilters("wr10"),
+                CacheFilter.WorldFilter.class, CacheFilter.RadialFilter.class);
+        assertFilterClasses(cache.extractFilters("r10w"),
+                CacheFilter.RadialFilter.class, CacheFilter.WorldFilter.class);
+    }
+
+    @Test
+    void extractFiltersPrefersLongestMatch() {
+        var hookContainer = mock(HookContainer.class);
+        when(hookContainer.getHooksImplementing(FilterHook.class)).thenReturn(List.of());
+        var cache = new HeadCache(plugin, scheduler);
+        // Registered BEFORE the built-ins to prove longest-match beats registration order.
+        var plainWgr = new CacheFilter(Pattern.compile("wgr"), "CustomWgr") {
+            @Override public CacheFilter reConstruct(String promptKey) { return this; }
+            @Override public List<Player> filter(Player relative) { return List.of(); }
+        };
+        cache.registerFilter(plainWgr);
+        cache.registerFilters(hookContainer);
+        var parameterizedWgrm = new CacheFilter(Pattern.compile("wgrm(\\S+);"), "CustomWgrm") {
+            @Override public CacheFilter reConstruct(String promptKey) { return this; }
+            @Override public List<Player> filter(Player relative) { return List.of(); }
+        };
+        cache.registerFilter(parameterizedWgrm);
+
+        var wgr = cache.extractFilters("wgr");
+        assertEquals(1, wgr.size());
+        assertSame(plainWgr, wgr.get(0),
+                "the longer wgr token must win over the built-in w filter");
+
+        var wgrm = cache.extractFilters("wgrmspawn;");
+        assertEquals(1, wgrm.size());
+        assertSame(parameterizedWgrm, wgrm.get(0),
+                "the parameterized wgrm token must win over plain wgr despite registration order");
+    }
+
+    @Test
+    void extractFiltersSkipsUnknownTokens() {
+        var cache = registeredHeadCache();
+
+        var filters = cache.extractFilters("qr10");
+        assertEquals(1, filters.size(), "the unknown prefix must be skipped, not fail the parse");
+        assertTrue(filters.get(0) instanceof CacheFilter.RadialFilter);
+
+        assertTrue(cache.extractFilters("xyz").isEmpty(),
+                "an entirely unrecognized key must yield an empty filter list");
+    }
+
+    @Test
+    void extractFiltersReconstructsParameters() {
+        var hookContainer = mock(HookContainer.class);
+        when(hookContainer.getHooksImplementing(FilterHook.class)).thenReturn(List.of());
+        var cache = new HeadCache(plugin, scheduler);
+        cache.registerFilter(new ParamCaptureFilter());
+        cache.registerFilters(hookContainer);
+
+        var filters = cache.extractFilters("r10zzspawn;");
+
+        assertEquals(2, filters.size());
+        assertTrue(filters.get(0) instanceof CacheFilter.RadialFilter);
+        assertTrue(filters.get(1) instanceof ParamCaptureFilter,
+                "the custom parameterized filter must be reconstructed");
+        assertEquals("spawn",
+                ((ParamCaptureFilter) filters.get(1)).getParam(),
+                "reConstruct must extract the parameter from the exact matched token");
+    }
+
+    /**
+     * Asserts that the extracted filter list has exactly the given classes, in order.
+     */
+    @SafeVarargs
+    private static void assertFilterClasses(List<CacheFilter> filters,
+                                            Class<? extends CacheFilter>... expected) {
+        assertEquals(expected.length, filters.size());
+        for (int i = 0; i < expected.length; i++) {
+            assertTrue(expected[i].isInstance(filters.get(i)),
+                    "index " + i + " expected " + expected[i].getSimpleName()
+                            + " but was " + filters.get(i));
+        }
+    }
+
+    /**
+     * Custom filter mimicking hook parameter extraction (like
+     * WorldGuardHook's RegionMembersFilter): captures the {@code zz<param>;}
+     * token parameter in {@link #reConstruct}.
+     */
+    private static class ParamCaptureFilter extends CacheFilter {
+        private final String param;
+
+        ParamCaptureFilter() { this(""); }
+
+        ParamCaptureFilter(String param) {
+            super(Pattern.compile("zz(\\S+);"), "ParamCapture", 1);
+            this.param = param;
+        }
+
+        @Override public CacheFilter reConstruct(String promptKey) {
+            var m = getRegexKey().matcher(promptKey);
+            return new ParamCaptureFilter(m.find() ? m.group(1) : "");
+        }
+
+        @Override public List<Player> filter(Player relative) { return List.of(); }
+
+        String getParam() { return param; }
     }
 
     /**
