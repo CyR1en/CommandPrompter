@@ -302,4 +302,30 @@ class ScreenManagerTest extends MockBukkitTest {
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
     }
+
+    // ========================= Issue #90: false dispatch return =========================
+
+    /**
+     * Regression for Issue #90: when the ATTACHMENT-mode dispatch's
+     * {@code Bukkit.dispatchCommand} returns false (command not found), the
+     * temporary permission attachment must be removed immediately. It must
+     * not be retained for the configured {@code permissionAttachmentTicks}
+     * delay as if dispatch had succeeded.
+     */
+    @Test
+    void falseDispatchReturnRemovesAttachmentImmediately() {
+        when(config.getPermissionAttachment("KEY"))
+                .thenReturn(new String[]{"perm.old"});
+        when(config.permissionAttachmentTicks()).thenReturn(20);
+        var player = createPlayer();
+
+        screenManager.startDelegatedSession(
+                player, "/cmd no prompts", ScreenManager.DispatchMode.ATTACHMENT, "KEY");
+
+        assertFalse(player.hasPermission("perm.old"),
+                "attachment must be removed immediately after a false dispatch return");
+        performTicks(20);
+        assertFalse(player.hasPermission("perm.old"),
+                "attachment must not linger for the configured delay");
+    }
 }

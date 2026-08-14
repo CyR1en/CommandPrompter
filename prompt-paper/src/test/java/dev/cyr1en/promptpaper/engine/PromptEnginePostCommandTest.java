@@ -463,4 +463,32 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
     assertTrue(player.hasPermission("perm.old"));
     assertFalse(player.hasPermission("perm.extra"));
   }
+
+  // --- Issue #90 regression: false dispatch return removes attachment ---
+
+  /**
+   * When the attachment dispatch's {@code dispatchCommand} returns false
+   * (command not found), the temporary permission attachment must be
+   * removed immediately. It must not be retained for the configured
+   * {@code permissionAttachmentTicks} delay as if dispatch had succeeded.
+   */
+  @Test
+  void falseDispatchReturnRemovesAttachmentImmediately() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.old"});
+    when(config.permissionAttachmentTicks()).thenReturn(20);
+    var player = createPlayer("TestUser");
+
+    var pcm = new PostCommandMeta(
+        "missing_cmd_xyz", new int[0], 5, false, DispatchTarget.PASSTHROUGH, false);
+    var result = new SessionResult("missing_cmd_xyz", List.of(), List.of(pcm), List.of());
+
+    engine.dispatchPCMs(player, result, false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertFalse(player.hasPermission("perm.old"),
+        "attachment must be removed immediately after a false dispatch return");
+    performTicks(15);
+    assertFalse(player.hasPermission("perm.old"),
+        "attachment must not linger for the configured delay");
+  }
 }

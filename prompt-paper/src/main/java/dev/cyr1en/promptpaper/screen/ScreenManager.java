@@ -563,6 +563,7 @@ public class ScreenManager {
                     plugin.getPluginLogger().debug("Dispatching with attachment: player="
                             + player.getName() + " perms=" + permissions.length);
                     if (!Bukkit.dispatchCommand(player, toExecute)) {
+                        failed = true;
                         sendCommandFailure(player, toExecute, "dispatch returned false");
                     }
                 } catch (Exception e) {

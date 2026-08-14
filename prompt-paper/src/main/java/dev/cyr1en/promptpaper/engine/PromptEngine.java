@@ -690,6 +690,7 @@ public class PromptEngine {
             for (var permission : permissions) attachment.get().setPermission(permission, true);
             attachment.get().getPermissible().recalculatePermissions();
             if (!plugin.getServer().dispatchCommand(player, command)) {
+                failed = true;
                 reportCommandFailure(player, command, "dispatch returned false");
             }
         } catch (Exception e) {
