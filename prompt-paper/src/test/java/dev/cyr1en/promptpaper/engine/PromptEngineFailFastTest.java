@@ -1,7 +1,8 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -128,15 +129,17 @@ class PromptEngineFailFastTest extends MockBukkitTest {
   @Test
   void missingPresetsAreReportedToPlayer() {
     when(registry.getPrompt("nope")).thenReturn(Optional.empty());
-    var i18n = plugin.getConfigLoader().getI18n();
-    when(i18n.get(anyString())).thenReturn(Component.text("missing preset error"));
-
     var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(i18n.get(eq("command.error.missing_preset"), same(player)))
+        .thenReturn(Component.text("missing preset error"));
+
     engine.intercept(player, "/cmd <@nope>");
 
-    // The engine must send a localized message; the exact key is
-    // command.error.missing_preset, but the value is what reaches the player.
-    verify(i18n, times(1)).get("command.error.missing_preset");
+    // The engine must send a localized message with the player as the i18n
+    // context; the exact key is command.error.missing_preset, but the value is
+    // what reaches the player.
+    verify(i18n, times(1)).get(eq("command.error.missing_preset"), same(player));
   }
 
   @Test
@@ -146,14 +149,15 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     // sees a silent pass for a half-loaded config.
     when(plugin.getPresetRegistry()).thenReturn(null);
     engine = new PromptEngine(plugin, scheduler);
-    var i18n = plugin.getConfigLoader().getI18n();
-    when(i18n.get(anyString())).thenReturn(Component.text("missing preset error"));
-
     var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(i18n.get(eq("command.error.missing_preset"), same(player)))
+        .thenReturn(Component.text("missing preset error"));
+
     var result = engine.intercept(player, "/cmd <@any_id>");
 
     assertTrue(result.isEmpty());
-    verify(i18n, times(1)).get("command.error.missing_preset");
+    verify(i18n, times(1)).get(eq("command.error.missing_preset"), same(player));
   }
 
   // --- commandHasTagForm helper ---

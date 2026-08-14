@@ -66,12 +66,14 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
                 acquired = gateOwner.beginReload();
             } catch (Exception e) {
                 plugin.getPluginLogger().err("Unable to acquire reload barrier: " + e.getMessage());
-                sendResult(sender, feedbackLocation, reloadFailure(e.getMessage()));
+                sendResult(sender, feedbackLocation, "command.reload.failed",
+                        reloadError(e.getMessage()));
                 return;
             }
             if (!acquired) {
                 plugin.getPluginLogger().debug("Reload already in progress; rejecting reload request");
-                sendResult(sender, feedbackLocation, reloadFailure("another reload is already in progress"));
+                sendResult(sender, feedbackLocation, "command.reload.failed",
+                        reloadError("another reload is already in progress"));
                 return;
             }
         }
@@ -81,7 +83,8 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
         } catch (Throwable t) {
             plugin.getPluginLogger().err("Unable to enumerate players for reload: " + t.getMessage());
             try {
-                sendResult(sender, feedbackLocation, reloadFailure(t.getMessage()));
+                sendResult(sender, feedbackLocation, "command.reload.failed",
+                        reloadError(t.getMessage()));
             } finally {
                 releaseReloadGate(gateOwner);
             }
@@ -134,9 +137,8 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
         } catch (Throwable t) {
             plugin.getPluginLogger().err("Unable to schedule configuration reload: " + t.getMessage());
             try {
-                sendResult(sender, feedbackLocation, plugin.getConfigLoader().getI18n().get(
-                        "command.reload.failed",
-                        Placeholder.of("error", t.getMessage() != null ? t.getMessage() : "")));
+                sendResult(sender, feedbackLocation, "command.reload.failed",
+                        reloadError(t.getMessage()));
             } finally {
                 releaseReloadGate(gateOwner);
             }
@@ -168,23 +170,30 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
                 plugin.getPluginLogger()
                         .debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
             }
-            sendResult(sender, feedbackLocation,
-                    plugin.getConfigLoader().getI18n().get("command.reload.success"));
+            sendResult(sender, feedbackLocation, "command.reload.success");
         } catch (Exception e) {
-            sendResult(sender, feedbackLocation, plugin.getConfigLoader().getI18n().get(
-                    "command.reload.failed",
-                    Placeholder.of("error", e.getMessage() != null ? e.getMessage() : "")));
+            sendResult(sender, feedbackLocation, "command.reload.failed",
+                    reloadError(e.getMessage()));
         } finally {
             releaseReloadGate(gateOwner);
         }
     }
 
-    void sendResult(CommandSender sender, Location feedbackLocation, Component message) {
+    /**
+     * Routes a localized reload message to the sender.
+     *
+     * <p>Player senders localize <em>inside</em> the player scheduler task with the player as the
+     * i18n context (so PaperI18n/PapiExpander can expand {@code %...%} for that player); console
+     * and block senders use context-free formatting. The message key and placeholders are passed
+     * through so no pre-localized {@link Component} ever loses the sender context.
+     */
+    void sendResult(CommandSender sender, Location feedbackLocation, String key, Placeholder... placeholders) {
         if (sender instanceof Player player) {
             try {
                 var task = player.getScheduler().run(
-                        plugin, scheduledTask -> player.sendMessage(message), () -> {
-                        });
+                        plugin,
+                        scheduledTask -> player.sendMessage(localize(player, key, placeholders)),
+                        () -> {});
                 if (task == null) {
                     plugin.getPluginLogger().debug("Reload result sender retired; omitting feedback");
                 }
@@ -194,6 +203,7 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             return;
         }
 
+        var message = localize(null, key, placeholders);
         if (sender instanceof BlockCommandSender blockSender) {
             if (feedbackLocation == null) {
                 plugin.getPluginLogger().debug(
@@ -220,6 +230,20 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
         }
     }
 
+    /**
+     * Localizes a reload message with the sender as the i18n context when the sender is a player;
+     * console/block senders (and a {@code null} sender) keep context-free formatting.
+     */
+    private Component localize(CommandSender sender, String key, Placeholder... placeholders) {
+        var context = sender instanceof Player player ? player : null;
+        return plugin.getConfigLoader().getI18n().get(key, context, placeholders);
+    }
+
+    /** Builds the {@code command.reload.failed} error placeholder for the given detail string. */
+    private static Placeholder reloadError(String detail) {
+        return Placeholder.of("error", detail != null ? detail : "");
+    }
+
     private Location captureBlockLocation(CommandSender sender) {
         if (!(sender instanceof BlockCommandSender blockSender))
             return null;
@@ -229,12 +253,6 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
             plugin.getPluginLogger().debug("Unable to capture block sender location: " + e.getMessage());
             return null;
         }
-    }
-
-    private Component reloadFailure(String detail) {
-        return plugin.getConfigLoader().getI18n().get(
-                "command.reload.failed",
-                Placeholder.of("error", detail != null ? detail : ""));
     }
 
     private void releaseReloadGate(PromptEngine gateOwner) {

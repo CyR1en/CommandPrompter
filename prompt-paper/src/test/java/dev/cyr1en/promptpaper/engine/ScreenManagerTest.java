@@ -1,7 +1,10 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
@@ -110,6 +113,7 @@ class ScreenManagerTest extends MockBukkitTest {
         assertNull(player.nextMessage());
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
+        verify(i18n).get(eq("prompt.cancelled"), same(player));
     }
 
     @Test
@@ -171,6 +175,7 @@ class ScreenManagerTest extends MockBukkitTest {
                 "No screen should be opened for a non-compound TITLE tag");
         assertFalse(engine.hasActiveSession(player),
                 "Session must be cancelled when TITLE guard fires");
+        verify(i18n).get(eq("prompt.error.invalid_title_filter"), same(player));
     }
 
     /**
@@ -225,6 +230,75 @@ class ScreenManagerTest extends MockBukkitTest {
         screenManager.startSession(player, "/cmd <test>");
         assertTrue(screenManager.hasActiveScreen(player));
         screenManager.handleChatInput(player, "  cAnCeL  ");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    // ========================= Issue #99: player-context i18n =========================
+
+    /**
+     * A blank answer to a {@code -str} (STRING) prompt fails validation; the
+     * validation error is sent directly to the player and must use the player
+     * as the i18n context.
+     */
+    @Test
+    void blankStringValidationFailureUsesPlayerContext() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test -str> please");
+        assertTrue(screenManager.hasChatScreen(player));
+        while (player.nextMessage() != null) {
+            // Discard the prompt text.
+        }
+
+        screenManager.handleChatInput(player, "   ");
+
+        verify(i18n).get(eq("validation.invalid_string"), same(player));
+        assertTrue(screenManager.hasActiveScreen(player),
+                "failed validation must re-show the prompt");
+    }
+
+    /**
+     * A non-integer answer to a {@code -int} (INTEGER) prompt fails validation;
+     * the validation error must use the player as the i18n context.
+     */
+    @Test
+    void integerValidationFailureUsesPlayerContext() {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test -int> please");
+        assertTrue(screenManager.hasChatScreen(player));
+        while (player.nextMessage() != null) {
+            // Discard the prompt text.
+        }
+
+        screenManager.handleChatInput(player, "not-a-number");
+
+        verify(i18n).get(eq("validation.invalid_integer"), same(player));
+        assertTrue(screenManager.hasActiveScreen(player),
+                "failed validation must re-show the prompt");
+    }
+
+    /**
+     * The timeout feedback is sent directly to the player and must use the
+     * player as the i18n context.
+     */
+    @Test
+    void timeoutFeedbackUsesPlayerContext() {
+        when(config.promptTimeout()).thenReturn(1);
+        when(config.showCancelled()).thenReturn(true);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasActiveScreen(player));
+        while (player.nextMessage() != null) {
+            // Discard the prompt text.
+        }
+
+        performTicks(20);
+
+        verify(i18n).get(eq("prompt.timed_out"), same(player));
+        String timedOut = player.nextMessage();
+        assertNotNull(timedOut, "the timeout message must be sent");
+        assertTrue(timedOut.contains("timed out"), "was: " + timedOut);
+        assertNull(player.nextMessage());
         assertFalse(screenManager.hasActiveScreen(player));
         assertFalse(engine.hasActiveSession(player));
     }

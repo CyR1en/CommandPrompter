@@ -3,6 +3,8 @@ package dev.cyr1en.promptpaper.command;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -25,6 +27,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +38,7 @@ class ReloadCommandTest extends MockBukkitTest {
     private ScreenManager screenManager;
     private PaperConfigLoader loader;
     private PresetRegistry registry;
+    private PaperI18n reloadI18n;
 
     @BeforeEach
     void setUp() {
@@ -43,10 +47,16 @@ class ReloadCommandTest extends MockBukkitTest {
         loader = mock(PaperConfigLoader.class);
         registry = mock(PresetRegistry.class);
 
-        var reloadI18n = mock(PaperI18n.class);
-        when(reloadI18n.get("command.reload.success"))
+        reloadI18n = mock(PaperI18n.class);
+        // Player senders localize with the player as the i18n context.
+        when(reloadI18n.get(eq("command.reload.success"), any(Player.class)))
                 .thenReturn(Component.text("Configuration reloaded."));
-        when(reloadI18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
+        when(reloadI18n.get(eq("command.reload.failed"), any(Player.class), any(Placeholder[].class)))
+                .thenReturn(Component.text("Failed to reload."));
+        // Console/block senders keep context-free (null-context) formatting.
+        when(reloadI18n.get(eq("command.reload.success"), isNull(), any(Placeholder[].class)))
+                .thenReturn(Component.text("Configuration reloaded."));
+        when(reloadI18n.get(eq("command.reload.failed"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(loader.getI18n()).thenReturn(reloadI18n);
         when(loader.getConfig()).thenReturn(config);
@@ -210,16 +220,17 @@ class ReloadCommandTest extends MockBukkitTest {
         var globalScheduler = mock(dev.cyr1en.promptpaper.util.Scheduler.class);
         when(plugin.getScheduler()).thenReturn(globalScheduler);
         var sender = mock(CommandSender.class);
-        var message = Component.text("reload result");
         doAnswer(invocation -> {
             ((Runnable) invocation.getArgument(0)).run();
             return null;
         }).when(globalScheduler).runSync(any(Runnable.class));
 
-        cmd.sendResult(sender, null, message);
+        cmd.sendResult(sender, null, "command.reload.success");
 
         verify(globalScheduler, times(1)).runSync(any(Runnable.class));
-        verify(sender, times(1)).sendMessage(message);
+        verify(sender, times(1)).sendMessage(Component.text("Configuration reloaded."));
+        // Console senders must be localized with a null (context-free) i18n context.
+        verify(reloadI18n).get(eq("command.reload.success"), isNull(), any(Placeholder[].class));
     }
 
     @Test
@@ -227,17 +238,93 @@ class ReloadCommandTest extends MockBukkitTest {
         var regionScheduler = mock(RegionScheduler.class);
         var sender = mock(BlockCommandSender.class);
         var location = new Location(null, 10, 64, 10);
-        var message = Component.text("reload result");
         when(regionScheduler.run(eq(plugin), eq(location), any()))
                 .thenReturn(mock(ScheduledTask.class));
 
         try (var mockedBukkit = org.mockito.Mockito.mockStatic(Bukkit.class)) {
             mockedBukkit.when(Bukkit::getRegionScheduler).thenReturn(regionScheduler);
 
-            cmd.sendResult(sender, location, message);
+            cmd.sendResult(sender, location, "command.reload.failed",
+                    Placeholder.of("error", "boom"));
         }
 
         verify(regionScheduler, times(1)).run(eq(plugin), eq(location), any());
-        verify(sender, never()).sendMessage(message);
+        verify(sender, never()).sendMessage(any(Component.class));
+        // Block senders must be localized with a null (context-free) i18n context.
+        verify(reloadI18n).get(eq("command.reload.failed"), isNull(), any(Placeholder[].class));
+    }
+
+    // ========================= Issue #99: player vs console context =========================
+
+    /**
+     * Issue #99: a player-run reload localizes the success message with that
+     * player as the i18n context (so PaperI18n/PapiExpander can expand
+     * {@code %...%}); the player must receive the result.
+     */
+    @Test
+    void playerReloadSuccessLocalizesWithPlayerContext() {
+        doNothing().when(loader).reload();
+        var player = createPlayer("Reloader");
+
+        cmd.executeReload(player);
+
+        verify(reloadI18n).get(eq("command.reload.success"), same(player));
+        String message = player.nextMessage();
+        assertNotNull(message, "the player must receive the reload success message");
+        assertTrue(message.contains("reloaded"), "was: " + message);
+        verify(engine, times(1)).endReload();
+    }
+
+    /**
+     * Issue #99: a player-run reload that fails still localizes the failure
+     * message with the player as the i18n context.
+     */
+    @Test
+    void playerReloadFailureLocalizesWithPlayerContext() {
+        doThrow(new RuntimeException("boom")).when(loader).reload();
+        var player = createPlayer("Reloader");
+
+        cmd.executeReload(player);
+
+        verify(reloadI18n).get(eq("command.reload.failed"), same(player), any(Placeholder[].class));
+        String message = player.nextMessage();
+        assertNotNull(message, "the player must receive the reload failure message");
+        verify(engine, times(1)).endReload();
+    }
+
+    /**
+     * Issue #99: an early reload rejection (barrier already held) is sent
+     * directly to the player, so it must use the player i18n context.
+     */
+    @Test
+    void playerReloadRejectionLocalizesWithPlayerContext() {
+        when(engine.beginReload()).thenReturn(false);
+        when(engine.isReloadInProgress()).thenReturn(true);
+        var player = createPlayer("Reloader");
+
+        cmd.executeReload(player);
+
+        verify(reloadI18n).get(eq("command.reload.failed"), same(player), any(Placeholder[].class));
+        String message = player.nextMessage();
+        assertNotNull(message, "the player must receive the rejection message");
+        verify(engine, never()).endReload();
+    }
+
+    /**
+     * Issue #99: a console-run reload must NOT receive a player i18n context —
+     * the full-signature overload is invoked with a null context.
+     */
+    @Test
+    void consoleReloadSuccessUsesNullContext() {
+        doNothing().when(loader).reload();
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("Console");
+
+        cmd.executeReload(sender);
+
+        verify(reloadI18n).get(eq("command.reload.success"), isNull(), any(Placeholder[].class));
+        verify(reloadI18n, never()).get(eq("command.reload.success"), any(Player.class));
+        verify(sender, times(1)).sendMessage(any(Component.class));
+        verify(engine, times(1)).endReload();
     }
 }

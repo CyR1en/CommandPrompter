@@ -49,12 +49,12 @@ public class CancelCommand extends PromptCommand implements Command<CommandSourc
             return;
         }
         if (!plugin.getEngine().hasActiveSession(player)) {
-            player.sendMessage(i18n.get("command.cancel.no_active_prompt"));
+            player.sendMessage(i18n.get("command.cancel.no_active_prompt", player));
             return;
         }
         plugin.getScreenManager().cancelAll(player);
         if (plugin.getConfigLoader().getConfig().showCancelled()) {
-            player.sendMessage(i18n.get("prompt.cancelled"));
+            player.sendMessage(i18n.get("prompt.cancelled", player));
         }
     }
 }

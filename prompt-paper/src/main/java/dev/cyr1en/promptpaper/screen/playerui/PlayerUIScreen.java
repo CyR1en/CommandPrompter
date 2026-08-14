@@ -437,7 +437,7 @@ public class PlayerUIScreen implements InputScreen {
      * currently displayed heads.
      */
     private void startChatSearch(long token, UUID playerUuid) {
-        player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
+        player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction", player));
 
         if (searchListener != null) {
             HandlerList.unregisterAll(searchListener);

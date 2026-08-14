@@ -2,6 +2,8 @@ package dev.cyr1en.promptpaper.screen.playerui;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -305,6 +307,7 @@ class PlayerUIScreenTest extends MockBukkitTest {
         assertNotNull(instruction, "chat fallback must send the search instruction");
         assertTrue(instruction.toLowerCase().contains("search"),
                 "chat fallback message should mention search, was: " + instruction);
+        verify(i18n).get(eq("player_ui.search_instruction"), same(player));
 
         player.chat("near");
         server.getScheduler().waitAsyncEventsFinished();

@@ -148,6 +148,7 @@ public class PromptEngine {
         try {
             player.sendMessage(plugin.getConfigLoader().getI18n().get(
                     "command.reload.failed",
+                    player,
                     Placeholder.of("error", "a configuration reload is in progress")));
         } catch (Exception e) {
             plugin.getPluginLogger().debug("Unable to send reload-gate feedback: " + e.getMessage());
@@ -220,7 +221,7 @@ public class PromptEngine {
 
         if (hasActiveSession(player)) {
             plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
             return Optional.empty();
         }
 
@@ -243,7 +244,7 @@ public class PromptEngine {
         if (!accepted.get()) {
             plugin.getPluginLogger().debug("Player " + player.getName()
                     + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
             return Optional.empty();
         }
         plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
@@ -814,6 +815,6 @@ public class PromptEngine {
                         + " references unknown preset(s) [" + summary
                         + "] — command NOT executed. Raw: " + commandLine);
         var i18n = plugin.getConfigLoader().getI18n();
-        player.sendMessage(i18n.get("command.error.missing_preset"));
+        player.sendMessage(i18n.get("command.error.missing_preset", player));
     }
 }

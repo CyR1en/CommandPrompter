@@ -2,6 +2,8 @@ package dev.cyr1en.promptpaper.command;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -40,6 +42,8 @@ class CancelCommandTest extends MockBukkitTest {
         cmd.executeCancel(sender);
         verify(sender, times(1)).sendMessage(any(Component.class));
         verify(screenManager, never()).cancelAll(any());
+        // Console/block senders keep context-free formatting (no PAPI context).
+        verify(i18n).get("command.error.players_only");
     }
 
     @Test
@@ -48,14 +52,19 @@ class CancelCommandTest extends MockBukkitTest {
         when(engine.hasActiveSession(player)).thenReturn(false);
         cmd.executeCancel(player);
         verify(screenManager, never()).cancelAll(any());
+        // The notice is sent directly to the player → player i18n context.
+        verify(i18n).get(eq("command.cancel.no_active_prompt"), same(player));
     }
 
     @Test
     void playerWithActiveSessionIsCancelled() {
+        when(config.showCancelled()).thenReturn(true);
         PlayerMock player = createPlayer("Bob");
         when(engine.hasActiveSession(player)).thenReturn(true);
         cmd.executeCancel(player);
         verify(screenManager, times(1)).cancelAll(player);
+        // The cancellation feedback is sent directly to the player → player i18n context.
+        verify(i18n).get(eq("prompt.cancelled"), same(player));
     }
 
     @Test

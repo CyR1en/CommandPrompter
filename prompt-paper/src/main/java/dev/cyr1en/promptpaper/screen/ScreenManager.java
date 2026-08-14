@@ -166,7 +166,7 @@ public class ScreenManager {
             plugin.getPluginLogger().warn("Player " + player.getName()
                     + " initiated a prompt containing a non-compound tag with a layout filter: "
                     + tag.rawTag());
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter", player));
             cancelAll(player);
             return;
         }
@@ -368,7 +368,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(i18n.get("validation.invalid_integer"));
+                    player.sendMessage(i18n.get("validation.invalid_integer", player));
                     return false;
                 }
             }
@@ -376,7 +376,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(i18n.get("validation.invalid_string"));
+                    player.sendMessage(i18n.get("validation.invalid_string", player));
                     return false;
                 }
             }
@@ -418,7 +418,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(i18n.get("validation.invalid_integer"));
+                    player.sendMessage(i18n.get("validation.invalid_integer", player));
                     return false;
                 }
             }
@@ -426,7 +426,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(i18n.get("validation.invalid_string"));
+                    player.sendMessage(i18n.get("validation.invalid_string", player));
                     return false;
                 }
             }
@@ -671,7 +671,7 @@ public class ScreenManager {
             var dispatchContext = takeDispatchContext(uuid);
             engine.cancel(player, reason, dispatchContext);
             if (notifyCancelled && plugin.getConfigLoader().getConfig().showCancelled()) {
-                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled", player));
             }
         } finally {
             teardownInProgress.remove(uuid);
@@ -742,7 +742,7 @@ public class ScreenManager {
                             plugin.getPluginLogger().debug("Timeout triggered for " + player.getName());
                             teardown(player, CancelReason.MANUAL, true, false);
                             if (plugin.getConfigLoader().getConfig().showCancelled()) {
-                                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out"));
+                                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out", player));
                             }
                         }
                     },
