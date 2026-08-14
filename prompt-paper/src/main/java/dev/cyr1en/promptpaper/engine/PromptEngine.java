@@ -313,8 +313,8 @@ public class PromptEngine {
     /**
      * Submit a batch of answers to the current prompt. The current prompt
      * must be a compound tag with the matching number of sub-answers. See
-     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers} for
-     * the size-validation rules.
+     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers(List)}
+     * for the size-validation rules.
      */
     public Optional<SessionResult> submitAnswers(Player player, java.util.List<String> answers) {
         var found = new AtomicBoolean();
@@ -341,6 +341,48 @@ public class PromptEngine {
         }
         var session = sessions.get(player.getUniqueId());
         plugin.getPluginLogger().debug("Compound answers accepted for " + player.getName()
+                + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
+        return Optional.empty();
+    }
+
+    /**
+     * Submit a batch of answers to the current prompt with an explicit expected
+     * answer count. This is the arity-aware entry point for dialog flows whose
+     * effective answer count is not derivable from the parsed tag shape — JSON
+     * dialog presets may submit 0, 1, or N answers. Completion/finish behavior
+     * mirrors {@link #submit(Player, String)}. See
+     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers(List, int)}
+     * for the validation rules.
+     *
+     * @return the completed session result if all prompts are now answered, or empty
+     */
+    public Optional<SessionResult> submitAnswers(
+            Player player, java.util.List<String> answers, int expectedCount) {
+        var found = new AtomicBoolean();
+        var completed = new AtomicReference<SessionResult>();
+        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+            if (session == null || !session.isActive()) return session;
+            found.set(true);
+            var next = session.submitAnswers(answers, expectedCount);
+            if (next.isComplete()) {
+                var result = next.finish();
+                rememberAllPCMs(next, result);
+                completed.set(result);
+                return null;
+            }
+            return next;
+        });
+        if (!found.get()) {
+            plugin.getPluginLogger().debug("No active session for " + player.getName()
+                    + " on submitAnswers(expected=" + expectedCount + ")");
+            return Optional.empty();
+        }
+        if (completed.get() != null) {
+            plugin.getPluginLogger().debug("Session complete for " + player.getName());
+            return Optional.of(completed.get());
+        }
+        var session = sessions.get(player.getUniqueId());
+        plugin.getPluginLogger().debug("Dialog answers accepted for " + player.getName()
                 + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
         return Optional.empty();
     }

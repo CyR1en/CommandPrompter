@@ -87,6 +87,24 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private final String customTitle;
     private final boolean useNewModel;
 
+    /**
+     * The number of answers this dialog submits when confirmed, decided and
+     * cached at {@link #open()} time (the concrete flow is only known then —
+     * e.g. a tab-completion fallback injects an extra input). Used by
+     * {@link dev.cyr1en.promptpaper.screen.ScreenManager} to decode the result
+     * payload with the correct arity. {@code -1} until {@link #open()}.
+     */
+    private int effectiveAnswerCount = -1;
+
+    /**
+     * Concrete tab-completion flow for the current open (new-model path),
+     * resolved exactly once at {@link #open()} time via
+     * {@link TabFlowState#resolveOnce}. {@code null} until opened. Every
+     * new-model render/result decision reads this snapshot; the completion
+     * service is never consulted again during the open.
+     */
+    private TabFlowState tabFlowState;
+
     // ------------------------------------------------------------------
     // Constructors
     // ------------------------------------------------------------------
@@ -225,12 +243,62 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     @Override
     public void open() {
         if (useNewModel) {
+            // Decide the concrete fallback/completion flow once, from a single
+            // completion lookup, before anything is rendered or counted. All
+            // downstream new-model methods read this snapshot.
+            tabFlowState = TabFlowState.resolveOnce(
+                    dialogPrompt.dialogType(),
+                    dialogConfig.tab().maxButtons(),
+                    this::tabCompletions);
+            effectiveAnswerCount = computeNewModelAnswerCount();
             openFromDialogPrompt();
         } else if (kind == DialogInputKind.TAB && context != null && context.hasCompletions()) {
+            effectiveAnswerCount = 1;
             openTab();
         } else {
+            effectiveAnswerCount = computeInlineAnswerCount();
             openStandard();
         }
+    }
+
+    /**
+     * The number of answers this dialog will submit when confirmed, decided
+     * when the concrete flow was built at {@link #open()} time. Returns
+     * {@code -1} if the screen has not been opened.
+     */
+    @Override
+    public int effectiveAnswerCount() {
+        return effectiveAnswerCount;
+    }
+
+    /** Legacy path: one answer per answer-bearing row; TITLE/BODY layout rows never submit. */
+    private int computeInlineAnswerCount() {
+        int count = 0;
+        for (var row : rows) {
+            if (DialogInputKind.parse(row.filter()).isAnswerBearing()) count++;
+        }
+        return count;
+    }
+
+    /**
+     * New path (JSON preset): the effective arity of the flow actually built,
+     * derived from the single open-time {@link TabFlowState} snapshot.
+     *
+     * <ul>
+     *   <li>confirmation → one answer per configured input row (zero allowed)
+     *   <li>multi_action (static or completion buttons) → exactly one returned answer
+     *   <li>multi_action tab-completion fallback → configured inputs + the injected text input
+     * </ul>
+     */
+    private int computeNewModelAnswerCount() {
+        var dt = dialogPrompt.dialogType();
+        if (dt.type() == DialogType.MULTI_ACTION) {
+            if (dt.actionsSource() == ActionsSource.TAB_COMPLETION) {
+                return tabFlowState.multiActionArity(inputRows.size());
+            }
+            return 1;
+        }
+        return inputRows.size();
     }
 
     // ------------------------------------------------------------------
@@ -472,14 +540,18 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     /**
-     * Reads one answer per row from the response view, coercing
-     * each to its expected type (number, choice, text).
+     * Reads one answer per answer-bearing row from the response view, coercing
+     * each to its expected type (number, choice, text). TITLE/BODY layout rows
+     * are kept for rendering but skipped here — they never produce answers, so
+     * they do not occupy answer or payload positions. Original UI input keys
+     * remain sparse (indexed by row position).
      */
     private List<String> readAnswers(DialogResponseView view) {
         var answers = new ArrayList<String>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
             var row = rows.get(i);
             var constraints = DialogConstraints.from(row.filter(), dialogConfig);
+            if (!constraints.kind().isAnswerBearing()) continue;
             var key = keyFor(i);
             answers.add(readOneAnswer(view, constraints, key));
         }
@@ -798,9 +870,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         var exitButton = buildExitButton(dt);
 
         if (dt.actionsSource() == ActionsSource.TAB_COMPLETION) {
-            int maxButtons = dialogConfig.tab().maxButtons();
-            var completions = tabCompletions();
-            if (completions.isEmpty() || completions.size() > maxButtons) {
+            var completions = tabFlowState.completions();
+            if (tabFlowState.fallback()) {
                 return buildTabFallbackConfirmation(dt);
             }
             var buttons = new ArrayList<ActionButton>(staticActions.size() + completions.size());
@@ -927,6 +998,10 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
      * an empty list when the dialog has no completion context, when the
      * partial command is empty, or when the {@link TabCompletionService}
      * itself reports zero matches.
+     *
+     * <p>Invoked exactly once per open: the result is frozen into
+     * {@link #tabFlowState} at {@link #open()} time and every downstream
+     * new-model method reads that snapshot instead of calling back here.
      */
     private List<String> tabCompletions() {
         if (context == null || !context.hasCompletions()) {
@@ -936,25 +1011,20 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     }
 
     /**
-     * True when the new path is in a tab-completion fallback state — i.e.
-     * the completion count is zero or exceeds the configured threshold.
-     * The fallback injects a text input and a body notice; the dialog type
-     * is built as confirmation.
+     * True when the new path is in a tab-completion fallback state — i.e. the
+     * completion count at open time was zero or exceeded the configured
+     * threshold. The fallback injects a text input and a body notice; the
+     * dialog type is built as confirmation. Reads the open-time snapshot;
+     * never consults the completion service.
      */
     private boolean needsTabFallbackNotice() {
-        if (!useNewModel) return false;
-        var dt = dialogPrompt.dialogType();
-        if (dt.type() != DialogType.MULTI_ACTION) return false;
-        if (dt.actionsSource() != ActionsSource.TAB_COMPLETION) return false;
-        int maxButtons = dialogConfig.tab().maxButtons();
-        var completions = tabCompletions();
-        return completions.isEmpty() || completions.size() > maxButtons;
+        return tabFlowState != null && tabFlowState.fallback();
     }
 
-    /** Localized body notice for the tab-completion fallback. */
+    /** Localized body notice for the tab-completion fallback, based on the open-time snapshot. */
     private Component tabFallbackNotice() {
         var i18n = plugin.getConfigLoader().getI18n();
-        var completions = tabCompletions();
+        var completions = tabFlowState.completions();
         return completions.isEmpty()
                 ? i18n.get("dialog.no_options", player)
                 : i18n.get("dialog.too_many_options",
