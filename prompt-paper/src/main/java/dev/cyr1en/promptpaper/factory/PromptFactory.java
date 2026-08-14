@@ -29,12 +29,14 @@ import org.bukkit.entity.Player;
  *   <li>{@link #create(Player, PromptDefinition, DialogCompletionContext)} — the
  *       <b>new</b> path. Takes a JSON-backed {@link PromptDefinition} (preset or transient
  *       inline) and dispatches via a {@code switch} on the sealed hierarchy to the
- *       appropriate screen constructor.
+ *       appropriate screen constructor. This is the single presentation-materialization
+ *       boundary: the raw definition is expanded exactly once via
+ *       {@link PromptPresentationExpander} before any screen is built.
  *   <li>{@link #createFromTag(Player, PromptTag, DialogCompletionContext)} — the
  *       <b>legacy</b> convenience. Maps the {@link PromptTag} to a transient
  *       {@link PromptDefinition} via {@link InlineTagMapper} and delegates. For dialogs
- *       the original {@link PromptTag} is passed straight through to the screen so its
- *       {@code subTags()}, filter syntax, and dialog-specific data are preserved
+ *       a presentation-expanded copy of the {@link PromptTag} is passed to the screen so
+ *       its {@code subTags()}, filter syntax, and dialog-specific data are preserved
  *       end-to-end.
  * </ul>
  *
@@ -62,6 +64,7 @@ public class PromptFactory {
   private final CommandPrompter plugin;
   private final List<ScreenProvider> providers;
   private final MaterialMapper materialMapper;
+  private final PromptPresentationExpander presentationExpander;
 
   /**
    * Constructs the factory and eagerly loads the available {@link ScreenProvider}s via
@@ -69,8 +72,20 @@ public class PromptFactory {
    * code paths coexist so legacy and new flows can each have their own provider list.
    */
   public PromptFactory(CommandPrompter plugin) {
+    this(plugin, null);
+  }
+
+  /**
+   * Package-private constructor that also accepts a {@link PromptPresentationExpander} so tests can
+   * inject a deterministic (non-idempotent) expansion function. {@code null} wires the production
+   * PlaceholderAPI-backed expander.
+   */
+  PromptFactory(CommandPrompter plugin, PromptPresentationExpander presentationExpander) {
     this.plugin = plugin;
     this.providers = new ArrayList<>();
+    this.presentationExpander = presentationExpander != null
+        ? presentationExpander
+        : PromptPresentationExpander.forPlugin(plugin);
     
     List<ScreenProvider> loaded = new ArrayList<>();
     try {
@@ -157,6 +172,11 @@ public class PromptFactory {
   /**
    * Instantiates the appropriate {@link InputScreen} for the given {@link PromptDefinition}.
    *
+   * <p>This is the single presentation-materialization boundary: the raw definition is expanded
+   * exactly once via {@link PromptPresentationExpander} and the expanded copy is handed to the
+   * private {@link #createExpanded} builder. Registry/session models stay raw; every render gets a
+   * fresh expanded immutable copy.
+   *
    * @param player the player who will see the prompt
    * @param def the JSON-backed prompt definition (preset or transient inline)
    * @param context the dialog completion context for {@code d:tab} dialogs; {@code null}
@@ -169,6 +189,15 @@ public class PromptFactory {
         "PromptFactory.create: player=" + player.getName()
                 + " type=" + def.type()
                 + " id=" + def.id());
+    return createExpanded(player, presentationExpander.expand(player, def), context);
+  }
+
+  /**
+   * Builds the screen from an already-expanded definition. Never expands again — the public
+   * {@link #create(Player, PromptDefinition, DialogCompletionContext)} is the only entry point
+   * allowed to materialize placeholders.
+   */
+  private InputScreen createExpanded(Player player, PromptDefinition def, DialogCompletionContext context) {
     var screen = switch (def) {
       case dev.cyr1en.promptpaper.preset.ChatPrompt chat -> createChat(player, chat);
       case dev.cyr1en.promptpaper.preset.AnvilPrompt anvil -> createAnvil(player, anvil);
@@ -196,20 +225,36 @@ public class PromptFactory {
    * <p>Dialogs (key {@code "d"} or compound tags) bypass the JSON mapping: the original
    * {@link PromptTag} is passed straight to the dialog screen so its filter syntax and
    * sub-tag structure are preserved.
+   *
+   * <p>Expansion is applied exactly once, here:
+   *
+   * <ul>
+   *   <li><b>Presets</b> look up the registry with the <b>raw</b> {@code displayText} (the id is a
+   *       semantic key, never expanded) and delegate to {@link #create}, which expands the resolved
+   *       definition once.
+   *   <li><b>Inline dialogs / compound tags</b> expand a presentation-only copy of the tag via
+   *       {@link PromptPresentationExpander#expandInlineDialog} and build the dialog screen
+   *       directly from that copy.
+   *   <li><b>Other inline tags</b> map the raw tag and delegate to {@link #create}, which expands
+   *       once.
+   * </ul>
    */
   public InputScreen createFromTag(Player player, PromptTag tag, DialogCompletionContext context) {
     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
     if (tag.isPreset()) {
+      // Lookup uses the raw displayText — a PAPI-looking preset id must never be expanded.
       var def = plugin.getPresetRegistry().getPrompt(tag.displayText())
           .orElseThrow(() -> new IllegalStateException("Preset prompt not found: " + tag.displayText()));
       return create(player, def, context);
     }
     if ("d".equals(tag.key()) || tag.isCompound()) {
-      // Pass the tag directly to preserve filter syntax and constraints.
+      // Expand the presentation-only copy of the tag, then build the dialog screen directly so
+      // the expanded fields are materialized exactly once.
+      var expandedTag = presentationExpander.expandInlineDialog(player, tag);
       var promptConfig = plugin.getConfigLoader().getPromptConfig();
       var dialogScreen = new dev.cyr1en.promptpaper.screen.DialogPromptScreen(
-          plugin, player, tag, promptConfig, context);
-      return wrapWithTagTitle(player, tag, dialogScreen);
+          plugin, player, expandedTag, promptConfig, context);
+      return wrapWithTagTitle(player, expandedTag, dialogScreen);
     }
     var def = InlineTagMapper.toPromptDefinition(tag);
     return create(player, def, context);

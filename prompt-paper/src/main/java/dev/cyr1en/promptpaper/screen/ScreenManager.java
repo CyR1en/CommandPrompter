@@ -8,7 +8,6 @@ import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
-import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
@@ -175,28 +174,18 @@ public class ScreenManager {
     }
 
     /**
-     * Resolves placeholders, builds the completion context, creates the
-     * screen via the router, and opens it for the player.
+     * Builds the completion context, creates the screen via the factory (the single
+     * presentation-materialization boundary), and opens it for the player.
      */
     private void showPrompt(Player player, PromptTag tag) {
         InputScreen screen = null;
         var uuid = player.getUniqueId();
         try {
-            var displayText = resolvePlaceholders(player, tag.displayText());
-            var resolvedTag =
-                new PromptTag(
-                    tag.rawTag(),
-                    tag.key(),
-                    tag.filter(),
-                    displayText,
-                    tag.sanitize(),
-                    tag.validatorAlias(),
-                    tag.type(),
-                    tag.subTags(),
-                    tag.preset(),
-                    tag.title());
-            var context = buildCompletionContext(player, resolvedTag);
-            screen = factory.createFromTag(player, resolvedTag, context);
+            // The tag is passed through raw: PromptFactory is now the single
+            // presentation-materialization boundary and expands the prompt exactly
+            // once before the screen is constructed (registry/session models stay raw).
+            var context = buildCompletionContext(player, tag);
+            screen = factory.createFromTag(player, tag, context);
             plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
                     + " key=" + tag.key() + " screen=" + screen.getClass().getSimpleName());
             activeScreens.put(uuid, screen);
@@ -235,12 +224,6 @@ public class ScreenManager {
         var partial = ParsedCommand.buildPartialCommand(
                 session.parsedCommand(), session.answers());
         return new DialogCompletionContext(player, partial);
-    }
-
-    private String resolvePlaceholders(Player player, String text) {
-        return plugin.getHookContainer().getHook(PapiHook.class)
-                .map(h -> h.setPlaceholder(player, text))
-                .orElse(text);
     }
 
     /**
