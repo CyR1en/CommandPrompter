@@ -18,6 +18,9 @@ import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
+import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
+import dev.cyr1en.promptpaper.preset.UIButton;
+import dev.cyr1en.promptui.pane.StaticPane;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -531,6 +534,48 @@ class PlayerUIScreenTest extends MockBukkitTest {
      * {@code zz<name>;} tokens and returns only online players whose name
      * equals the captured parameter.
      */
+    @Test
+    void uiButtonConstructorValidatesSlotBounds() {
+        assertDoesNotThrow(() -> new UIButton(true, 0, "Text", "BARRIER", "Hover", 0));
+        assertDoesNotThrow(() -> new UIButton(true, 8, "Text", "BARRIER", "Hover", 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new UIButton(true, -1, "Text", "BARRIER", "Hover", 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new UIButton(true, 9, "Text", "BARRIER", "Hover", 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new UIButton(true, 53, "Text", "BARRIER", "Hover", 0));
+    }
+
+    @Test
+    void buildControlPaneRendersHoverTextAsLore() throws Exception {
+        var preset = new PlayerUiPrompt(
+                "player_ui", "test-pui", "Choose", "online",
+                new UIButton(true, 0, "&cCancel", "BARRIER", "&7Click to cancel{br}&8Second line", 0),
+                new UIButton(true, 1, "&ePrev", "FEATHER", "&7Go back", 0),
+                new UIButton(true, 2, "&aNext", "FEATHER", "&7Go forward", 0),
+                true);
+
+        var puiScreen = new PlayerUIScreen(plugin, player, tag, preset, List.of());
+        var method = PlayerUIScreen.class.getDeclaredMethod("buildControlPane", PromptConfig.class);
+        method.setAccessible(true);
+        var pane = (StaticPane) method.invoke(puiScreen, promptConfig);
+
+        var display = pane.display();
+        var cancelItem = display.getItem(0, 0);
+        assertNotNull(cancelItem);
+        var cancelMeta = cancelItem.getItem().getItemMeta();
+        assertNotNull(cancelMeta);
+        assertNotNull(cancelMeta.lore());
+        assertEquals(2, cancelMeta.lore().size());
+
+        var prevItem = display.getItem(1, 0);
+        assertNotNull(prevItem);
+        var prevMeta = prevItem.getItem().getItemMeta();
+        assertNotNull(prevMeta);
+        assertNotNull(prevMeta.lore());
+        assertEquals(1, prevMeta.lore().size());
+    }
+
     private static class NameMatchFilter extends CacheFilter {
         private final String name;
 

@@ -14,12 +14,14 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -268,65 +270,83 @@ public class PlayerUIScreen implements InputScreen {
         return formatted;
     }
 
+    private int validateSlot(int slot, String buttonName) {
+        if (slot < 0 || slot > 8) {
+            plugin.getPluginLogger().warn("PlayerUI slot for " + buttonName + " out of bounds (0-8): " + slot + ", clamping to range");
+            return Math.max(0, Math.min(8, slot));
+        }
+        return slot;
+    }
+
     private StaticPane buildControlPane(PromptConfig cfg) {
         var control = new StaticPane(9, 1);
 
         boolean isPreset = puiPrompt != null && !puiPrompt.id().startsWith("inline-");
 
         if (isPreset && puiPrompt.previousButton() != null) {
-            if (puiPrompt.previousButton().show()) {
-                control.addItem(buildItem(puiPrompt.previousButton().buttonIcon(), puiPrompt.previousButton().customModelData(),
-                        puiPrompt.previousButton().buttonText(), event -> {
+            var btn = puiPrompt.previousButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "previous_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             headPane.previous();
                             gui.update();
-                        }), puiPrompt.previousButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.previousColumn() - 1, "previous_column");
             control.addItem(buildItem(cfg.previousItem(), cfg.previousCustomModelData(),
-                    cfg.previousText(), event -> {
+                    cfg.previousText(), null, event -> {
                         headPane.previous();
                         gui.update();
-                    }), cfg.previousColumn() - 1, 0);
+                    }), slot, 0);
         }
 
         if (isPreset && puiPrompt.nextButton() != null) {
-            if (puiPrompt.nextButton().show()) {
-                control.addItem(buildItem(puiPrompt.nextButton().buttonIcon(), puiPrompt.nextButton().customModelData(),
-                        puiPrompt.nextButton().buttonText(), event -> {
+            var btn = puiPrompt.nextButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "next_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             headPane.next();
                             gui.update();
-                        }), puiPrompt.nextButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.nextColumn() - 1, "next_column");
             control.addItem(buildItem(cfg.nextItem(), cfg.nextCustomModelData(),
-                    cfg.nextText(), event -> {
+                    cfg.nextText(), null, event -> {
                         headPane.next();
                         gui.update();
-                    }), cfg.nextColumn() - 1, 0);
+                    }), slot, 0);
         }
 
         if (isPreset && puiPrompt.cancelButton() != null) {
-            if (puiPrompt.cancelButton().show()) {
-                control.addItem(buildItem(puiPrompt.cancelButton().buttonIcon(), puiPrompt.cancelButton().customModelData(),
-                        puiPrompt.cancelButton().buttonText(), event -> {
+            var btn = puiPrompt.cancelButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "cancel_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             close();
                             if (callback != null) {
                                 callback.accept(ScreenResult.cancel());
                             }
-                        }), puiPrompt.cancelButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.cancelColumn() - 1, "cancel_column");
             control.addItem(buildItem(cfg.cancelItem(), cfg.cancelCustomModelData(),
-                    cfg.cancelText(), event -> {
+                    cfg.cancelText(), null, event -> {
                         close();
                         if (callback != null) {
                             callback.accept(ScreenResult.cancel());
                         }
-                    }), cfg.cancelColumn() - 1, 0);
+                    }), slot, 0);
         }
 
+        int searchSlot = validateSlot(cfg.searchColumn() - 1, "search_column");
         control.addItem(buildItem(cfg.searchItem(), cfg.searchCustomModelData(),
-                cfg.searchText(), event -> startSearch()), cfg.searchColumn() - 1, 0);
+                cfg.searchText(), null, event -> startSearch()), searchSlot, 0);
 
         return control;
     }
@@ -531,6 +551,7 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     private GuiItem buildItem(String materialName, int cmd, String displayName,
+                              String hoverText,
                               Consumer<InventoryClickEvent> action) {
         var mat = Material.matchMaterial(materialName);
         if (mat == null) mat = Material.PAPER;
@@ -538,6 +559,13 @@ public class PlayerUIScreen implements InputScreen {
         var meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(ComponentUtil.mini("<!italic>" + displayName));
+            if (hoverText != null && !hoverText.isBlank()) {
+                var lines = hoverText.split("\\{br\\}|\\r?\\n|\\\\n");
+                var loreComponents = Arrays.stream(lines)
+                        .map(line -> (Component) ComponentUtil.mini("<!italic>" + line))
+                        .toList();
+                meta.lore(loreComponents);
+            }
             if (cmd != 0) applyCustomModelData(meta, cmd);
             item.setItemMeta(meta);
         }
