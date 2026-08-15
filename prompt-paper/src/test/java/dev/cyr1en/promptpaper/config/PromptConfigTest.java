@@ -99,6 +99,7 @@ class PromptConfigTest extends MockBukkitTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void dialogDefaultsAppliedWhenSectionMissing() {
         var cfg = makeDefaultCfg();
         assertEquals("Prompt", cfg.dialogTitle());

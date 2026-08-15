@@ -6,6 +6,8 @@ import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import dev.cyr1en.promptui.ComponentUtil;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -24,6 +26,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
+
 
 /**
  * Maintains a bounded LRU cache of player-head {@link ItemStack}s used by
@@ -159,11 +162,24 @@ public class HeadCache implements Listener {
                 var format = promptConfig.skullNameFormat();
                 var cmData = promptConfig.skullCustomModelData();
                 meta.displayName(ComponentUtil.mini("<!italic>" + format.formatted(player.getName())));
-                if (cmData != 0) meta.setCustomModelData(cmData);
+                if (cmData != 0) {
+                    applyCustomModelData(meta, cmData);
+                }
                 skull.setItemMeta(meta);
             }
             return Optional.of(skull);
         });
+    }
+
+    @SuppressWarnings("deprecation")
+    private void applyCustomModelData(SkullMeta meta, int cmData) {
+        try {
+            var cmd = meta.getCustomModelDataComponent();
+            cmd.setFloats(List.of((float) cmData));
+            meta.setCustomModelDataComponent(cmd);
+        } catch (NoSuchMethodError e) {
+            meta.setCustomModelData(cmData);
+        }
     }
 
     public void invalidate(Player player) {
@@ -188,15 +204,18 @@ public class HeadCache implements Listener {
     /**
      * Returns all cached heads sorted alphabetically by display name.
      */
-    public List<ItemStack> getHeadsSorted() {
-        var list = new ArrayList<>(getHeads());
-        list.sort((s1, s2) -> {
-            var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
-            var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
-            return n1.compareToIgnoreCase(n2);
-        });
-        return list;
-    }
+   public List<ItemStack> getHeadsSorted() {                                          
+       var list = new ArrayList<>(getHeads());                                        
+       var serializer = PlainTextComponentSerializer.plainText();                     
+       list.sort((s1, s2) -> {                                                        
+           var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null; 
+           var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null; 
+           var n1 = d1 != null ? serializer.serialize(d1) : "";                       
+           var n2 = d2 != null ? serializer.serialize(d2) : "";                       
+           return n1.compareToIgnoreCase(n2);                                         
+       });                                                                            
+       return list;                                                                   
+   } 
 
     public int size() {
         // Count only populated entries so empty/unloaded heads are detected as stale.

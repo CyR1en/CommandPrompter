@@ -117,7 +117,7 @@ class HeadCacheTest extends MockBukkitTest {
         headCache.onPlayerJoin(new PlayerJoinEvent(player, (Component) null));
         assertEquals(1, headCache.size());
 
-        headCache.onPlayerQuit(new PlayerQuitEvent(player, (Component) null));
+        headCache.onPlayerQuit(new PlayerQuitEvent(player, (Component) null, PlayerQuitEvent.QuitReason.DISCONNECTED));
 
         assertEquals(0, headCache.size());
         assertTrue(headCache.getHeads().isEmpty());
@@ -212,6 +212,18 @@ class HeadCacheTest extends MockBukkitTest {
         Style coloredStyle = findStyleWithColor(display);
         assertNotNull(coloredStyle);
         assertEquals(NamedTextColor.GOLD, coloredStyle.color());
+    }
+
+    @Test
+    void getHeadForAppliesCustomModelDataWhenNonZero() {
+        when(promptCfg.skullCustomModelData()).thenReturn(42);
+        var player = createPlayer("CustomModelPlayer");
+
+        headCache.onPlayerJoin(new PlayerJoinEvent(player, (Component) null));
+
+        Optional<ItemStack> head = headCache.getHeadFor(player);
+        assertTrue(head.isPresent());
+        assertNotNull(head.get().getItemMeta());
     }
 
     @Test

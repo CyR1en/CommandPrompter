@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -27,6 +28,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
 /**
@@ -191,9 +193,12 @@ public class PlayerUIScreen implements InputScreen {
             plugin.getPluginLogger().debug("PlayerUI no filter, heads=" + heads.size());
             var result = new ArrayList<>(heads);
             if (promptConfig.sorted()) {
+                var serializer = PlainTextComponentSerializer.plainText();
                 result.sort((s1, s2) -> {
-                    var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
-                    var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
+                    var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null;
+                    var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null;
+                    var n1 = d1 != null ? serializer.serialize(d1) : "";
+                    var n2 = d2 != null ? serializer.serialize(d2) : "";
                     return n1.compareToIgnoreCase(n2);
                 });
             }
@@ -218,9 +223,12 @@ public class PlayerUIScreen implements InputScreen {
             plugin.getPluginLogger().debug("PlayerUI filtered heads=" + heads.size());
             var result = new ArrayList<>(heads);
             if (promptConfig.sorted()) {
+                var serializer = PlainTextComponentSerializer.plainText();
                 result.sort((s1, s2) -> {
-                    var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
-                    var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
+                    var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null;
+                    var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null;
+                    var n1 = d1 != null ? serializer.serialize(d1) : "";
+                    var n2 = d2 != null ? serializer.serialize(d2) : "";
                     return n1.compareToIgnoreCase(n2);
                 });
             }
@@ -414,11 +422,13 @@ public class PlayerUIScreen implements InputScreen {
                 if (lifecycleToken.get() != token || currentHeads == null) return;
                 plugin.getPluginLogger().debug("PlayerUI search: term=" + term
                         + " pre-filter=" + currentHeads.size());
+                var serializer = PlainTextComponentSerializer.plainText();
                 var filtered = currentHeads.stream()
                         .filter(item -> {
                             var meta = item.getItemMeta();
                             if (meta == null) return false;
-                            var name = meta.getDisplayName();
+                            var d = meta.displayName();
+                            var name = d != null ? serializer.serialize(d) : "";
                             return name.toLowerCase().contains(term.toLowerCase());
                         })
                         .toList();
@@ -445,11 +455,11 @@ public class PlayerUIScreen implements InputScreen {
         }
         var listener = new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
-            public void onChat(org.bukkit.event.player.AsyncPlayerChatEvent event) {
+            public void onChat(io.papermc.paper.event.player.AsyncChatEvent event) {
                 if (!event.getPlayer().getUniqueId().equals(playerUuid)) return;
                 if (lifecycleToken.get() != token) return;
                 event.setCancelled(true);
-                var search = event.getMessage();
+                var search = PlainTextComponentSerializer.plainText().serialize(event.message());
 
                 try {
                     var task = player.getScheduler().run(plugin, st -> {
@@ -458,11 +468,13 @@ public class PlayerUIScreen implements InputScreen {
                                 + " pre-filter=" + currentHeads.size());
                         HandlerList.unregisterAll(this);
                         searchListener = null;
+                        var serializer = PlainTextComponentSerializer.plainText();
                         var filtered = currentHeads.stream()
                                 .filter(item -> {
                                     var meta = item.getItemMeta();
                                     if (meta == null) return false;
-                                    var name = meta.getDisplayName();
+                                    var d = meta.displayName();
+                                    var name = d != null ? serializer.serialize(d) : "";
                                     return name.toLowerCase().contains(search.toLowerCase());
                                 })
                                 .toList();
@@ -507,6 +519,17 @@ public class PlayerUIScreen implements InputScreen {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    private void applyCustomModelData(ItemMeta meta, int cmd) {
+        try {
+            var comp = meta.getCustomModelDataComponent();
+            comp.setFloats(List.of((float) cmd));
+            meta.setCustomModelDataComponent(comp);
+        } catch (NoSuchMethodError e) {
+            meta.setCustomModelData(cmd);
+        }
+    }
+
     private GuiItem buildItem(String materialName, int cmd, String displayName,
                               Consumer<InventoryClickEvent> action) {
         var mat = Material.matchMaterial(materialName);
@@ -515,7 +538,7 @@ public class PlayerUIScreen implements InputScreen {
         var meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(ComponentUtil.mini("<!italic>" + displayName));
-            if (cmd != 0) meta.setCustomModelData(cmd);
+            if (cmd != 0) applyCustomModelData(meta, cmd);
             item.setItemMeta(meta);
         }
         return new GuiItem(item, action);

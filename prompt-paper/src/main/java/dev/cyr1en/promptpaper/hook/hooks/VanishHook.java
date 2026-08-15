@@ -20,6 +20,7 @@ public abstract class VanishHook extends BaseHook {
      * Checks whether a player is vanished via the {@code vanished} metadata value.
      * Subclasses (e.g. SuperVanish, VanishNoPacket) override this with their own API.
      */
+    @SuppressWarnings("deprecation")
     public boolean isInvisible(Player player) {
         return player.getMetadata("vanished").stream()
                 .anyMatch(MetadataValue::asBoolean);
