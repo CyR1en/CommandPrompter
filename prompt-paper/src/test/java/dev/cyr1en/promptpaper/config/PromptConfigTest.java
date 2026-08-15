@@ -202,4 +202,70 @@ class PromptConfigTest extends MockBukkitTest {
 
         assertEquals("%s", cfg.getFilterFormat("World"));
     }
+
+    @Test
+    void hasValidatorReturnsTrueForConfiguredAlias() {
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("Input-Validation")).thenReturn(Set.of("Integer-Sample"));
+        when(rawConfig.getKeys("Input-Validation.Integer-Sample")).thenReturn(Set.of("Alias", "Regex", "Err-Message"));
+        when(rawConfig.getString("Input-Validation.Integer-Sample.Alias")).thenReturn("is");
+        when(rawConfig.getString("Input-Validation.Integer-Sample.Regex")).thenReturn("^\\d+");
+
+        var cfg = new PromptConfig(rawConfig,
+                "%s", 0, 54, 256, 1,
+                "Feather", 0, 3, "&7◀◀ Previous",
+                "Feather", 0, 7, "Next ▶▶",
+                "Barrier", 0, 5, "&7Cancel ✘",
+                "Name_Tag", 0, 9, "&6Search ⌕",
+                "&6&lPlayer Search", "PAPER", 0, "&6Enter Player Name",
+                false, "&cNo players found!",
+                "&6ᴀ %s", "&cᤣ %s",
+                true, "", "",
+                false, "Paper", false, 0, false,
+                "Paper", false, 0, false,
+                "Barrier", false, 0, false, "&cClick to Cancel",
+                true, "&7[&c&l✘&7]", "&7Click here to cancel command completion", "DEFAULT",
+                "bottom", "OAK_SIGN",
+                "is", "^\\d+", "&cPlease enter a valid integer!",
+                "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
+                "Prompt", "<green>Confirm</green>", "Confirm this action",
+                "<red>Cancel</red>", "Cancel this action",
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
+
+        assertTrue(cfg.hasValidator("is"));
+        assertFalse(cfg.hasValidator("unknown"));
+        assertFalse(cfg.hasValidator(null));
+        assertFalse(cfg.hasValidator(""));
+    }
+
+    @Test
+    void getInputValidatorThrowsOnUnknownAlias() {
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("Input-Validation")).thenReturn(Set.of());
+
+        var cfg = new PromptConfig(rawConfig,
+                "%s", 0, 54, 256, 1,
+                "Feather", 0, 3, "&7◀◀ Previous",
+                "Feather", 0, 7, "Next ▶▶",
+                "Barrier", 0, 5, "&7Cancel ✘",
+                "Name_Tag", 0, 9, "&6Search ⌕",
+                "&6&lPlayer Search", "PAPER", 0, "&6Enter Player Name",
+                false, "&cNo players found!",
+                "&6ᴀ %s", "&cᤣ %s",
+                true, "", "",
+                false, "Paper", false, 0, false,
+                "Paper", false, 0, false,
+                "Barrier", false, 0, false, "&cClick to Cancel",
+                true, "&7[&c&l✘&7]", "&7Click here to cancel command completion", "DEFAULT",
+                "bottom", "OAK_SIGN",
+                "is", "^\\d+", "&cPlease enter a valid integer!",
+                "ss", "[A-Za-z ]+", "&cInput must only consist letters of the alphabet!",
+                "Prompt", "<green>Confirm</green>", "Confirm this action",
+                "<red>Cancel</red>", "Cancel this action",
+                256, false, 4, 200, "", 0.0f, 100.0f, 1.0f, 5);
+
+        assertThrows(IllegalArgumentException.class, () -> cfg.getInputValidator("unknown", null, null));
+        assertInstanceOf(dev.cyr1en.promptpaper.validation.NoopValidator.class, cfg.getInputValidator(null, null, null));
+        assertInstanceOf(dev.cyr1en.promptpaper.validation.NoopValidator.class, cfg.getInputValidator("", null, null));
+    }
 }

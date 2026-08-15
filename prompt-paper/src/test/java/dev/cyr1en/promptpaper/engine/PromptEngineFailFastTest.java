@@ -188,6 +188,37 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     verify(i18n, times(1)).get(eq("command.error.missing_preset"), same(player));
   }
 
+  @Test
+  void commandWithKnownValidatorStartsSession() {
+    when(promptConfig.hasValidator("req")).thenReturn(true);
+    var result = engine.intercept(createPlayer(), "/cmd <a:why -iv:req>");
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void commandWithUnknownValidatorFailsFast() {
+    var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(promptConfig.hasValidator("unknown_val")).thenReturn(false);
+
+    var result = engine.intercept(player, "/cmd <a:why -iv:unknown_val>");
+
+    assertTrue(result.isEmpty());
+    verify(i18n, times(1)).get(eq("command.error.missing_validator"), same(player));
+  }
+
+  @Test
+  void compoundCommandWithUnknownValidatorFailsFast() {
+    var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(promptConfig.hasValidator("bad_val")).thenReturn(false);
+
+    var result = engine.intercept(player, "/cmd <d:choice[a,b]:One && d:text:Two -iv:bad_val>");
+
+    assertTrue(result.isEmpty());
+    verify(i18n, times(1)).get(eq("command.error.missing_validator"), same(player));
+  }
+
   // --- commandHasTagForm helper ---
 
   @Test

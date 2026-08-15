@@ -128,6 +128,8 @@ public class MockBukkitTest {
                 .thenReturn(Component.text("You already have an active prompt."));
         when(i18n.get(eq("command.error.missing_preset"), any(Player.class)))
                 .thenReturn(Component.text("Unknown preset."));
+        when(i18n.get(eq("command.error.missing_validator"), any(Player.class)))
+                .thenReturn(Component.text("Unknown validator."));
         when(i18n.get(eq("prompt.cancelled"), any(Player.class)))
                 .thenReturn(Component.text("Prompt cancelled."));
         when(i18n.get(eq("prompt.timed_out"), any(Player.class)))

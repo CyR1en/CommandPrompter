@@ -689,13 +689,30 @@ public record PromptConfig(
     // ============================== Input Validation Factory ==============================
 
     /**
+     * Checks whether an {@link InputValidator} is configured for the given alias.
+     *
+     * @param alias the validator alias (e.g. {@code "is"}, {@code "ss"})
+     * @return {@code true} if at least one check is configured for the alias, {@code false} otherwise
+     */
+    public boolean hasValidator(String alias) {
+        if (alias == null || alias.isBlank()) return false;
+        var jsExpr = getIVValue("Alias", alias, "JS-Expression");
+        if (jsExpr != null && !jsExpr.isBlank()) return true;
+        var regex = findIVRegexCheckInConfig(alias);
+        if (regex != null && !regex.isBlank()) return true;
+        var isPlayer = Boolean.parseBoolean(getIVValue("Alias", alias, "Online-Player"));
+        return isPlayer;
+    }
+
+    /**
      * Resolves an {@link InputValidator} for the given alias, combining regex, JS-expression,
      * and online-player checks as configured in {@code Input-Validation} YAML entries.
      *
      * @param alias  the validator alias (e.g. {@code "is"}, {@code "ss"})
      * @param player the player being validated (used by JS-expression and player validators)
      * @param plugin the plugin instance (needed for JS-expression evaluation)
-     * @return a compound or single validator, or a no-op if no checks are configured
+     * @return a compound or single validator, or a no-op if alias is null/blank
+     * @throws IllegalArgumentException if alias is non-blank but no validator is configured
      */
     public InputValidator getInputValidator(String alias, Player player, CommandPrompter plugin) {
         if (alias == null || alias.isBlank())
@@ -708,7 +725,7 @@ public record PromptConfig(
             return new CompoundedValidator(alias, getIVErrMessage(alias), player, validators);
         }
 
-        return new NoopValidator();
+        throw new IllegalArgumentException("Unknown validator alias: " + alias);
     }
 
     /** Builds validators from the YAML entries matching the given alias. */

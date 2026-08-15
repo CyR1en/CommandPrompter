@@ -207,11 +207,12 @@ public class PromptEngine {
         }
         var parsed = getParser().parse(commandLine);
 
-        // Fail-fast: any unresolved preset ID aborts the command flow.
+        // Fail-fast: any unresolved preset ID or validator alias aborts the command flow.
         var missingPrompts = findMissingPromptPresets(parsed);
         var missingPostCmds = findMissingPostCommandPresets(parsed);
-        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty()) {
-            failFastMissingPresets(player, commandLine, missingPrompts, missingPostCmds);
+        var missingValidators = findMissingValidators(parsed);
+        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty() || !missingValidators.isEmpty()) {
+            failFastMissing(player, commandLine, missingPrompts, missingPostCmds, missingValidators);
             return Optional.empty();
         }
 
@@ -878,15 +879,44 @@ public class PromptEngine {
     }
 
     /**
-     * Logs a severe warning to the console and sends a localized error message to the
-     * player when a command references one or more unknown preset ids. Per the spec, the
-     * command must not be executed and the player must be told why.
+     * Returns the list of validator aliases that appear in {@code parsed} but are
+     * not configured in {@code PromptConfig}. Order matches occurrence order.
      */
-    private void failFastMissingPresets(
+    private List<String> findMissingValidators(ParsedCommand parsed) {
+        var configLoader = plugin.getConfigLoader();
+        if (configLoader == null) return List.of();
+        var promptConfig = configLoader.getPromptConfig();
+        if (promptConfig == null) return List.of();
+        var missing = new java.util.ArrayList<String>();
+        for (var tag : parsed.promptTags()) {
+            checkMissingValidator(tag.validatorAlias(), promptConfig, missing);
+            if (tag.subTags() != null) {
+                for (var subTag : tag.subTags()) {
+                    checkMissingValidator(subTag.validatorAlias(), promptConfig, missing);
+                }
+            }
+        }
+        return missing;
+    }
+
+    private void checkMissingValidator(
+            String alias, dev.cyr1en.promptpaper.config.PromptConfig config, List<String> missing) {
+        if (alias != null && !alias.isBlank() && !config.hasValidator(alias)) {
+            missing.add(alias);
+        }
+    }
+
+    /**
+     * Logs a severe warning to the console and sends a localized error message to the
+     * player when a command references one or more unknown preset ids or validator aliases.
+     * Per the spec, the command must not be executed and the player must be told why.
+     */
+    private void failFastMissing(
             Player player,
             String commandLine,
             List<String> missingPrompts,
-            List<String> missingPostCmds) {
+            List<String> missingPostCmds,
+            List<String> missingValidators) {
         var all = new java.util.ArrayList<String>();
         if (!missingPrompts.isEmpty()) {
             all.add("prompts=" + missingPrompts);
@@ -894,12 +924,19 @@ public class PromptEngine {
         if (!missingPostCmds.isEmpty()) {
             all.add("post-commands=" + missingPostCmds);
         }
+        if (!missingValidators.isEmpty()) {
+            all.add("validators=" + missingValidators);
+        }
         var summary = String.join(", ", all);
         plugin.getPluginLogger().err(
                 "Fail-fast: command from " + player.getName()
-                        + " references unknown preset(s) [" + summary
+                        + " references unknown element(s) [" + summary
                         + "] — command NOT executed. Raw: " + commandLine);
         var i18n = plugin.getConfigLoader().getI18n();
-        player.sendMessage(i18n.get("command.error.missing_preset", player));
+        if (!missingValidators.isEmpty() && missingPrompts.isEmpty() && missingPostCmds.isEmpty()) {
+            player.sendMessage(i18n.get("command.error.missing_validator", player));
+        } else {
+            player.sendMessage(i18n.get("command.error.missing_preset", player));
+        }
     }
 }
