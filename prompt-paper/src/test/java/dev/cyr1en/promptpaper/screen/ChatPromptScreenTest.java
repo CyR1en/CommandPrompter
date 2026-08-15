@@ -109,4 +109,31 @@ class ChatPromptScreenTest extends MockBukkitTest {
         assertTrue(lastMsg.contains("Cancel"));
         assertFalse(lastMsg.contains("[Prompter]"));
     }
+
+    @Test
+    void openWithClickableCancelUsesFixedCancelCommandRegardlessOfCancelKeyword() {
+        var testPlayer = createPlayer("ClickableCancelPlayer");
+        when(config.cancelKeyword()).thenReturn("quit_custom");
+        lenient().when(promptConfig.sendCancelText()).thenReturn(true);
+        lenient().when(promptConfig.textCancelMessage()).thenReturn("[Cancel]");
+        lenient().when(promptConfig.textCancelHoverMessage()).thenReturn("Click to cancel");
+
+        var chatPrompt = new dev.cyr1en.promptpaper.preset.ChatPrompt(
+                "chat", "inline-test", "Enter value:",
+                new dev.cyr1en.promptpaper.preset.CancelBehavior(true, "[Cancel]", true, "Click to cancel"), true);
+        var clickableScreen = new ChatPromptScreen(plugin, testPlayer, chatPrompt);
+
+        clickableScreen.open();
+
+        var message = testPlayer.nextComponentMessage();
+        assertNotNull(message);
+        boolean foundCancelClick = false;
+        for (var child : message.children()) {
+            if (child.clickEvent() != null && "/cmdp cancel".equals(child.clickEvent().value())) {
+                foundCancelClick = true;
+                break;
+            }
+        }
+        assertTrue(foundCancelClick, "Expected click event running '/cmdp cancel'");
+    }
 }
