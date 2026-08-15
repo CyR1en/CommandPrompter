@@ -15,6 +15,7 @@ import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.ExecutionPolicy;
 import dev.cyr1en.promptpaper.preset.PostCommand;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
+import java.util.List;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,6 +88,33 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     assertTrue(result.get().promptTags().get(0).isPreset());
     assertEquals(1, result.get().postCmds().size());
     assertTrue(result.get().postCmds().get(0).isPreset());
+  }
+
+  @Test
+  void presetSanitizeFlagFromDefinitionReachesSessionTag() {
+    // #77: the parser defaults preset tags to sanitize=true, but the preset definition is
+    // authoritative. sanitize=false keeps §cHello intact on the screen path; sanitize=true
+    // strips it. Each player can only hold one session, so both sides need their own player.
+    when(registry.getPrompt("no_san")).thenReturn(Optional.of(
+            new ChatPrompt("chat", "no_san", "Why?", new CancelBehavior(false, "", false, ""), false)));
+    when(registry.getPrompt("san")).thenReturn(Optional.of(
+            new ChatPrompt("chat", "san", "Why?", new CancelBehavior(false, "", false, ""), true)));
+
+    var noSanPlayer = createPlayer("NoSan");
+    var noSanResult = engine.intercept(noSanPlayer, "/cmd <@no_san>");
+    assertTrue(noSanResult.isPresent());
+    var noSanTag = engine.getSession(noSanPlayer).orElseThrow().currentPrompt().orElseThrow();
+    assertFalse(noSanTag.sanitize(), "sanitize=false preset must preserve §cHello");
+    assertEquals("no_san", noSanTag.displayText());
+    assertEquals(List.of("§cHello"), engine.submit(noSanPlayer, "§cHello").orElseThrow().answers());
+
+    var sanPlayer = createPlayer("San");
+    var sanResult = engine.intercept(sanPlayer, "/cmd <@san>");
+    assertTrue(sanResult.isPresent());
+    var sanTag = engine.getSession(sanPlayer).orElseThrow().currentPrompt().orElseThrow();
+    assertTrue(sanTag.sanitize(), "sanitize=true preset must strip §cHello");
+    assertEquals("san", sanTag.displayText());
+    assertEquals(List.of("Hello"), engine.submit(sanPlayer, "§cHello").orElseThrow().answers());
   }
 
   // --- fail-fast paths ---

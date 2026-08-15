@@ -6,6 +6,7 @@ import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
+import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.util.MiniMessageTagFilter;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
@@ -225,6 +226,8 @@ public class PromptEngine {
             return Optional.empty();
         }
 
+        var effectiveParsed = applyPresetSanitize(parsed);
+
         var accepted = new AtomicBoolean();
         boolean rejectedByReload;
         synchronized (sessionLifecycleMonitor) {
@@ -233,7 +236,7 @@ public class PromptEngine {
                 sessions.compute(player.getUniqueId(), (uuid, existing) -> {
                     if (existing != null && existing.isActive()) return existing;
                     accepted.set(true);
-                    return PromptSession.start(uuid.toString(), parsed);
+                    return PromptSession.start(uuid.toString(), effectiveParsed);
                 });
             }
         }
@@ -247,9 +250,48 @@ public class PromptEngine {
             player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
             return Optional.empty();
         }
-        plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
+        plugin.getPluginLogger().debug("Intercepted " + effectiveParsed.promptTags().size()
                 + " prompts for " + player.getName());
-        return Optional.of(parsed);
+        return Optional.of(effectiveParsed);
+    }
+
+    /**
+     * Overlays each preset prompt's configured {@code sanitize} flag onto its parsed tag before a
+     * session starts. The parser defaults preset tags to {@code sanitize = true}, but the preset
+     * definition is authoritative: a preset configured with {@code sanitize: false} must keep the
+     * player's color codes intact. Commands without preset tags return the same parsed command
+     * object unchanged.
+     */
+    private ParsedCommand applyPresetSanitize(ParsedCommand parsed) {
+        if (parsed.promptTags().stream().noneMatch(PromptTag::isPreset)) return parsed;
+        var registry = plugin.getPresetRegistry();
+        var adjustedTags = parsed.promptTags().stream()
+                .map(tag -> {
+                    if (!tag.isPreset() || registry == null) return tag;
+                    // Fail-fast above already rejected unknown ids; fall back defensively.
+                    var sanitize = registry.getPrompt(tag.displayText())
+                            .map(PromptDefinition::sanitize)
+                            .orElse(tag.sanitize());
+                    return new PromptTag(
+                            tag.rawTag(),
+                            tag.key(),
+                            tag.filter(),
+                            tag.displayText(),
+                            sanitize,
+                            tag.validatorAlias(),
+                            tag.type(),
+                            tag.subTags(),
+                            tag.preset(),
+                            tag.title());
+                })
+                .toList();
+        return new ParsedCommand(
+                parsed.templateCommand(),
+                adjustedTags,
+                parsed.postCmds(),
+                parsed.parserConfig(),
+                parsed.rawTemplateCommand(),
+                parsed.templateSpans());
     }
 
     /**

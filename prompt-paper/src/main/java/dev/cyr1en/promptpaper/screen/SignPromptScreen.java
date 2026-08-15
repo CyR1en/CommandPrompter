@@ -176,7 +176,7 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
 
         var lines = result.answer().split("\n", 4);
         for (int i = 0; i < lines.length; i++)
-            lines[i] = ComponentUtil.stripColor(lines[i]).trim();
+            lines[i] = (signPrompt.sanitize() ? ComponentUtil.stripColor(lines[i]) : lines[i]).trim();
 
         String processed;
         if (multiArg) {
@@ -192,7 +192,9 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
                 var line = lines[i];
                 if (line.isEmpty()) continue;
                 boolean isPromptLine = i < promptLines.length
-                        && ComponentUtil.stripColor(promptLines[i]).trim().equals(line);
+                        && (signPrompt.sanitize()
+                            ? ComponentUtil.stripColor(promptLines[i]).trim().equals(line)
+                            : promptLines[i].trim().equals(line));
                 if (!isPromptLine) filtered.add(line);
             }
             processed = String.join(" ", filtered);

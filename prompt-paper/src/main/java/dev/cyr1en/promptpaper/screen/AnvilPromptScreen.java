@@ -182,12 +182,15 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
             callback.accept(result);
             return;
         }
-        var stripped = ComponentUtil.stripColor(result.answer()).trim();
+        var raw = result.answer();
+        var stripped = ComponentUtil.stripColor(raw).trim();
         if (stripped.equalsIgnoreCase(plugin.getConfigLoader().getConfig().cancelKeyword())) {
             plugin.getPluginLogger().debug("Anvil result matched cancel keyword for " + player.getName());
             callback.accept(ScreenResult.cancel());
             return;
         }
-        callback.accept(ScreenResult.answer(stripped));
+        // Cancel-keyword comparison stays color-insensitive; the forwarded answer only
+        // strips color when the preset asks for sanitization.
+        callback.accept(ScreenResult.answer(anvilPrompt.sanitize() ? stripped : raw.trim()));
     }
 }

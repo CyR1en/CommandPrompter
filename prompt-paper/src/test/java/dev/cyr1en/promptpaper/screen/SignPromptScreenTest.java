@@ -97,6 +97,20 @@ class SignPromptScreenTest extends MockBukkitTest {
     }
 
     @Test
+    void handleResultWithoutSanitizePreservesColorCodes() {
+        var player = createPlayer();
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), false), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("§cHello"));
+        assertNotNull(resultRef.get());
+        assertEquals("§cHello", resultRef.get().answer());
+        assertFalse(resultRef.get().cancelled());
+    }
+
+    @Test
     void handleResultWithCancelFiresCallback() {
         var player = createPlayer();
         var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);

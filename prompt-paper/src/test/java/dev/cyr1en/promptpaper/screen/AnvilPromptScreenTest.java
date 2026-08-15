@@ -97,6 +97,20 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     }
 
     @Test
+    void handleResultWithoutSanitizePreservesColorCodes() {
+        var player = createPlayer();
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), false), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("§cHello"));
+        assertNotNull(resultRef.get());
+        assertEquals("§cHello", resultRef.get().answer());
+        assertFalse(resultRef.get().cancelled());
+    }
+
+    @Test
     void handleResultWithCancelFiresCallback() {
         var player = createPlayer();
         var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
