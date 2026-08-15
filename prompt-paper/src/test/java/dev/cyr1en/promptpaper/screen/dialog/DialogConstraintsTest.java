@@ -322,4 +322,12 @@ class DialogConstraintsTest {
         assertEquals("item", c.rawFilter());
         assertEquals(250, c.width());
     }
+
+    @Test
+    void fallbackInputKeyDoesNotCollideWithDefaultKey() {
+        assertEquals("answer", DialogInputBuilder.DEFAULT_INPUT_KEY);
+        assertEquals("tab_fallback_answer", DialogInputBuilder.FALLBACK_INPUT_KEY);
+        org.junit.jupiter.api.Assertions.assertNotEquals(
+                DialogInputBuilder.DEFAULT_INPUT_KEY, DialogInputBuilder.FALLBACK_INPUT_KEY);
+    }
 }

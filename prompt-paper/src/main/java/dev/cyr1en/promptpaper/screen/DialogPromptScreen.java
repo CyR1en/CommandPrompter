@@ -676,7 +676,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         if (needsTabFallbackNotice()) {
             var fallbackLabel = ComponentUtil.mini(effectiveTitle());
             var textConstraints = DialogConstraints.from(null, dialogConfig);
-            inputs.add(DialogInputBuilder.buildText(textConstraints, fallbackLabel, "answer"));
+            inputs.add(DialogInputBuilder.buildText(textConstraints, fallbackLabel, DialogInputBuilder.FALLBACK_INPUT_KEY));
         }
         return List.copyOf(inputs);
     }
@@ -1071,7 +1071,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             answers.add(readOneAnswerForRow(view, row, key));
         }
         if (needsTabFallbackNotice()) {
-            var v = view.getText("answer");
+            var v = view.getText(DialogInputBuilder.FALLBACK_INPUT_KEY);
             var answer = v == null ? "" : (dialogPrompt.sanitize() ? v : ComponentUtil.miniToLegacy(v));
             answers.add(answer);
         }

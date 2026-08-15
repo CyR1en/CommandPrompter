@@ -1,11 +1,13 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
@@ -14,6 +16,7 @@ import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import java.util.List;
 import java.util.Map;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -327,5 +330,60 @@ class ScreenManagerTest extends MockBukkitTest {
         performTicks(20);
         assertFalse(player.hasPermission("perm.old"),
                 "attachment must not linger for the configured delay");
+    }
+
+    @Test
+    void presetDialogWithTabCompletionBuildsCompletionContext() {
+        var mockFactory = org.mockito.Mockito.mock(PromptFactory.class);
+        var customScreenManager = new ScreenManager(plugin, engine, mockFactory, scheduler);
+
+        var registry = org.mockito.Mockito.mock(dev.cyr1en.promptpaper.preset.PresetRegistry.class);
+        when(plugin.getPresetRegistry()).thenReturn(registry);
+
+        var dt = new dev.cyr1en.promptpaper.preset.DialogTypeConfig(
+                dev.cyr1en.promptpaper.preset.DialogType.MULTI_ACTION, 1, List.of(),
+                dev.cyr1en.promptpaper.preset.ActionsSource.TAB_COMPLETION, null, null, null);
+        var base = new dev.cyr1en.promptpaper.preset.DialogBaseConfig(List.of(), List.of());
+        var dialog = new dev.cyr1en.promptpaper.preset.DialogPrompt("dialog", "my_tab_preset", "Choose", base, dt, true);
+        when(registry.getPrompt("my_tab_preset")).thenReturn(java.util.Optional.of(dialog));
+
+        var dummyScreen = org.mockito.Mockito.mock(dev.cyr1en.promptui.InputScreen.class);
+        when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any())).thenReturn(dummyScreen);
+
+        var player = createPlayer();
+        customScreenManager.startSession(player, "/cmd <@my_tab_preset>");
+
+        var captor = org.mockito.ArgumentCaptor.forClass(dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext.class);
+        verify(mockFactory).createFromTag(eq(player), any(PromptTag.class), captor.capture());
+
+        assertNotNull(captor.getValue());
+        assertEquals("/cmd ", captor.getValue().partialCommand());
+        assertEquals(player, captor.getValue().player());
+    }
+
+    @Test
+    void presetDialogWithoutTabCompletionPassesNullContext() {
+        var mockFactory = org.mockito.Mockito.mock(PromptFactory.class);
+        var customScreenManager = new ScreenManager(plugin, engine, mockFactory, scheduler);
+
+        var registry = org.mockito.Mockito.mock(dev.cyr1en.promptpaper.preset.PresetRegistry.class);
+        when(plugin.getPresetRegistry()).thenReturn(registry);
+
+        var dt = new dev.cyr1en.promptpaper.preset.DialogTypeConfig(
+                dev.cyr1en.promptpaper.preset.DialogType.CONFIRMATION, null, List.of(), null, null, null, null);
+        var base = new dev.cyr1en.promptpaper.preset.DialogBaseConfig(List.of(), List.of());
+        var dialog = new dev.cyr1en.promptpaper.preset.DialogPrompt("dialog", "my_conf_preset", "Choose", base, dt, true);
+        when(registry.getPrompt("my_conf_preset")).thenReturn(java.util.Optional.of(dialog));
+
+        var dummyScreen = org.mockito.Mockito.mock(dev.cyr1en.promptui.InputScreen.class);
+        when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any())).thenReturn(dummyScreen);
+
+        var player = createPlayer();
+        customScreenManager.startSession(player, "/cmd <@my_conf_preset>");
+
+        var captor = org.mockito.ArgumentCaptor.forClass(dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext.class);
+        verify(mockFactory).createFromTag(eq(player), any(PromptTag.class), captor.capture());
+
+        assertNull(captor.getValue());
     }
 }

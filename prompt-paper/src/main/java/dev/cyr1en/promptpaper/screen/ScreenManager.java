@@ -9,6 +9,8 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.DialogScreen;
+import dev.cyr1en.promptpaper.preset.ActionsSource;
+import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
@@ -210,11 +212,28 @@ public class ScreenManager {
     }
 
     /**
-     * Builds a {@link DialogCompletionContext} for TAB prompts by
+     * Builds a {@link DialogCompletionContext} for TAB prompts (both inline {@code d:tab}
+     * and preset dialogs with {@code actions_source: "tab_completion"}) by
      * reconstructing the partial command from the session's parsed
      * command and current answers. Returns null for non-TAB prompts.
      */
     private DialogCompletionContext buildCompletionContext(Player player, PromptTag tag) {
+        if (tag.isPreset()) {
+            var registry = plugin.getPresetRegistry();
+            if (registry != null) {
+                var optDef = registry.getPrompt(tag.displayText());
+                if (optDef.isPresent() && optDef.get() instanceof DialogPrompt dialogPrompt) {
+                    var dt = dialogPrompt.dialogType();
+                    if (dt != null && dt.actionsSource() == ActionsSource.TAB_COMPLETION) {
+                        var session = engine.getSession(player).orElse(null);
+                        if (session == null) return null;
+                        var partial = session.buildPartialCommand();
+                        return new DialogCompletionContext(player, partial);
+                    }
+                }
+            }
+            return null;
+        }
         if (!"d".equals(tag.key())) return null;
         if (DialogInputKind.parse(tag.filter()) != DialogInputKind.TAB) {
             return null;
