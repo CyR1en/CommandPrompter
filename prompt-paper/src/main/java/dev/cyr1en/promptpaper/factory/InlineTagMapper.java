@@ -2,6 +2,7 @@ package dev.cyr1en.promptpaper.factory;
 
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
@@ -18,6 +19,7 @@ import dev.cyr1en.promptpaper.preset.SignPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -88,20 +90,46 @@ public final class InlineTagMapper {
    * @return a non-null {@link PromptDefinition} with a fresh {@code inline-*} id
    */
   public static PromptDefinition toPromptDefinition(PromptTag tag) {
+    return toPromptDefinition(tag, Map.of());
+  }
+
+  /**
+   * Maps a {@link PromptTag} to the appropriate {@link PromptDefinition} subtype using the
+   * provided screen mappings.
+   *
+   * @param tag the parsed inline tag
+   * @param mappings configured screen mappings (e.g. from prompt config)
+   * @return a non-null {@link PromptDefinition} with a fresh {@code inline-*} id
+   */
+  public static PromptDefinition toPromptDefinition(PromptTag tag, Map<String, ScreenType> mappings) {
     if (tag == null) throw new IllegalArgumentException("tag must not be null");
     var id = nextInlineId();
     var text = tag.displayText() == null ? "" : tag.displayText();
     var sanitize = tag.sanitize();
     var title = resolveTitle(tag);
-    return switch (tag.key()) {
-      case "" -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
-      case "a" -> new AnvilPrompt("anvil", id, defaultAnvilTitle(), text,
+    var screenType = resolveScreenType(tag, mappings);
+    return switch (screenType) {
+      case CHAT -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
+      case ANVIL -> new AnvilPrompt("anvil", id, defaultAnvilTitle(), text,
           defaultAnvilButton(), defaultAnvilButton(), sanitize, title);
-      case "s" -> new SignPrompt("sign", id, text, defaultSignLines(), sanitize, title);
-      case "p" -> new PlayerUiPrompt("player_ui", id, text, tag.filter(),
+      case SIGN -> new SignPrompt("sign", id, text, defaultSignLines(), sanitize, title);
+      case PLAYER -> new PlayerUiPrompt("player_ui", id, text, tag.filter(),
           null, null, null, sanitize, title);
-      case "d" -> toDialogPrompt(tag, id, sanitize, title);
-      default -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
+      case DIALOG -> toDialogPrompt(tag, id, sanitize, title);
+    };
+  }
+
+  private static ScreenType resolveScreenType(PromptTag tag, Map<String, ScreenType> mappings) {
+    if (mappings != null && mappings.containsKey(tag.key())) {
+      var mapped = mappings.get(tag.key());
+      if (mapped != null) return mapped;
+    }
+    return switch (tag.key()) {
+      case "a" -> ScreenType.ANVIL;
+      case "s" -> ScreenType.SIGN;
+      case "p" -> ScreenType.PLAYER;
+      case "d" -> ScreenType.DIALOG;
+      default -> ScreenType.CHAT;
     };
   }
 

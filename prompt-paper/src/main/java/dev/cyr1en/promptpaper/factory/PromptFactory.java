@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.factory;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.screen.AnvilPromptScreen;
 import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
@@ -14,6 +15,7 @@ import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceConfigurationError;
 import org.bukkit.entity.Player;
@@ -247,16 +249,22 @@ public class PromptFactory {
           .orElseThrow(() -> new IllegalStateException("Preset prompt not found: " + tag.displayText()));
       return create(player, def, context);
     }
-    if ("d".equals(tag.key()) || tag.isCompound()) {
+    var promptConfig = plugin.getConfigLoader().getPromptConfig();
+    var mappings = promptConfig != null && promptConfig.getScreenMappings() != null
+        ? promptConfig.getScreenMappings()
+        : Map.<String, ScreenType>of();
+    var screenType = mappings.get(tag.key());
+    boolean isDialog = screenType == ScreenType.DIALOG
+        || (screenType == null && ("d".equals(tag.key()) || tag.isCompound()));
+    if (isDialog) {
       // Expand the presentation-only copy of the tag, then build the dialog screen directly so
       // the expanded fields are materialized exactly once.
       var expandedTag = presentationExpander.expandInlineDialog(player, tag);
-      var promptConfig = plugin.getConfigLoader().getPromptConfig();
       var dialogScreen = new dev.cyr1en.promptpaper.screen.DialogPromptScreen(
           plugin, player, expandedTag, promptConfig, context);
       return wrapWithTagTitle(player, expandedTag, dialogScreen);
     }
-    var def = InlineTagMapper.toPromptDefinition(tag);
+    var def = InlineTagMapper.toPromptDefinition(tag, mappings);
     return create(player, def, context);
   }
 

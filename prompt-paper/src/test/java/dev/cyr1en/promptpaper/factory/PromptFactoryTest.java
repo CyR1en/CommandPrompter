@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
@@ -36,6 +37,7 @@ import dev.cyr1en.promptui.InputScreen;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -254,6 +256,25 @@ class PromptFactoryTest extends MockBukkitTest {
     assertEquals(2, dlg.dialogType().columns());
   }
 
+  @Test
+  void inlineMapperWithCustomMappingOverridesDefault() {
+    var tagA = new PromptTag("<a:Enter value>", "a", null, "Enter value");
+    var defA = InlineTagMapper.toPromptDefinition(tagA, Map.of("a", ScreenType.CHAT));
+    assertInstanceOf(ChatPrompt.class, defA);
+
+    var tagCustom = new PromptTag("<custom:Sign here>", "custom", null, "Sign here");
+    var defCustom = InlineTagMapper.toPromptDefinition(tagCustom, Map.of("custom", ScreenType.SIGN));
+    assertInstanceOf(SignPrompt.class, defCustom);
+
+    var tagP = new PromptTag("<p:Choose>", "p", null, "Choose");
+    var defP = InlineTagMapper.toPromptDefinition(tagP, Map.of("p", ScreenType.ANVIL));
+    assertInstanceOf(AnvilPrompt.class, defP);
+
+    var tagD = new PromptTag("<d:Dialog>", "d", null, "Dialog");
+    var defD = InlineTagMapper.toPromptDefinition(tagD, Map.of("d", ScreenType.PLAYER));
+    assertInstanceOf(PlayerUiPrompt.class, defD);
+  }
+
   // ------------------------------------------------------------------
   // PromptFactory.create(PromptDefinition)
   // ------------------------------------------------------------------
@@ -417,6 +438,22 @@ class PromptFactoryTest extends MockBukkitTest {
     var tag = new PromptTag("<x:text>", "x", null, "text");
     var screen = factory.createFromTag(createPlayer(), tag);
     assertInstanceOf(ChatPromptScreen.class, screen);
+  }
+
+  @Test
+  void createFromTagWithConfiguredScreenMappingsOverridesScreenType() {
+    Mockito.when(promptConfig.getScreenMappings()).thenReturn(Map.of(
+        "a", ScreenType.CHAT,
+        "custom", ScreenType.SIGN
+    ));
+
+    var tagA = new PromptTag("<a:Enter value>", "a", null, "Enter value");
+    var screenA = factory.createFromTag(createPlayer(), tagA);
+    assertInstanceOf(ChatPromptScreen.class, screenA);
+
+    var tagCustom = new PromptTag("<custom:Sign>", "custom", null, "Sign");
+    var screenCustom = factory.createFromTag(createPlayer(), tagCustom);
+    assertInstanceOf(SignPromptScreen.class, screenCustom);
   }
 
   // ------------------------------------------------------------------
