@@ -8,17 +8,28 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit coverage for the compound-answer payload format.
+ * Unit coverage for the dialog-answer payload format.
  *
  * <p>Lifted out of {@code DialogPromptScreen.encodeAnswers} / {@code
  * ScreenManager.decodeAnswers} so the encoding logic is testable without
  * loading the Paper-bound dialog classes. The class is split to make
  * MockBukkit-only unit coverage possible.
+ *
+ * <p>The contract is arity-aware and symmetric:
+ * <ul>
+ *   <li>0 answers {@literal ->} canonical zero frame {@code \u001E\u001E}
+ *   <li>1 answer {@literal ->} the answer verbatim (no framing)
+ *   <li>N ≥ 2 answers {@literal ->} framed {@code \u001E a\u001Fb\u001E}
+ * </ul>
  */
 class AnswerEncodingTest {
 
     private static final char RS = '\u001E';
     private static final char US = '\u001F';
+
+    // ------------------------------------------------------------------
+    // encode
+    // ------------------------------------------------------------------
 
     @Test
     void encodeSingleIsIdentity() {
@@ -26,7 +37,7 @@ class AnswerEncodingTest {
     }
 
     @Test
-    void encodeEmptyListIsJustWrappers() {
+    void encodeEmptyListIsCanonicalZeroFrame() {
         assertEquals("" + RS + RS, AnswerEncoding.encode(List.of()));
     }
 
@@ -52,14 +63,64 @@ class AnswerEncodingTest {
     }
 
     @Test
-    void decodeEmptyPayloadReturnsEmptyList() {
-        assertEquals(List.of(), AnswerEncoding.decode("", 0));
+    void encodeNeverProducesTrailingUnitSeparator() {
+        // The format guarantees US only between answers, never at the
+        // end. This guards the round-trip from producing a spurious
+        // empty trailing element.
+        var encoded = AnswerEncoding.encode(List.of("only"));
+        assertTrue(encoded.indexOf(US) < 0,
+                "single-answer encoding must not contain a unit separator");
+    }
+
+    // ------------------------------------------------------------------
+    // decode — expected 0
+    // ------------------------------------------------------------------
+
+    @Test
+    void decodeEmptyListRoundTripsAtExpectedZero() {
+        assertEquals(List.of(), AnswerEncoding.decode(AnswerEncoding.encode(List.of()), 0));
     }
 
     @Test
-    void decodeNullPayloadReturnsEmptyList() {
-        assertEquals(List.of(), AnswerEncoding.decode(null, 0));
+    void decodeCanonicalZeroFrameAtExpectedZero() {
+        assertEquals(List.of(), AnswerEncoding.decode("" + RS + RS, 0));
     }
+
+    @Test
+    void decodeEmptyStringAtExpectedZeroIsRejected() {
+        // expected 0 accepts ONLY the canonical zero frame, not the empty
+        // string (which is the single-answer encoding of an empty answer).
+        assertNull(AnswerEncoding.decode("", 0));
+    }
+
+    @Test
+    void decodeFramedSingleAnswerAtExpectedZeroIsRejected() {
+        assertNull(AnswerEncoding.decode("" + RS + "a" + RS, 0));
+    }
+
+    // ------------------------------------------------------------------
+    // decode — expected 1
+    // ------------------------------------------------------------------
+
+    @Test
+    void decodeEmptyStringAtExpectedOneIsSingleAnswer() {
+        assertEquals(List.of(""), AnswerEncoding.decode("", 1));
+    }
+
+    @Test
+    void decodeSingleAnswerAtExpectedOne() {
+        assertEquals(List.of("a"), AnswerEncoding.decode("a", 1));
+    }
+
+    @Test
+    void decodeRoundTripAtExpectedOne() {
+        var encoded = AnswerEncoding.encode(List.of("a"));
+        assertEquals(List.of("a"), AnswerEncoding.decode(encoded, 1));
+    }
+
+    // ------------------------------------------------------------------
+    // decode — expected >= 2
+    // ------------------------------------------------------------------
 
     @Test
     void decodeValidPayloadSplits() {
@@ -75,6 +136,12 @@ class AnswerEncodingTest {
     }
 
     @Test
+    void decodeTwoAnswersRoundTripAtExpectedTwo() {
+        var encoded = AnswerEncoding.encode(List.of("a", "b"));
+        assertEquals(List.of("a", "b"), AnswerEncoding.decode(encoded, 2));
+    }
+
+    @Test
     void decodeMissingLeadingRecordSeparatorReturnsNull() {
         assertNull(AnswerEncoding.decode("a" + US + "b" + RS, 2));
     }
@@ -85,9 +152,53 @@ class AnswerEncodingTest {
     }
 
     @Test
+    void decodeUnframedPayloadAtExpectedTwoReturnsNull() {
+        // A single-answer encoding is not a valid two-answer payload.
+        assertNull(AnswerEncoding.decode("ab", 2));
+    }
+
+    @Test
     void decodeWrongCountReturnsNull() {
         // Two answers in the payload, three expected.
         assertNull(AnswerEncoding.decode("" + RS + "a" + US + "b" + RS, 3));
+    }
+
+    // ------------------------------------------------------------------
+    // decode — rejection contract
+    // ------------------------------------------------------------------
+
+    @Test
+    void decodeNullPayloadRejectedAtAnyExpectedCount() {
+        assertNull(AnswerEncoding.decode(null, 0));
+        assertNull(AnswerEncoding.decode(null, 1));
+        assertNull(AnswerEncoding.decode(null, 2));
+    }
+
+    @Test
+    void decodeNegativeExpectedRejected() {
+        assertNull(AnswerEncoding.decode("x", -1));
+    }
+
+    @Test
+    void decodeZeroFrameAtExpectedTwoReturnsNull() {
+        assertNull(AnswerEncoding.decode("" + RS + RS, 2));
+    }
+
+    @Test
+    void decodeTwoAnswerPayloadAtExpectedZeroReturnsNull() {
+        // Wrong framing for the requested arity: a two-answer payload is not
+        // the canonical zero-answer frame.
+        assertNull(AnswerEncoding.decode("" + RS + "a" + US + "b" + RS, 0));
+    }
+
+    @Test
+    void decodeFramedPayloadAtExpectedOneReturnsNull() {
+        assertNull(AnswerEncoding.decode("" + RS + "a" + US + "b" + RS, 1));
+    }
+
+    @Test
+    void decodeProtocolDelimiterAtExpectedOneReturnsNull() {
+        assertNull(AnswerEncoding.decode("a" + US + "b", 1));
     }
 
     @Test
@@ -103,12 +214,12 @@ class AnswerEncodingTest {
     }
 
     @Test
-    void encodeNeverProducesTrailingUnitSeparator() {
-        // The format guarantees US only between answers, never at the
-        // end. This guards the round-trip from producing a spurious
-        // empty trailing element.
-        var encoded = AnswerEncoding.encode(List.of("only"));
-        assertTrue(encoded.indexOf(US) < 0,
-                "single-answer encoding must not contain a unit separator");
+    void encodeDecodeRoundTripsAllArities() {
+        assertEquals(List.of(), AnswerEncoding.decode(AnswerEncoding.encode(List.of()), 0));
+        assertEquals(List.of("a"), AnswerEncoding.decode(AnswerEncoding.encode(List.of("a")), 1));
+        assertEquals(List.of("x", "y"),
+                AnswerEncoding.decode(AnswerEncoding.encode(List.of("x", "y")), 2));
+        assertEquals(List.of("1", "2", "3"),
+                AnswerEncoding.decode(AnswerEncoding.encode(List.of("1", "2", "3")), 3));
     }
 }

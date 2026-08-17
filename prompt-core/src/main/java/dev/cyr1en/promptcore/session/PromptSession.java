@@ -19,6 +19,7 @@ public final class PromptSession {
   private final String userId;
   private final ParsedCommand parsedCommand;
   private final List<String> answers;
+  private final List<Integer> submittedAnswerCounts;
   private final List<PromptTag> remaining;
   private final List<PostCommandMeta> pcmQueue;
   private final SessionState state;
@@ -38,6 +39,7 @@ public final class PromptSession {
       String userId,
       ParsedCommand parsedCommand,
       List<String> answers,
+      List<Integer> submittedAnswerCounts,
       List<PromptTag> remaining,
       List<PostCommandMeta> pcmQueue,
       SessionState state,
@@ -45,6 +47,7 @@ public final class PromptSession {
     this.userId = userId;
     this.parsedCommand = parsedCommand;
     this.answers = answers;
+    this.submittedAnswerCounts = submittedAnswerCounts;
     this.remaining = remaining;
     this.pcmQueue = pcmQueue;
     this.state = state;
@@ -71,6 +74,7 @@ public final class PromptSession {
         userId,
         parsedCommand,
         List.of(),
+        List.of(),
         remaining,
         List.copyOf(parsedCommand.postCmds()),
         state,
@@ -95,6 +99,18 @@ public final class PromptSession {
   /** Unmodifiable list of answers collected so far, in prompt order. */
   public List<String> answers() {
     return Collections.unmodifiableList(answers);
+  }
+
+  /**
+   * Unmodifiable list of submitted-answer counts, one per consumed prompt, in consumption order.
+   *
+   * <p>Each entry records how many real answers were submitted for that prompt (0 for a zero-answer
+   * dialog preset, {@code N > 0} for a compound/preset dialog with N inputs, 1 for a single
+   * prompt). Only real answers occupy {@link #answers()} indexes; zero-arity prompts contribute
+   * nothing.
+   */
+  public List<Integer> submittedAnswerCounts() {
+    return Collections.unmodifiableList(submittedAnswerCounts);
   }
 
   /** The current lifecycle state of this session. */
@@ -133,9 +149,24 @@ public final class PromptSession {
     return remaining.size();
   }
 
-  /** 0-based index of the current prompt being answered. */
+  /**
+   * 0-based ordinal of the prompt currently being answered (number of consumed prompts).
+   *
+   * <p>This is the consumed-prompt ordinal, not the flat answer count: a zero-answer dialog preset
+   * advances the session without adding to {@link #answers()}.
+   */
   public int currentIndex() {
-    return answers.size();
+    return parsedCommand.promptTags().size() - remaining.size();
+  }
+
+  /**
+   * Rebuild the partial command from the parsed template, substituting the recorded per-prompt
+   * answer arities so zero- and multi-answer dialog presets never shift later prompts or the {@code
+   * {input:N}} / post-command answer indexes. See {@link
+   * ParsedCommand#buildPartialCommand(ParsedCommand, List, List)}.
+   */
+  public String buildPartialCommand() {
+    return ParsedCommand.buildPartialCommand(parsedCommand, answers, submittedAnswerCounts);
   }
 
   /**
@@ -155,6 +186,8 @@ public final class PromptSession {
     var processedAnswer = current.sanitize() ? sanitize(answer) : answer;
     var newAnswers = new ArrayList<>(this.answers);
     newAnswers.add(processedAnswer);
+    var newCounts = new ArrayList<>(submittedAnswerCounts);
+    newCounts.add(1);
     var newRemaining = new ArrayList<>(remaining);
     newRemaining.remove(0);
 
@@ -172,6 +205,7 @@ public final class PromptSession {
         userId,
         parsedCommand,
         Collections.unmodifiableList(newAnswers),
+        Collections.unmodifiableList(newCounts),
         Collections.unmodifiableList(newRemaining),
         pcmQueue,
         newState,
@@ -180,10 +214,12 @@ public final class PromptSession {
 
   /**
    * Submit a batch of answers to the current prompt. Used by compound dialog screens that collect N
-   * answers from a single window — one per sub-tag.
+   * answers from a single window — one per answer-bearing sub-tag.
    *
    * <p>The argument size MUST match the current prompt's expected answer count. Each answer is
-   * sanitized using the <i>block-level</i> sanitize flag of the current prompt.
+   * sanitized using the <i>block-level</i> sanitize flag of the current prompt. The expected count
+   * is inferred from the current prompt's tag shape: {@code subTags().size()} for compound tags, 1
+   * otherwise.
    */
   public PromptSession submitAnswers(List<String> answers) {
     if (state != SessionState.AWAITING_INPUT) {
@@ -193,21 +229,55 @@ public final class PromptSession {
     if (answers.isEmpty()) {
       throw new IllegalStateException("Compound submit requires at least one answer");
     }
-
     var current = remaining.get(0);
     var expected = current.isCompound() ? current.subTags().size() : 1;
-    if (answers.size() != expected) {
-      throw new IllegalStateException(
+    return submitAnswers(answers, expected);
+  }
+
+  /**
+   * Submit a batch of answers to the current prompt with an explicit expected answer count.
+   *
+   * <p>This is the arity-aware entry point for dialog flows whose effective answer count is not
+   * derivable from the parsed tag shape — e.g. JSON dialog presets (whose parsed {@link PromptTag}
+   * is non-compound but which may submit 0, 1, or N answers) and inline dialogs with layout rows
+   * ({@code title}/{@code body}) that never produce answers.
+   *
+   * <p>{@code expectedCount} must be non-negative and {@code answers.size()} must equal it; a zero
+   * count is valid (a zero-input dialog preset consumes the prompt and adds no flat answers). Each
+   * answer is sanitized exactly once using the current prompt's existing sanitize policy. Exactly
+   * one prompt is consumed and its arity is recorded for later command assembly.
+   *
+   * @param answers the flat answer values, in row order; must not contain null elements
+   * @param expectedCount the number of answers this prompt submits (may be 0)
+   * @return a new session in the next state
+   * @throws IllegalStateException if the session is not awaiting input
+   * @throws IllegalArgumentException if {@code expectedCount} is negative or {@code answers.size()}
+   *     does not equal {@code expectedCount}
+   * @throws NullPointerException if {@code answers} or any element is null
+   */
+  public PromptSession submitAnswers(List<String> answers, int expectedCount) {
+    if (state != SessionState.AWAITING_INPUT) {
+      throw new IllegalStateException("Cannot submit answers in state: " + state);
+    }
+    Objects.requireNonNull(answers);
+    if (expectedCount < 0) {
+      throw new IllegalArgumentException(
+          "expectedCount must be >= 0 for prompt at index "
+              + currentIndex()
+              + ", got "
+              + expectedCount);
+    }
+    if (answers.size() != expectedCount) {
+      throw new IllegalArgumentException(
           "Answer count mismatch for prompt at index "
               + currentIndex()
               + ": expected "
-              + expected
-              + " ("
-              + (current.isCompound() ? "compound" : "single")
-              + "), got "
+              + expectedCount
+              + ", got "
               + answers.size());
     }
 
+    var current = remaining.get(0);
     var newAnswers = new ArrayList<>(this.answers);
     var processed = new ArrayList<String>(answers.size());
     for (var raw : answers) {
@@ -215,12 +285,14 @@ public final class PromptSession {
       processed.add(current.sanitize() ? sanitize(raw) : raw);
     }
     newAnswers.addAll(processed);
+    var newCounts = new ArrayList<>(submittedAnswerCounts);
+    newCounts.add(expectedCount);
     var newRemaining = new ArrayList<>(remaining);
     newRemaining.remove(0);
 
     var newState = newRemaining.isEmpty() ? SessionState.COMPLETED : SessionState.AWAITING_INPUT;
     LOG.fine(
-        "Compound answers submitted for "
+        "Batch answers submitted for "
             + userId
             + ": state="
             + newState
@@ -234,6 +306,7 @@ public final class PromptSession {
         userId,
         parsedCommand,
         Collections.unmodifiableList(newAnswers),
+        Collections.unmodifiableList(newCounts),
         Collections.unmodifiableList(newRemaining),
         pcmQueue,
         newState,
@@ -254,7 +327,14 @@ public final class PromptSession {
     }
     LOG.fine("Session cancelled for " + userId + ": reason=" + reason);
     return new PromptSession(
-        userId, parsedCommand, answers, remaining, pcmQueue, SessionState.CANCELLED, reason);
+        userId,
+        parsedCommand,
+        answers,
+        submittedAnswerCounts,
+        remaining,
+        pcmQueue,
+        SessionState.CANCELLED,
+        reason);
   }
 
   /**
@@ -268,7 +348,8 @@ public final class PromptSession {
       throw new IllegalStateException("Cannot finish session with unanswered prompts");
     }
 
-    var command = ParsedCommand.buildPartialCommand(parsedCommand, answers).trim();
+    var command =
+        ParsedCommand.buildPartialCommand(parsedCommand, answers, submittedAnswerCounts).trim();
 
     List<PostCommandMeta> onComplete;
     List<PostCommandMeta> onCancel;
@@ -361,6 +442,7 @@ public final class PromptSession {
     return Objects.equals(userId, that.userId)
         && Objects.equals(parsedCommand, that.parsedCommand)
         && Objects.equals(answers, that.answers)
+        && Objects.equals(submittedAnswerCounts, that.submittedAnswerCounts)
         && Objects.equals(remaining, that.remaining)
         && Objects.equals(pcmQueue, that.pcmQueue)
         && state == that.state
@@ -369,7 +451,15 @@ public final class PromptSession {
 
   @Override
   public int hashCode() {
-    return Objects.hash(userId, parsedCommand, answers, remaining, pcmQueue, state, cancelReason);
+    return Objects.hash(
+        userId,
+        parsedCommand,
+        answers,
+        submittedAnswerCounts,
+        remaining,
+        pcmQueue,
+        state,
+        cancelReason);
   }
 
   @Override
@@ -384,6 +474,8 @@ public final class PromptSession {
         + currentPrompt().map(PromptTag::key).orElse("none")
         + ", answers="
         + answers
+        + ", counts="
+        + submittedAnswerCounts
         + ", remaining="
         + remainingCount()
         + '}';

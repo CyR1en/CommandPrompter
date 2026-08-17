@@ -2,14 +2,15 @@ package dev.cyr1en.promptpaper.screen;
 
 import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptcore.CancelReason;
-import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
-import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
 import dev.cyr1en.promptui.ComponentUtil;
+import dev.cyr1en.promptui.DialogScreen;
+import dev.cyr1en.promptpaper.preset.ActionsSource;
+import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
 import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
 import dev.cyr1en.promptpaper.screen.dialog.DialogInputKind;
@@ -167,7 +168,7 @@ public class ScreenManager {
             plugin.getPluginLogger().warn("Player " + player.getName()
                     + " initiated a prompt containing a non-compound tag with a layout filter: "
                     + tag.rawTag());
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.invalid_title_filter", player));
             cancelAll(player);
             return;
         }
@@ -175,28 +176,18 @@ public class ScreenManager {
     }
 
     /**
-     * Resolves placeholders, builds the completion context, creates the
-     * screen via the router, and opens it for the player.
+     * Builds the completion context, creates the screen via the factory (the single
+     * presentation-materialization boundary), and opens it for the player.
      */
     private void showPrompt(Player player, PromptTag tag) {
         InputScreen screen = null;
         var uuid = player.getUniqueId();
         try {
-            var displayText = resolvePlaceholders(player, tag.displayText());
-            var resolvedTag =
-                new PromptTag(
-                    tag.rawTag(),
-                    tag.key(),
-                    tag.filter(),
-                    displayText,
-                    tag.sanitize(),
-                    tag.validatorAlias(),
-                    tag.type(),
-                    tag.subTags(),
-                    tag.preset(),
-                    tag.title());
-            var context = buildCompletionContext(player, resolvedTag);
-            screen = factory.createFromTag(player, resolvedTag, context);
+            // The tag is passed through raw: PromptFactory is now the single
+            // presentation-materialization boundary and expands the prompt exactly
+            // once before the screen is constructed (registry/session models stay raw).
+            var context = buildCompletionContext(player, tag);
+            screen = factory.createFromTag(player, tag, context);
             plugin.getPluginLogger().debug("Showing prompt for " + player.getName()
                     + " key=" + tag.key() + " screen=" + screen.getClass().getSimpleName());
             activeScreens.put(uuid, screen);
@@ -221,26 +212,36 @@ public class ScreenManager {
     }
 
     /**
-     * Builds a {@link DialogCompletionContext} for TAB prompts by
+     * Builds a {@link DialogCompletionContext} for TAB prompts (both inline {@code d:tab}
+     * and preset dialogs with {@code actions_source: "tab_completion"}) by
      * reconstructing the partial command from the session's parsed
      * command and current answers. Returns null for non-TAB prompts.
      */
     private DialogCompletionContext buildCompletionContext(Player player, PromptTag tag) {
+        if (tag.isPreset()) {
+            var registry = plugin.getPresetRegistry();
+            if (registry != null) {
+                var optDef = registry.getPrompt(tag.displayText());
+                if (optDef.isPresent() && optDef.get() instanceof DialogPrompt dialogPrompt) {
+                    var dt = dialogPrompt.dialogType();
+                    if (dt != null && dt.actionsSource() == ActionsSource.TAB_COMPLETION) {
+                        var session = engine.getSession(player).orElse(null);
+                        if (session == null) return null;
+                        var partial = session.buildPartialCommand();
+                        return new DialogCompletionContext(player, partial);
+                    }
+                }
+            }
+            return null;
+        }
         if (!"d".equals(tag.key())) return null;
         if (DialogInputKind.parse(tag.filter()) != DialogInputKind.TAB) {
             return null;
         }
         var session = engine.getSession(player).orElse(null);
         if (session == null) return null;
-        var partial = ParsedCommand.buildPartialCommand(
-                session.parsedCommand(), session.answers());
+        var partial = session.buildPartialCommand();
         return new DialogCompletionContext(player, partial);
-    }
-
-    private String resolvePlaceholders(Player player, String text) {
-        return plugin.getHookContainer().getHook(PapiHook.class)
-                .map(h -> h.setPlaceholder(player, text))
-                .orElse(text);
     }
 
     /**
@@ -259,6 +260,11 @@ public class ScreenManager {
     /**
      * Processes a screen result: validates the answer, handles compound
      * payloads, and either advances the session or dispatches the command.
+     *
+     * <p>Dialog screens (inline compound, inline single, or JSON preset) are
+     * detected and unwrapped before they are removed from the active-screens
+     * map and their result is routed through one arity-aware batch handler,
+     * regardless of whether the parsed tag is compound.
      */
     private void handleResult(Player player, ScreenResult result) {
         plugin.getPluginLogger().debug("Screen result for " + player.getName()
@@ -272,7 +278,8 @@ public class ScreenManager {
         }
 
         cancelTimeout(player);
-        activeScreens.remove(player.getUniqueId());
+        var screen = activeScreens.remove(player.getUniqueId());
+        var dialogScreen = unwrapDialogScreen(screen);
 
         var sessionOpt = engine.getSession(player);
         if (sessionOpt.isEmpty()) {
@@ -286,8 +293,21 @@ public class ScreenManager {
         var cancelKeyword = plugin.getConfigLoader().getConfig().cancelKeyword();
         boolean isCancelKeyword = false;
         if (result.answer() != null && cancelKeyword != null && !cancelKeyword.isBlank()) {
-            if (tag.isCompound()) {
-                var decoded = AnswerEncoding.decode(result.answer(), tag.subTags().size());
+            if (dialogScreen != null) {
+                // Dialog payloads are decoded with the screen's effective arity
+                // (which may be 0, 1, or N and is not the tag's compound shape).
+                var decoded = decodeAnswers(result.answer(), dialogScreen.effectiveAnswerCount());
+                if (decoded != null) {
+                    for (var ans : decoded) {
+                        if (ComponentUtil.stripColor(ans).trim().equalsIgnoreCase(cancelKeyword)) {
+                            isCancelKeyword = true;
+                            break;
+                        }
+                    }
+                }
+            } else if (tag.isCompound()) {
+                var answerTags = answerBearingTags(tag);
+                var decoded = decodeAnswers(result.answer(), answerTags.size());
                 if (decoded != null) {
                     for (var ans : decoded) {
                         if (ComponentUtil.stripColor(ans).trim().equalsIgnoreCase(cancelKeyword)) {
@@ -305,6 +325,11 @@ public class ScreenManager {
 
         if (isCancelKeyword) {
             teardown(player, CancelReason.MANUAL, false, true);
+            return;
+        }
+
+        if (dialogScreen != null) {
+            handleDialogResult(player, tag, result, dialogScreen);
             return;
         }
 
@@ -336,11 +361,72 @@ public class ScreenManager {
     }
 
     /**
+     * Unwraps a {@link TitleWrapperScreen} (if any) and returns the underlying
+     * screen when it is a {@link DialogScreen}; otherwise {@code null}. Works
+     * through the loadable UI-API marker so the Paper-bound dialog screen class
+     * is never referenced here.
+     */
+    private static DialogScreen unwrapDialogScreen(InputScreen screen) {
+        if (screen instanceof TitleWrapperScreen wrapper) {
+            screen = wrapper.delegate();
+        }
+        return screen instanceof DialogScreen dialog ? dialog : null;
+    }
+
+    /**
+     * Routes a {@link DialogScreen} result through the arity-aware batch path.
+     * The payload is decoded with the screen's effective answer count (cached
+     * at open time — never recomputed from tab completion here), each answer is
+     * validated against its corresponding answer-bearing tag, and the batch is
+     * submitted with that expected count.
+     */
+    private void handleDialogResult(
+            Player player, PromptTag tag, ScreenResult result, DialogScreen dialogScreen) {
+        int expected = dialogScreen.effectiveAnswerCount();
+        var answers = decodeAnswers(result.answer(), expected);
+        if (answers == null) {
+            // Defensive fallback: re-show prompt if the dialog payload is malformed.
+            plugin.getPluginLogger().warn("Malformed dialog payload from dialog for "
+                    + player.getName() + ": " + result.answer());
+            showPrompt(player, tag);
+            return;
+        }
+        var answerTags = answerBearingTags(tag);
+        for (var i = 0; i < answers.size(); i++) {
+            var subTag = i < answerTags.size() ? answerTags.get(i) : tag;
+            if (!validateSubAnswer(player, answers.get(i), subTag, tag)) {
+                plugin.getPluginLogger().debug("Validation failed for answer " + i
+                        + " of dialog prompt for " + player.getName());
+                showPrompt(player, tag);
+                return;
+            }
+        }
+        var submitted = engine.submitAnswers(player, answers, expected);
+        if (submitted.isPresent()) {
+            var sessionResult = submitted.get();
+            plugin.getPluginLogger().debug("Session complete, dispatching: "
+                    + sessionResult.assembledCommand());
+            var dispatchContext = dispatchAssembledCommand(
+                    player, sessionResult.assembledCommand());
+            sendCompletedCommand(player, sessionResult.assembledCommand());
+            engine.dispatchPCMs(player, sessionResult, false, dispatchContext);
+        } else {
+            plugin.getPluginLogger().debug("Dialog answers accepted, showing next prompt");
+            showNextPrompt(player);
+        }
+    }
+
+    /**
      * Decodes a compound RS/US payload into sub-answers, validates each
-     * against the block-level constraints, and submits all at once.
+     * against the block-level constraints, and submits all at once. Used only
+     * as a defensive fallback for compound tags that did not produce a
+     * {@link DialogPromptScreen}; dialog screens route through
+     * {@link #handleDialogResult}. TITLE/BODY layout rows never validate or
+     * submit — only answer-bearing sub-tags occupy answer positions.
      */
     private void handleCompoundResult(Player player, PromptTag tag, String rawPayload) {
-        var answers = decodeAnswers(rawPayload, tag.subTags().size());
+        var answerTags = answerBearingTags(tag);
+        var answers = decodeAnswers(rawPayload, answerTags.size());
         if (answers == null) {
             // Defensive fallback: re-show prompt if compound payload is malformed.
             plugin.getPluginLogger().warn("Malformed compound payload from dialog for "
@@ -349,7 +435,7 @@ public class ScreenManager {
             return;
         }
         for (var i = 0; i < answers.size(); i++) {
-            var subTag = tag.subTags().get(i);
+            var subTag = answerTags.get(i);
             if (!validateSubAnswer(player, answers.get(i), subTag, tag)) {
                 plugin.getPluginLogger().debug("Validation failed for sub-answer " + i
                         + " of compound prompt for " + player.getName());
@@ -357,7 +443,7 @@ public class ScreenManager {
                 return;
             }
         }
-        var submitted = engine.submitAnswers(player, answers);
+        var submitted = engine.submitAnswers(player, answers, answerTags.size());
         if (submitted.isPresent()) {
             var sessionResult = submitted.get();
             plugin.getPluginLogger().debug("Session complete, dispatching: "
@@ -373,6 +459,23 @@ public class ScreenManager {
     }
 
     /**
+     * Returns the tags whose answers are actually submitted for a prompt.
+     *
+     * <p>For compound tags this is the sub-tag list filtered to answer-bearing
+     * kinds (everything except {@link DialogInputKind#TITLE} and
+     * {@link DialogInputKind#BODY} — layout rows never validate or enter
+     * answer history). Non-compound tags (including JSON preset references)
+     * yield the tag itself, so validation falls back to the block-level
+     * constraints exactly as before.
+     */
+    static List<PromptTag> answerBearingTags(PromptTag tag) {
+        if (!tag.isCompound()) return List.of(tag);
+        return tag.subTags().stream()
+                .filter(sub -> DialogInputKind.parse(sub.filter()).isAnswerBearing())
+                .toList();
+    }
+
+    /**
      * Validates one sub-answer against the block-level type constraint
      * and custom validator. Sub-tag-level constraints are ignored.
      */
@@ -385,7 +488,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(i18n.get("validation.invalid_integer"));
+                    player.sendMessage(i18n.get("validation.invalid_integer", player));
                     return false;
                 }
             }
@@ -393,7 +496,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(i18n.get("validation.invalid_string"));
+                    player.sendMessage(i18n.get("validation.invalid_string", player));
                     return false;
                 }
             }
@@ -435,7 +538,7 @@ public class ScreenManager {
                 } catch (NumberFormatException e) {
                     plugin.getPluginLogger().debug("Integer validation failed for "
                             + player.getName() + ": " + answer);
-                    player.sendMessage(i18n.get("validation.invalid_integer"));
+                    player.sendMessage(i18n.get("validation.invalid_integer", player));
                     return false;
                 }
             }
@@ -443,7 +546,7 @@ public class ScreenManager {
                 if (answer.isBlank()) {
                     plugin.getPluginLogger().debug("String validation failed (blank) for "
                             + player.getName());
-                    player.sendMessage(i18n.get("validation.invalid_string"));
+                    player.sendMessage(i18n.get("validation.invalid_string", player));
                     return false;
                 }
             }
@@ -580,6 +683,7 @@ public class ScreenManager {
                     plugin.getPluginLogger().debug("Dispatching with attachment: player="
                             + player.getName() + " perms=" + permissions.length);
                     if (!Bukkit.dispatchCommand(player, toExecute)) {
+                        failed = true;
                         sendCommandFailure(player, toExecute, "dispatch returned false");
                     }
                 } catch (Exception e) {
@@ -688,7 +792,7 @@ public class ScreenManager {
             var dispatchContext = takeDispatchContext(uuid);
             engine.cancel(player, reason, dispatchContext);
             if (notifyCancelled && plugin.getConfigLoader().getConfig().showCancelled()) {
-                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled"));
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.cancelled", player));
             }
         } finally {
             teardownInProgress.remove(uuid);
@@ -759,7 +863,7 @@ public class ScreenManager {
                             plugin.getPluginLogger().debug("Timeout triggered for " + player.getName());
                             teardown(player, CancelReason.MANUAL, true, false);
                             if (plugin.getConfigLoader().getConfig().showCancelled()) {
-                                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out"));
+                                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.timed_out", player));
                             }
                         }
                     },

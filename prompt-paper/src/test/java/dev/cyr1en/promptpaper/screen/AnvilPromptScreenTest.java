@@ -97,6 +97,20 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     }
 
     @Test
+    void handleResultWithoutSanitizePreservesColorCodes() {
+        var player = createPlayer();
+        var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), false), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("§cHello"));
+        assertNotNull(resultRef.get());
+        assertEquals("§cHello", resultRef.get().answer());
+        assertFalse(resultRef.get().cancelled());
+    }
+
+    @Test
     void handleResultWithCancelFiresCallback() {
         var player = createPlayer();
         var screen = new AnvilPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.AnvilPrompt("anvil", "inline-test", "Anvil", "Enter:", new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true), emptyProviders);
@@ -132,5 +146,81 @@ class AnvilPromptScreenTest extends MockBukkitTest {
 
         screen.handleResult(ScreenResult.answer("value"));
         assertNull(resultRef.get());
+    }
+
+    @Test
+    void buildConfigPresetWithPromptTextMapsAllFields() {
+        var player = createPlayer();
+        var leftBtn = new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Left Name", "DIAMOND", "Left Lore", 123);
+        var rightBtn = new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Cancel Name", "BARRIER", "Cancel Lore", 456);
+        var preset = new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+                "anvil", "custom-anvil", "Custom Title", "Prefilled Text", leftBtn, rightBtn, true);
+
+        var screen = new AnvilPromptScreen(plugin, player, preset, emptyProviders);
+        var configMap = screen.buildConfig(promptConfig);
+
+        assertEquals("true", configMap.get("enableTitle"));
+        assertEquals("Custom Title", configMap.get("customTitle"));
+        assertEquals("true", configMap.get("enableFirstItem"));
+        assertEquals("Prefilled Text", configMap.get("promptMessage"));
+        assertEquals("Left Lore", configMap.get("itemHoverText"));
+        assertEquals("DIAMOND", configMap.get("anvilItem"));
+        assertEquals("123", configMap.get("itemCustomModelData"));
+        assertEquals("true", configMap.get("enableCancelItem"));
+        assertEquals("BARRIER", configMap.get("anvilCancelItem"));
+        assertEquals("456", configMap.get("cancelItemCustomModelData"));
+        assertEquals("Cancel Name", configMap.get("cancelItemMessage"));
+        assertEquals("Cancel Lore", configMap.get("cancelItemHoverText"));
+    }
+
+    @Test
+    void buildConfigPresetWithEmptyPromptTextFallsBackToLeftButtonText() {
+        var player = createPlayer();
+        var leftBtn = new dev.cyr1en.promptpaper.preset.AnvilButton(false, "Left Name", "PAPER", "", 0);
+        var rightBtn = new dev.cyr1en.promptpaper.preset.AnvilButton(false, "Cancel Name", "BARRIER", "", 0);
+        var preset = new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+                "anvil", "custom-anvil", "Custom Title", "", leftBtn, rightBtn, true);
+
+        var screen = new AnvilPromptScreen(plugin, player, preset, emptyProviders);
+        var configMap = screen.buildConfig(promptConfig);
+
+        assertEquals("false", configMap.get("enableFirstItem"));
+        assertEquals("Left Name", configMap.get("promptMessage"));
+        assertEquals("false", configMap.get("enableCancelItem"));
+    }
+
+    @Test
+    void buildConfigInlineUsesPromptConfigDefaults() {
+        var player = createPlayer();
+        when(promptConfig.enableTitle()).thenReturn(false);
+        when(promptConfig.customTitle()).thenReturn("Config Title");
+        when(promptConfig.promptMessage()).thenReturn("Config Prompt");
+        when(promptConfig.enableCancelItem()).thenReturn(true);
+        when(promptConfig.anvilItem()).thenReturn("GOLD_INGOT");
+        when(promptConfig.itemCustomModelData()).thenReturn(10);
+        when(promptConfig.anvilCancelItem()).thenReturn("REDSTONE");
+        when(promptConfig.cancelItemCustomModelData()).thenReturn(20);
+        when(promptConfig.cancelItemHoverText()).thenReturn("Config Cancel Hover");
+
+        var inlinePreset = new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+                "anvil", "inline-123", "Inline Title", "Enter:",
+                new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0),
+                new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0), true);
+
+        var screen = new AnvilPromptScreen(plugin, player, inlinePreset, emptyProviders);
+        var configMap = screen.buildConfig(promptConfig);
+
+        assertEquals("false", configMap.get("enableTitle"));
+        assertEquals("Config Title", configMap.get("customTitle"));
+        assertEquals("true", configMap.get("enableFirstItem"));
+        assertEquals("Config Prompt", configMap.get("promptMessage"));
+        assertEquals("", configMap.get("itemHoverText"));
+        assertEquals("GOLD_INGOT", configMap.get("anvilItem"));
+        assertEquals("10", configMap.get("itemCustomModelData"));
+        assertEquals("true", configMap.get("enableCancelItem"));
+        assertEquals("REDSTONE", configMap.get("anvilCancelItem"));
+        assertEquals("20", configMap.get("cancelItemCustomModelData"));
+        assertEquals("", configMap.get("cancelItemMessage"));
+        assertEquals("Config Cancel Hover", configMap.get("cancelItemHoverText"));
     }
 }

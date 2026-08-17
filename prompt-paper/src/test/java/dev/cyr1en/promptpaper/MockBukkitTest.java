@@ -47,6 +47,8 @@ public class MockBukkitTest {
         when(plugin.getLogger()).thenReturn(Logger.getLogger("CommandPrompterPaper"));
         when(plugin.getComponentLogger()).thenReturn(ComponentLogger.logger("CommandPrompterPaper"));
         when(plugin.isEnabled()).thenReturn(true);
+        when(plugin.getPluginLoader()).thenReturn(
+                new org.mockbukkit.mockbukkit.plugin.MockBukkitPluginLoader());
 
         config = mock(CommandPrompterConfig.class);
         when(config.fancyLogger()).thenReturn(false);
@@ -100,7 +102,7 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(i18n.get(eq("command.version"), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
         when(i18n.get(eq("dialog.too_many_options"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
 
@@ -112,13 +114,48 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Unknown permission key."));
         when(i18n.get(eq("command.version"), any(Player.class), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
         when(i18n.get(eq("command.version"), isNull(), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.1.1-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
         when(i18n.get(eq("dialog.no_options"), any(Player.class)))
                 .thenReturn(Component.text("No options available, enter argument manually."));
         when(i18n.get(eq("dialog.too_many_options"), any(Player.class), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
+
+        // Key-specific stubs with player context (context-aware overloads used by
+        // call sites that send a message directly to a Player)
+        when(i18n.get(eq("prompt.error.session_active"), any(Player.class)))
+                .thenReturn(Component.text("You already have an active prompt."));
+        when(i18n.get(eq("command.error.missing_preset"), any(Player.class)))
+                .thenReturn(Component.text("Unknown preset."));
+        when(i18n.get(eq("command.error.missing_validator"), any(Player.class)))
+                .thenReturn(Component.text("Unknown validator."));
+        when(i18n.get(eq("prompt.cancelled"), any(Player.class)))
+                .thenReturn(Component.text("Prompt cancelled."));
+        when(i18n.get(eq("prompt.timed_out"), any(Player.class)))
+                .thenReturn(Component.text("Prompt timed out."));
+        when(i18n.get(eq("validation.invalid_integer"), any(Player.class)))
+                .thenReturn(Component.text("Please enter a valid integer."));
+        when(i18n.get(eq("validation.invalid_string"), any(Player.class)))
+                .thenReturn(Component.text("Input cannot be empty."));
+        when(i18n.get(eq("prompt.error.invalid_title_filter"), any(Player.class)))
+                .thenReturn(Component.text(
+                        "Invalid prompt configuration: TITLE filter cannot be used on a non-compound tag."));
+        when(i18n.get(eq("command.cancel.no_active_prompt"), any(Player.class)))
+                .thenReturn(Component.text("You have no active prompt."));
+        when(i18n.get(eq("command.reload.success"), any(Player.class)))
+                .thenReturn(Component.text("Configuration reloaded."));
+        when(i18n.get(eq("player_ui.search_instruction"), any(Player.class)))
+                .thenReturn(Component.text("Type your search term in chat."));
+        when(i18n.get(eq("command.reload.failed"), any(Player.class), any(Placeholder[].class)))
+                .thenReturn(Component.text("Failed to reload."));
+
+        // Null-context full-signature overloads: console/block senders keep
+        // context-free formatting (no PAPI context).
+        when(i18n.get(eq("command.reload.success"), isNull(), any(Placeholder[].class)))
+                .thenReturn(Component.text("Configuration reloaded."));
+        when(i18n.get(eq("command.reload.failed"), isNull(), any(Placeholder[].class)))
+                .thenReturn(Component.text("Failed to reload."));
 
         when(configLoader.getI18n()).thenReturn(i18n);
 

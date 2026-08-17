@@ -16,6 +16,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -165,23 +166,30 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
      */
     private void setupItems() {
         // First item (the rename input item)
-        ItemStack firstItem = buildConfiguredItem(
-            config.getOrDefault("anvilItem", "Paper"),
-            config.getOrDefault("itemHideTooltips", "false"),
-            config.getOrDefault("itemCustomModelData", "0"),
-            config.getOrDefault("itemAnvilEnchanted", "false"));
+        boolean enableFirstItem = Boolean.parseBoolean(config.getOrDefault("enableFirstItem", "true"));
+        if (enableFirstItem) {
+            ItemStack firstItem = buildConfiguredItem(
+                config.getOrDefault("anvilItem", "Paper"),
+                config.getOrDefault("itemHideTooltips", "false"),
+                config.getOrDefault("itemCustomModelData", "0"),
+                config.getOrDefault("itemAnvilEnchanted", "false"));
 
-        String promptMsg = config.getOrDefault("promptMessage", "");
-        if (!promptMsg.isEmpty()) {
             var meta = firstItem.getItemMeta();
             if (meta != null) {
-                meta.displayName(ComponentUtil.mini("<!italic>" + promptMsg));
+                String promptMsg = config.getOrDefault("promptMessage", "");
+                if (!promptMsg.isEmpty()) {
+                    meta.displayName(ComponentUtil.mini("<!italic>" + promptMsg));
+                }
+                String hoverText = config.getOrDefault("itemHoverText", "");
+                if (!hoverText.isEmpty()) {
+                    meta.lore(List.of(ComponentUtil.mini("<!italic>" + hoverText)));
+                }
                 firstItem.setItemMeta(meta);
             }
-        }
 
-        GuiItem firstGuiItem = new GuiItem(firstItem, null); // input is handled by anvil typing
-        anvilGui.getFirstItemComponent().addItem(firstGuiItem, 0, 0);
+            GuiItem firstGuiItem = new GuiItem(firstItem, null); // input is handled by anvil typing
+            anvilGui.getFirstItemComponent().addItem(firstGuiItem, 0, 0);
+        }
 
         // Result item (triggers submission). Click is routed by AnvilGui
         // through setOnResultClick below — NMS overwrites the result ItemStack
@@ -205,13 +213,17 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
                 config.getOrDefault("cancelItemCustomModelData", "0"),
                 config.getOrDefault("cancelItemAnvilEnchanted", "false"));
 
-            String hoverText = config.getOrDefault("cancelItemHoverText", "");
-            if (!hoverText.isEmpty()) {
-                var meta = cancelItem.getItemMeta();
-                if (meta != null) {
-                    meta.lore(java.util.List.of(ComponentUtil.mini("<!italic>" + hoverText)));
-                    cancelItem.setItemMeta(meta);
+            var meta = cancelItem.getItemMeta();
+            if (meta != null) {
+                String cancelMsg = config.getOrDefault("cancelItemMessage", "");
+                if (!cancelMsg.isEmpty()) {
+                    meta.displayName(ComponentUtil.mini("<!italic>" + cancelMsg));
                 }
+                String hoverText = config.getOrDefault("cancelItemHoverText", "");
+                if (!hoverText.isEmpty()) {
+                    meta.lore(List.of(ComponentUtil.mini("<!italic>" + hoverText)));
+                }
+                cancelItem.setItemMeta(meta);
             }
 
             GuiItem cancelGuiItem = new GuiItem(cancelItem, event -> {

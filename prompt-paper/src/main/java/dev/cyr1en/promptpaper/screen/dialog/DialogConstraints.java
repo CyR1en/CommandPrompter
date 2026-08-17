@@ -58,10 +58,23 @@ public record DialogConstraints(
             var widthPart = parts[1].trim();
             try {
                 if (widthPart.startsWith("width=")) {
-                    width = clampInt(Integer.parseInt(widthPart.substring(6)), 1, 1024);
+                    width = clampInt(Integer.parseInt(widthPart.substring(6).trim()), 1, 1024);
                 } else {
                     width = clampInt(Integer.parseInt(widthPart), 1, 1024);
                 }
+            } catch (NumberFormatException ignored) {}
+        } else if (bracket.startsWith("width=")) {
+            type = "";
+            try {
+                width = clampInt(Integer.parseInt(bracket.substring(6).trim()), 1, 1024);
+            } catch (NumberFormatException ignored) {}
+        } else if (!bracket.equalsIgnoreCase("item")
+                && !bracket.equalsIgnoreCase("plain")
+                && !bracket.equalsIgnoreCase("text")
+                && !bracket.isBlank()) {
+            try {
+                width = clampInt(Integer.parseInt(bracket.trim()), 1, 1024);
+                type = "";
             } catch (NumberFormatException ignored) {}
         }
 

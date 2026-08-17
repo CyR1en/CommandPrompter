@@ -1,7 +1,8 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.ExecutionPolicy;
 import dev.cyr1en.promptpaper.preset.PostCommand;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
+import java.util.List;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,6 +90,33 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     assertTrue(result.get().postCmds().get(0).isPreset());
   }
 
+  @Test
+  void presetSanitizeFlagFromDefinitionReachesSessionTag() {
+    // #77: the parser defaults preset tags to sanitize=true, but the preset definition is
+    // authoritative. sanitize=false keeps §cHello intact on the screen path; sanitize=true
+    // strips it. Each player can only hold one session, so both sides need their own player.
+    when(registry.getPrompt("no_san")).thenReturn(Optional.of(
+            new ChatPrompt("chat", "no_san", "Why?", new CancelBehavior(false, "", false, ""), false)));
+    when(registry.getPrompt("san")).thenReturn(Optional.of(
+            new ChatPrompt("chat", "san", "Why?", new CancelBehavior(false, "", false, ""), true)));
+
+    var noSanPlayer = createPlayer("NoSan");
+    var noSanResult = engine.intercept(noSanPlayer, "/cmd <@no_san>");
+    assertTrue(noSanResult.isPresent());
+    var noSanTag = engine.getSession(noSanPlayer).orElseThrow().currentPrompt().orElseThrow();
+    assertFalse(noSanTag.sanitize(), "sanitize=false preset must preserve §cHello");
+    assertEquals("no_san", noSanTag.displayText());
+    assertEquals(List.of("§cHello"), engine.submit(noSanPlayer, "§cHello").orElseThrow().answers());
+
+    var sanPlayer = createPlayer("San");
+    var sanResult = engine.intercept(sanPlayer, "/cmd <@san>");
+    assertTrue(sanResult.isPresent());
+    var sanTag = engine.getSession(sanPlayer).orElseThrow().currentPrompt().orElseThrow();
+    assertTrue(sanTag.sanitize(), "sanitize=true preset must strip §cHello");
+    assertEquals("san", sanTag.displayText());
+    assertEquals(List.of("Hello"), engine.submit(sanPlayer, "§cHello").orElseThrow().answers());
+  }
+
   // --- fail-fast paths ---
 
   @Test
@@ -128,15 +157,17 @@ class PromptEngineFailFastTest extends MockBukkitTest {
   @Test
   void missingPresetsAreReportedToPlayer() {
     when(registry.getPrompt("nope")).thenReturn(Optional.empty());
-    var i18n = plugin.getConfigLoader().getI18n();
-    when(i18n.get(anyString())).thenReturn(Component.text("missing preset error"));
-
     var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(i18n.get(eq("command.error.missing_preset"), same(player)))
+        .thenReturn(Component.text("missing preset error"));
+
     engine.intercept(player, "/cmd <@nope>");
 
-    // The engine must send a localized message; the exact key is
-    // command.error.missing_preset, but the value is what reaches the player.
-    verify(i18n, times(1)).get("command.error.missing_preset");
+    // The engine must send a localized message with the player as the i18n
+    // context; the exact key is command.error.missing_preset, but the value is
+    // what reaches the player.
+    verify(i18n, times(1)).get(eq("command.error.missing_preset"), same(player));
   }
 
   @Test
@@ -146,14 +177,46 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     // sees a silent pass for a half-loaded config.
     when(plugin.getPresetRegistry()).thenReturn(null);
     engine = new PromptEngine(plugin, scheduler);
-    var i18n = plugin.getConfigLoader().getI18n();
-    when(i18n.get(anyString())).thenReturn(Component.text("missing preset error"));
-
     var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(i18n.get(eq("command.error.missing_preset"), same(player)))
+        .thenReturn(Component.text("missing preset error"));
+
     var result = engine.intercept(player, "/cmd <@any_id>");
 
     assertTrue(result.isEmpty());
-    verify(i18n, times(1)).get("command.error.missing_preset");
+    verify(i18n, times(1)).get(eq("command.error.missing_preset"), same(player));
+  }
+
+  @Test
+  void commandWithKnownValidatorStartsSession() {
+    when(promptConfig.hasValidator("req")).thenReturn(true);
+    var result = engine.intercept(createPlayer(), "/cmd <a:why -iv:req>");
+    assertTrue(result.isPresent());
+  }
+
+  @Test
+  void commandWithUnknownValidatorFailsFast() {
+    var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(promptConfig.hasValidator("unknown_val")).thenReturn(false);
+
+    var result = engine.intercept(player, "/cmd <a:why -iv:unknown_val>");
+
+    assertTrue(result.isEmpty());
+    verify(i18n, times(1)).get(eq("command.error.missing_validator"), same(player));
+  }
+
+  @Test
+  void compoundCommandWithUnknownValidatorFailsFast() {
+    var player = createPlayer();
+    var i18n = plugin.getConfigLoader().getI18n();
+    when(promptConfig.hasValidator("bad_val")).thenReturn(false);
+
+    var result = engine.intercept(player, "/cmd <d:choice[a,b]:One && d:text:Two -iv:bad_val>");
+
+    assertTrue(result.isEmpty());
+    verify(i18n, times(1)).get(eq("command.error.missing_validator"), same(player));
   }
 
   // --- commandHasTagForm helper ---

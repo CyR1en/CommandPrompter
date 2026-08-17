@@ -21,6 +21,12 @@ public final class DialogInputBuilder {
      */
     public static final String DEFAULT_INPUT_KEY = "answer";
 
+    /**
+     * Reserved input key used for tab-completion fallback text inputs to avoid
+     * colliding with row keys (such as {@code "answer"} for row 0).
+     */
+    public static final String FALLBACK_INPUT_KEY = "tab_fallback_answer";
+
     private DialogInputBuilder() {}
 
     /** Build a text input. */

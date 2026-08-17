@@ -10,11 +10,13 @@ If you encounter any issues or would like to request a new feature, please open 
 
 We encourage you to contribute to CommandPrompter by submitting pull requests for any bug fixes, improvements, or new features. Here's a simple guide to help you get started:
 
-1. Fork the repository and create your branch from `main`.
+1. Fork the repository and create your branch from `development`.
 2. If you've added code that should be tested, please add tests.
 3. Ensure your code adheres to the coding conventions used in the project.
 4. Ensure that your commits are properly documented.
 5. Make sure to update the README with any changes if necessary.
+
+Open normal bug-fix, feature, and maintenance pull requests against `development`. The `release` branch is reserved for release promotion pull requests from `development`.
 
 ## Coding Standards
 

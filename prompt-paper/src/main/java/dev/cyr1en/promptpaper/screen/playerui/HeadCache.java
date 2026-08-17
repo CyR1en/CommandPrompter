@@ -6,12 +6,15 @@ import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import dev.cyr1en.promptui.ComponentUtil;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.Bukkit;
@@ -24,21 +27,38 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+
 /**
- * Maintains a cache of player-head {@link ItemStack}s used by
+ * Maintains a bounded LRU cache of player-head {@link ItemStack}s used by
  * {@link PlayerUIScreen} for tab-completion buttons.
+ *
+ * <p>The cache is a memoization layer only, never the display source: the
+ * player list shown by {@link PlayerUIScreen} is derived fresh from Bukkit,
+ * so the cache bound ({@code PlayerUI.Cache-Size}, {@code <= 0} meaning
+ * unbounded) only limits how many heads are kept in memory (2.x parity).
+ * The most-recently-used entries survive eviction, and an evicted entry is
+ * simply recomputed on the next access.</p>
  */
 public class HeadCache implements Listener {
 
     private final CommandPrompter plugin;
     private final Scheduler scheduler;
+    private final int maxCacheSize;
     private final Map<UUID, Optional<ItemStack>> cache;
     private final List<CacheFilter> filters;
 
     public HeadCache(CommandPrompter plugin, Scheduler scheduler) {
         this.plugin = plugin;
         this.scheduler = scheduler;
-        this.cache = new ConcurrentHashMap<>();
+        this.maxCacheSize = plugin.getConfigLoader().getPromptConfig().cacheSize();
+        this.cache = Collections.synchronizedMap(
+                new LinkedHashMap<UUID, Optional<ItemStack>>(16, 0.75f, true) {
+                    @Override
+                    protected boolean removeEldestEntry(Map.Entry<UUID, Optional<ItemStack>> eldest) {
+                        int max = maxCacheSize;
+                        return max > 0 && size() > max;
+                    }
+                });
         this.filters = new ArrayList<>();
     }
 
@@ -61,18 +81,77 @@ public class HeadCache implements Listener {
 
     public List<CacheFilter> getFilters() { return List.copyOf(filters); }
 
-    public String makeFilteredPattern() {
-        var parts = filters.stream()
-                .map(f -> "(" + f.getRegexKey() + ")")
-                .toList();
-        return "p(?::(%s?)+)?".replace("%s", String.join("?", parts));
+    /**
+     * Parses a combined filter key (e.g. {@code r10s}) into the ordered list
+     * of {@link CacheFilter} instances it encodes.
+     *
+     * <p>The input is consumed deterministically from cursor 0. At each cursor
+     * position every registered filter is tried with its regex anchored at the
+     * cursor ({@code matcher.region(cursor, key.length())} +
+     * {@code matcher.lookingAt()}); the longest match wins, with ties going to
+     * the earliest registered filter — this prevents short keys (e.g. {@code w})
+     * from shadowing longer integration keys (e.g. {@code wgrm...;}). Each
+     * matched token is reconstructed via {@link CacheFilter#reConstruct(String)}
+     * on the exact matched substring so hooks can extract their parameters.</p>
+     *
+     * <p>If no filter matches at a cursor position, the entire unrecognized
+     * span is skipped (advancing until a position matches or the input ends),
+     * one debug line is logged with the skipped substring, and parsing
+     * continues. Returns {@link List#of()} for null/blank input and never
+     * returns null.</p>
+     */
+    public List<CacheFilter> extractFilters(String filterKey) {
+        if (filterKey == null || filterKey.isBlank()) return List.of();
+        var result = new ArrayList<CacheFilter>();
+        int cursor = 0;
+        while (cursor < filterKey.length()) {
+            var match = longestMatchAt(filterKey, cursor);
+            if (match == null) {
+                int skipStart = cursor;
+                do {
+                    cursor++;
+                } while (cursor < filterKey.length() && longestMatchAt(filterKey, cursor) == null);
+                plugin.getPluginLogger().debug("PlayerUI skipping unrecognized filter token: '"
+                        + filterKey.substring(skipStart, cursor) + "'");
+                continue;
+            }
+            var token = filterKey.substring(cursor, match.end());
+            result.add(match.filter().reConstruct(token));
+            cursor = match.end();
+        }
+        return result;
+    }
+
+    private record TokenMatch(CacheFilter filter, int end) {}
+
+    /**
+     * Returns the registered filter whose regex matches anchored at {@code pos}
+     * with the largest match end, or null if none match. Ties keep the earliest
+     * registered filter because iteration order is registration order and a
+     * candidate only replaces the best when it is strictly longer.
+     */
+    private TokenMatch longestMatchAt(String key, int pos) {
+        TokenMatch best = null;
+        for (CacheFilter filter : filters) {
+            var matcher = filter.getRegexKey().matcher(key);
+            matcher.region(pos, key.length());
+            if (matcher.lookingAt() && (best == null || matcher.end() > best.end())) {
+                best = new TokenMatch(filter, matcher.end());
+            }
+        }
+        return best;
     }
 
     /**
      * Returns a cached {@link Material#PLAYER_HEAD} for the given player,
      * creating and styling it on cache miss.
+     *
+     * <p>Vanished players always return {@link Optional#empty()} without
+     * caching, so no path (filtered or unfiltered) can reveal them and no
+     * stale empty entry survives after the player unvanishes.</p>
      */
     public Optional<ItemStack> getHeadFor(Player player) {
+        if (isVanished(player)) return Optional.empty();
         return cache.computeIfAbsent(player.getUniqueId(), uuid -> {
             if (!Bukkit.getOnlinePlayers().contains(player)) return Optional.empty();
             var skull = new ItemStack(Material.PLAYER_HEAD);
@@ -83,36 +162,60 @@ public class HeadCache implements Listener {
                 var format = promptConfig.skullNameFormat();
                 var cmData = promptConfig.skullCustomModelData();
                 meta.displayName(ComponentUtil.mini("<!italic>" + format.formatted(player.getName())));
-                if (cmData != 0) meta.setCustomModelData(cmData);
+                if (cmData != 0) {
+                    applyCustomModelData(meta, cmData);
+                }
                 skull.setItemMeta(meta);
             }
             return Optional.of(skull);
         });
     }
 
+    @SuppressWarnings("deprecation")
+    private void applyCustomModelData(SkullMeta meta, int cmData) {
+        try {
+            var cmd = meta.getCustomModelDataComponent();
+            cmd.setFloats(List.of((float) cmData));
+            meta.setCustomModelDataComponent(cmd);
+        } catch (NoSuchMethodError e) {
+            meta.setCustomModelData(cmData);
+        }
+    }
+
     public void invalidate(Player player) {
         cache.remove(player.getUniqueId());
     }
 
+    /**
+     * Returns all cached heads, excluding entries whose owner is offline
+     * or has vanished after being cached.
+     */
     public List<ItemStack> getHeads() {
-        return cache.values().stream()
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+        return cache.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .filter(entry -> {
+                    var cachedPlayer = Bukkit.getPlayer(entry.getKey());
+                    return cachedPlayer != null && !isVanished(cachedPlayer);
+                })
+                .map(entry -> entry.getValue().get())
                 .toList();
     }
 
     /**
      * Returns all cached heads sorted alphabetically by display name.
      */
-    public List<ItemStack> getHeadsSorted() {
-        var list = new ArrayList<>(getHeads());
-        list.sort((s1, s2) -> {
-            var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
-            var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
-            return n1.compareToIgnoreCase(n2);
-        });
-        return list;
-    }
+   public List<ItemStack> getHeadsSorted() {                                          
+       var list = new ArrayList<>(getHeads());                                        
+       var serializer = PlainTextComponentSerializer.plainText();                     
+       list.sort((s1, s2) -> {                                                        
+           var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null; 
+           var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null; 
+           var n1 = d1 != null ? serializer.serialize(d1) : "";                       
+           var n2 = d2 != null ? serializer.serialize(d2) : "";                       
+           return n1.compareToIgnoreCase(n2);                                         
+       });                                                                            
+       return list;                                                                   
+   } 
 
     public int size() {
         // Count only populated entries so empty/unloaded heads are detected as stale.

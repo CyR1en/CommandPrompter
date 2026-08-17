@@ -1,7 +1,9 @@
 package dev.cyr1en.promptpaper.screen.playerui;
 
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.InputScreen;
+import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.ChestGui;
 import dev.cyr1en.promptui.gui.GuiItem;
@@ -12,9 +14,15 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptui.ComponentUtil;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -22,6 +30,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
 /**
@@ -34,6 +43,7 @@ public class PlayerUIScreen implements InputScreen {
     private final Player player;
     private final PromptTag tag;
     private final dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt;
+    private final List<ScreenProvider> providers;
     private Consumer<ScreenResult> callback;
     private ChestGui gui;
     private PaginatedPane headPane;
@@ -43,47 +53,29 @@ public class PlayerUIScreen implements InputScreen {
     private Listener searchListener;
     private Listener quitListener;
 
-    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag, dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt) {
+    public PlayerUIScreen(CommandPrompter plugin, Player player, PromptTag tag,
+                          dev.cyr1en.promptpaper.preset.PlayerUiPrompt puiPrompt,
+                          List<ScreenProvider> providers) {
         this.plugin = plugin;
         this.player = player;
         this.tag = tag;
         this.puiPrompt = puiPrompt;
+        this.providers = providers;
         this.currentHeads = null;
     }
 
     /**
-     * Checks for cache staleness and rebuilds if needed, then opens
-     * the chest GUI with the player's filtered head list.
+     * Opens the chest GUI with the player's filtered head list.
+     *
+     * <p>The display list is derived fresh from Bukkit inside
+     * {@link #getFilteredHeads()}; the head cache is only a bounded
+     * memoization layer and never gates the open (2.x parity, #85).</p>
      */
     @Override
     public void open() {
         var token = lifecycleToken.get();
-        var uuid = player.getUniqueId();
-        var headCache = plugin.getHeadCache();
-        int onlineCount = (int) Bukkit.getOnlinePlayers().stream()
-                .filter(p -> !headCache.isVanished(p))
-                .count();
-        if (onlineCount != headCache.size()) {
-            plugin.getPluginLogger().debug("PlayerUI cache mismatch: cache="
-                    + headCache.size() + " online=" + onlineCount
-                    + " — rebuilding before open");
-            headCache.buildCache(() -> {
-                if (lifecycleToken.get() != token) return;
-                try {
-                    var task = player.getScheduler().run(
-                            plugin,
-                            scheduledTask -> {
-                                if (lifecycleToken.get() == token) openInternal(token);
-                            },
-                            () -> {});
-                    if (task == null) discardScreenState(uuid);
-                } catch (Exception e) {
-                    plugin.getPluginLogger().debug("PlayerUI cache completion was retired for " + uuid);
-                    discardScreenState(uuid);
-                }
-            });
-            return;
-        }
+        plugin.getPluginLogger().debug("PlayerUI open for " + player.getName()
+                + " filter=" + tag.filter() + " (display decoupled from head cache)");
         openInternal(token);
     }
 
@@ -114,27 +106,37 @@ public class PlayerUIScreen implements InputScreen {
 
         headPane = new PaginatedPane(9, rows - 1);
         int pageSize = 9 * (rows - 1);
-        for (int i = 0; i < currentHeads.size(); i += pageSize) {
-            StaticPane page = new StaticPane(9, rows - 1);
-            for (int j = i; j < Math.min(i + pageSize, currentHeads.size()); j++) {
-                ItemStack head = currentHeads.get(j).clone();
-                int x = (j - i) % 9;
-                int y = (j - i) / 9;
-                page.addItem(new GuiItem(head, event -> {
-                    var meta = head.getItemMeta();
-                    if (meta instanceof SkullMeta skullMeta
-                            && skullMeta.getOwningPlayer() != null) {
-                        var name = skullMeta.getOwningPlayer().getName();
-                        if (name != null) {
-                            close();
-                            if (callback != null) {
-                                callback.accept(ScreenResult.answer(name));
+        if (currentHeads.isEmpty()) {
+            // Empty state (#86): a single non-clickable item centered in the
+            // pagination area replaces the head pages. The control pane stays
+            // so navigation semantics and the quit listener are unchanged.
+            var emptyPane = new StaticPane(9, rows - 1);
+            emptyPane.addItem(buildEmptyStateItem(promptConfig),
+                    4, Math.max(0, (rows - 2) / 2));
+            headPane.addPane(emptyPane);
+        } else {
+            for (int i = 0; i < currentHeads.size(); i += pageSize) {
+                StaticPane page = new StaticPane(9, rows - 1);
+                for (int j = i; j < Math.min(i + pageSize, currentHeads.size()); j++) {
+                    ItemStack head = currentHeads.get(j).clone();
+                    int x = (j - i) % 9;
+                    int y = (j - i) / 9;
+                    page.addItem(new GuiItem(head, event -> {
+                        var meta = head.getItemMeta();
+                        if (meta instanceof SkullMeta skullMeta
+                                && skullMeta.getOwningPlayer() != null) {
+                            var name = skullMeta.getOwningPlayer().getName();
+                            if (name != null) {
+                                close();
+                                if (callback != null) {
+                                    callback.accept(ScreenResult.answer(name));
+                                }
                             }
                         }
-                    }
-                }), x, y);
+                    }), x, y);
+                }
+                headPane.addPane(page);
             }
-            headPane.addPane(page);
         }
         gui.addPane(Slot.of(0, 0), headPane);
 
@@ -158,6 +160,21 @@ public class PlayerUIScreen implements InputScreen {
     }
 
     /**
+     * Builds the single non-clickable empty-state item shown when the
+     * filtered player list is empty, using the configured
+     * {@code PlayerUI.Empty-Message}.
+     */
+    private GuiItem buildEmptyStateItem(PromptConfig cfg) {
+        var item = new ItemStack(Material.BARRIER);
+        var meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(ComponentUtil.mini("<!italic>" + cfg.emptyMessage()));
+            item.setItemMeta(meta);
+        }
+        return new GuiItem(item);
+    }
+
+    /**
      * Applies the tag's filter (world, radial, self, or custom) to the
      * head cache, returning the matching player heads.
      */
@@ -166,50 +183,99 @@ public class PlayerUIScreen implements InputScreen {
         var promptConfig = plugin.getConfigLoader().getPromptConfig();
 
         if (tag.filter() == null || tag.filter().isBlank()) {
-            int onlineCount = (int) Bukkit.getOnlinePlayers().stream()
+            // The display list comes fresh from Bukkit; the head cache is
+            // only a memoization layer (2.x parity), so an empty or
+            // half-loaded cache never hides online players.
+            var heads = Bukkit.getOnlinePlayers().stream()
                     .filter(p -> !headCache.isVanished(p))
-                    .count();
-            var heads = promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
-            // Fallback check if cache is empty but players are online.
-            if (heads.isEmpty() && onlineCount > 0) {
-                plugin.getPluginLogger().debug("PlayerUI heads empty but onlineVisible="
-                        + onlineCount + " cacheSize=" + headCache.size()
-                        + " — cache may still be loading");
+                    .map(headCache::getHeadFor)
+                    .filter(java.util.Optional::isPresent)
+                    .map(java.util.Optional::get)
+                    .toList();
+            plugin.getPluginLogger().debug("PlayerUI no filter, heads=" + heads.size());
+            var result = new ArrayList<>(heads);
+            if (promptConfig.sorted()) {
+                var serializer = PlainTextComponentSerializer.plainText();
+                result.sort((s1, s2) -> {
+                    var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null;
+                    var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null;
+                    var n1 = d1 != null ? serializer.serialize(d1) : "";
+                    var n2 = d2 != null ? serializer.serialize(d2) : "";
+                    return n1.compareToIgnoreCase(n2);
+                });
             }
-            plugin.getPluginLogger().debug("PlayerUI no filter, heads=" + heads.size()
-                    + " cacheSize=" + headCache.size()
-                    + " onlineVisible=" + onlineCount);
-            return heads;
+            return result;
         }
 
-        var filterOpt = headCache.getFilters().stream()
-                .filter(f -> f.getRegexKey().matcher(tag.filter()).find())
-                .map(f -> f.reConstruct(tag.filter()))
-                .findFirst();
-
-        if (filterOpt.isPresent()) {
-            plugin.getPluginLogger().debug("PlayerUI applying filter: " + tag.filter());
-            var filteredPlayers = filterOpt.get().filter(player);
+        var filters = headCache.extractFilters(tag.filter());
+        if (!filters.isEmpty()) {
+            plugin.getPluginLogger().debug("PlayerUI applying " + filters.size()
+                    + " filters: " + tag.filter());
+            var filteredPlayers = new ArrayList<Player>(Bukkit.getOnlinePlayers().stream()
+                    .filter(p -> !headCache.isVanished(p))
+                    .toList());
+            for (var filter : filters) {
+                filteredPlayers.retainAll(filter.filter(player));
+            }
             var heads = filteredPlayers.stream()
                     .map(headCache::getHeadFor)
                     .filter(java.util.Optional::isPresent)
                     .map(java.util.Optional::get)
                     .toList();
             plugin.getPluginLogger().debug("PlayerUI filtered heads=" + heads.size());
+            var result = new ArrayList<>(heads);
             if (promptConfig.sorted()) {
-                var sorted = new ArrayList<>(heads);
-                sorted.sort((s1, s2) -> {
-                    var n1 = s1.getItemMeta() != null ? s1.getItemMeta().getDisplayName() : "";
-                    var n2 = s2.getItemMeta() != null ? s2.getItemMeta().getDisplayName() : "";
+                var serializer = PlainTextComponentSerializer.plainText();
+                result.sort((s1, s2) -> {
+                    var d1 = s1.getItemMeta() != null ? s1.getItemMeta().displayName() : null;
+                    var d2 = s2.getItemMeta() != null ? s2.getItemMeta().displayName() : null;
+                    var n1 = d1 != null ? serializer.serialize(d1) : "";
+                    var n2 = d2 != null ? serializer.serialize(d2) : "";
                     return n1.compareToIgnoreCase(n2);
                 });
-                return sorted;
             }
-            return heads;
+            return applyFirstFilterFormat(result, filters.get(0), promptConfig);
         }
 
         plugin.getPluginLogger().debug("PlayerUI no matching filter, using all heads");
         return promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
+    }
+
+    /**
+     * Applies the display format of the first (leftmost) combined filter to
+     * the given heads, returning cloned items so the shared head cache is
+     * never mutated. When the filter has no specific format configured
+     * (the {@code "%s"} default), the heads are returned unchanged and keep
+     * the global {@code PlayerUI.Skull-Name-Format} applied at cache time.
+     *
+     * <p>Only the first filter's format is queried; remaining filters
+     * contribute player sets only (2.16.0 semantics).</p>
+     */
+    private List<ItemStack> applyFirstFilterFormat(List<ItemStack> heads, CacheFilter firstFilter,
+                                                   PromptConfig config) {
+        var format = firstFilter.getFormat(config);
+        if (format == null || format.isBlank() || "%s".equals(format)) return heads;
+        var formatted = new ArrayList<ItemStack>(heads.size());
+        for (ItemStack head : heads) {
+            var clone = head.clone();
+            var meta = clone.getItemMeta();
+            if (meta instanceof SkullMeta skull && skull.getOwningPlayer() != null
+                    && skull.getOwningPlayer().getName() != null) {
+                skull.displayName(ComponentUtil.mini("<!italic>"
+                        + format.formatted(skull.getOwningPlayer().getName())));
+                clone.setItemMeta(skull);
+            }
+            formatted.add(clone);
+        }
+        return formatted;
+    }
+
+    private int validateSlot(int slot, String buttonName) {
+        if (slot < 0 || slot > 8) {
+            plugin.getPluginLogger().warn("PlayerUI slot for " + buttonName + " out of bounds (0-8): " + slot + ", clamping to range");
+            return Math.max(0, Math.min(8, slot));
+        }
+        return slot;
     }
 
     private StaticPane buildControlPane(PromptConfig cfg) {
@@ -218,66 +284,78 @@ public class PlayerUIScreen implements InputScreen {
         boolean isPreset = puiPrompt != null && !puiPrompt.id().startsWith("inline-");
 
         if (isPreset && puiPrompt.previousButton() != null) {
-            if (puiPrompt.previousButton().show()) {
-                control.addItem(buildItem(puiPrompt.previousButton().buttonIcon(), puiPrompt.previousButton().customModelData(),
-                        puiPrompt.previousButton().buttonText(), event -> {
+            var btn = puiPrompt.previousButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "previous_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             headPane.previous();
                             gui.update();
-                        }), puiPrompt.previousButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.previousColumn() - 1, "previous_column");
             control.addItem(buildItem(cfg.previousItem(), cfg.previousCustomModelData(),
-                    cfg.previousText(), event -> {
+                    cfg.previousText(), null, event -> {
                         headPane.previous();
                         gui.update();
-                    }), cfg.previousColumn() - 1, 0);
+                    }), slot, 0);
         }
 
         if (isPreset && puiPrompt.nextButton() != null) {
-            if (puiPrompt.nextButton().show()) {
-                control.addItem(buildItem(puiPrompt.nextButton().buttonIcon(), puiPrompt.nextButton().customModelData(),
-                        puiPrompt.nextButton().buttonText(), event -> {
+            var btn = puiPrompt.nextButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "next_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             headPane.next();
                             gui.update();
-                        }), puiPrompt.nextButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.nextColumn() - 1, "next_column");
             control.addItem(buildItem(cfg.nextItem(), cfg.nextCustomModelData(),
-                    cfg.nextText(), event -> {
+                    cfg.nextText(), null, event -> {
                         headPane.next();
                         gui.update();
-                    }), cfg.nextColumn() - 1, 0);
+                    }), slot, 0);
         }
 
         if (isPreset && puiPrompt.cancelButton() != null) {
-            if (puiPrompt.cancelButton().show()) {
-                control.addItem(buildItem(puiPrompt.cancelButton().buttonIcon(), puiPrompt.cancelButton().customModelData(),
-                        puiPrompt.cancelButton().buttonText(), event -> {
+            var btn = puiPrompt.cancelButton();
+            if (btn.show()) {
+                int slot = validateSlot(btn.slot(), "cancel_button");
+                control.addItem(buildItem(btn.buttonIcon(), btn.customModelData(),
+                        btn.buttonText(), btn.buttonHoverText(), event -> {
                             close();
                             if (callback != null) {
                                 callback.accept(ScreenResult.cancel());
                             }
-                        }), puiPrompt.cancelButton().slot(), 0);
+                        }), slot, 0);
             }
         } else {
+            int slot = validateSlot(cfg.cancelColumn() - 1, "cancel_column");
             control.addItem(buildItem(cfg.cancelItem(), cfg.cancelCustomModelData(),
-                    cfg.cancelText(), event -> {
+                    cfg.cancelText(), null, event -> {
                         close();
                         if (callback != null) {
                             callback.accept(ScreenResult.cancel());
                         }
-                    }), cfg.cancelColumn() - 1, 0);
+                    }), slot, 0);
         }
 
+        int searchSlot = validateSlot(cfg.searchColumn() - 1, "search_column");
         control.addItem(buildItem(cfg.searchItem(), cfg.searchCustomModelData(),
-                cfg.searchText(), event -> startSearch()), cfg.searchColumn() - 1, 0);
+                cfg.searchText(), null, event -> startSearch()), searchSlot, 0);
 
         return control;
     }
 
     /**
-     * Closes the GUI and listens for the player's next chat message
-     * to use as a search term, then reopens with filtered results.
+     * Starts a search for a player: tries each {@link ScreenProvider} to open
+     * an anvil input first, and falls back to a chat message when no provider
+     * succeeds. The result filters the currently displayed heads and reopens
+     * the GUI with the matching subset.
      */
     private void startSearch() {
         var token = lifecycleToken.get();
@@ -285,7 +363,111 @@ public class PlayerUIScreen implements InputScreen {
         plugin.getPluginLogger().debug("PlayerUI search started for " + player.getName());
         open = false;
         player.closeInventory();
-        player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction"));
+
+        for (var provider : providers) {
+            if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+        }
+        startChatSearch(token, playerUuid);
+    }
+
+    /**
+     * Attempts to open an anvil search screen through the given provider.
+     *
+     * @return true if the provider produced an {@link AnvilInputScreen} that
+     *         was configured and opened; false otherwise
+     */
+    private boolean tryOpenAnvilSearch(ScreenProvider provider, long token, UUID playerUuid) {
+        try {
+            var cfg = plugin.getConfigLoader().getPromptConfig();
+            var candidate = provider.createAnvil(plugin, player, cfg.searchAnvilItemTitle());
+            if (candidate instanceof AnvilInputScreen anvilScreen) {
+                var config = new HashMap<String, String>();
+                config.put("enableTitle", "true");
+                config.put("customTitle", cfg.searchAnvilItemTitle());
+                config.put("promptMessage", cfg.searchAnvilItemText());
+                config.put("anvilItem", cfg.searchAnvilItem());
+                config.put("itemCustomModelData", String.valueOf(cfg.searchAnvilItemCustomModelData()));
+                config.put("displayText", cfg.searchAnvilItemText());
+                config.put("enableCancelItem", "true");
+                config.put("anvilCancelItem", cfg.cancelItem());
+                anvilScreen.configure(config);
+                anvilScreen.onResult(result -> handleSearchResult(result, token, anvilScreen));
+                anvilScreen.onOpenFailure(failure ->
+                        continueWithNextProviderOrChatFallback(provider, token, playerUuid));
+                anvilScreen.open();
+                plugin.getPluginLogger().debug("PlayerUI anvil search provider succeeded: "
+                        + provider.getClass().getSimpleName());
+                return true;
+            }
+        } catch (Throwable t) {
+            plugin.getPluginLogger().debug("PlayerUI anvil search provider "
+                    + provider.getClass().getSimpleName() + " failed: " + t.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Continues the search after an anvil provider failed asynchronously:
+     * tries the remaining providers, then falls back to chat.
+     */
+    private void continueWithNextProviderOrChatFallback(
+            ScreenProvider failedProvider, long token, UUID playerUuid) {
+        if (lifecycleToken.get() != token) return;
+        plugin.getPluginLogger().debug("PlayerUI anvil search provider failed asynchronously: "
+                + failedProvider.getClass().getSimpleName());
+        for (var provider : providers) {
+            if (provider == failedProvider) continue;
+            if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+        }
+        startChatSearch(token, playerUuid);
+    }
+
+    /**
+     * Handles the result of an anvil search: a cancellation reopens the GUI
+     * with the existing heads, otherwise the answer filters the current head
+     * list (case-insensitive display-name match) before reopening.
+     */
+    private void handleSearchResult(ScreenResult result, long token, AnvilInputScreen source) {
+        if (lifecycleToken.get() != token) return;
+        plugin.getPluginLogger().debug("PlayerUI anvil search result for " + player.getName()
+                + " cancelled=" + result.cancelled() + " answer=" + result.answer()
+                + " source=" + source.getClass().getSimpleName());
+        if (result.cancelled()) {
+            open();
+            return;
+        }
+        var term = result.answer();
+        try {
+            var task = player.getScheduler().run(plugin, st -> {
+                if (lifecycleToken.get() != token || currentHeads == null) return;
+                plugin.getPluginLogger().debug("PlayerUI search: term=" + term
+                        + " pre-filter=" + currentHeads.size());
+                var serializer = PlainTextComponentSerializer.plainText();
+                var filtered = currentHeads.stream()
+                        .filter(item -> {
+                            var meta = item.getItemMeta();
+                            if (meta == null) return false;
+                            var d = meta.displayName();
+                            var name = d != null ? serializer.serialize(d) : "";
+                            return name.toLowerCase().contains(term.toLowerCase());
+                        })
+                        .toList();
+                currentHeads = new ArrayList<>(filtered);
+                open();
+            }, () -> {});
+            if (task == null) discardScreenState(player.getUniqueId());
+        } catch (Exception e) {
+            discardScreenState(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Falls back to the chat-based search: instructs the player to type the
+     * search term and listens for the next chat message to filter the
+     * currently displayed heads.
+     */
+    private void startChatSearch(long token, UUID playerUuid) {
+        player.sendMessage(plugin.getConfigLoader().getI18n().get("player_ui.search_instruction", player));
 
         if (searchListener != null) {
             HandlerList.unregisterAll(searchListener);
@@ -293,11 +475,11 @@ public class PlayerUIScreen implements InputScreen {
         }
         var listener = new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
-            public void onChat(org.bukkit.event.player.AsyncPlayerChatEvent event) {
+            public void onChat(io.papermc.paper.event.player.AsyncChatEvent event) {
                 if (!event.getPlayer().getUniqueId().equals(playerUuid)) return;
                 if (lifecycleToken.get() != token) return;
                 event.setCancelled(true);
-                var search = event.getMessage();
+                var search = PlainTextComponentSerializer.plainText().serialize(event.message());
 
                 try {
                     var task = player.getScheduler().run(plugin, st -> {
@@ -306,11 +488,13 @@ public class PlayerUIScreen implements InputScreen {
                                 + " pre-filter=" + currentHeads.size());
                         HandlerList.unregisterAll(this);
                         searchListener = null;
+                        var serializer = PlainTextComponentSerializer.plainText();
                         var filtered = currentHeads.stream()
                                 .filter(item -> {
                                     var meta = item.getItemMeta();
                                     if (meta == null) return false;
-                                    var name = meta.getDisplayName();
+                                    var d = meta.displayName();
+                                    var name = d != null ? serializer.serialize(d) : "";
                                     return name.toLowerCase().contains(search.toLowerCase());
                                 })
                                 .toList();
@@ -355,7 +539,19 @@ public class PlayerUIScreen implements InputScreen {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    private void applyCustomModelData(ItemMeta meta, int cmd) {
+        try {
+            var comp = meta.getCustomModelDataComponent();
+            comp.setFloats(List.of((float) cmd));
+            meta.setCustomModelDataComponent(comp);
+        } catch (NoSuchMethodError e) {
+            meta.setCustomModelData(cmd);
+        }
+    }
+
     private GuiItem buildItem(String materialName, int cmd, String displayName,
+                              String hoverText,
                               Consumer<InventoryClickEvent> action) {
         var mat = Material.matchMaterial(materialName);
         if (mat == null) mat = Material.PAPER;
@@ -363,7 +559,14 @@ public class PlayerUIScreen implements InputScreen {
         var meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(ComponentUtil.mini("<!italic>" + displayName));
-            if (cmd != 0) meta.setCustomModelData(cmd);
+            if (hoverText != null && !hoverText.isBlank()) {
+                var lines = hoverText.split("\\{br\\}|\\r?\\n|\\\\n");
+                var loreComponents = Arrays.stream(lines)
+                        .map(line -> (Component) ComponentUtil.mini("<!italic>" + line))
+                        .toList();
+                meta.lore(loreComponents);
+            }
+            if (cmd != 0) applyCustomModelData(meta, cmd);
             item.setItemMeta(meta);
         }
         return new GuiItem(item, action);

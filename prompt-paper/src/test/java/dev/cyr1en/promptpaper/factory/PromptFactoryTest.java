@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
@@ -23,6 +24,7 @@ import dev.cyr1en.promptpaper.preset.DialogType;
 import dev.cyr1en.promptpaper.preset.DialogTypeConfig;
 import dev.cyr1en.promptpaper.preset.InputType;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
+import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
@@ -32,9 +34,14 @@ import dev.cyr1en.promptpaper.screen.SignPromptScreen;
 import dev.cyr1en.promptpaper.screen.TitleWrapperScreen;
 import dev.cyr1en.promptpaper.screen.playerui.PlayerUIScreen;
 import dev.cyr1en.promptui.InputScreen;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Unit coverage for the three new classes in the {@code factory} package:
@@ -50,6 +57,19 @@ class PromptFactoryTest extends MockBukkitTest {
   @BeforeEach
   void setUp() {
     factory = new PromptFactory(plugin);
+  }
+
+  /**
+   * Builds a factory whose presentation expander records every string it is asked to expand and
+   * wraps it in brackets. The recorded list is the evidence that each presentation field was
+   * expanded exactly once and that semantic fields were never sent to the expander.
+   */
+  private PromptFactory factoryWithExpander(List<String> expanded) {
+    var expander = new PromptPresentationExpander((player, value) -> {
+      expanded.add(value);
+      return "[" + value + "]";
+    });
+    return new PromptFactory(plugin, expander);
   }
 
   // ------------------------------------------------------------------
@@ -236,6 +256,25 @@ class PromptFactoryTest extends MockBukkitTest {
     assertEquals(2, dlg.dialogType().columns());
   }
 
+  @Test
+  void inlineMapperWithCustomMappingOverridesDefault() {
+    var tagA = new PromptTag("<a:Enter value>", "a", null, "Enter value");
+    var defA = InlineTagMapper.toPromptDefinition(tagA, Map.of("a", ScreenType.CHAT));
+    assertInstanceOf(ChatPrompt.class, defA);
+
+    var tagCustom = new PromptTag("<custom:Sign here>", "custom", null, "Sign here");
+    var defCustom = InlineTagMapper.toPromptDefinition(tagCustom, Map.of("custom", ScreenType.SIGN));
+    assertInstanceOf(SignPrompt.class, defCustom);
+
+    var tagP = new PromptTag("<p:Choose>", "p", null, "Choose");
+    var defP = InlineTagMapper.toPromptDefinition(tagP, Map.of("p", ScreenType.ANVIL));
+    assertInstanceOf(AnvilPrompt.class, defP);
+
+    var tagD = new PromptTag("<d:Dialog>", "d", null, "Dialog");
+    var defD = InlineTagMapper.toPromptDefinition(tagD, Map.of("d", ScreenType.PLAYER));
+    assertInstanceOf(PlayerUiPrompt.class, defD);
+  }
+
   // ------------------------------------------------------------------
   // PromptFactory.create(PromptDefinition)
   // ------------------------------------------------------------------
@@ -401,6 +440,22 @@ class PromptFactoryTest extends MockBukkitTest {
     assertInstanceOf(ChatPromptScreen.class, screen);
   }
 
+  @Test
+  void createFromTagWithConfiguredScreenMappingsOverridesScreenType() {
+    Mockito.when(promptConfig.getScreenMappings()).thenReturn(Map.of(
+        "a", ScreenType.CHAT,
+        "custom", ScreenType.SIGN
+    ));
+
+    var tagA = new PromptTag("<a:Enter value>", "a", null, "Enter value");
+    var screenA = factory.createFromTag(createPlayer(), tagA);
+    assertInstanceOf(ChatPromptScreen.class, screenA);
+
+    var tagCustom = new PromptTag("<custom:Sign>", "custom", null, "Sign");
+    var screenCustom = factory.createFromTag(createPlayer(), tagCustom);
+    assertInstanceOf(SignPromptScreen.class, screenCustom);
+  }
+
   // ------------------------------------------------------------------
   // Screen wiring sanity
   // ------------------------------------------------------------------
@@ -516,5 +571,89 @@ class PromptFactoryTest extends MockBukkitTest {
     var screen = factory.createFromTag(createPlayer(), tag);
     assertFalse(screen instanceof TitleWrapperScreen);
     assertInstanceOf(AnvilPromptScreen.class, screen);
+  }
+
+  // ------------------------------------------------------------------
+  // Presentation expansion boundary (PAPI applied exactly once)
+  // ------------------------------------------------------------------
+
+  /**
+   * A preset tag whose id looks like a PAPI placeholder must be looked up in the registry with
+   * the raw id — it is never sent to the expansion delegate — while every presentation field of
+   * the resolved definition is expanded exactly once.
+   */
+  @Test
+  void presetLookupUsesRawDisplayTextAndExpandsResolvedFieldsExactlyOnce() {
+    var registry = Mockito.mock(PresetRegistry.class);
+    Mockito.when(plugin.getPresetRegistry()).thenReturn(registry);
+    var rawChat = new ChatPrompt("chat", "%preset_id%", "Hello %player_name%",
+        new CancelBehavior(false, "Bye %player_name%", false, "Hover %player_name%"), true);
+    Mockito.when(registry.getPrompt("%preset_id%")).thenReturn(Optional.of(rawChat));
+
+    List<String> expanded = new ArrayList<>();
+    var testFactory = factoryWithExpander(expanded);
+
+    // key="" + preset=true + displayText=the id — exactly what <@%preset_id%> parses to.
+    var tag = new PromptTag("<@%preset_id%>", "", null, "%preset_id%", true, null,
+        PromptTag.AnswerType.NONE, List.of(), true);
+
+    var screen = testFactory.createFromTag(createPlayer(), tag);
+
+    assertInstanceOf(ChatPromptScreen.class, screen);
+    // Raw id used for lookup, and only once.
+    Mockito.verify(registry, Mockito.times(1)).getPrompt("%preset_id%");
+    // The PAPI-looking id never reaches the expander.
+    assertFalse(expanded.contains("%preset_id%"));
+    // Every presentation field expanded exactly once.
+    assertEquals(1, Collections.frequency(expanded, "Hello %player_name%"));
+    assertEquals(1, Collections.frequency(expanded, "Bye %player_name%"));
+    assertEquals(1, Collections.frequency(expanded, "Hover %player_name%"));
+    assertEquals(3, expanded.size());
+  }
+
+  /**
+   * An empty {@code titleDisplay.main} stays empty through the presentation expander (it is a
+   * "use the prompt text" marker, not presentation text), and the factory's title fallback uses
+   * the already-expanded prompt text without re-expanding it.
+   */
+  @Test
+  void emptyTitleMainIsPreservedAndFallbackUsesExpandedPromptTextOnce() {
+    var title = new TitleConfig("", null, 40);
+    var chat = new ChatPrompt("chat", "p1", "Hello %player_name%",
+        new CancelBehavior(false, "", false, ""), true, title);
+
+    List<String> expanded = new ArrayList<>();
+    var testFactory = factoryWithExpander(expanded);
+
+    var screen = testFactory.create(createPlayer(), chat);
+
+    assertInstanceOf(TitleWrapperScreen.class, screen);
+    assertInstanceOf(ChatPromptScreen.class, ((TitleWrapperScreen) screen).delegate());
+    // Empty main and the empty cancel strings never reach the expander.
+    assertFalse(expanded.contains(""));
+    // The prompt text was expanded exactly once — the title fallback reuses that value
+    // instead of expanding a second time.
+    assertEquals(1, Collections.frequency(expanded, "Hello %player_name%"));
+    assertEquals(1, expanded.size());
+  }
+
+  /**
+   * A non-dialog inline tag flows through {@link InlineTagMapper} on the raw tag and then
+   * {@link PromptFactory#create}, so the display text is expanded exactly once (never twice by
+   * the mapper and the factory).
+   */
+  @Test
+  void inlineTagDisplayTextIsExpandedExactlyOnce() {
+    var tag = new PromptTag("<a:Enter %player_name%>", "a", null, "Enter %player_name%");
+
+    List<String> expanded = new ArrayList<>();
+    var testFactory = factoryWithExpander(expanded);
+
+    var screen = testFactory.createFromTag(createPlayer(), tag);
+
+    assertInstanceOf(AnvilPromptScreen.class, screen);
+    assertEquals(1, Collections.frequency(expanded, "Enter %player_name%"));
+    // Default inline anvil fields are blank and must be skipped, not mangled.
+    assertFalse(expanded.contains(""));
   }
 }

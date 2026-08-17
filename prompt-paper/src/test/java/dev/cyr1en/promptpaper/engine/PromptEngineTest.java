@@ -1,13 +1,19 @@
 package dev.cyr1en.promptpaper.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.CancelReason;
+import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
@@ -141,6 +147,53 @@ class PromptEngineTest extends MockBukkitTest {
         assertFalse(engine.isReloadInProgress());
         assertTrue(engine.intercept(player, "/cmd <name>").isPresent());
         assertTrue(engine.hasActiveSession(player));
+    }
+
+    /**
+     * Issue #99 integration proof: the reload-gate feedback is sent directly to
+     * the player, so it must be formatted with that player as the i18n context.
+     * The mocked i18n answers differently depending on whether the player
+     * argument is supplied; the recipient must see the player-context result.
+     */
+    @Test
+    void reloadGateRejectionUsesPlayerContext() {
+        var engine = new PromptEngine(plugin, scheduler);
+        var player = createPlayer();
+        when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
+                .thenReturn(Component.text("context-free"));
+        when(i18n.get(eq("command.reload.failed"), same(player), any(Placeholder[].class)))
+                .thenReturn(Component.text("context-aware"));
+
+        assertTrue(engine.beginReload());
+        assertTrue(engine.intercept(player, "/cmd <name>").isEmpty());
+
+        assertEquals("context-aware", player.nextMessage(),
+                "the player must see the player-context formatted message");
+        verify(i18n).get(eq("command.reload.failed"), same(player), any(Placeholder[].class));
+        engine.endReload();
+    }
+
+    /**
+     * Issue #99: an active-session rejection message is sent directly to the
+     * player, so it must be formatted with that player as the i18n context.
+     */
+    @Test
+    void activeSessionRejectionUsesPlayerContext() {
+        var engine = new PromptEngine(plugin, scheduler);
+        var player = createPlayer();
+        when(i18n.get("prompt.error.session_active"))
+                .thenReturn(Component.text("context-free"));
+        when(i18n.get(eq("prompt.error.session_active"), same(player)))
+                .thenReturn(Component.text("context-aware"));
+
+        engine.intercept(player, "/cmd <first>");
+        assertTrue(engine.hasActiveSession(player));
+
+        assertTrue(engine.intercept(player, "/cmd <second>").isEmpty());
+
+        assertEquals("context-aware", player.nextMessage(),
+                "the player must see the player-context formatted message");
+        verify(i18n).get(eq("prompt.error.session_active"), same(player));
     }
 
     @Test

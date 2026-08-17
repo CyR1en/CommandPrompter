@@ -117,6 +117,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             0);
     when(registry.getPostCommand("log_reason")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@log_reason>");
     var result = engine.submit(player, "spamming");
     assertTrue(result.isPresent());
@@ -139,6 +140,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             0);
     when(registry.getPostCommand("refund_fee")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!!@refund_fee>");
     engine.cancel(player, CancelReason.MANUAL);
     performTicks(20);
@@ -174,6 +176,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
         0);
     when(registry.getPostCommand("audit")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!!@audit>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -195,6 +198,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
         0);
     when(registry.getPostCommand("audit_cancel")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@audit_cancel>");
     engine.cancel(player, CancelReason.MANUAL);
 
@@ -214,6 +218,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
         0);
     when(registry.getPostCommand("once")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@once> <!!@once>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -235,6 +240,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             0);
     when(registry.getPostCommand("refund")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@refund>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -253,6 +259,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             5);
     when(registry.getPostCommand("delayed")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@delayed>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -277,6 +284,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             0);
     when(registry.getPostCommand("multi")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:first> <a:second> <!@multi>");
     engine.submit(player, "alpha");
     var result = engine.submit(player, "beta");
@@ -305,6 +313,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             .thenReturn(Optional.empty());
 
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@late_missing>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -333,6 +342,7 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
             0);
     when(registry.getPostCommand("promote")).thenReturn(Optional.of(def));
     var player = createPlayer("TestUser");
+    player.setOp(true);
     engine.intercept(player, "/cmd <a:why> <!@promote>");
     var result = engine.submit(player, "value");
     assertTrue(result.isPresent());
@@ -462,5 +472,114 @@ class PromptEnginePostCommandTest extends MockBukkitTest {
     assertEquals(1, captured.size());
     assertTrue(player.hasPermission("perm.old"));
     assertFalse(player.hasPermission("perm.extra"));
+  }
+
+  // --- Issue #90 regression: false dispatch return removes attachment ---
+
+  /**
+   * When the attachment dispatch's {@code dispatchCommand} returns false
+   * (command not found), the temporary permission attachment must be
+   * removed immediately. It must not be retained for the configured
+   * {@code permissionAttachmentTicks} delay as if dispatch had succeeded.
+   */
+  @Test
+  void falseDispatchReturnRemovesAttachmentImmediately() {
+    when(config.getPermissionAttachment("KEY")).thenReturn(new String[]{"perm.old"});
+    when(config.permissionAttachmentTicks()).thenReturn(20);
+    var player = createPlayer("TestUser");
+
+    var pcm = new PostCommandMeta(
+        "missing_cmd_xyz", new int[0], 5, false, DispatchTarget.PASSTHROUGH, false);
+    var result = new SessionResult("missing_cmd_xyz", List.of(), List.of(pcm), List.of());
+
+    engine.dispatchPCMs(player, result, false, attachmentContext(List.of("perm.old")));
+    performTicks(5);
+
+    assertFalse(player.hasPermission("perm.old"),
+        "attachment must be removed immediately after a false dispatch return");
+    performTicks(15);
+    assertFalse(player.hasPermission("perm.old"),
+        "attachment must not linger for the configured delay");
+  }
+
+  // --- Security: Console execution gating ---
+
+  @Test
+  void unauthorizedPlayerCannotExecutePresetConsolePCM() {
+    var def = new PostCommand(
+            "console_action",
+            "say secret-console-action",
+            ExecutionPolicy.ON_COMPLETE,
+            ExecuteAs.CONSOLE,
+            0);
+    when(registry.getPostCommand("console_action")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    // player has NO op and NO promptpaper.pcm.console permission
+    engine.intercept(player, "/cmd <a:why> <!@console_action>");
+    var result = engine.submit(player, "value");
+    assertTrue(result.isPresent());
+
+    engine.dispatchPCMs(player, result.get(), false);
+    performTicks(20);
+
+    assertEquals(0, captured.size(), "Unauthorized player must not execute console preset PCM");
+  }
+
+  @Test
+  void unauthorizedPlayerCannotExecuteLegacyConsolePCM() {
+    var player = createPlayer("TestUser");
+    var pcm = new PostCommandMeta(
+        "say hacked", new int[0], 0, false, DispatchTarget.CONSOLE, false);
+    var result = new SessionResult("cmd", List.of(), List.of(pcm), List.of());
+
+    engine.dispatchPCMs(player, result, false);
+    performTicks(20);
+
+    assertEquals(0, captured.size(), "Unauthorized player must not execute console legacy PCM");
+  }
+
+  @Test
+  void playerWithPcmConsolePermissionCanExecuteConsolePCM() {
+    var def = new PostCommand(
+            "console_action",
+            "say authorized-console-action",
+            ExecutionPolicy.ON_COMPLETE,
+            ExecuteAs.CONSOLE,
+            0);
+    when(registry.getPostCommand("console_action")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    player.addAttachment(plugin, "promptpaper.pcm.console", true);
+
+    engine.intercept(player, "/cmd <a:why> <!@console_action>");
+    var result = engine.submit(player, "value");
+    assertTrue(result.isPresent());
+
+    engine.dispatchPCMs(player, result.get(), false);
+    performTicks(20);
+
+    assertEquals(1, captured.size(), "Player with promptpaper.pcm.console should execute console PCM");
+    assertEquals("say authorized-console-action", captured.get(0).command());
+  }
+
+  @Test
+  void consoleDelegatedSessionCanExecuteConsolePCMWithoutPlayerPermission() {
+    var def = new PostCommand(
+            "console_action",
+            "say delegated-console-action",
+            ExecutionPolicy.ON_COMPLETE,
+            ExecuteAs.CONSOLE,
+            0);
+    when(registry.getPostCommand("console_action")).thenReturn(Optional.of(def));
+    var player = createPlayer("TestUser");
+    // player has no special permissions, but session was console-delegated
+    engine.intercept(player, "/cmd <a:why> <!@console_action>");
+    var result = engine.submit(player, "value");
+    assertTrue(result.isPresent());
+
+    engine.dispatchPCMs(player, result.get(), false, PromptEngine.DispatchContext.console());
+    performTicks(20);
+
+    assertEquals(1, captured.size(), "Console-delegated session should execute console PCM");
+    assertEquals("say delegated-console-action", captured.get(0).command());
   }
 }

@@ -3,6 +3,7 @@ package dev.cyr1en.promptcore;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.cyr1en.promptcore.parser.CommandLineParser;
@@ -199,5 +200,79 @@ class ParsedCommandTest {
     assertArrayEquals(new int[] {1, 2}, first.answerIndices());
     assertEquals(first, second);
     assertEquals(first.hashCode(), second.hashCode());
+  }
+
+  // ====================================================================
+  // Arity-aware assembly (Issue #78 / #92)
+  // ====================================================================
+
+  @Test
+  void zeroCountDropsTagWithoutConsumingAnswer() {
+    var parsed = parser.parse("/cmd <@p><a:next>");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("c"), List.of(0, 1));
+    assertEquals("/cmd c ", partial);
+  }
+
+  @Test
+  void zeroCountAllowsFollowingPromptToConsumeFirstAnswer() {
+    // The preset consumed zero answers, so the flat list index 0 belongs to
+    // the next prompt — the preset must not shift it.
+    var parsed = parser.parse("/cmd <@p><a:next>");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("only"), List.of(0, 1));
+    assertEquals("/cmd only ", partial);
+  }
+
+  @Test
+  void multiCountJoinsAnswersUsingCompoundBehavior() {
+    var parsed = parser.parse("/cmd <@p> <a:next>");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("a", "b", "c"), List.of(2, 1));
+    assertEquals("/cmd a b c ", partial);
+  }
+
+  @Test
+  void multiCountIgnoresEmptyValuesWhenJoining() {
+    var parsed = parser.parse("/cmd <@p> <a:next>");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("a", "", "c"), List.of(2, 1));
+    assertEquals("/cmd a c ", partial);
+  }
+
+  @Test
+  void arityAwareAssemblyStopsAtFirstPromptWithoutCount() {
+    var parsed = parser.parse("/cmd <@p> <a:next> tail");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of(), List.of(0));
+    assertEquals("/cmd ", partial);
+    assertFalse(partial.contains("tail"));
+  }
+
+  @Test
+  void arityAwareAssemblyTruncatesTrailingTokensAtUnansweredPrompt() {
+    var parsed = parser.parse("/cmd <@p><a:next> tail");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("x"), List.of(0, 1));
+    // The preset is dropped, the next prompt answered, and the rest retained.
+    assertEquals("/cmd x tail ", partial);
+  }
+
+  @Test
+  void arityAwareAssemblyRejectsNegativeCount() {
+    var parsed = parser.parse("/cmd <@p>");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ParsedCommand.buildPartialCommand(parsed, List.of(), List.of(-1)));
+  }
+
+  @Test
+  void arityAwareAssemblyRejectsAnswerOverrun() {
+    var parsed = parser.parse("/cmd <@p>");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ParsedCommand.buildPartialCommand(parsed, List.of("a"), List.of(2)));
+  }
+
+  @Test
+  void twoArgumentOverloadStillInfersCompoundArity() {
+    // Legacy inference: compound tags consume one answer per sub-tag.
+    var parsed = parser.parse("/set <d:choice[set,add]:Op && d:num[0,24]:Value>");
+    var partial = ParsedCommand.buildPartialCommand(parsed, List.of("set", "5"));
+    assertEquals("/set set 5 ", partial);
   }
 }

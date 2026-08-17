@@ -67,7 +67,7 @@
       "required": ["show", "slot", "button_text", "button_icon", "button_hover_text", "custom_model_data"],
       "properties": {
         "show": { "type": "boolean" },
-        "slot": { "type": "integer", "minimum": 0, "maximum": 53 },
+        "slot": { "type": "integer", "minimum": 0, "maximum": 8 },
         "button_text": { "type": "string", "minLength": 1 },
         "button_icon": { "type": "string", "minLength": 1 },
         "button_hover_text": { "type": "string", "minLength": 1 },
@@ -234,7 +234,8 @@
                   "type": { "type": "string", "enum": ["plain_message", "item"] },
                   "content": { "type": "string" },
                   "material": { "type": "string" },
-                  "amount": { "type": "integer", "minimum": 1 }
+                  "amount": { "type": "integer", "minimum": 1 },
+                  "width": { "type": "integer", "minimum": 1, "maximum": 1024 }
                 }
               }
             },

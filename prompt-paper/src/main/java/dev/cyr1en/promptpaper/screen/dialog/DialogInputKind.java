@@ -39,4 +39,13 @@ public enum DialogInputKind {
             default -> TEXT;
         };
     }
+
+    /**
+     * Whether this kind renders an input widget whose value becomes a submitted
+     * answer. Only {@link #TITLE} and {@link #BODY} (layout-only rows) are not
+     * answer-bearing.
+     */
+    public boolean isAnswerBearing() {
+        return this != TITLE && this != BODY;
+    }
 }

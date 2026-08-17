@@ -64,7 +64,7 @@ public class ChatPromptScreen implements InputScreen {
         if (sendCancel) {
             var builder = ComponentUtil.mini(cancelMsg);
             if (isClickable) {
-                builder = builder.clickEvent(ClickEvent.runCommand("/cmdp " + plugin.getConfigLoader().getConfig().cancelKeyword()))
+                builder = builder.clickEvent(ClickEvent.runCommand("/cmdp cancel"))
                         .hoverEvent(HoverEvent.showText(ComponentUtil.mini(hoverMsg)));
             }
             cancelComponent = builder;

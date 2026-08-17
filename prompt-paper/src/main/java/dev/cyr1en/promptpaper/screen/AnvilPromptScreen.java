@@ -99,7 +99,7 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         }
     }
 
-    private Map<String, String> buildConfig(PromptConfig cfg) {
+    Map<String, String> buildConfig(PromptConfig cfg) {
         var config = new HashMap<String, String>();
         
         boolean isPreset = anvilPrompt != null && !anvilPrompt.id().startsWith("inline-");
@@ -113,9 +113,23 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         }
 
         if (isPreset) {
-            config.put("promptMessage", anvilPrompt.leftButton().buttonText());
+            config.put("enableFirstItem", String.valueOf(anvilPrompt.leftButton().show()));
+        } else {
+            config.put("enableFirstItem", "true");
+        }
+
+        if (isPreset) {
+            config.put("promptMessage", (anvilPrompt.promptText() != null && !anvilPrompt.promptText().isEmpty())
+                    ? anvilPrompt.promptText()
+                    : anvilPrompt.leftButton().buttonText());
         } else {
             config.put("promptMessage", cfg.promptMessage());
+        }
+
+        if (isPreset) {
+            config.put("itemHoverText", anvilPrompt.leftButton().buttonHoverText());
+        } else {
+            config.put("itemHoverText", "");
         }
 
         if (isPreset) {
@@ -158,6 +172,12 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         config.put("cancelItemAnvilEnchanted", String.valueOf(cfg.cancelItemAnvilEnchanted()));
         
         if (isPreset) {
+            config.put("cancelItemMessage", anvilPrompt.rightButton().buttonText());
+        } else {
+            config.put("cancelItemMessage", "");
+        }
+
+        if (isPreset) {
             config.put("cancelItemHoverText", anvilPrompt.rightButton().buttonHoverText());
         } else {
             config.put("cancelItemHoverText", cfg.cancelItemHoverText());
@@ -182,12 +202,15 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
             callback.accept(result);
             return;
         }
-        var stripped = ComponentUtil.stripColor(result.answer()).trim();
+        var raw = result.answer();
+        var stripped = ComponentUtil.stripColor(raw).trim();
         if (stripped.equalsIgnoreCase(plugin.getConfigLoader().getConfig().cancelKeyword())) {
             plugin.getPluginLogger().debug("Anvil result matched cancel keyword for " + player.getName());
             callback.accept(ScreenResult.cancel());
             return;
         }
-        callback.accept(ScreenResult.answer(stripped));
+        // Cancel-keyword comparison stays color-insensitive; the forwarded answer only
+        // strips color when the preset asks for sanitization.
+        callback.accept(ScreenResult.answer(anvilPrompt.sanitize() ? stripped : raw.trim()));
     }
 }

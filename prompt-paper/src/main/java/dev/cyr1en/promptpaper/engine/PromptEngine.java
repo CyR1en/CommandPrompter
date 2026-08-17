@@ -6,6 +6,7 @@ import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
+import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.util.MiniMessageTagFilter;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
@@ -49,6 +50,18 @@ public class PromptEngine {
 
         public static DispatchContext player() {
             return new DispatchContext(ExecuteAs.PLAYER, null, false, List.of());
+        }
+
+        public static DispatchContext console() {
+            return new DispatchContext(ExecuteAs.CONSOLE, null, false, List.of());
+        }
+
+        public boolean isConsoleDelegated() {
+            return executeAs == ExecuteAs.CONSOLE;
+        }
+
+        public boolean isDelegated() {
+            return executeAs == ExecuteAs.CONSOLE || attachmentRequired;
         }
     }
 
@@ -148,6 +161,7 @@ public class PromptEngine {
         try {
             player.sendMessage(plugin.getConfigLoader().getI18n().get(
                     "command.reload.failed",
+                    player,
                     Placeholder.of("error", "a configuration reload is in progress")));
         } catch (Exception e) {
             plugin.getPluginLogger().debug("Unable to send reload-gate feedback: " + e.getMessage());
@@ -205,11 +219,12 @@ public class PromptEngine {
         }
         var parsed = getParser().parse(commandLine);
 
-        // Fail-fast: any unresolved preset ID aborts the command flow.
+        // Fail-fast: any unresolved preset ID or validator alias aborts the command flow.
         var missingPrompts = findMissingPromptPresets(parsed);
         var missingPostCmds = findMissingPostCommandPresets(parsed);
-        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty()) {
-            failFastMissingPresets(player, commandLine, missingPrompts, missingPostCmds);
+        var missingValidators = findMissingValidators(parsed);
+        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty() || !missingValidators.isEmpty()) {
+            failFastMissing(player, commandLine, missingPrompts, missingPostCmds, missingValidators);
             return Optional.empty();
         }
 
@@ -220,9 +235,11 @@ public class PromptEngine {
 
         if (hasActiveSession(player)) {
             plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
             return Optional.empty();
         }
+
+        var effectiveParsed = applyPresetSanitize(parsed);
 
         var accepted = new AtomicBoolean();
         boolean rejectedByReload;
@@ -232,7 +249,7 @@ public class PromptEngine {
                 sessions.compute(player.getUniqueId(), (uuid, existing) -> {
                     if (existing != null && existing.isActive()) return existing;
                     accepted.set(true);
-                    return PromptSession.start(uuid.toString(), parsed);
+                    return PromptSession.start(uuid.toString(), effectiveParsed);
                 });
             }
         }
@@ -243,12 +260,51 @@ public class PromptEngine {
         if (!accepted.get()) {
             plugin.getPluginLogger().debug("Player " + player.getName()
                     + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active"));
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
             return Optional.empty();
         }
-        plugin.getPluginLogger().debug("Intercepted " + parsed.promptTags().size()
+        plugin.getPluginLogger().debug("Intercepted " + effectiveParsed.promptTags().size()
                 + " prompts for " + player.getName());
-        return Optional.of(parsed);
+        return Optional.of(effectiveParsed);
+    }
+
+    /**
+     * Overlays each preset prompt's configured {@code sanitize} flag onto its parsed tag before a
+     * session starts. The parser defaults preset tags to {@code sanitize = true}, but the preset
+     * definition is authoritative: a preset configured with {@code sanitize: false} must keep the
+     * player's color codes intact. Commands without preset tags return the same parsed command
+     * object unchanged.
+     */
+    private ParsedCommand applyPresetSanitize(ParsedCommand parsed) {
+        if (parsed.promptTags().stream().noneMatch(PromptTag::isPreset)) return parsed;
+        var registry = plugin.getPresetRegistry();
+        var adjustedTags = parsed.promptTags().stream()
+                .map(tag -> {
+                    if (!tag.isPreset() || registry == null) return tag;
+                    // Fail-fast above already rejected unknown ids; fall back defensively.
+                    var sanitize = registry.getPrompt(tag.displayText())
+                            .map(PromptDefinition::sanitize)
+                            .orElse(tag.sanitize());
+                    return new PromptTag(
+                            tag.rawTag(),
+                            tag.key(),
+                            tag.filter(),
+                            tag.displayText(),
+                            sanitize,
+                            tag.validatorAlias(),
+                            tag.type(),
+                            tag.subTags(),
+                            tag.preset(),
+                            tag.title());
+                })
+                .toList();
+        return new ParsedCommand(
+                parsed.templateCommand(),
+                adjustedTags,
+                parsed.postCmds(),
+                parsed.parserConfig(),
+                parsed.rawTemplateCommand(),
+                parsed.templateSpans());
     }
 
     /**
@@ -312,8 +368,8 @@ public class PromptEngine {
     /**
      * Submit a batch of answers to the current prompt. The current prompt
      * must be a compound tag with the matching number of sub-answers. See
-     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers} for
-     * the size-validation rules.
+     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers(List)}
+     * for the size-validation rules.
      */
     public Optional<SessionResult> submitAnswers(Player player, java.util.List<String> answers) {
         var found = new AtomicBoolean();
@@ -340,6 +396,48 @@ public class PromptEngine {
         }
         var session = sessions.get(player.getUniqueId());
         plugin.getPluginLogger().debug("Compound answers accepted for " + player.getName()
+                + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
+        return Optional.empty();
+    }
+
+    /**
+     * Submit a batch of answers to the current prompt with an explicit expected
+     * answer count. This is the arity-aware entry point for dialog flows whose
+     * effective answer count is not derivable from the parsed tag shape — JSON
+     * dialog presets may submit 0, 1, or N answers. Completion/finish behavior
+     * mirrors {@link #submit(Player, String)}. See
+     * {@link dev.cyr1en.promptcore.session.PromptSession#submitAnswers(List, int)}
+     * for the validation rules.
+     *
+     * @return the completed session result if all prompts are now answered, or empty
+     */
+    public Optional<SessionResult> submitAnswers(
+            Player player, java.util.List<String> answers, int expectedCount) {
+        var found = new AtomicBoolean();
+        var completed = new AtomicReference<SessionResult>();
+        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+            if (session == null || !session.isActive()) return session;
+            found.set(true);
+            var next = session.submitAnswers(answers, expectedCount);
+            if (next.isComplete()) {
+                var result = next.finish();
+                rememberAllPCMs(next, result);
+                completed.set(result);
+                return null;
+            }
+            return next;
+        });
+        if (!found.get()) {
+            plugin.getPluginLogger().debug("No active session for " + player.getName()
+                    + " on submitAnswers(expected=" + expectedCount + ")");
+            return Optional.empty();
+        }
+        if (completed.get() != null) {
+            plugin.getPluginLogger().debug("Session complete for " + player.getName());
+            return Optional.of(completed.get());
+        }
+        var session = sessions.get(player.getUniqueId());
+        plugin.getPluginLogger().debug("Dialog answers accepted for " + player.getName()
                 + ", " + (session != null ? session.remainingCount() : 0) + " remaining");
         return Optional.empty();
     }
@@ -516,13 +614,25 @@ public class PromptEngine {
                                 + " onCancel=" + pcm.onCancel());
                 continue;
             }
-            if (resolved.get().preset()
-                    && !dispatchedPresetIds.add(resolved.get().sourceId())) {
-                plugin.getPluginLogger().debug(
-                        "Skipping duplicate preset PCM: " + resolved.get().sourceId());
+            var res = resolved.get();
+            var effectiveExecuteAs = res.inheritDispatch()
+                    ? dispatchContext.executeAs()
+                    : res.executeAs();
+            if (effectiveExecuteAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
+                plugin.getPluginLogger().warn(
+                        "Player " + (player != null ? player.getName() : "unknown")
+                                + " attempted to execute console PCM without permission: "
+                                + res.command()
+                                + (res.preset() ? " (preset: " + res.sourceId() + ")" : ""));
                 continue;
             }
-            schedule(player, resolved.get(), dispatchContext);
+            if (res.preset()
+                    && !dispatchedPresetIds.add(res.sourceId())) {
+                plugin.getPluginLogger().debug(
+                        "Skipping duplicate preset PCM: " + res.sourceId());
+                continue;
+            }
+            schedule(player, res, dispatchContext);
         }
     }
 
@@ -591,6 +701,22 @@ public class PromptEngine {
     }
 
     /**
+     * Checks whether the given player or dispatch context is authorized to execute commands as console.
+     */
+    public static boolean canExecuteConsole(Player player, DispatchContext dispatchContext) {
+        if (dispatchContext != null && dispatchContext.isConsoleDelegated()) {
+            return true;
+        }
+        if (player == null) {
+            return false;
+        }
+        return player.isOp()
+                || player.hasPermission("promptpaper.pcm.console")
+                || player.hasPermission("promptpaper.admin")
+                || player.hasPermission("promptpaper.consoledelegate");
+    }
+
+    /**
      * Dispatches a resolved post-command to the appropriate command sender.
      * {@link dev.cyr1en.promptpaper.preset.ExecuteAs#CONSOLE} routes through
      * the server console; {@link dev.cyr1en.promptpaper.preset.ExecuteAs#PLAYER}
@@ -603,6 +729,14 @@ public class PromptEngine {
         var executeAs = resolved.inheritDispatch()
                 ? dispatchContext.executeAs()
                 : resolved.executeAs();
+        if (executeAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
+            plugin.getPluginLogger().warn(
+                    "Player " + (player != null ? player.getName() : "unknown")
+                            + " attempted to execute console PCM without permission: "
+                            + resolved.command()
+                            + (resolved.preset() ? " (preset: " + resolved.sourceId() + ")" : ""));
+            return;
+        }
         if (resolved.inheritDispatch()
                 && executeAs == ExecuteAs.PLAYER
                 && dispatchContext.attachmentRequired()) {
@@ -689,6 +823,7 @@ public class PromptEngine {
             for (var permission : permissions) attachment.get().setPermission(permission, true);
             attachment.get().getPermissible().recalculatePermissions();
             if (!plugin.getServer().dispatchCommand(player, command)) {
+                failed = true;
                 reportCommandFailure(player, command, "dispatch returned false");
             }
         } catch (Exception e) {
@@ -792,15 +927,44 @@ public class PromptEngine {
     }
 
     /**
-     * Logs a severe warning to the console and sends a localized error message to the
-     * player when a command references one or more unknown preset ids. Per the spec, the
-     * command must not be executed and the player must be told why.
+     * Returns the list of validator aliases that appear in {@code parsed} but are
+     * not configured in {@code PromptConfig}. Order matches occurrence order.
      */
-    private void failFastMissingPresets(
+    private List<String> findMissingValidators(ParsedCommand parsed) {
+        var configLoader = plugin.getConfigLoader();
+        if (configLoader == null) return List.of();
+        var promptConfig = configLoader.getPromptConfig();
+        if (promptConfig == null) return List.of();
+        var missing = new java.util.ArrayList<String>();
+        for (var tag : parsed.promptTags()) {
+            checkMissingValidator(tag.validatorAlias(), promptConfig, missing);
+            if (tag.subTags() != null) {
+                for (var subTag : tag.subTags()) {
+                    checkMissingValidator(subTag.validatorAlias(), promptConfig, missing);
+                }
+            }
+        }
+        return missing;
+    }
+
+    private void checkMissingValidator(
+            String alias, dev.cyr1en.promptpaper.config.PromptConfig config, List<String> missing) {
+        if (alias != null && !alias.isBlank() && !config.hasValidator(alias)) {
+            missing.add(alias);
+        }
+    }
+
+    /**
+     * Logs a severe warning to the console and sends a localized error message to the
+     * player when a command references one or more unknown preset ids or validator aliases.
+     * Per the spec, the command must not be executed and the player must be told why.
+     */
+    private void failFastMissing(
             Player player,
             String commandLine,
             List<String> missingPrompts,
-            List<String> missingPostCmds) {
+            List<String> missingPostCmds,
+            List<String> missingValidators) {
         var all = new java.util.ArrayList<String>();
         if (!missingPrompts.isEmpty()) {
             all.add("prompts=" + missingPrompts);
@@ -808,12 +972,19 @@ public class PromptEngine {
         if (!missingPostCmds.isEmpty()) {
             all.add("post-commands=" + missingPostCmds);
         }
+        if (!missingValidators.isEmpty()) {
+            all.add("validators=" + missingValidators);
+        }
         var summary = String.join(", ", all);
         plugin.getPluginLogger().err(
                 "Fail-fast: command from " + player.getName()
-                        + " references unknown preset(s) [" + summary
+                        + " references unknown element(s) [" + summary
                         + "] — command NOT executed. Raw: " + commandLine);
         var i18n = plugin.getConfigLoader().getI18n();
-        player.sendMessage(i18n.get("command.error.missing_preset"));
+        if (!missingValidators.isEmpty() && missingPrompts.isEmpty() && missingPostCmds.isEmpty()) {
+            player.sendMessage(i18n.get("command.error.missing_validator", player));
+        } else {
+            player.sendMessage(i18n.get("command.error.missing_preset", player));
+        }
     }
 }
