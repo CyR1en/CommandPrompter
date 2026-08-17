@@ -132,27 +132,29 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
      * Distributes prompt parts across the 4 sign lines according to
      * the configured input-field location (top, bottom, etc.).
      */
-    private String[] arrangeLines(String[] parts, int partCount, String location) {
+    static String[] arrangeLines(String[] parts, int partCount, String location) {
         var result = new String[4];
         Arrays.fill(result, "");
-        var promptParts = Arrays.copyOfRange(parts, 0, partCount);
+        int count = Math.min(partCount, 3);
+        var promptParts = Arrays.copyOfRange(parts, 0, Math.min(parts.length, count));
 
-        switch (location.toLowerCase()) {
+        String loc = location == null ? "bottom" : location.toLowerCase();
+        switch (loc) {
             case "top" -> {
                 result[0] = "";
-                System.arraycopy(promptParts, 0, result, 1, Math.min(partCount, 3));
+                System.arraycopy(promptParts, 0, result, 1, Math.min(count, promptParts.length));
             }
             case "top-aggregate" -> {
-                int promptStart = 4 - Math.min(partCount, 3);
-                System.arraycopy(promptParts, 0, result, promptStart, Math.min(partCount, 3));
+                int promptStart = 4 - count;
+                System.arraycopy(promptParts, 0, result, promptStart, Math.min(count, promptParts.length));
                 for (int i = 0; i < promptStart; i++) result[i] = "";
             }
             case "bottom-aggregate" -> {
-                System.arraycopy(promptParts, 0, result, 0, Math.min(partCount, 3));
-                for (int i = Math.min(partCount, 3); i < 4; i++) result[i] = "";
+                System.arraycopy(promptParts, 0, result, 0, Math.min(count, promptParts.length));
+                for (int i = count; i < 4; i++) result[i] = "";
             }
             default -> {
-                System.arraycopy(promptParts, 0, result, 0, Math.min(partCount, 3));
+                System.arraycopy(promptParts, 0, result, 0, Math.min(count, promptParts.length));
                 result[3] = "";
             }
         }
@@ -161,7 +163,7 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
 
     /**
      * Processes sign lines — in multi-arg mode, extracts labeled values;
-     * in single mode, filters out prompt lines — then forwards the result.
+     * in single mode, filters out prompt lines or extracts based on input field location — then forwards the result.
      */
     @Override
     protected void handleResult(ScreenResult result) {
@@ -174,7 +176,7 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
             return;
         }
 
-        var lines = result.answer().split("\n", 4);
+        var lines = result.answer().split("\n", -1);
         for (int i = 0; i < lines.length; i++)
             lines[i] = (signPrompt.sanitize() ? ComponentUtil.stripColor(lines[i]) : lines[i]).trim();
 
@@ -186,18 +188,69 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
                     parts.add(line.split(":", 2)[1].trim());
             }
             processed = String.join(" ", parts);
-        } else {
+        } else if (signPrompt != null && !signPrompt.id().startsWith("inline-") && !signPrompt.defaultLines().isEmpty()) {
             var filtered = new ArrayList<String>();
             for (int i = 0; i < lines.length; i++) {
                 var line = lines[i];
                 if (line.isEmpty()) continue;
-                boolean isPromptLine = i < promptLines.length
+                boolean isPromptLine = promptLines != null && i < promptLines.length
                         && (signPrompt.sanitize()
                             ? ComponentUtil.stripColor(promptLines[i]).trim().equals(line)
                             : promptLines[i].trim().equals(line));
                 if (!isPromptLine) filtered.add(line);
             }
             processed = String.join(" ", filtered);
+        } else {
+            if (lines.length < 4) {
+                var filtered = new ArrayList<String>();
+                for (int i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.isEmpty()) continue;
+                    boolean isPromptLine = promptLines != null && i < promptLines.length
+                            && (signPrompt.sanitize()
+                                ? ComponentUtil.stripColor(promptLines[i]).trim().equals(line)
+                                : promptLines[i].trim().equals(line));
+                    if (!isPromptLine) filtered.add(line);
+                }
+                processed = String.join(" ", filtered);
+            } else {
+                var promptConfig = plugin.getConfigLoader().getPromptConfig();
+                String location = promptConfig.inputFieldLocation() == null ? "bottom" : promptConfig.inputFieldLocation().toLowerCase();
+                var parts = displayText.split("\\{br\\}");
+                int promptPartsCount = Math.min(parts.length, 3);
+                switch (location) {
+                    case "top" -> processed = lines[0];
+                    case "bottom" -> processed = lines[3];
+                    case "top-aggregate" -> {
+                        int promptStart = 4 - promptPartsCount;
+                        var filtered = new ArrayList<String>();
+                        for (int i = 0; i < promptStart; i++) {
+                            var line = lines[i];
+                            if (line.isEmpty()) continue;
+                            boolean isPromptLine = promptLines != null && i < promptLines.length
+                                    && (signPrompt.sanitize()
+                                        ? ComponentUtil.stripColor(promptLines[i]).trim().equals(line)
+                                        : promptLines[i].trim().equals(line));
+                            if (!isPromptLine) filtered.add(line);
+                        }
+                        processed = String.join(" ", filtered);
+                    }
+                    case "bottom-aggregate" -> {
+                        var filtered = new ArrayList<String>();
+                        for (int i = promptPartsCount; i < 4; i++) {
+                            var line = lines[i];
+                            if (line.isEmpty()) continue;
+                            boolean isPromptLine = promptLines != null && i < promptLines.length
+                                    && (signPrompt.sanitize()
+                                        ? ComponentUtil.stripColor(promptLines[i]).trim().equals(line)
+                                        : promptLines[i].trim().equals(line));
+                            if (!isPromptLine) filtered.add(line);
+                        }
+                        processed = String.join(" ", filtered);
+                    }
+                    default -> processed = lines[3];
+                }
+            }
         }
 
         plugin.getPluginLogger().debug("Sign result for " + player.getName()

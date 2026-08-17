@@ -174,4 +174,103 @@ class SignPromptScreenTest extends MockBukkitTest {
         assertNotNull(resultRef.get());
         assertEquals("hello", resultRef.get().answer());
     }
+
+    @Test
+    void arrangeLinesHandlesAllLocations() {
+        String[] parts = new String[]{"Prompt 1", "Prompt 2", "Prompt 3"};
+
+        // top location
+        assertArrayEquals(new String[]{"", "Prompt 1", "", ""}, SignPromptScreen.arrangeLines(parts, 1, "top"));
+        assertArrayEquals(new String[]{"", "Prompt 1", "Prompt 2", ""}, SignPromptScreen.arrangeLines(parts, 2, "top"));
+        assertArrayEquals(new String[]{"", "Prompt 1", "Prompt 2", "Prompt 3"}, SignPromptScreen.arrangeLines(parts, 3, "top"));
+
+        // top-aggregate location
+        assertArrayEquals(new String[]{"", "", "", "Prompt 1"}, SignPromptScreen.arrangeLines(parts, 1, "top-aggregate"));
+        assertArrayEquals(new String[]{"", "", "Prompt 1", "Prompt 2"}, SignPromptScreen.arrangeLines(parts, 2, "top-aggregate"));
+        assertArrayEquals(new String[]{"", "Prompt 1", "Prompt 2", "Prompt 3"}, SignPromptScreen.arrangeLines(parts, 3, "top-aggregate"));
+
+        // bottom location
+        assertArrayEquals(new String[]{"Prompt 1", "", "", ""}, SignPromptScreen.arrangeLines(parts, 1, "bottom"));
+        assertArrayEquals(new String[]{"Prompt 1", "Prompt 2", "", ""}, SignPromptScreen.arrangeLines(parts, 2, "bottom"));
+        assertArrayEquals(new String[]{"Prompt 1", "Prompt 2", "Prompt 3", ""}, SignPromptScreen.arrangeLines(parts, 3, "bottom"));
+
+        // bottom-aggregate location
+        assertArrayEquals(new String[]{"Prompt 1", "", "", ""}, SignPromptScreen.arrangeLines(parts, 1, "bottom-aggregate"));
+        assertArrayEquals(new String[]{"Prompt 1", "Prompt 2", "", ""}, SignPromptScreen.arrangeLines(parts, 2, "bottom-aggregate"));
+        assertArrayEquals(new String[]{"Prompt 1", "Prompt 2", "Prompt 3", ""}, SignPromptScreen.arrangeLines(parts, 3, "bottom-aggregate"));
+
+        // fallback default location
+        assertArrayEquals(new String[]{"Prompt 1", "", "", ""}, SignPromptScreen.arrangeLines(parts, 1, null));
+    }
+
+    @Test
+    void handleResultTopExtractsFirstLine() {
+        when(promptConfig.inputFieldLocation()).thenReturn("top");
+        var player = createPlayer();
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value", java.util.List.of(), true), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("myInput\nEnter value\n\n"));
+        assertNotNull(resultRef.get());
+        assertEquals("myInput", resultRef.get().answer());
+    }
+
+    @Test
+    void handleResultBottomExtractsFourthLine() {
+        when(promptConfig.inputFieldLocation()).thenReturn("bottom");
+        var player = createPlayer();
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Enter value{br}Confirm", java.util.List.of(), true), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("Enter value\nConfirm\n\nmyInput"));
+        assertNotNull(resultRef.get());
+        assertEquals("myInput", resultRef.get().answer());
+    }
+
+    @Test
+    void handleResultTopAggregateExtractsNonPromptLines() {
+        when(promptConfig.inputFieldLocation()).thenReturn("top-aggregate");
+        var player = createPlayer();
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Prompt 1{br}Prompt 2", java.util.List.of(), true), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("first\nsecond\nPrompt 1\nPrompt 2"));
+        assertNotNull(resultRef.get());
+        assertEquals("first second", resultRef.get().answer());
+    }
+
+    @Test
+    void handleResultBottomAggregateExtractsNonPromptLines() {
+        when(promptConfig.inputFieldLocation()).thenReturn("bottom-aggregate");
+        var player = createPlayer();
+        var screen = new SignPromptScreen(plugin, player, new dev.cyr1en.promptpaper.preset.SignPrompt("sign", "inline-test", "Prompt 1", java.util.List.of(), true), emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("Prompt 1\nfirst\nsecond\nthird"));
+        assertNotNull(resultRef.get());
+        assertEquals("first second third", resultRef.get().answer());
+    }
+
+    @Test
+    void handleResultPresetWithDefaultLinesFiltersPromptLines() {
+        var player = createPlayer();
+        var preset = new dev.cyr1en.promptpaper.preset.SignPrompt(
+                "sign", "preset-sign", "Enter value", List.of("Line 1", "Line 2", "", ""), true);
+        var screen = new SignPromptScreen(plugin, player, preset, emptyProviders);
+        var resultRef = new AtomicReference<ScreenResult>();
+        screen.onResult(resultRef::set);
+        screen.open();
+
+        screen.handleResult(ScreenResult.answer("Line 1\nLine 2\ncustom1\ncustom2"));
+        assertNotNull(resultRef.get());
+        assertEquals("custom1 custom2", resultRef.get().answer());
+    }
 }
