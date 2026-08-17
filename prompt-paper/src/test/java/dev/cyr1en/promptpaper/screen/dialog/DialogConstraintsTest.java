@@ -303,6 +303,30 @@ class DialogConstraintsTest {
     }
 
     @Test
+    void bodySoleNamedWidth() {
+        var c = DialogConstraints.from("body[width=300]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("", c.rawFilter());
+        assertEquals(300, c.width());
+    }
+
+    @Test
+    void bodySoleNumericWidth() {
+        var c = DialogConstraints.from("body[300]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("", c.rawFilter());
+        assertEquals(300, c.width());
+    }
+
+    @Test
+    void bodyPlainWithNamedWidth() {
+        var c = DialogConstraints.from("body[plain, width=300]", defaults);
+        assertEquals(DialogInputKind.BODY, c.kind());
+        assertEquals("plain", c.rawFilter());
+        assertEquals(300, c.width());
+    }
+
+    @Test
     void bodyWidthClampedToUpperBound() {
         var c = DialogConstraints.from("body[text, 9999]", defaults);
         assertEquals(1024, c.width());
