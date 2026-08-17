@@ -51,6 +51,18 @@ public class PromptEngine {
         public static DispatchContext player() {
             return new DispatchContext(ExecuteAs.PLAYER, null, false, List.of());
         }
+
+        public static DispatchContext console() {
+            return new DispatchContext(ExecuteAs.CONSOLE, null, false, List.of());
+        }
+
+        public boolean isConsoleDelegated() {
+            return executeAs == ExecuteAs.CONSOLE;
+        }
+
+        public boolean isDelegated() {
+            return executeAs == ExecuteAs.CONSOLE || attachmentRequired;
+        }
     }
 
     private final CommandPrompter plugin;
@@ -602,13 +614,25 @@ public class PromptEngine {
                                 + " onCancel=" + pcm.onCancel());
                 continue;
             }
-            if (resolved.get().preset()
-                    && !dispatchedPresetIds.add(resolved.get().sourceId())) {
-                plugin.getPluginLogger().debug(
-                        "Skipping duplicate preset PCM: " + resolved.get().sourceId());
+            var res = resolved.get();
+            var effectiveExecuteAs = res.inheritDispatch()
+                    ? dispatchContext.executeAs()
+                    : res.executeAs();
+            if (effectiveExecuteAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
+                plugin.getPluginLogger().warn(
+                        "Player " + (player != null ? player.getName() : "unknown")
+                                + " attempted to execute console PCM without permission: "
+                                + res.command()
+                                + (res.preset() ? " (preset: " + res.sourceId() + ")" : ""));
                 continue;
             }
-            schedule(player, resolved.get(), dispatchContext);
+            if (res.preset()
+                    && !dispatchedPresetIds.add(res.sourceId())) {
+                plugin.getPluginLogger().debug(
+                        "Skipping duplicate preset PCM: " + res.sourceId());
+                continue;
+            }
+            schedule(player, res, dispatchContext);
         }
     }
 
@@ -677,6 +701,22 @@ public class PromptEngine {
     }
 
     /**
+     * Checks whether the given player or dispatch context is authorized to execute commands as console.
+     */
+    public static boolean canExecuteConsole(Player player, DispatchContext dispatchContext) {
+        if (dispatchContext != null && dispatchContext.isConsoleDelegated()) {
+            return true;
+        }
+        if (player == null) {
+            return false;
+        }
+        return player.isOp()
+                || player.hasPermission("promptpaper.pcm.console")
+                || player.hasPermission("promptpaper.admin")
+                || player.hasPermission("promptpaper.consoledelegate");
+    }
+
+    /**
      * Dispatches a resolved post-command to the appropriate command sender.
      * {@link dev.cyr1en.promptpaper.preset.ExecuteAs#CONSOLE} routes through
      * the server console; {@link dev.cyr1en.promptpaper.preset.ExecuteAs#PLAYER}
@@ -689,6 +729,14 @@ public class PromptEngine {
         var executeAs = resolved.inheritDispatch()
                 ? dispatchContext.executeAs()
                 : resolved.executeAs();
+        if (executeAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
+            plugin.getPluginLogger().warn(
+                    "Player " + (player != null ? player.getName() : "unknown")
+                            + " attempted to execute console PCM without permission: "
+                            + resolved.command()
+                            + (resolved.preset() ? " (preset: " + resolved.sourceId() + ")" : ""));
+            return;
+        }
         if (resolved.inheritDispatch()
                 && executeAs == ExecuteAs.PLAYER
                 && dispatchContext.attachmentRequired()) {

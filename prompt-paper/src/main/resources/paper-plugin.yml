@@ -28,6 +28,7 @@ permissions:
       promptpaper.use: true
       promptpaper.consoledelegate: true
       promptpaper.playerdelegate: true
+      promptpaper.pcm.console: true
   promptpaper.reload:
     description: Allows using /commandprompter reload
   promptpaper.cancel:
@@ -41,3 +42,6 @@ permissions:
     description: Allows using /consoledelegate
   promptpaper.playerdelegate:
     description: Allows using /playerdelegate
+  promptpaper.pcm.console:
+    description: Allows executing post-commands as console
+    default: op

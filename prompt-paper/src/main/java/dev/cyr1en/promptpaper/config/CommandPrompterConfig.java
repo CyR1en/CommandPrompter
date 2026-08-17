@@ -50,7 +50,7 @@ public record CommandPrompterConfig(
 
         @ConfigNode
         @NodeName("Enable-Permission")
-        @NodeDefault("false")
+        @NodeDefault("true")
         @NodeComment({"Enable permission check before a player can use the prompting feature",
                 "", "Checking for promptpaper.use"})
         boolean enablePermission,
@@ -119,7 +119,7 @@ public record CommandPrompterConfig(
 
         @ConfigNode
         @NodeName("Permission-Attachment.ticks")
-        @NodeDefault("1")
+        @NodeDefault("0")
         @NodeComment({
                 "ticks - Set how long (in ticks) should the",
                 "        permission attachment persist."})
