@@ -139,7 +139,7 @@ public record CommandPrompterConfig(
         @NodeDefault("en_US")
         @NodeComment({"Language locale for plugin messages (e.g. en_US, es_ES).",
                 "Bundled locales are loaded from the plugin JAR.",
-                "Custom overrides go in plugins/CommandPrompter/locales/"})
+                "Custom overrides go in plugins/CommandPrompterPaper/locales/"})
         String locale
 
 ) implements AliasedSection {
@@ -157,7 +157,7 @@ public record CommandPrompterConfig(
      */
     public String[] getPermissionAttachment(String key) {
         var configKeys = rawConfig.getKeys("Permission-Attachment.Permissions");
-        if (configKeys.isEmpty()) return new String[0];
+        if (configKeys == null || configKeys.isEmpty()) return new String[0];
         var keyExist = configKeys.contains(key);
         return keyExist ? rawConfig.getList("Permission-Attachment.Permissions." + key).stream().map(Object::toString).toArray(String[]::new) : new String[0];
     }
@@ -165,13 +165,11 @@ public record CommandPrompterConfig(
     /**
      * Returns all group keys under {@code Permission-Attachment.Permissions}.
      *
-     * @return key names including a synthetic {@code "NONE"} entry
+     * @return key names, or an empty array if none are configured
      */
     public String[] getPermissionKeys() {
         var configKeys = rawConfig.getKeys("Permission-Attachment.Permissions");
-        if (configKeys.isEmpty()) return new String[]{"NONE"};
-        var keys = new java.util.HashSet<>(configKeys);
-        keys.add("NONE");
-        return keys.toArray(String[]::new);
+        if (configKeys == null || configKeys.isEmpty()) return new String[0];
+        return configKeys.toArray(String[]::new);
     }
 }

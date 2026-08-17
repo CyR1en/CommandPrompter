@@ -97,7 +97,7 @@ class ConfigValidationTest extends MockBukkitTest {
               true,
               "Cancel",
               "Hover",
-              "DEFAULT",
+              "LOWEST",
               "bottom",
               "OAK_SIGN",
               "is",

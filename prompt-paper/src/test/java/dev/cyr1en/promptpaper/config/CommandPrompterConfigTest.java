@@ -38,12 +38,14 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true, 1, List.of(), "en_US");
 
         var keys = cfg.getPermissionKeys();
-        assertTrue(keys.length >= 2);
+        assertEquals(2, keys.length);
         assertTrue(java.util.Arrays.asList(keys).contains("GAMEMODE"));
+        assertTrue(java.util.Arrays.asList(keys).contains("FLY"));
+        assertFalse(java.util.Arrays.asList(keys).contains("NONE"));
     }
 
     @Test
-    void getPermissionKeysReturnsNoneWhenSectionMissing() {
+    void getPermissionKeysReturnsEmptyArrayWhenSectionMissing() {
         var rawConfig = mock(YamlDocument.class);
         when(rawConfig.getKeys("Permission-Attachment.Permissions")).thenReturn(Set.of());
 
@@ -53,6 +55,20 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true, 1, List.of(), "en_US");
 
         var keys = cfg.getPermissionKeys();
-        assertArrayEquals(new String[]{"NONE"}, keys);
+        assertArrayEquals(new String[0], keys);
+    }
+
+    @Test
+    void getPermissionKeysReturnsEmptyArrayWhenSectionNull() {
+        var rawConfig = mock(YamlDocument.class);
+        when(rawConfig.getKeys("Permission-Attachment.Permissions")).thenReturn(null);
+
+        var cfg = new CommandPrompterConfig(
+                rawConfig, "[Prompter] ", 300, "cancel", false, false,
+                true, true, true, "<.*?>", true, List.of(), List.of(),
+                true, 1, List.of(), "en_US");
+
+        var keys = cfg.getPermissionKeys();
+        assertArrayEquals(new String[0], keys);
     }
 }

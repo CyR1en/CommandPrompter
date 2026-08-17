@@ -329,10 +329,10 @@ public record PromptConfig(
 
         @ConfigNode
         @NodeName("TextPrompt.Response-Listener-Priority")
-        @NodeDefault("DEFAULT")
+        @NodeDefault("LOWEST")
         @NodeComment({
                 "Change the priority of the response listener",
-                "Available Priority - DEFAULT, LOW, LOWEST, NORMAL, HIGH, HIGHEST"
+                "Available Priority - LOWEST, LOW, NORMAL, HIGH, HIGHEST, MONITOR"
         })
         String responseListenerPriority,
 

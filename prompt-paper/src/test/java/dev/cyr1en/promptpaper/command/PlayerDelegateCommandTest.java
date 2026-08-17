@@ -38,7 +38,7 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
         when(config.getPermissionAttachment("GAMEMODE"))
                 .thenReturn(new String[]{"bukkit.command.gamemode"});
         when(config.getPermissionKeys())
-                .thenReturn(new String[]{"GAMEMODE", "NONE"});
+                .thenReturn(new String[]{"GAMEMODE"});
 
         var delegateI18n = mock(PaperI18n.class);
         when(delegateI18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
