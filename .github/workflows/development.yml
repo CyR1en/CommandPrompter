@@ -1,0 +1,155 @@
+name: Development Build
+
+on:
+  push:
+    branches:
+      - development
+
+permissions:
+  contents: write
+
+concurrency:
+  group: commandprompter-development
+  cancel-in-progress: true
+
+env:
+  # Jenkins ended at build 130. GITHUB_RUN_NUMBER starts at 1 for this workflow.
+  BUILD_NUMBER_OFFSET: "130"
+  DEV_BUILD_RETENTION: "20"
+
+jobs:
+  build:
+    name: Build and publish dev artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out development
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Resolve build metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(./gradlew -q printVersion | tail -n 1)"
+          if [[ ! "$version" =~ ^[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
+            echo "Invalid Gradle project version: $version" >&2
+            exit 1
+          fi
+
+          build_number=$((GITHUB_RUN_NUMBER + BUILD_NUMBER_OFFSET))
+          asset_name="CommandPrompter-${version}-build-${build_number}.jar"
+
+          {
+            echo "version=$version"
+            echo "build_number=$build_number"
+            echo "asset_name=$asset_name"
+            echo "asset_path=dist/$asset_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build plugin
+        run: ./gradlew clean prompt-paper:shadowJar
+
+      - name: Prepare development artifact
+        env:
+          ASSET_NAME: ${{ steps.metadata.outputs.asset_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t jars < <(
+            find prompt-paper/build/libs -maxdepth 1 -type f -name '*.jar' -print
+          )
+          if (( ${#jars[@]} != 1 )); then
+            echo "Expected exactly one plugin jar, found ${#jars[@]}." >&2
+            printf '  %s\n' "${jars[@]}" >&2
+            exit 1
+          fi
+
+          mkdir -p dist
+          cp -- "${jars[0]}" "dist/$ASSET_NAME"
+
+      - name: Publish rolling development release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_PATH: ${{ steps.metadata.outputs.asset_path }}
+          BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          PLUGIN_VERSION: ${{ steps.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! gh release view dev >/dev/null 2>&1; then
+            gh release create dev \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --latest=false \
+              --title "Development Builds" \
+              --notes "Automated builds from the development branch."
+          fi
+
+          release_notes="$(printf \
+            'CommandPrompter %s, development build #%s.\n\nCommit: %s/%s/commit/%s' \
+            "$PLUGIN_VERSION" \
+            "$BUILD_NUMBER" \
+            "$GITHUB_SERVER_URL" \
+            "$GITHUB_REPOSITORY" \
+            "$GITHUB_SHA")"
+
+          gh release edit dev \
+            --prerelease \
+            --latest=false \
+            --title "Development Build #$BUILD_NUMBER" \
+            --notes "$release_notes"
+
+          gh release upload dev "$ASSET_PATH" --clobber
+
+      - name: Remove expired development artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_id="$(
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/dev" --jq '.id'
+          )"
+          first_expired=$((DEV_BUILD_RETENTION + 1))
+
+          while IFS=$'\t' read -r _ asset_id; do
+            [[ -n "$asset_id" ]] || continue
+            gh api \
+              --method DELETE \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+          done < <(
+            gh api \
+              --paginate \
+              "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+              --jq '.[] | select(.name | startswith("CommandPrompter-") and contains("-build-") and endswith(".jar")) | [.created_at, .id] | @tsv' \
+              | sort -r \
+              | tail -n "+$first_expired"
+          )
+
+      - name: Add build summary
+        env:
+          ASSET_NAME: ${{ steps.metadata.outputs.asset_name }}
+          BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          PLUGIN_VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          {
+            echo "### Development build #$BUILD_NUMBER"
+            echo
+            echo "- Version: \`$PLUGIN_VERSION\`"
+            echo "- Artifact: \`$ASSET_NAME\`"
+            echo "- Public release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/dev"
+          } >> "$GITHUB_STEP_SUMMARY"

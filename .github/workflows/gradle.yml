@@ -3,7 +3,6 @@ name: Java CI
 on:
   push:
     branches:
-      - development
       - release
 
   pull_request:
