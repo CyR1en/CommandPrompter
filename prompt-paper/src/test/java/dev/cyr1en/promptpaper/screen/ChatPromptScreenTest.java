@@ -136,4 +136,30 @@ class ChatPromptScreenTest extends MockBukkitTest {
         }
         assertTrue(foundCancelClick, "Expected click event running '/cmdp cancel'");
     }
+
+    @Test
+    void handleInput_doesNotLeakAnswerInDiagnosticLogs() {
+        var testPlayer = createPlayer("NoLeakPlayer");
+        var mockLogger = org.mockito.Mockito.mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
+        org.mockito.Mockito.when(plugin.getPluginLogger()).thenReturn(mockLogger);
+
+        var chatPrompt = new dev.cyr1en.promptpaper.preset.ChatPrompt(
+                "chat", "inline-test", "Enter secret:",
+                new dev.cyr1en.promptpaper.preset.CancelBehavior(false, "", false, ""), true);
+        var chatScreen = new ChatPromptScreen(plugin, testPlayer, chatPrompt);
+
+        chatScreen.open();
+        String secretAnswer = "superSecretUserAnswer123";
+        chatScreen.handleInput(secretAnswer);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(mockLogger, org.mockito.Mockito.atLeastOnce())
+                .debug(captor.capture(), org.mockito.ArgumentMatchers.any(Object[].class));
+
+        for (var loggedMsg : captor.getAllValues()) {
+            assertFalse(
+                    loggedMsg.contains(secretAnswer),
+                    "ChatPromptScreen debug log must not contain raw answer: " + loggedMsg);
+        }
+    }
 }

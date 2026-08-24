@@ -14,7 +14,7 @@ import dev.cyr1en.promptcore.TitleConfig;
  * and a corresponding branch in {@link PromptDefinitionDeserializer}.
  */
 public sealed interface PromptDefinition
-    permits ChatPrompt, AnvilPrompt, PlayerUiPrompt, SignPrompt, DialogPrompt {
+    permits ChatPrompt, AnvilPrompt, PlayerUiPrompt, SignPrompt, DialogPrompt, ConfirmationPrompt, ItemPrompt {
 
   /** The discriminator value as it appears in the JSON {@code type} field. */
   String type();

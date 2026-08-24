@@ -1,5 +1,7 @@
 package dev.cyr1en.promptpaper.factory;
 
+import dev.cyr1en.promptcore.ConfirmationGrammar;
+import dev.cyr1en.promptcore.ItemGrammar;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.config.ScreenType;
@@ -7,12 +9,14 @@ import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
 import dev.cyr1en.promptpaper.preset.ChatPrompt;
+import dev.cyr1en.promptpaper.preset.ConfirmationPrompt;
 import dev.cyr1en.promptpaper.preset.DialogBaseConfig;
 import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.preset.DialogRow;
 import dev.cyr1en.promptpaper.preset.DialogType;
 import dev.cyr1en.promptpaper.preset.DialogTypeConfig;
 import dev.cyr1en.promptpaper.preset.InputType;
+import dev.cyr1en.promptpaper.preset.ItemPrompt;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
@@ -116,21 +120,21 @@ public final class InlineTagMapper {
       case PLAYER -> new PlayerUiPrompt("player_ui", id, text, tag.filter(),
           null, null, null, sanitize, title);
       case DIALOG -> toDialogPrompt(tag, id, sanitize, title);
+      case CONFIRMATION -> toConfirmationPrompt(tag, id, sanitize, title);
+      case ITEM -> toItemPrompt(tag, id, sanitize, title);
     };
   }
 
   private static ScreenType resolveScreenType(PromptTag tag, Map<String, ScreenType> mappings) {
-    if (mappings != null && mappings.containsKey(tag.key())) {
-      var mapped = mappings.get(tag.key());
+    var rawKey = tag.key();
+    var key = rawKey == null ? "" : rawKey.trim().toLowerCase(java.util.Locale.ROOT);
+    if (mappings != null && mappings.containsKey(key)) {
+      var mapped = mappings.get(key);
       if (mapped != null) return mapped;
     }
-    return switch (tag.key()) {
-      case "a" -> ScreenType.ANVIL;
-      case "s" -> ScreenType.SIGN;
-      case "p" -> ScreenType.PLAYER;
-      case "d" -> ScreenType.DIALOG;
-      default -> ScreenType.CHAT;
-    };
+    var builtIn = ScreenType.fromBuiltInKey(key);
+    if (builtIn != null) return builtIn;
+    throw new IllegalArgumentException("Unknown or unsupported prompt tag key: " + rawKey);
   }
 
   /**
@@ -212,6 +216,40 @@ public final class InlineTagMapper {
   private static boolean isTabFilter(PromptTag tag) {
     if (tag == null || tag.filter() == null) return false;
     return tag.filter().toLowerCase().startsWith("tab");
+  }
+
+  private static ConfirmationPrompt toConfirmationPrompt(
+      PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
+    var syntax = ConfirmationGrammar.parse(tag.displayText());
+    return new ConfirmationPrompt(
+        "confirmation",
+        id,
+        syntax.mode(),
+        null,
+        syntax.promptText(),
+        syntax.confirmLabel(),
+        syntax.cancelLabel(),
+        syntax.valueMode(),
+        syntax.soundKey(),
+        sanitize,
+        titleConfig,
+        tag.timeout());
+  }
+
+  private static ItemPrompt toItemPrompt(
+      PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
+    var syntax = ItemGrammar.parse(tag.displayText());
+    return new ItemPrompt(
+        "item",
+        id,
+        syntax.promptText(),
+        syntax.source(),
+        syntax.outputFormat(),
+        syntax.category(),
+        syntax.soundKey(),
+        sanitize,
+        titleConfig,
+        tag.timeout());
   }
 
   private static InputType parseInputType(String filter) {

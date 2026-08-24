@@ -55,13 +55,15 @@ class PresetTagParserTest {
   }
 
   @Test
-  void emptyPresetIdFallsThroughToLegacy() {
-    // Fallback to legacy chat prompt if ID is empty.
-    var result = parser.parse("/cmd <@>");
-    assertEquals(1, result.promptTags().size());
-    var tag = result.promptTags().get(0);
-    assertFalse(tag.isPreset());
-    assertEquals("@", tag.displayText());
+  void emptyPresetPromptIdFailsClosed() {
+    var error = assertThrows(IllegalArgumentException.class, () -> parser.parse("/cmd <@>"));
+    assertTrue(error.getMessage().contains("Blank preset prompt id"));
+  }
+
+  @Test
+  void emptyPresetPostCommandIdFailsClosed() {
+    var error = assertThrows(IllegalArgumentException.class, () -> parser.parse("/cmd <!@>"));
+    assertTrue(error.getMessage().contains("Blank preset post-command id"));
   }
 
   @Test

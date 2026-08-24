@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.listener;
 
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.engine.InterceptResult;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import org.bukkit.event.EventHandler;
@@ -18,11 +19,10 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
  *
  * <h2>Fail-fast cancel</h2>
  *
- * <p>When a command contains a tag form (any {@code <…>}) and the player has the
- * {@code promptpaper.use} permission (or permission checks are disabled), the
- * event is <b>unconditionally cancelled</b> — even if the engine did not start a
- * session. This is the only way the fail-fast path (unknown preset id) can keep
- * the literal tag out of the underlying command dispatcher, per the spec.
+ * <p>When a command contains a tag form and the intercept results in {@link InterceptResult.Started}
+ * or {@link InterceptResult.RejectedFailClosed}, the event is <b>unconditionally cancelled</b>.
+ * This keeps literal tags, unresolved screen keys, missing presets, and malformed command lines
+ * out of the underlying command dispatcher.
  */
 public class PlayerCommandListener implements Listener {
 
@@ -88,7 +88,7 @@ public class PlayerCommandListener implements Listener {
             event.setCancelled(true);
         }
 
-        // Cancel the event if a session starts or the command references a preset.
+        // Cancel the event if a session starts or the command references a preset or fail-closed tag.
         if (engine != null && engine.commandHasTagForm(commandLine)) {
             var allowedToUse = !config.enablePermission() || player.hasPermission("promptpaper.use");
             if (allowedToUse) {
@@ -101,10 +101,15 @@ public class PlayerCommandListener implements Listener {
                     event.setCancelled(true);
                     return;
                 }
-                if (screenManager.hasActiveScreen(player)
+                var lastResultOpt = engine.lastInterceptResult(player);
+                var lastResult = lastResultOpt != null ? lastResultOpt.orElse(null) : null;
+                boolean shouldCancel = screenManager.hasActiveScreen(player)
                         || engine.hasPresetReferences(commandLine)
-                        || engine.isReloadInProgress()) {
-                    plugin.getPluginLogger().debug("Command had prompts/presets, cancelling event");
+                        || engine.hasStructuralParseError(commandLine)
+                        || engine.isReloadInProgress()
+                        || (lastResult != null && (lastResult.isStarted() || lastResult.isRejectedFailClosed() || lastResult.isRejectedActiveSession()));
+                if (shouldCancel) {
+                    plugin.getPluginLogger().debug("Command had prompts/presets/errors, cancelling event");
                     event.setCancelled(true);
                 }
             } else {

@@ -1,5 +1,7 @@
 package dev.cyr1en.promptpaper.config;
 
+import dev.cyr1en.promptcore.ConfirmationMode;
+import dev.cyr1en.promptcore.BuiltInPromptType;
 import dev.cyr1en.promptcore.config.annotations.field.*;
 import dev.cyr1en.promptcore.config.annotations.type.ConfigHeader;
 import dev.cyr1en.promptcore.config.annotations.type.ConfigPath;
@@ -12,6 +14,7 @@ import dev.cyr1en.promptpaper.config.sub.*;
 import dev.cyr1en.promptpaper.validation.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -54,7 +57,8 @@ import org.bukkit.entity.Player;
         "  apply to the whole block."
     }),
     @SectionComment(path = "DialogUI.Confirm-Button", comments = {"submit / dismiss button label+tooltip."}),
-    @SectionComment(path = "DialogUI.Cancel-Button", comments = {"submit / dismiss button label+tooltip."})
+    @SectionComment(path = "DialogUI.Cancel-Button", comments = {"submit / dismiss button label+tooltip."}),
+    @SectionComment(path = "ConfirmationUI", comments = {"Confirmation UI Settings"})
 })
 public record PromptConfig(
         YamlDocument rawConfig,
@@ -471,7 +475,83 @@ public record PromptConfig(
         @NodeComment({"threshold for the <d:tab:Display> form. When the",
                 "completion count is at or below this number, the dialog shows a button",
                 "grid (one per completion). Above this, it falls back to a text input."})
-        int dialogTabMaxButtons
+        int dialogTabMaxButtons,
+
+        // ============================== Confirmation UI ==============================
+        @ConfigNode
+        @NodeName("ConfirmationUI.Default-Mode")
+        @NodeDefault("gui")
+        @NodeComment({"Default confirmation presentation mode: gui, dialog, chat"})
+        String confirmationDefaultMode,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Title")
+        @NodeDefault("&8Confirm Action")
+        @NodeComment({"Title for GUI confirmation screen"})
+        String confirmationGuiTitle,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Confirm-Item.Material")
+        @NodeDefault("LIME_CONCRETE")
+        String confirmationConfirmItemMaterial,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Confirm-Item.Name")
+        @NodeDefault("&aConfirm")
+        String confirmationConfirmItemName,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Confirm-Item.Slot")
+        @NodeDefault("11")
+        @IntegerConstraint(min = 0, max = 26)
+        int confirmationConfirmItemSlot,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Cancel-Item.Material")
+        @NodeDefault("RED_CONCRETE")
+        String confirmationCancelItemMaterial,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Cancel-Item.Name")
+        @NodeDefault("&cCancel")
+        String confirmationCancelItemName,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Cancel-Item.Slot")
+        @NodeDefault("15")
+        @IntegerConstraint(min = 0, max = 26)
+        int confirmationCancelItemSlot,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Info-Item.Material")
+        @NodeDefault("PAPER")
+        String confirmationInfoItemMaterial,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Info-Item.Name")
+        @NodeDefault("&eInformation")
+        String confirmationInfoItemName,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.GUI.Info-Item.Slot")
+        @NodeDefault("13")
+        @IntegerConstraint(min = 0, max = 26)
+        int confirmationInfoItemSlot,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.Default-Confirm-Label")
+        @NodeDefault("&aConfirm")
+        String confirmationDefaultConfirmLabel,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.Default-Cancel-Label")
+        @NodeDefault("&cCancel")
+        String confirmationDefaultCancelLabel,
+
+        @ConfigNode
+        @NodeName("ConfirmationUI.Sound")
+        @NodeDefault("")
+        String confirmationSound
 
 ) implements AliasedSection {
 
@@ -495,9 +575,68 @@ public record PromptConfig(
                             + ", max=" + dialogNumberMax
                             + ", step=" + dialogNumberStep + ")");
         }
+        try {
+            ConfirmationMode.valueOf(confirmationDefaultMode.toUpperCase(Locale.ROOT));
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(
+                    "ConfirmationUI.Default-Mode must be one of gui, dialog, chat; got: "
+                            + confirmationDefaultMode,
+                    e);
+        }
+        if (confirmationConfirmItemSlot < 0 || confirmationConfirmItemSlot > 26
+                || confirmationCancelItemSlot < 0 || confirmationCancelItemSlot > 26
+                || confirmationInfoItemSlot < 0 || confirmationInfoItemSlot > 26) {
+            throw new IllegalArgumentException(
+                    "ConfirmationUI GUI item slots must be between 0 and 26 (got confirm="
+                            + confirmationConfirmItemSlot
+                            + ", cancel="
+                            + confirmationCancelItemSlot
+                            + ", info="
+                            + confirmationInfoItemSlot
+                            + ")");
+        }
+        if (confirmationConfirmItemSlot == confirmationCancelItemSlot
+                || confirmationConfirmItemSlot == confirmationInfoItemSlot
+                || confirmationCancelItemSlot == confirmationInfoItemSlot) {
+            throw new IllegalArgumentException(
+                    "ConfirmationUI GUI item slots must be distinct (confirm="
+                            + confirmationConfirmItemSlot
+                            + ", cancel="
+                            + confirmationCancelItemSlot
+                            + ", info="
+                            + confirmationInfoItemSlot
+                            + ")");
+        }
         validateRegex("Input-Validation.Integer-Sample.Regex", intSampleRegex);
         validateRegex("Input-Validation.Alpha-Sample.Regex", strSampleRegex);
         validateConfiguredRegexes(rawConfig);
+        validateScreenMappings(rawConfig);
+    }
+
+    public static final Set<String> RESERVED_SCREEN_KEYS = BuiltInPromptType.allAliases();
+
+    private static void validateScreenMappings(YamlDocument rawConfig) {
+        Set<String> keys = rawConfig.getKeys("screen-mappings");
+        if (keys == null || keys.isEmpty()) return;
+        for (String key : keys) {
+            if (key == null) continue;
+            String normalized = key.trim().toLowerCase(Locale.ROOT);
+            if (RESERVED_SCREEN_KEYS.contains(normalized)) {
+                throw new IllegalArgumentException(
+                        "Cannot override reserved screen mapping key: '" + key + "'");
+            }
+            String val = rawConfig.getString("screen-mappings." + key);
+            if (val == null || val.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Screen mapping for key '" + key + "' must specify a valid ScreenType");
+            }
+            try {
+                ScreenType.valueOf(val.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Invalid ScreenType '" + val + "' for screen mapping key '" + key + "'", e);
+            }
+        }
     }
 
     private static void validateRegex(String path, String regex) {
@@ -532,29 +671,41 @@ public record PromptConfig(
     /**
      * Reads the {@code screen-mappings} YAML section and returns an immutable prefix-to-type map.
      *
-     * <p>Falls back to a sensible default mapping (empty→CHAT, a→ANVIL, s→SIGN,
-     * d→DIALOG, p→PLAYER) if the section is absent or empty.
+     * <p>Preserves all built-in mappings (empty→CHAT, a/anvil→ANVIL, s/sign→SIGN, d/dialog→DIALOG,
+     * p/player→PLAYER, c/confirm/confirmation→CONFIRMATION) while allowing partial custom mappings.
+     * Reserved built-in keys cannot be overridden in any case variant.
      */
     public Map<String, ScreenType> getScreenMappings() {
         var map = new HashMap<String, ScreenType>();
+        map.put("", ScreenType.CHAT);
+        map.put("a", ScreenType.ANVIL);
+        map.put("anvil", ScreenType.ANVIL);
+        map.put("s", ScreenType.SIGN);
+        map.put("sign", ScreenType.SIGN);
+        map.put("d", ScreenType.DIALOG);
+        map.put("dialog", ScreenType.DIALOG);
+        map.put("p", ScreenType.PLAYER);
+        map.put("player", ScreenType.PLAYER);
+        map.put("c", ScreenType.CONFIRMATION);
+        map.put("confirm", ScreenType.CONFIRMATION);
+        map.put("confirmation", ScreenType.CONFIRMATION);
+        map.put("i", ScreenType.ITEM);
+        map.put("item", ScreenType.ITEM);
+
         var keys = rawConfig.getKeys("screen-mappings");
-        if (!keys.isEmpty()) {
+        if (keys != null && !keys.isEmpty()) {
             for (var key : keys) {
+                if (key == null) continue;
+                var normalized = key.trim().toLowerCase(Locale.ROOT);
+                if (RESERVED_SCREEN_KEYS.contains(normalized)) continue;
+                var val = rawConfig.getString("screen-mappings." + key);
+                if (val == null || val.isBlank()) continue;
                 try {
-                    var val = rawConfig.getString("screen-mappings." + key);
-                    if (val == null) continue;
-                    map.put(key, ScreenType.valueOf(val.toUpperCase()));
-                } catch (Exception e) {
-                    // skip invalid entries
+                    var screenType = ScreenType.valueOf(val.trim().toUpperCase(Locale.ROOT));
+                    map.put(normalized, screenType);
+                } catch (IllegalArgumentException ignored) {
                 }
             }
-        }
-        if (map.isEmpty()) {
-            map.put("", ScreenType.CHAT);
-            map.put("a", ScreenType.ANVIL);
-            map.put("s", ScreenType.SIGN);
-            map.put("d", ScreenType.DIALOG);
-            map.put("p", ScreenType.PLAYER);
         }
         return Map.copyOf(map);
     }
@@ -634,6 +785,34 @@ public record PromptConfig(
                                         .toList()),
                 new DialogConfig.NumberDefaults(dialogNumberMin, dialogNumberMax, dialogNumberStep, null),
                 new DialogConfig.TabDefaults(dialogTabMaxButtons));
+    }
+
+    /** Grouped confirmation screen configuration. Reads from the {@code ConfirmationUI:} section. */
+    public ConfirmationScreenConfig confirmationConfig() {
+        var mode = ConfirmationMode.valueOf(confirmationDefaultMode.toUpperCase(Locale.ROOT));
+        return new ConfirmationScreenConfig(
+                mode,
+                confirmationGuiTitle,
+                new ConfirmationScreenConfig.ConfirmationItem(
+                        confirmationConfirmItemMaterial,
+                        confirmationConfirmItemName,
+                        confirmationConfirmItemSlot),
+                new ConfirmationScreenConfig.ConfirmationItem(
+                        confirmationCancelItemMaterial,
+                        confirmationCancelItemName,
+                        confirmationCancelItemSlot),
+                new ConfirmationScreenConfig.ConfirmationItem(
+                        confirmationInfoItemMaterial,
+                        confirmationInfoItemName,
+                        confirmationInfoItemSlot),
+                confirmationDefaultConfirmLabel,
+                confirmationDefaultCancelLabel,
+                confirmationSound);
+    }
+
+    /** Alias for {@link #confirmationConfig()}. */
+    public ConfirmationScreenConfig confirmationScreenConfig() {
+        return confirmationConfig();
     }
 
     // ============================== Dialog Settings (legacy) ==============================

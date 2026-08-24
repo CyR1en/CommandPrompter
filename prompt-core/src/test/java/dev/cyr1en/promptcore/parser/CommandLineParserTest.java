@@ -116,6 +116,13 @@ class CommandLineParserTest {
   }
 
   @Test
+  void blankValidatorAliasFailsClosed() {
+    var error =
+        assertThrows(IllegalArgumentException.class, () -> parser.parse("/ban <a:Why? -iv:>"));
+    assertTrue(error.getMessage().contains("Blank input-validator alias"));
+  }
+
+  @Test
   void intTypeFlag() {
     var result = parser.parse("/tempban <-int>");
     var tag = result.promptTags().get(0);
@@ -755,5 +762,331 @@ class CommandLineParserTest {
   void getTagFilterReturnsNullWhenNotSet() {
     var p = new CommandLineParser();
     assertNull(p.getTagFilter());
+  }
+
+  // ====================================================================
+  // Timeout Parsing & Bounds (SEC-02)
+  // ====================================================================
+
+  @Test
+  void timeoutFlagExtractedCorrectly() {
+    var result = parser.parse("/test <a:Prompt -timeout:30>");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertEquals("Prompt", tag.displayText());
+    assertEquals(30, tag.timeout());
+  }
+
+  @Test
+  void timeoutBoundsMinAndMaxAccepted() {
+    var minResult = parser.parse("/test <a:Prompt -timeout:1>");
+    assertEquals(1, minResult.promptTags().get(0).timeout());
+
+    var maxResult = parser.parse("/test <a:Prompt -timeout:3600>");
+    assertEquals(3600, maxResult.promptTags().get(0).timeout());
+  }
+
+  @Test
+  void timeoutInCompoundTagExtracted() {
+    var result = parser.parse("/test <d:text:Name && d:num[0,10]:Age -timeout:45>");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertTrue(tag.isCompound());
+    assertEquals(45, tag.timeout());
+  }
+
+  @Test
+  void compoundDialogWithEarlyBreakIfAndFlags() {
+    var result =
+        parser.parse(
+            "/test <d:text:Reason -ds -breakIf:{0} equals \"skip\" && d:num[0,10]:Days -timeout:30>");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertTrue(tag.isCompound());
+    assertEquals(2, tag.subTags().size());
+    assertFalse(tag.sanitize());
+    assertEquals(30, tag.timeout());
+    assertTrue(tag.hasBreakIf());
+    assertEquals("{0} equals \"skip\"", tag.breakIf().source());
+  }
+
+  @Test
+  void sec02_timeoutZeroFailsClosed() {
+    assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout:0>"));
+  }
+
+  @Test
+  void sec02_timeoutNegativeFailsClosed() {
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout:-5>"));
+  }
+
+  @Test
+  void sec02_timeoutExcessiveFailsClosed() {
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout:99999>"));
+  }
+
+  @Test
+  void sec02_timeoutNonNumericFailsClosed() {
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout:abc>"));
+  }
+
+  @Test
+  void sec02_timeoutEmptyValueFailsClosed() {
+    assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout:>"));
+  }
+
+  @Test
+  void sec02_timeoutBareFlagFailsClosed() {
+    assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout>"));
+  }
+
+  @Test
+  void sec02_timeoutEqualsSyntaxFailsClosed() {
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <a:Prompt -timeout=10>"));
+  }
+
+  @Test
+  void sec02_duplicateTimeoutFlagsFailClosed() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> parser.parse("/test <a:Prompt -timeout:10 -timeout:20>"));
+  }
+
+  // ====================================================================
+  // Max 16 Tags Constraint
+  // ====================================================================
+
+  @Test
+  void sixteenPromptTagsAllowed() {
+    var sb = new StringBuilder("/cmd");
+    for (int i = 0; i < 16; i++) {
+      sb.append(" <a:Tag").append(i).append(">");
+    }
+    var result = parser.parse(sb.toString());
+    assertEquals(16, result.promptTags().size());
+  }
+
+  @Test
+  void seventeenPromptTagsRejected() {
+    var sb = new StringBuilder("/cmd");
+    for (int i = 0; i < 17; i++) {
+      sb.append(" <a:Tag").append(i).append(">");
+    }
+    assertThrows(IllegalArgumentException.class, () -> parser.parse(sb.toString()));
+  }
+
+  // ====================================================================
+  // Quote-Aware Scanning Regressions for Ordinary Tags
+  // ====================================================================
+
+  @Test
+  void ordinaryTagWithQuotesAndGreaterSign_parsedCorrectly() {
+    var result = parser.parse("/test <a:\"Enter value > 0\">");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertEquals("a", tag.key());
+    assertEquals("\"Enter value > 0\"", tag.displayText());
+  }
+
+  @Test
+  void ordinaryTagWithEscapedDelimiter_parsedCorrectly() {
+    var result = parser.parse("/test <a:Why? \\>>");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertEquals("Why? >", tag.displayText());
+  }
+
+  @Test
+  void ordinaryTagWithEscapedQuotes_parsedCorrectly() {
+    var result = parser.parse("/test <a:He said \\\"Hello\\\">");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertEquals("He said \\\"Hello\\\"", tag.displayText());
+  }
+
+  @Test
+  void multipleOrdinaryTagsWithQuotes() {
+    var result = parser.parse("/msg <p:\"Target > 1\"> <a:\"Message > 2\">");
+    assertEquals(2, result.promptTags().size());
+    assertEquals("p", result.promptTags().get(0).key());
+    assertEquals("\"Target > 1\"", result.promptTags().get(0).displayText());
+    assertEquals("a", result.promptTags().get(1).key());
+    assertEquals("\"Message > 2\"", result.promptTags().get(1).displayText());
+  }
+
+  @Test
+  void confirmationTag_preservesColonsInDisplayText() {
+    var result = parser.parse("/test <c:Warning: delete town?>");
+    assertEquals(1, result.promptTags().size());
+    var tag = result.promptTags().get(0);
+    assertEquals("c", tag.key());
+    assertNull(tag.filter(), "Confirmation tags should not treat second colon as generic filter");
+    assertEquals("Warning: delete town?", tag.displayText());
+  }
+
+  // ====================================================================
+  // Inline PCM Delay Bounds & Overflow Tests
+  // ====================================================================
+
+  @Test
+  void pcmDelay_boundaryZero_accepted() {
+    var result = parser.parse("/test <!:0 msg>");
+    assertEquals(1, result.postCmds().size());
+    assertEquals(0, result.postCmds().get(0).delayTicks());
+    assertEquals("msg", result.postCmds().get(0).command());
+  }
+
+  @Test
+  void pcmDelay_boundaryMax72000_accepted() {
+    var result = parser.parse("/test <!:72000 msg>");
+    assertEquals(1, result.postCmds().size());
+    assertEquals(72000, result.postCmds().get(0).delayTicks());
+    assertEquals("msg", result.postCmds().get(0).command());
+  }
+
+  @Test
+  void pcmDelay_overMax72001_rejected() {
+    var ex =
+        assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <!:72001 msg>"));
+    assertTrue(ex.getMessage().contains("PCM delay out of bounds"));
+  }
+
+  @Test
+  void pcmDelay_overflowLargeNumber_rejected() {
+    var ex =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> parser.parse("/test <!:999999999999999999999999 msg>"));
+    assertTrue(ex.getMessage().contains("PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_overflowIntegerMax_rejected() {
+    var ex =
+        assertThrows(
+            IllegalArgumentException.class, () -> parser.parse("/test <!:2147483648 msg>"));
+    assertTrue(ex.getMessage().contains("PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_nonNumeric_rejected() {
+    var ex = assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <!:abc msg>"));
+    assertTrue(ex.getMessage().contains("Invalid PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_empty_rejected() {
+    var ex = assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <!: msg>"));
+    assertTrue(ex.getMessage().contains("Invalid PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_spaceBeforeNumber_rejected() {
+    var ex = assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <!: 20 msg>"));
+    assertTrue(ex.getMessage().contains("Invalid PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_negative_rejected() {
+    var ex = assertThrows(IllegalArgumentException.class, () -> parser.parse("/test <!:-1 msg>"));
+    assertTrue(ex.getMessage().contains("Invalid PCM delay"));
+  }
+
+  @Test
+  void pcmDelay_presetWithBoundaries() {
+    var valid = parser.parse("/test <!:72000@delayed_preset>");
+    assertEquals(1, valid.postCmds().size());
+    assertEquals(72000, valid.postCmds().get(0).delayTicks());
+    assertEquals("delayed_preset", valid.postCmds().get(0).command());
+
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <!:72001@delayed_preset>"));
+    assertThrows(
+        IllegalArgumentException.class, () -> parser.parse("/test <!:abc@delayed_preset>"));
+  }
+
+  @Test
+  void parserFineLogs_doNotLeakCommandPayload() {
+    var logger = java.util.logging.Logger.getLogger(CommandLineParser.class.getName());
+    var originalLevel = logger.getLevel();
+    logger.setLevel(java.util.logging.Level.FINEST);
+    var captured = new java.util.ArrayList<String>();
+    var handler =
+        new java.util.logging.Handler() {
+          @Override
+          public void publish(java.util.logging.LogRecord record) {
+            captured.add(record.getMessage());
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() throws SecurityException {}
+        };
+    handler.setLevel(java.util.logging.Level.FINEST);
+    logger.addHandler(handler);
+    try {
+      parser.parse("/secretcmd <a:secret_display_text> <! secret_post_cmd>");
+      for (var msg : captured) {
+        assertFalse(
+            msg.contains("secret_display_text"), "FINE log must not contain display text: " + msg);
+        assertFalse(
+            msg.contains("secret_post_cmd"), "FINE log must not contain post command: " + msg);
+        assertFalse(msg.contains("secretcmd"), "FINE log must not contain raw command: " + msg);
+      }
+    } finally {
+      logger.removeHandler(handler);
+      logger.setLevel(originalLevel);
+    }
+  }
+
+  // ====================================================================
+  // Custom Syntax & Multi-character Delimiters
+  // ====================================================================
+
+  @Test
+  void customSyntax_bracesDelimiters() {
+    var customParser = new CommandLineParser(new ParserConfig("{", "}", "\\"));
+    var result = customParser.parse("/kick {a:Player} {a:Reason} {! notify}");
+    assertEquals(2, result.promptTags().size());
+    assertEquals("Player", result.promptTags().get(0).displayText());
+    assertEquals("Reason", result.promptTags().get(1).displayText());
+    assertEquals(1, result.postCmds().size());
+    assertEquals("notify", result.postCmds().get(0).command());
+  }
+
+  @Test
+  void customSyntax_multiCharacterDelimitersAndEscapes() {
+    var customParser = new CommandLineParser(new ParserConfig("{{", "}}", "%%"));
+    var result = customParser.parse("/msg %%{{not_a_tag%%}} {{p:Player}} {{a:Message}}");
+    assertEquals(2, result.promptTags().size());
+    assertEquals("Player", result.promptTags().get(0).displayText());
+    assertEquals("Message", result.promptTags().get(1).displayText());
+    assertEquals("/msg {{not_a_tag}} {{p:Player}} {{a:Message}}", result.templateCommand());
+  }
+
+  @Test
+  void customSyntax_quotesAndEscapedDelimiters() {
+    var customParser = new CommandLineParser(new ParserConfig("{", "}", "\\"));
+    var result = customParser.parse("/msg {p:\"Target } with } braces\"} \\{not_tag\\}");
+    assertEquals(1, result.promptTags().size());
+    assertEquals("\"Target } with } braces\"", result.promptTags().get(0).displayText());
+    assertEquals("/msg {p:\"Target } with } braces\"} {not_tag}", result.templateCommand());
+  }
+
+  @Test
+  void customSyntax_malformedInputs() {
+    var customParser = new CommandLineParser(new ParserConfig("{{", "}}", "\\"));
+
+    // Unclosed tag
+    assertThrows(IllegalArgumentException.class, () -> customParser.parse("/msg {{c:Unclosed"));
+    // Unbalanced quotes
+    assertThrows(
+        IllegalArgumentException.class, () -> customParser.parse("/msg {{a:\"unclosed quote}}"));
   }
 }

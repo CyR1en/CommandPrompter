@@ -102,7 +102,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             configureTitle();
             setupItems();
 
-            anvilGui.setOnClose(event -> complete(ScreenResult.cancel(), false));
+            anvilGui.setOnClose(event -> complete(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.GUI_EXIT), false));
             anvilGui.setOnTopClick(event -> event.setCancelled(true));
             anvilGui.setOnResultClick(event -> {
                 if (!isOpen()) return;
@@ -229,7 +229,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             GuiItem cancelGuiItem = new GuiItem(cancelItem, event -> {
                 if (!isOpen()) return;
                 plugin.getSLF4JLogger().debug("FrameworkAnvilScreen cancel: player={}", player.getName());
-                complete(ScreenResult.cancel(), true);
+                complete(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.MANUAL), true);
             });
             anvilGui.getSecondItemComponent().addItem(cancelGuiItem, 0, 0);
         }

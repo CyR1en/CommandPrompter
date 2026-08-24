@@ -14,6 +14,7 @@ import dev.cyr1en.promptpaper.preset.DialogBodyConfig;
 import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.preset.DialogRow;
 import dev.cyr1en.promptpaper.preset.DialogTypeConfig;
+import dev.cyr1en.promptpaper.preset.ItemPrompt;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
@@ -62,14 +63,33 @@ import org.bukkit.entity.Player;
  */
 final class PromptPresentationExpander {
 
+  static final int MAX_DISPLAY_LENGTH = 1024;
+
+  @FunctionalInterface
+  interface TruncationListener {
+    void onTruncate(Player player, int originalLength, int maxLength);
+  }
+
   private final BiFunction<Player, String, String> expander;
+  private final TruncationListener truncationListener;
 
   /**
    * @param expander the per-field expansion function (e.g. a PAPI hook). Injected so tests can use
    *     a deterministic, non-idempotent function.
    */
   PromptPresentationExpander(BiFunction<Player, String, String> expander) {
+    this(expander, (player, origLen, maxLen) -> {});
+  }
+
+  /**
+   * @param expander the per-field expansion function.
+   * @param truncationListener callback invoked when an expanded string exceeds {@value #MAX_DISPLAY_LENGTH}.
+   */
+  PromptPresentationExpander(
+      BiFunction<Player, String, String> expander,
+      TruncationListener truncationListener) {
     this.expander = Objects.requireNonNull(expander, "expander");
+    this.truncationListener = Objects.requireNonNull(truncationListener, "truncationListener");
   }
 
   /**
@@ -77,12 +97,24 @@ final class PromptPresentationExpander {
    * {@link PapiHook}, passing text through unchanged when the hook is absent. The hook lookup is
    * deliberately lazy (inside the lambda) because {@code initHooks()} runs after the factory is
    * constructed during plugin enable.
+   *
+   * <p>When an expanded display string exceeds {@value #MAX_DISPLAY_LENGTH}, it emits a safe warning
+   * containing only player identity and lengths — never the expansion content.
    */
   static PromptPresentationExpander forPlugin(CommandPrompter plugin) {
-    return new PromptPresentationExpander((player, text) ->
-        plugin.getHookContainer().getHook(PapiHook.class)
-            .map(h -> h.setPlaceholder(player, text))
-            .orElse(text));
+    return new PromptPresentationExpander(
+        (player, text) ->
+            plugin.getHookContainer().getHook(PapiHook.class)
+                .map(h -> h.setPlaceholder(player, text))
+                .orElse(text),
+        (player, origLen, maxLen) -> {
+          if (plugin != null && plugin.getPluginLogger() != null) {
+            var identity = player != null ? player.getName() : "unknown";
+            plugin.getPluginLogger().warn(
+                "Expanded prompt display string truncated for player %s (length: %d, max: %d)",
+                identity, origLen, maxLen);
+          }
+        });
   }
 
   /** Expands every player-visible presentation field of the definition; semantic fields are raw. */
@@ -94,7 +126,40 @@ final class PromptPresentationExpander {
       case SignPrompt sign -> expandSign(player, sign);
       case PlayerUiPrompt pui -> expandPlayerUi(player, pui);
       case DialogPrompt dialog -> expandDialog(player, dialog);
+      case dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation -> expandConfirmation(player, confirmation);
+      case ItemPrompt item -> expandItem(player, item);
     };
+  }
+
+  private ItemPrompt expandItem(Player player, ItemPrompt item) {
+    return new ItemPrompt(
+        item.type(),
+        item.id(),
+        expand(player, item.promptText()),
+        item.source(),
+        item.output(),
+        item.category(),
+        item.sound(),
+        item.sanitize(),
+        expandTitle(player, item.titleDisplay()),
+        item.timeout());
+  }
+
+  private dev.cyr1en.promptpaper.preset.ConfirmationPrompt expandConfirmation(
+      Player player, dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation) {
+    return new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+        confirmation.type(),
+        confirmation.id(),
+        confirmation.mode(),
+        expand(player, confirmation.title()),
+        expand(player, confirmation.promptText()),
+        expand(player, confirmation.confirmText()),
+        expand(player, confirmation.cancelText()),
+        confirmation.valueMode(),
+        confirmation.sound(),
+        confirmation.sanitize(),
+        expandTitle(player, confirmation.titleDisplay()),
+        confirmation.timeout());
   }
 
   /**
@@ -118,7 +183,8 @@ final class PromptPresentationExpander {
         raw.type(),
         subTags,
         raw.preset(),
-        expandTitle(player, raw.title()));
+        expandTitle(player, raw.title()),
+        raw.timeout());
   }
 
   // ------------------------------------------------------------------
@@ -136,6 +202,7 @@ final class PromptPresentationExpander {
   }
 
   private CancelBehavior expandCancel(Player player, CancelBehavior cancel) {
+    if (cancel == null) return null;
     return new CancelBehavior(
         cancel.send(),
         expand(player, cancel.message()),
@@ -252,7 +319,7 @@ final class PromptPresentationExpander {
     // ActionButtonConfig forbids an empty label; if the expansion resolves to an empty string,
     // keep the original text rather than failing record construction.
     var expandedLabel = expand(player, button.label());
-    var label = expandedLabel.isEmpty() ? button.label() : expandedLabel;
+    var label = expandedLabel == null || expandedLabel.isEmpty() ? button.label() : expandedLabel;
     return new ActionButtonConfig(
         label,
         button.tooltip() == null ? null : expand(player, button.tooltip()),
@@ -280,9 +347,18 @@ final class PromptPresentationExpander {
    * Resolves one string through the expansion delegate. Null and empty strings are returned
    * unchanged and never reach the delegate (a PAPI expansion of an empty string is a no-op anyway,
    * and the empty-main marker must survive for the title fallback).
+   *
+   * <p>Expanded strings exceeding {@value #MAX_DISPLAY_LENGTH} characters are truncated to
+   * {@value #MAX_DISPLAY_LENGTH} and trigger the truncation listener with player identity and lengths.
    */
   private String expand(Player player, String text) {
     if (text == null || text.isEmpty()) return text;
-    return expander.apply(player, text);
+    var expanded = expander.apply(player, text);
+    if (expanded == null) return null;
+    if (expanded.length() > MAX_DISPLAY_LENGTH) {
+      truncationListener.onTruncate(player, expanded.length(), MAX_DISPLAY_LENGTH);
+      return expanded.substring(0, MAX_DISPLAY_LENGTH);
+    }
+    return expanded;
   }
 }

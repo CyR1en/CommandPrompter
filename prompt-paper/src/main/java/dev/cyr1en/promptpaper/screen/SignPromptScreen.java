@@ -254,7 +254,7 @@ public class SignPromptScreen extends AbstractWrapperPromptScreen {
         }
 
         plugin.getPluginLogger().debug("Sign result for " + player.getName()
-                + ": processed=" + processed + " multiArg=" + multiArg);
+                + ": multiArg=" + multiArg);
 
         if (processed.isEmpty()) {
             callback.accept(ScreenResult.cancel());

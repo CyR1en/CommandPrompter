@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.factory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +28,9 @@ import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -338,6 +342,70 @@ class PromptPresentationExpanderTest {
   }
 
   @Test
+  void confirmationExpandsPresentationFieldsExactlyOnce() {
+    var raw = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+        "confirmation",
+        "confirm_id",
+        dev.cyr1en.promptcore.ConfirmationMode.GUI,
+        "title %a%",
+        "prompt %b%",
+        "yes %c%",
+        "no %d%",
+        true,
+        "sound.key",
+        true,
+        new TitleConfig("main %e%", "sub %f%", 50));
+
+    var out = (dev.cyr1en.promptpaper.preset.ConfirmationPrompt) expand(raw);
+
+    assertEquals("[title %a%]", out.title());
+    assertEquals("[prompt %b%]", out.promptText());
+    assertEquals("[yes %c%]", out.confirmText());
+    assertEquals("[no %d%]", out.cancelText());
+    assertEquals("[main %e%]", out.titleDisplay().main());
+    assertEquals("[sub %f%]", out.titleDisplay().sub());
+    // Semantic fields byte-for-byte unchanged.
+    assertEquals("confirmation", out.type());
+    assertEquals("confirm_id", out.id());
+    assertEquals(dev.cyr1en.promptcore.ConfirmationMode.GUI, out.mode());
+    assertTrue(out.valueMode());
+    assertEquals("sound.key", out.sound());
+    assertTrue(out.sanitize());
+    assertEquals(50, out.titleDisplay().ticks());
+  }
+
+  @Test
+  void itemExpandsPresentationFieldsExactlyOnce() {
+    var raw = new dev.cyr1en.promptpaper.preset.ItemPrompt(
+        "item",
+        "item_id",
+        "prompt %a%",
+        dev.cyr1en.promptcore.ItemSource.CATALOG,
+        dev.cyr1en.promptcore.ItemOutputFormat.MATERIAL,
+        "weapons",
+        "minecraft:ui.button.click",
+        false,
+        new TitleConfig("main %b%", "sub %c%", 35),
+        120);
+
+    var out = (dev.cyr1en.promptpaper.preset.ItemPrompt) expand(raw);
+
+    assertEquals("[prompt %a%]", out.promptText());
+    assertEquals("[main %b%]", out.titleDisplay().main());
+    assertEquals("[sub %c%]", out.titleDisplay().sub());
+    // Semantic fields byte-for-byte unchanged.
+    assertEquals("item", out.type());
+    assertEquals("item_id", out.id());
+    assertEquals(dev.cyr1en.promptcore.ItemSource.CATALOG, out.source());
+    assertEquals(dev.cyr1en.promptcore.ItemOutputFormat.MATERIAL, out.output());
+    assertEquals("weapons", out.category());
+    assertEquals("minecraft:ui.button.click", out.sound());
+    assertFalse(out.sanitize());
+    assertEquals(35, out.titleDisplay().ticks());
+    assertEquals(120, out.timeout());
+  }
+
+  @Test
   void inlineDialogWithoutTitleConfigKeepsNullTitle() {
     var tag = new PromptTag("<d:text:Enter %a%>", "d", "text", "Enter %a%");
     var out = expander.expandInlineDialog(player, tag);
@@ -355,5 +423,100 @@ class PromptPresentationExpanderTest {
     assertEquals("", out.title().main());
     assertEquals("[sub %b%]", out.title().sub());
     assertEquals(30, out.title().ticks());
+  }
+
+  // ------------------------------------------------------------------
+  // Display length bounding & safe warning emission
+  // ------------------------------------------------------------------
+
+  @Test
+  void exact1024LengthStringIsPreservedUnchangedAndUnflagged() {
+    var flagged = new AtomicBoolean(false);
+    var exactExpander = new PromptPresentationExpander(
+        (p, text) -> "A".repeat(1024),
+        (p, orig, max) -> flagged.set(true));
+
+    var raw = new ChatPrompt("chat", "chat_id", "prompt",
+        new CancelBehavior(false, "", false, ""), false);
+    var out = (ChatPrompt) exactExpander.expand(player, raw);
+
+    assertEquals(1024, out.promptText().length());
+    assertEquals("A".repeat(1024), out.promptText());
+    assertFalse(flagged.get(), "Exact 1024 length string must not trigger truncation warning");
+  }
+
+  @Test
+  void overlongStringIsTruncatedTo1024AndFlaggedWithPlayerIdentityAndLengths() {
+    var flaggedPlayer = new AtomicReference<Player>();
+    var flaggedOrigLen = new AtomicInteger();
+    var flaggedMaxLen = new AtomicInteger();
+
+    var longExpander = new PromptPresentationExpander(
+        (p, text) -> "X".repeat(2048),
+        (p, orig, max) -> {
+          flaggedPlayer.set(p);
+          flaggedOrigLen.set(orig);
+          flaggedMaxLen.set(max);
+        });
+
+    var raw = new ChatPrompt("chat", "chat_id", "prompt",
+        new CancelBehavior(true, "cancel_raw", false, ""), true);
+    var out = (ChatPrompt) longExpander.expand(player, raw);
+
+    assertEquals(1024, out.promptText().length());
+    assertEquals("X".repeat(1024), out.promptText());
+    assertEquals(player, flaggedPlayer.get());
+    assertEquals(2048, flaggedOrigLen.get());
+    assertEquals(1024, flaggedMaxLen.get());
+
+    // Semantic fields preserved
+    assertEquals("chat", out.type());
+    assertEquals("chat_id", out.id());
+    assertTrue(out.sanitize());
+    assertTrue(out.cancel().send());
+  }
+
+  @Test
+  void safeWarningEmitsOnlyPlayerIdentityAndLengthsWithoutExpansionContent() {
+    org.mockito.Mockito.when(player.getName()).thenReturn("Alice");
+    var warnings = new java.util.ArrayList<String>();
+
+    var pluginMock = mock(dev.cyr1en.promptpaper.CommandPrompter.class);
+    var loggerMock = mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
+    org.mockito.Mockito.when(pluginMock.getPluginLogger()).thenReturn(loggerMock);
+    var hookContainerMock = mock(dev.cyr1en.promptpaper.hook.HookContainer.class);
+    org.mockito.Mockito.when(pluginMock.getHookContainer()).thenReturn(hookContainerMock);
+    var papiHookMock = mock(dev.cyr1en.promptpaper.hook.hooks.PapiHook.class);
+    org.mockito.Mockito.when(hookContainerMock.getHook(dev.cyr1en.promptpaper.hook.hooks.PapiHook.class))
+        .thenReturn(java.util.Optional.of(papiHookMock));
+
+    String secretContent = "SUPER_SECRET_PAYLOAD_CONTENT_THAT_SHOULD_NOT_LEAK";
+    String hugeExpansion = secretContent + "Z".repeat(1500);
+    org.mockito.Mockito.when(papiHookMock.setPlaceholder(player, "%secret%")).thenReturn(hugeExpansion);
+
+    org.mockito.Mockito.doAnswer(invocation -> {
+      String format = invocation.getArgument(0);
+      Object identity = invocation.getArgument(1);
+      Object orig = invocation.getArgument(2);
+      Object max = invocation.getArgument(3);
+      warnings.add(String.format(format, identity, orig, max));
+      return null;
+    }).when(loggerMock).warn(
+        org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any(),
+        org.mockito.ArgumentMatchers.any());
+
+    var prodExpander = PromptPresentationExpander.forPlugin(pluginMock);
+    var raw = new ChatPrompt("chat", "chat_id", "%secret%", new CancelBehavior(false, "", false, ""), false);
+    var out = (ChatPrompt) prodExpander.expand(player, raw);
+
+    assertEquals(1024, out.promptText().length());
+    assertEquals(1, warnings.size());
+    String warningMsg = warnings.get(0);
+    assertTrue(warningMsg.contains("Alice"), "Warning must contain player identity");
+    assertTrue(warningMsg.contains(String.valueOf(hugeExpansion.length())), "Warning must contain original length");
+    assertTrue(warningMsg.contains("1024"), "Warning must contain max length");
+    assertFalse(warningMsg.contains(secretContent), "Warning must NOT contain expansion content");
   }
 }

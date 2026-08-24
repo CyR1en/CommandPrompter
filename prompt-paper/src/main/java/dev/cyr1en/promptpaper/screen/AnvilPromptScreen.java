@@ -196,7 +196,7 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         if (!open) return;
         open = false;
         plugin.getPluginLogger().debug("Anvil result for " + player.getName()
-                + " cancelled=" + result.cancelled() + " answer=" + result.answer());
+                + " cancelled=" + result.cancelled());
         if (callback == null) return;
         if (result.cancelled()) {
             callback.accept(result);

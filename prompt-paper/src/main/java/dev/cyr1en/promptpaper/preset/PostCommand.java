@@ -24,14 +24,17 @@ public record PostCommand(
     @SerializedName("execute_as") ExecuteAs executeAs,
     @SerializedName("delay_ticks") int delayTicks) {
 
+  public static final int MAX_DELAY_TICKS = 72000;
+
   /** Canonical constructor. */
   public PostCommand {
     Objects.requireNonNull(id, "id must not be null");
     Objects.requireNonNull(command, "command must not be null");
     Objects.requireNonNull(executionPolicy, "execution_policy must not be null");
     Objects.requireNonNull(executeAs, "execute_as must not be null");
-    if (delayTicks < 0) {
-      throw new IllegalArgumentException("delay_ticks must be >= 0, got: " + delayTicks);
+    if (delayTicks < 0 || delayTicks > MAX_DELAY_TICKS) {
+      throw new IllegalArgumentException(
+          "delay_ticks must be between 0 and " + MAX_DELAY_TICKS + ", got: " + delayTicks);
     }
   }
 }

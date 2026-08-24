@@ -26,7 +26,8 @@ public class CommandRegistrar {
         this.topLevel = List.of(
                 new PromptRootCommand(plugin),
                 new ConsoleDelegateCommand(plugin),
-                new PlayerDelegateCommand(plugin));
+                new PlayerDelegateCommand(plugin),
+                new ResponseCommand(plugin));
     }
 
     /**

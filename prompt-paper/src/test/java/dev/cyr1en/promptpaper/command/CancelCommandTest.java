@@ -11,8 +11,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.config.PromptConfig;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
+import java.util.Map;
 import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.permissions.Permission;
@@ -28,7 +32,7 @@ class CancelCommandTest extends MockBukkitTest {
     private ScreenManager screenManager;
 
     @BeforeEach
-    void setUp() {
+    void setUpCancelCommand() {
         engine = mock(PromptEngine.class);
         when(plugin.getEngine()).thenReturn(engine);
         screenManager = mock(ScreenManager.class);
@@ -98,5 +102,45 @@ class CancelCommandTest extends MockBukkitTest {
         player.addAttachment(plugin, "promptpaper.cancel", false);
         assertFalse(cmd.allowed(player),
                 "an explicit permission denial should still disable self-cancellation");
+    }
+
+    @Test
+    void sec04TwoPlayerCancelRemovesOnlyExecutingPlayerSessionAndLeavesOtherPlayerFunctional() {
+        var promptConfig = mock(PromptConfig.class);
+        when(promptConfig.getScreenMappings()).thenReturn(Map.of("", ScreenType.CHAT));
+        org.mockito.Mockito.lenient().when(promptConfig.sendCancelText()).thenReturn(false);
+        org.mockito.Mockito.lenient().when(promptConfig.responseListenerPriority()).thenReturn("LOWEST");
+        when(configLoader.getPromptConfig()).thenReturn(promptConfig);
+        when(config.showCancelled()).thenReturn(true);
+
+        var realEngine = new PromptEngine(plugin, scheduler);
+        var realFactory = new PromptFactory(plugin);
+        var realScreenManager = new ScreenManager(plugin, realEngine, realFactory, scheduler);
+        when(plugin.getEngine()).thenReturn(realEngine);
+        when(plugin.getScreenManager()).thenReturn(realScreenManager);
+
+        PlayerMock playerA = createPlayer("PlayerA");
+        PlayerMock playerB = createPlayer("PlayerB");
+
+        realScreenManager.startSession(playerA, "/say <promptA>");
+        realScreenManager.startSession(playerB, "/say <promptB>");
+
+        assertTrue(realEngine.hasActiveSession(playerA), "Player A must have an active session");
+        assertTrue(realEngine.hasActiveSession(playerB), "Player B must have an active session");
+        assertTrue(realScreenManager.hasActiveScreen(playerA), "Player A must have an active screen");
+        assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B must have an active screen");
+
+        cmd.executeCancel(playerA);
+
+        assertFalse(realEngine.hasActiveSession(playerA), "Player A's session must be removed");
+        assertFalse(realScreenManager.hasActiveScreen(playerA), "Player A's screen must be removed");
+
+        assertTrue(realEngine.hasActiveSession(playerB), "Player B's session must remain active");
+        assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B's screen must remain active");
+
+        // Player B's prompt remains fully functional and accepts input
+        realScreenManager.handleChatInput(playerB, "BobTarget");
+        assertFalse(realEngine.hasActiveSession(playerB), "Player B's session should complete after submitting answer");
+        assertFalse(realScreenManager.hasActiveScreen(playerB), "Player B's screen should be closed after session completion");
     }
 }

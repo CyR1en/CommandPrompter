@@ -13,6 +13,7 @@ import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.util.PluginLogger;
+import java.util.Optional;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -193,5 +194,68 @@ class PlayerCommandListenerTest extends MockBukkitTest {
         assertTrue(event.isCancelled());
         verify(engine).rejectIfReloading(eq(player));
         verify(screenManager, org.mockito.Mockito.never()).startSession(any(), anyString());
+    }
+
+    @Test
+    void customScreenKeyStartedCancelsEvent() {
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        when(screenManager.hasActiveScreen(any())).thenReturn(false);
+        var player = createPlayer();
+        when(engine.lastInterceptResult(eq(player)))
+                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.Started(
+                        new dev.cyr1en.promptcore.ParsedCommand("cmd", java.util.List.of(), java.util.List.of(), dev.cyr1en.promptcore.ParserConfig.ANGLE_BRACKETS, "cmd", java.util.List.of()))));
+
+        var event = new PlayerCommandPreprocessEvent(player, "/cmd <custom_screen:value>");
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled());
+        verify(screenManager).startSession(eq(player), eq("cmd <custom_screen:value>"));
+    }
+
+    @Test
+    void unknownCustomScreenKeyRejectedFailClosedCancelsEvent() {
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        when(screenManager.hasActiveScreen(any())).thenReturn(false);
+        var player = createPlayer();
+        when(engine.lastInterceptResult(eq(player)))
+                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed("unknown screen key")));
+
+        var event = new PlayerCommandPreprocessEvent(player, "/cmd <unknown_key:value>");
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled());
+        verify(screenManager).startSession(eq(player), eq("cmd <unknown_key:value>"));
+    }
+
+    @Test
+    void commandWithApprovalGateAndZeroPromptsCancelsEvent() {
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        when(engine.hasPresetReferences(anyString())).thenReturn(true);
+        when(screenManager.hasActiveScreen(any())).thenReturn(false);
+        var player = createPlayer();
+        when(engine.lastInterceptResult(eq(player)))
+                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed(
+                        "Commands with approval gates but zero prompts are rejected fail-closed")));
+
+        var event = new PlayerCommandPreprocessEvent(player, "/pay Bob 100 <!gate:@admin_gate>");
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled(), "Gate command with 0 prompts must cancel PlayerCommandPreprocessEvent to prevent pass-through");
+        verify(screenManager).startSession(eq(player), eq("pay Bob 100 <!gate:@admin_gate>"));
+    }
+
+    @Test
+    void playerWithActiveApprovalLeaseRejectedActiveSessionCancelsEvent() {
+        when(engine.commandHasTagForm(anyString())).thenReturn(true);
+        when(screenManager.hasActiveScreen(any())).thenReturn(false);
+        var player = createPlayer();
+        when(engine.lastInterceptResult(eq(player)))
+                .thenReturn(Optional.of(dev.cyr1en.promptpaper.engine.InterceptResult.RejectedActiveSession.INSTANCE));
+
+        var event = new PlayerCommandPreprocessEvent(player, "/cmd <a:prompt>");
+        listener.onPlayerCommand(event);
+
+        assertTrue(event.isCancelled(), "Leased player running tagged command must cancel event to prevent raw tag leakage");
+        verify(screenManager).startSession(eq(player), eq("cmd <a:prompt>"));
     }
 }

@@ -42,6 +42,8 @@ public class TitleWrapperScreen implements InputScreen {
   private final CommandPrompter plugin;
 
   private CancellableTask pendingTask;
+  private Runnable onDelegateOpen;
+  private Consumer<Throwable> openFailureCallback;
   private boolean open;
 
   /**
@@ -67,6 +69,14 @@ public class TitleWrapperScreen implements InputScreen {
   /** The wrapped screen — exposed for testing and delegation checks. */
   public InputScreen delegate() {
     return delegate;
+  }
+
+  /**
+   * Sets a hook to be invoked when the wrapped delegate screen is actually opened
+   * (after title display duration).
+   */
+  public void setOnDelegateOpen(Runnable onDelegateOpen) {
+    this.onDelegateOpen = onDelegateOpen;
   }
 
   /**
@@ -102,9 +112,16 @@ public class TitleWrapperScreen implements InputScreen {
               pendingTask = null;
               try {
                 delegate.open();
+                if (onDelegateOpen != null) {
+                  onDelegateOpen.run();
+                }
               } catch (Throwable e) {
                 open = false;
-                clearRetiredState(uuid);
+                if (openFailureCallback != null) {
+                  openFailureCallback.accept(e);
+                } else {
+                  clearRetiredState(uuid);
+                }
                 plugin.getPluginLogger().err("Unable to open wrapped prompt screen: "
                     + e.getMessage());
               }
@@ -114,7 +131,11 @@ public class TitleWrapperScreen implements InputScreen {
     if (task == null) {
       pendingTask = null;
       open = false;
-      clearRetiredState(uuid);
+      if (openFailureCallback != null) {
+        openFailureCallback.accept(new IllegalStateException("Failed to schedule delegate open on player scheduler"));
+      } else {
+        clearRetiredState(uuid);
+      }
     } else {
       pendingTask = task::cancel;
     }
@@ -127,6 +148,8 @@ public class TitleWrapperScreen implements InputScreen {
 
   void invalidateCallbacks() {
     open = false;
+    onDelegateOpen = null;
+    openFailureCallback = null;
     if (pendingTask != null) {
       pendingTask.cancel();
       pendingTask = null;
@@ -140,6 +163,7 @@ public class TitleWrapperScreen implements InputScreen {
   @Override
   public void close() {
     open = false;
+    openFailureCallback = null;
     if (pendingTask != null) {
       pendingTask.cancel();
       pendingTask = null;
@@ -164,5 +188,11 @@ public class TitleWrapperScreen implements InputScreen {
   @Override
   public void onResult(Consumer<ScreenResult> callback) {
     delegate.onResult(callback);
+  }
+
+  @Override
+  public void onOpenFailure(Consumer<Throwable> callback) {
+    this.openFailureCallback = callback;
+    delegate.onOpenFailure(callback);
   }
 }

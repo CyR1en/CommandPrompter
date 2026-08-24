@@ -280,6 +280,119 @@ class ScreenManagerTest extends MockBukkitTest {
                 "failed validation must re-show the prompt");
     }
 
+    @Test
+    void answerLengthAtConfiguredMaxIsAccepted() {
+        when(config.maxAnswerLength()).thenReturn(256);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasChatScreen(player));
+
+        String answer256 = "a".repeat(256);
+        screenManager.handleChatInput(player, answer256);
+
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void answerLengthOverConfiguredMaxIsRejectedAndReprompted() {
+        when(config.maxAnswerLength()).thenReturn(256);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasChatScreen(player));
+
+        String answer257 = "a".repeat(257);
+        screenManager.handleChatInput(player, answer257);
+
+        verify(i18n).get(eq("validation.answer_too_long"), same(player), any(dev.cyr1en.promptcore.i18n.Placeholder[].class));
+        assertTrue(screenManager.hasActiveScreen(player), "Session must remain active and reprompt");
+        assertTrue(engine.hasActiveSession(player));
+
+        // Subsequent valid input finishes the session
+        screenManager.handleChatInput(player, "validInput");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void c0CharactersStrippedBeforeAnswerLengthCheck() {
+        when(config.maxAnswerLength()).thenReturn(256);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasChatScreen(player));
+
+        // 256 'a's plus 5 C0 control chars = 261 raw chars, 256 clean chars -> accepted
+        String rawWithC0 = "a".repeat(256) + "\u0000\u0001\u0002\u0003\u0004";
+        screenManager.handleChatInput(player, rawWithC0);
+
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void c0CharactersStrippedStillOverMaxIsRejected() {
+        when(config.maxAnswerLength()).thenReturn(256);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasChatScreen(player));
+
+        // 257 'a's plus 5 C0 control chars = 262 raw chars, 257 clean chars -> rejected
+        String rawWithC0 = "a".repeat(257) + "\u0000\u0001\u0002\u0003\u0004";
+        screenManager.handleChatInput(player, rawWithC0);
+
+        verify(i18n).get(eq("validation.answer_too_long"), same(player), any(dev.cyr1en.promptcore.i18n.Placeholder[].class));
+        assertTrue(screenManager.hasActiveScreen(player));
+        assertTrue(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void multiPromptAnswerOverLimitIsRejectedAndReprompted() {
+        when(config.maxAnswerLength()).thenReturn(10);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <first> <second>");
+        assertTrue(screenManager.hasChatScreen(player));
+
+        // First prompt receives answer > 10 chars
+        screenManager.handleChatInput(player, "this_is_too_long");
+        verify(i18n).get(eq("validation.answer_too_long"), same(player), any(dev.cyr1en.promptcore.i18n.Placeholder[].class));
+        assertTrue(screenManager.hasActiveScreen(player));
+        assertEquals(0, engine.getSession(player).orElseThrow().currentIndex());
+
+        // First prompt receives valid answer
+        screenManager.handleChatInput(player, "valid1");
+        assertTrue(screenManager.hasActiveScreen(player));
+        assertEquals(1, engine.getSession(player).orElseThrow().currentIndex());
+
+        // Second prompt receives answer > 10 chars
+        screenManager.handleChatInput(player, "this_is_also_too_long");
+        assertTrue(screenManager.hasActiveScreen(player));
+        assertEquals(1, engine.getSession(player).orElseThrow().currentIndex());
+
+        // Second prompt receives valid answer
+        screenManager.handleChatInput(player, "valid2");
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void compoundTagAnswerOverLimitIsRejectedAndReprompted() throws Exception {
+        when(config.maxAnswerLength()).thenReturn(10);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <first && second>");
+        assertTrue(engine.getSession(player).isPresent());
+
+        // Send compound payload where second answer exceeds maxAnswerLength (10)
+        String payload = AnswerEncoding.encode(List.of("short", "this_is_longer_than_10"));
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class);
+        handleMethod.setAccessible(true);
+        handleMethod.invoke(screenManager, player, ScreenResult.answer(payload));
+
+        verify(i18n).get(eq("validation.answer_too_long"), same(player), any(dev.cyr1en.promptcore.i18n.Placeholder[].class));
+        assertTrue(screenManager.hasActiveScreen(player), "Compound over-limit must reprompt");
+        assertTrue(engine.hasActiveSession(player));
+    }
+
     /**
      * The timeout feedback is sent directly to the player and must use the
      * player as the i18n context.
@@ -311,15 +424,12 @@ class ScreenManagerTest extends MockBukkitTest {
     /**
      * Regression for Issue #90: when the ATTACHMENT-mode dispatch's
      * {@code Bukkit.dispatchCommand} returns false (command not found), the
-     * temporary permission attachment must be removed immediately. It must
-     * not be retained for the configured {@code permissionAttachmentTicks}
-     * delay as if dispatch had succeeded.
+     * temporary permission attachment must be removed immediately.
      */
     @Test
     void falseDispatchReturnRemovesAttachmentImmediately() {
         when(config.getPermissionAttachment("KEY"))
                 .thenReturn(new String[]{"perm.old"});
-        when(config.permissionAttachmentTicks()).thenReturn(20);
         var player = createPlayer();
 
         screenManager.startDelegatedSession(
@@ -385,5 +495,204 @@ class ScreenManagerTest extends MockBukkitTest {
         verify(mockFactory).createFromTag(eq(player), any(PromptTag.class), captor.capture());
 
         assertNull(captor.getValue());
+    }
+
+    // ========================= Generation & SEC-13 Tests =========================
+
+    @Test
+    void timeoutCancelsWithTimeoutReasonAndDispatchesCancelPCMs() {
+        when(config.promptTimeout()).thenReturn(1);
+        when(config.showCancelled()).thenReturn(true);
+        var player = createPlayer("TimeoutUser");
+        screenManager.startSession(player, "/cmd <test> <!!cancel_pcm>");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        performTicks(20);
+
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+        verify(i18n).get(eq("prompt.timed_out"), same(player));
+    }
+
+    @Test
+    void tagLevelTimeoutOverridesGlobalTimeout() {
+        when(config.promptTimeout()).thenReturn(10);
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test -timeout:1>");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        performTicks(20);
+
+        assertFalse(screenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void staleCallbackWithOldGenerationTokenIsDiscarded() throws Exception {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <first> <second>");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        var sessionBefore = engine.getSession(player).orElseThrow();
+        assertEquals(0L, sessionBefore.generation());
+
+        screenManager.handleChatInput(player, "first_ans");
+        var sessionAfter = engine.getSession(player).orElseThrow();
+        assertEquals(1L, sessionAfter.generation());
+        assertEquals(1, sessionAfter.remainingCount());
+
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class, long.class);
+        handleMethod.setAccessible(true);
+        handleMethod.invoke(screenManager, player, ScreenResult.answer("stale_ans"), 0L);
+
+        var sessionUnchanged = engine.getSession(player).orElseThrow();
+        assertEquals(1L, sessionUnchanged.generation());
+        assertEquals(1, sessionUnchanged.remainingCount());
+        assertEquals(List.of("first_ans"), sessionUnchanged.answers());
+
+        handleMethod.invoke(screenManager, player, ScreenResult.answer("second_ans"), 1L);
+        assertFalse(engine.hasActiveSession(player));
+        assertFalse(screenManager.hasActiveScreen(player));
+    }
+
+    @Test
+    void duplicateTerminalCallbacksRejectedSec13() throws Exception {
+        var player = createPlayer();
+        screenManager.startSession(player, "/cmd <test>");
+        assertTrue(screenManager.hasActiveScreen(player));
+
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class, long.class);
+        handleMethod.setAccessible(true);
+
+        handleMethod.invoke(screenManager, player, ScreenResult.answer("ans"), 0L);
+        assertFalse(engine.hasActiveSession(player));
+
+        handleMethod.invoke(screenManager, player, ScreenResult.answer("ans_duplicate"), 0L);
+        handleMethod.invoke(screenManager, player, ScreenResult.cancel(), 0L);
+
+        assertFalse(engine.hasActiveSession(player));
+    }
+
+    @Test
+    void typedCancelReasonsPropagateProperly() throws Exception {
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class, long.class);
+        handleMethod.setAccessible(true);
+
+        var p1 = createPlayer();
+        screenManager.startSession(p1, "/cmd <test>");
+        handleMethod.invoke(screenManager, p1, ScreenResult.blankInput(), 0L);
+        assertFalse(engine.hasActiveSession(p1));
+
+        var p2 = createPlayer();
+        screenManager.startSession(p2, "/cmd <test>");
+        handleMethod.invoke(screenManager, p2, ScreenResult.manualCancel(), 0L);
+        assertFalse(engine.hasActiveSession(p2));
+
+        var p3 = createPlayer();
+        screenManager.startSession(p3, "/cmd <test>");
+        handleMethod.invoke(screenManager, p3, ScreenResult.guiExit(), 0L);
+        assertFalse(engine.hasActiveSession(p3));
+    }
+
+    // ========================= PlayerExecutor Inline / Scheduled Verification =========================
+
+    @Test
+    void handleResultExecutesInlineWhenThreadOwnsPlayer() throws Exception {
+        var inlineExecuted = new java.util.concurrent.atomic.AtomicBoolean(false);
+        var customScreenManager = new ScreenManager(
+                plugin,
+                engine,
+                factory,
+                scheduler,
+                factory::createFromTag,
+                p -> (task, retired) -> {
+                    inlineExecuted.set(true);
+                    task.run();
+                }
+        );
+
+        var player = createPlayer();
+        customScreenManager.startSession(player, "/cmd <test>");
+        assertTrue(customScreenManager.hasActiveScreen(player));
+
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class, long.class);
+        handleMethod.setAccessible(true);
+        handleMethod.invoke(customScreenManager, player, ScreenResult.answer("inline_ans"), 0L);
+
+        assertTrue(inlineExecuted.get(), "PlayerExecutor should execute inline when thread owns player");
+        assertFalse(engine.hasActiveSession(player), "Session should be completed immediately without scheduler delay");
+        assertFalse(customScreenManager.hasActiveScreen(player));
+    }
+
+    @Test
+    void handleResultExecutesScheduledWhenThreadDoesNotOwnPlayer() throws Exception {
+        var scheduledTasks = new java.util.ArrayList<Runnable>();
+        var customScreenManager = new ScreenManager(
+                plugin,
+                engine,
+                factory,
+                scheduler,
+                factory::createFromTag,
+                p -> (task, retired) -> scheduledTasks.add(task)
+        );
+
+        var player = createPlayer();
+        customScreenManager.startSession(player, "/cmd <test>");
+        assertTrue(customScreenManager.hasActiveScreen(player));
+
+        var handleMethod = ScreenManager.class.getDeclaredMethod(
+                "handleResult", Player.class, ScreenResult.class, long.class);
+        handleMethod.setAccessible(true);
+        handleMethod.invoke(customScreenManager, player, ScreenResult.answer("queued_ans"), 0L);
+
+        assertEquals(1, scheduledTasks.size(), "Task must be scheduled when thread does not own player");
+        assertTrue(engine.hasActiveSession(player), "Session must remain active until scheduled task executes");
+
+        // Now run the scheduled task
+        scheduledTasks.remove(0).run();
+        assertFalse(engine.hasActiveSession(player), "Session must complete once scheduled task runs");
+        assertFalse(customScreenManager.hasActiveScreen(player));
+    }
+
+    @Test
+    void handleOpenFailureSanitizesC0ControlsInExceptionMessage() throws Exception {
+        var loggerSpy = org.mockito.Mockito.spy(pluginLogger);
+        org.mockito.Mockito.when(plugin.getPluginLogger()).thenReturn(loggerSpy);
+
+        var customScreenManager = new ScreenManager(
+                plugin,
+                engine,
+                factory,
+                scheduler,
+                factory::createFromTag,
+                p -> (task, retired) -> task.run()
+        );
+
+        var player = createPlayer("Forger");
+        customScreenManager.startSession(player, "/cmd <test>");
+        assertTrue(customScreenManager.hasActiveScreen(player));
+
+        var session = engine.getSession(player).orElseThrow();
+        var handleFailureMethod = ScreenManager.class.getDeclaredMethod(
+                "handleOpenFailure", Player.class, Throwable.class, long.class, long.class, long.class);
+        handleFailureMethod.setAccessible(true);
+
+        var dangerousError = new RuntimeException("bad\u0000error\r\nmessage\u001Fhere");
+        handleFailureMethod.invoke(customScreenManager, player, dangerousError, session.incarnation(), session.generation(), 0L);
+
+        assertFalse(customScreenManager.hasActiveScreen(player));
+        assertFalse(engine.hasActiveSession(player));
+        org.mockito.Mockito.verify(loggerSpy).debug(org.mockito.ArgumentMatchers.argThat(msg ->
+                msg.contains("Screen open failure for Forger")
+                        && msg.contains("baderrormessagehere")
+                        && !msg.contains("\u0000")
+                        && !msg.contains("\r")
+                        && !msg.contains("\n")
+                        && !msg.contains("\u001F")
+        ));
     }
 }

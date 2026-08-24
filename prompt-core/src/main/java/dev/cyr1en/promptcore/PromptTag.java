@@ -1,6 +1,8 @@
 package dev.cyr1en.promptcore;
 
+import dev.cyr1en.promptcore.logic.condition.Condition;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -17,6 +19,8 @@ import java.util.Objects;
  *   <li>{@code type = NONE} — no type constraint on the answer
  *   <li>{@code subTags = []} — empty for a single-row tag
  *   <li>{@code preset = false} — not a JSON preset reference
+ *   <li>{@code flags = {}} — arbitrary custom key-value flags for extensible screens
+ *   <li>{@code breakIf = null} — optional compiled condition evaluated after answer submission
  * </ul>
  *
  * <h2>Preset tags</h2>
@@ -50,6 +54,11 @@ import java.util.Objects;
  * @param preset whether this tag is a JSON preset reference (e.g. {@code <@my_prompt>})
  * @param title optional title-wrapper configuration extracted from the {@code -t} flag; {@code
  *     null} when no title wrapper is requested
+ * @param timeout optional timeout in seconds extracted from the {@code -timeout} flag; {@code null}
+ *     when no timeout override is requested
+ * @param flags immutable map of custom trailing flag names to string values (e.g. {@code
+ *     -rarity:rare})
+ * @param breakIf optional compiled condition to evaluate for early flow termination
  */
 public record PromptTag(
     String rawTag,
@@ -61,7 +70,10 @@ public record PromptTag(
     AnswerType type,
     List<PromptTag> subTags,
     boolean preset,
-    TitleConfig title) {
+    TitleConfig title,
+    Integer timeout,
+    Map<String, String> flags,
+    Condition breakIf) {
 
   /** Describes an optional type constraint on the answer value. */
   public enum AnswerType {
@@ -73,26 +85,45 @@ public record PromptTag(
     STRING
   }
 
-  /** Compact constructor that validates non-null components. */
+  /** Compact constructor that validates non-null components, bounds, and makes defensive copies. */
   public PromptTag {
     Objects.requireNonNull(rawTag);
     Objects.requireNonNull(key);
     Objects.requireNonNull(displayText);
     Objects.requireNonNull(type);
+    if (timeout != null && (timeout < 1 || timeout > 3600)) {
+      throw new IllegalArgumentException(
+          "Timeout must be between 1 and 3600 seconds, got: " + timeout);
+    }
     subTags = subTags == null ? List.of() : List.copyOf(subTags);
+    flags = flags == null ? Map.of() : Map.copyOf(flags);
   }
 
   /**
    * Convenience shortcut for a single-row tag (no sub-tags) with default sanitize=true, no
-   * validator, no type constraint, no title wrapper, and {@code preset = false}.
+   * validator, no type constraint, no title wrapper, no timeout, {@code preset = false}, and empty
+   * flags.
    */
   public PromptTag(String rawTag, String key, String filter, String displayText) {
-    this(rawTag, key, filter, displayText, true, null, AnswerType.NONE, List.of(), false, null);
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        true,
+        null,
+        AnswerType.NONE,
+        List.of(),
+        false,
+        null,
+        null,
+        Map.of(),
+        null);
   }
 
   /**
    * Convenience shortcut with sanitize and validator but no type constraint, no sub-tags, no title
-   * wrapper, and {@code preset = false}.
+   * wrapper, no timeout, {@code preset = false}, and empty flags.
    */
   public PromptTag(
       String rawTag,
@@ -111,13 +142,16 @@ public record PromptTag(
         AnswerType.NONE,
         List.of(),
         false,
+        null,
+        null,
+        Map.of(),
         null);
   }
 
   /**
-   * Convenience shortcut carrying all block-level fields but no title wrapper. Equivalent to the
-   * canonical constructor with {@code title = null}. Preserves backward compatibility for callers
-   * that construct a {@code PromptTag} before the title-wrapper feature was introduced.
+   * Convenience shortcut carrying all block-level fields but no title wrapper, no timeout, and
+   * empty flags. Preserves backward compatibility for callers that construct a {@code PromptTag}
+   * before those features.
    */
   public PromptTag(
       String rawTag,
@@ -129,7 +163,118 @@ public record PromptTag(
       AnswerType type,
       List<PromptTag> subTags,
       boolean preset) {
-    this(rawTag, key, filter, displayText, sanitize, validatorAlias, type, subTags, preset, null);
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        sanitize,
+        validatorAlias,
+        type,
+        subTags,
+        preset,
+        null,
+        null,
+        Map.of(),
+        null);
+  }
+
+  /**
+   * Convenience shortcut carrying all block-level fields including title wrapper, but no timeout
+   * and empty flags. Preserves backward compatibility for callers that construct a {@code
+   * PromptTag} before timeout/flags.
+   */
+  public PromptTag(
+      String rawTag,
+      String key,
+      String filter,
+      String displayText,
+      boolean sanitize,
+      String validatorAlias,
+      AnswerType type,
+      List<PromptTag> subTags,
+      boolean preset,
+      TitleConfig title) {
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        sanitize,
+        validatorAlias,
+        type,
+        subTags,
+        preset,
+        title,
+        null,
+        Map.of(),
+        null);
+  }
+
+  /**
+   * Convenience shortcut carrying all fields except custom flags (empty flags map) and no breakIf
+   * condition. Preserves backward compatibility for 11-argument callers prior to custom flag
+   * support.
+   */
+  public PromptTag(
+      String rawTag,
+      String key,
+      String filter,
+      String displayText,
+      boolean sanitize,
+      String validatorAlias,
+      AnswerType type,
+      List<PromptTag> subTags,
+      boolean preset,
+      TitleConfig title,
+      Integer timeout) {
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        sanitize,
+        validatorAlias,
+        type,
+        subTags,
+        preset,
+        title,
+        timeout,
+        Map.of(),
+        null);
+  }
+
+  /**
+   * Convenience shortcut carrying all fields except breakIf condition (null breakIf). Preserves
+   * backward compatibility for 12-argument callers prior to breakIf support.
+   */
+  public PromptTag(
+      String rawTag,
+      String key,
+      String filter,
+      String displayText,
+      boolean sanitize,
+      String validatorAlias,
+      AnswerType type,
+      List<PromptTag> subTags,
+      boolean preset,
+      TitleConfig title,
+      Integer timeout,
+      Map<String, String> flags) {
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        sanitize,
+        validatorAlias,
+        type,
+        subTags,
+        preset,
+        title,
+        timeout,
+        flags,
+        null);
   }
 
   /**
@@ -147,5 +292,10 @@ public record PromptTag(
    */
   public boolean isPreset() {
     return preset;
+  }
+
+  /** Whether this tag has an attached breakIf condition. */
+  public boolean hasBreakIf() {
+    return breakIf != null;
   }
 }

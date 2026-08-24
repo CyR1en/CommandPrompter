@@ -15,8 +15,10 @@ repositories {
 }
 
 dependencies {
+    api(project(":prompt-core"))
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
 
+    testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testImplementation("net.kyori:adventure-api:4.26.1")
     testImplementation("net.kyori:adventure-text-minimessage:4.26.1")

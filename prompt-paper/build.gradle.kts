@@ -74,6 +74,7 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.processResources {
+    inputs.property("projectVersion", project.version.toString())
     filesMatching("paper-plugin.yml") {
         expand(project.properties)
     }

@@ -19,6 +19,49 @@ Features:
 * **Console delegate** - a robust way to prompt a player via console.
 * **Post command** - expands your command by incorporation post commands.
 
+## Configuration & Syntax
+
+CommandPrompter supports explicit, customizable delimiters for command prompts and action/gate templates in `config.yml`.
+
+### Default Configuration (Pascal-Hyphen)
+```yaml
+Syntax:
+  Prompt:
+    Open: '<'
+    Close: '>'
+  Template:
+    Open: '{'
+    Close: '}'
+    Transform-Separator: ':'
+    Escape: '\'
+```
+
+### Custom Syntax Example
+Delimiters can be customized to avoid collisions with other plugins or chat formatters. For example, configuring `{` / `}` for prompts and `[[` / `]]` with `|` for templates:
+
+```yaml
+Syntax:
+  Prompt:
+    Open: '{'
+    Close: '}'
+  Template:
+    Open: '[['
+    Close: ']]'
+    Transform-Separator: '|'
+    Escape: '\'
+```
+
+With this custom configuration:
+* **Inline Prompt**: `{a:Player?}`
+* **Template Transformation**: `[[0|upper]]`
+* **Inline Post-Command**: `{!say [[0]]}`
+
+### Syntax Rules & Invariants
+* **Literal Delimiters**: Delimiters are matched as literal tokens (1–16 characters each, without whitespace, control characters, or quotes `"` / `'`).
+* **No Nesting or Chaining**: Delimiters do not support recursive nesting or nested token chaining.
+* **Disjoint-Token Validation**: Prefix overlap between tokens is strictly prohibited (no token may be a prefix of another delimiter token across prompt and template syntax).
+* **`Argument-Regex` Superseded**: The legacy `Argument-Regex` node is deprecated and superseded by explicit `Syntax` configuration. Legacy regex extraction is not guaranteed to support arbitrary regex patterns or multi-character syntax without explicit delimiter definition.
+
 ## Building
 
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:

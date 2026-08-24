@@ -51,7 +51,7 @@ class PromptEngineTest extends MockBukkitTest {
         engine.intercept(player, "/cmd <test> please");
         var result = engine.submit(player, "myAnswer");
         assertTrue(result.isPresent());
-        assertEquals("/cmd myAnswer please", result.get().assembledCommand());
+        assertEquals("/cmd \"myAnswer\" please", result.get().assembledCommand());
     }
 
     @Test

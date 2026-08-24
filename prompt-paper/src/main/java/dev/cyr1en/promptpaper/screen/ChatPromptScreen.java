@@ -107,7 +107,7 @@ public class ChatPromptScreen implements InputScreen {
             plugin.getPluginLogger().debug("Chat input for " + player.getName() + " but screen not open");
             return;
         }
-        plugin.getPluginLogger().debug("Chat input from " + player.getName() + ": " + input);
+        plugin.getPluginLogger().debug("Chat input received from " + player.getName());
         open = false;
         if (callback != null) {
             callback.accept(ScreenResult.answer(input));

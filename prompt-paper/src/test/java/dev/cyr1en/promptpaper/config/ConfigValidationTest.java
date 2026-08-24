@@ -6,6 +6,7 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ConfigValidationTest extends MockBukkitTest {
@@ -38,6 +39,66 @@ class ConfigValidationTest extends MockBukkitTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> data.copy(Map.of("intSampleRegex", "[")));
+  }
+
+  @Test
+  void confirmationModeRejectsInvalidModes() {
+    var data = new PromptConfigTestData();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationDefaultMode", "invalid_mode")));
+  }
+
+  @Test
+  void confirmationGuiItemSlotsMustBeDistinct() {
+    var data = new PromptConfigTestData();
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationConfirmItemSlot", 15, "confirmationCancelItemSlot", 15)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationConfirmItemSlot", 13, "confirmationInfoItemSlot", 13)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationCancelItemSlot", 13, "confirmationInfoItemSlot", 13)));
+  }
+
+  @Test
+  void confirmationGuiItemSlotsMustBeBetween0And26() {
+    var data = new PromptConfigTestData();
+    // Slot 26 accepted
+    var cfg26 = data.copy(Map.of("confirmationConfirmItemSlot", 26));
+    org.junit.jupiter.api.Assertions.assertEquals(26, cfg26.confirmationConfirmItemSlot());
+
+    // Slot 27 rejected
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationConfirmItemSlot", 27)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationCancelItemSlot", 27)));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationInfoItemSlot", 27)));
+
+    // Negative slot rejected
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> data.copy(Map.of("confirmationConfirmItemSlot", -1)));
+  }
+
+  @Test
+  void screenMappingsRejectsReservedKeyOverrides() {
+    for (String key : PromptConfig.RESERVED_SCREEN_KEYS) {
+      if (key.isEmpty()) continue;
+      var rawConfig = org.mockito.Mockito.mock(dev.cyr1en.promptcore.config.YamlDocument.class);
+      org.mockito.Mockito.when(rawConfig.getKeys("screen-mappings")).thenReturn(Set.of(key));
+      org.mockito.Mockito.when(rawConfig.getString("screen-mappings." + key)).thenReturn("CHAT");
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> new PromptConfigTestData().copy(Map.of("rawConfig", rawConfig)),
+          "Should reject overriding reserved key: " + key);
+    }
   }
 
   /** Reflection helper keeps this test independent of the very wide flat config record. */
@@ -119,7 +180,21 @@ class ConfigValidationTest extends MockBukkitTest {
               0.0f,
               100.0f,
               1.0f,
-              5);
+              5,
+              "gui",
+              "&8Confirm Action",
+              "LIME_CONCRETE",
+              "&aConfirm",
+              11,
+              "RED_CONCRETE",
+              "&cCancel",
+              15,
+              "PAPER",
+              "&eInformation",
+              13,
+              "&aConfirm",
+              "&cCancel",
+              "");
     }
 
     private PromptConfig copy(Map<String, Object> changes) {

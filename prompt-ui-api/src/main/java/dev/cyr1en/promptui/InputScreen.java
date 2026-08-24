@@ -5,21 +5,17 @@ import java.util.function.Consumer;
 /**
  * Generic lifecycle for an interactive prompt screen.
  *
- * <p>Implementations are platform-bound: Anvil/Sign screens are NMS-backed and run on the
- * Bukkit main thread (or the player scheduler's own thread). All callback invocations are
- * guaranteed to occur on that same thread; consumers should not assume the call originates
- * from any particular thread context outside of that guarantee.
- *
  * <p>The lifecycle is:
  * <ol>
- *   <li>{@link #configure(java.util.Map)} (optional, only for anvil/sign subtypes)</li>
- *   <li>{@link #onResult(Consumer)} (registers a single callback)</li>
- *   <li>{@link #open()}</li>
- *   <li>either {@link #close()} or a single {@code ScreenResult} delivered to the callback</li>
+ *   <li>{@link #onResult(Consumer)} (registers the completion callback)</li>
+ *   <li>{@link #onOpenFailure(Consumer)} (optional, registers an open-failure callback)</li>
+ *   <li>{@link #open()} (presents the UI to the player)</li>
+ *   <li>either {@link #close()} or a single {@link ScreenResult} delivered to the callback</li>
  * </ol>
  *
- * <p>Implementations are not required to be thread-safe. Callers should invoke lifecycle
- * methods from the main thread (or via the player scheduler).
+ * <p>Implementations receive {@link #open()} and {@link #close()} invocations on the player's
+ * entity scheduler. Result callbacks may be invoked from any thread; CommandPrompter ensures
+ * safe thread-hopping, generation token verification, and exactly-once processing.</p>
  */
 public interface InputScreen {
 

@@ -1,5 +1,6 @@
 package dev.cyr1en.promptcore;
 
+import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -16,6 +17,7 @@ public record ParsedCommand(
     String templateCommand,
     List<PromptTag> promptTags,
     List<PostCommandMeta> postCmds,
+    List<PreDispatchGateSpec> preDispatchGates,
     ParserConfig parserConfig,
     String rawTemplateCommand,
     List<TemplateSpan> templateSpans) {
@@ -28,10 +30,12 @@ public record ParsedCommand(
    * @param end exclusive end offset in the raw command
    * @param rawText the exact source text covered by this span
    * @param pcm whether the span is a parsed post-command meta
-   * @param parsedIndex index in {@link #postCmds()} or {@link #promptTags()}, according to {@code
-   *     pcm}
+   * @param parsedIndex index in {@link #postCmds()}, {@link #promptTags()}, or {@link
+   *     #preDispatchGates()}, according to {@code pcm} and {@code gate}
+   * @param gate whether the span is a parsed pre-dispatch gate
    */
-  public record TemplateSpan(int start, int end, String rawText, boolean pcm, int parsedIndex) {
+  public record TemplateSpan(
+      int start, int end, String rawText, boolean pcm, int parsedIndex, boolean gate) {
     public TemplateSpan {
       Objects.requireNonNull(rawText, "rawText");
       if (start < 0 || end < start || end - start != rawText.length()) {
@@ -39,19 +43,66 @@ public record ParsedCommand(
       }
       if (parsedIndex < 0) throw new IllegalArgumentException("parsedIndex must not be negative");
     }
+
+    public TemplateSpan(int start, int end, String rawText, boolean pcm, int parsedIndex) {
+      this(start, end, rawText, pcm, parsedIndex, false);
+    }
+
+    public boolean isGate() {
+      return gate;
+    }
   }
 
   /**
-   * Backward-compatible constructor for callers that construct a parsed command directly. Commands
-   * produced by {@link dev.cyr1en.promptcore.parser.CommandLineParser} use the raw-span
-   * constructor.
+   * Backward-compatible constructor for callers that construct a parsed command directly without
+   * gates. Commands produced by {@link dev.cyr1en.promptcore.parser.CommandLineParser} use the
+   * raw-span constructor.
    */
   public ParsedCommand(
       String templateCommand,
       List<PromptTag> promptTags,
       List<PostCommandMeta> postCmds,
       ParserConfig parserConfig) {
-    this(templateCommand, promptTags, postCmds, parserConfig, templateCommand, List.of());
+    this(
+        templateCommand, promptTags, postCmds, List.of(), parserConfig, templateCommand, List.of());
+  }
+
+  /**
+   * Backward-compatible constructor for callers that construct a parsed command with gates directly
+   * (no spans).
+   */
+  public ParsedCommand(
+      String templateCommand,
+      List<PromptTag> promptTags,
+      List<PostCommandMeta> postCmds,
+      List<PreDispatchGateSpec> preDispatchGates,
+      ParserConfig parserConfig) {
+    this(
+        templateCommand,
+        promptTags,
+        postCmds,
+        preDispatchGates,
+        parserConfig,
+        templateCommand,
+        List.of());
+  }
+
+  /** Backward-compatible constructor with spans but no gates. */
+  public ParsedCommand(
+      String templateCommand,
+      List<PromptTag> promptTags,
+      List<PostCommandMeta> postCmds,
+      ParserConfig parserConfig,
+      String rawTemplateCommand,
+      List<TemplateSpan> templateSpans) {
+    this(
+        templateCommand,
+        promptTags,
+        postCmds,
+        List.of(),
+        parserConfig,
+        rawTemplateCommand,
+        templateSpans);
   }
 
   /** Compact constructor that defensively copies all live collections. */
@@ -59,13 +110,28 @@ public record ParsedCommand(
     Objects.requireNonNull(templateCommand);
     Objects.requireNonNull(promptTags);
     Objects.requireNonNull(postCmds);
+    Objects.requireNonNull(preDispatchGates);
     Objects.requireNonNull(parserConfig);
     Objects.requireNonNull(rawTemplateCommand);
     Objects.requireNonNull(templateSpans);
+    if (promptTags.size() > 16) {
+      throw new IllegalArgumentException(
+          "Prompt tags count cannot exceed 16, got " + promptTags.size());
+    }
+    if (preDispatchGates.size() > 16) {
+      throw new IllegalArgumentException(
+          "Pre-dispatch gates count cannot exceed 16, got " + preDispatchGates.size());
+    }
     promptTags = List.copyOf(promptTags);
     postCmds = List.copyOf(postCmds);
+    preDispatchGates = List.copyOf(preDispatchGates);
     templateSpans = List.copyOf(templateSpans);
-    validateSpans(rawTemplateCommand, templateSpans, promptTags.size(), postCmds.size());
+    validateSpans(
+        rawTemplateCommand,
+        templateSpans,
+        promptTags.size(),
+        postCmds.size(),
+        preDispatchGates.size());
   }
 
   /** Number of prompt tags in this command. */
@@ -78,9 +144,19 @@ public record ParsedCommand(
     return postCmds.size();
   }
 
+  /** Number of pre-dispatch gates in this command. */
+  public int gateCount() {
+    return preDispatchGates.size();
+  }
+
   /** Whether this command contains any prompt tags. */
   public boolean hasPrompts() {
     return !promptTags.isEmpty();
+  }
+
+  /** Whether this command contains any pre-dispatch gates. */
+  public boolean hasGates() {
+    return !preDispatchGates.isEmpty();
   }
 
   /** Defensive accessor for the parsed prompt list. */
@@ -93,6 +169,12 @@ public record ParsedCommand(
   @Override
   public List<PostCommandMeta> postCmds() {
     return List.copyOf(postCmds);
+  }
+
+  /** Defensive accessor for the parsed pre-dispatch gates list. */
+  @Override
+  public List<PreDispatchGateSpec> preDispatchGates() {
+    return List.copyOf(preDispatchGates);
   }
 
   /** Defensive accessor for source spans. */
@@ -170,8 +252,8 @@ public record ParsedCommand(
     var countIndex = 0;
     var stoppedAtUnanswered = false;
     for (var span : spans) {
-      command.append(rawTemplate, cursor, span.start());
-      if (span.pcm()) {
+      command.append(unescape(rawTemplate.substring(cursor, span.start()), parsed.parserConfig()));
+      if (span.pcm() || span.gate()) {
         cursor = span.end();
         continue;
       }
@@ -199,9 +281,9 @@ public record ParsedCommand(
         }
         var parts = new ArrayList<String>(count);
         for (int i = 0; i < count; i++) {
-          parts.add(answers.get(answerIndex++));
+          parts.add(formatCommandToken(answers.get(answerIndex++)));
         }
-        command.append(parts.stream().filter(p -> !p.isEmpty()).collect(Collectors.joining(" ")));
+        command.append(parts.stream().collect(Collectors.joining(" ")));
       }
       // count == 0: drop the raw tag without consuming an answer.
       cursor = span.end();
@@ -209,10 +291,11 @@ public record ParsedCommand(
 
     // If a prompt was unanswered, the loop intentionally stopped before advancing the
     // cursor. Otherwise all ordinary literals after the final parsed span are retained.
-    if (!stoppedAtUnanswered) command.append(rawTemplate, cursor, rawTemplate.length());
+    if (!stoppedAtUnanswered) {
+      command.append(unescape(rawTemplate.substring(cursor), parsed.parserConfig()));
+    }
 
-    var unescaped = unescape(command.toString(), parsed.parserConfig());
-    var trimmed = unescaped.trim();
+    var trimmed = command.toString().trim();
     return trimmed.endsWith(" ") ? trimmed : trimmed + " ";
   }
 
@@ -243,7 +326,7 @@ public record ParsedCommand(
         stoppedEarly = true;
         break;
       }
-      command.append(template, cursor, index);
+      command.append(unescape(template.substring(cursor, index), parsed.parserConfig()));
       if (countIndex >= submittedCounts.size()) {
         stoppedEarly = true;
         break;
@@ -262,14 +345,14 @@ public record ParsedCommand(
         }
         var parts = new ArrayList<String>(count);
         for (int i = 0; i < count; i++) {
-          parts.add(answers.get(answerIndex++));
+          parts.add(formatCommandToken(answers.get(answerIndex++)));
         }
-        command.append(parts.stream().filter(p -> !p.isEmpty()).collect(Collectors.joining(" ")));
+        command.append(parts.stream().collect(Collectors.joining(" ")));
       }
       cursor = index + tag.rawTag().length();
     }
     if (cursor == 0 || !stoppedEarly) {
-      command.append(template.substring(cursor));
+      command.append(unescape(template.substring(cursor), parsed.parserConfig()));
     }
     // Do not use a wildcard PCM expression here: only spans from the parser are authoritative.
     var trimmed = command.toString().trim();
@@ -300,29 +383,62 @@ public record ParsedCommand(
     return counts;
   }
 
+  /**
+   * Formats a player answer as a single double-quoted command token with quotes and backslashes
+   * escaped.
+   *
+   * @param answer the answer string to format
+   * @return the formatted token wrapped in double quotes, or empty string if answer is null
+   */
+  public static String formatCommandToken(String answer) {
+    if (answer == null) {
+      return "";
+    }
+    var sb = new StringBuilder(answer.length() + 2);
+    sb.append('"');
+    for (int i = 0; i < answer.length(); i++) {
+      char c = answer.charAt(i);
+      if (c == '\\' || c == '"') {
+        sb.append('\\');
+      }
+      sb.append(c);
+    }
+    sb.append('"');
+    return sb.toString();
+  }
+
   private static String unescape(String input, ParserConfig config) {
     if (input == null || input.isEmpty()) return input;
-    char escape = config.escape().charAt(0);
-    char opening = config.opening().charAt(0);
-    char closing = config.closing().charAt(0);
+    String escape = config.escape();
+    String opening = config.opening();
+    String closing = config.closing();
     var result = new StringBuilder(input.length());
-    for (int i = 0; i < input.length(); i++) {
-      char current = input.charAt(i);
-      if (current == escape && i + 1 < input.length()) {
-        char next = input.charAt(i + 1);
-        if (next == opening || next == closing) {
-          result.append(next);
-          i++;
+    int i = 0;
+    while (i < input.length()) {
+      if (input.startsWith(escape, i)) {
+        int nextIdx = i + escape.length();
+        if (input.startsWith(opening, nextIdx)) {
+          result.append(opening);
+          i = nextIdx + opening.length();
+          continue;
+        } else if (input.startsWith(closing, nextIdx)) {
+          result.append(closing);
+          i = nextIdx + closing.length();
+          continue;
+        } else if (input.startsWith(escape, nextIdx)) {
+          result.append(escape);
+          i = nextIdx + escape.length();
           continue;
         }
       }
-      result.append(current);
+      result.append(input.charAt(i));
+      i++;
     }
     return result.toString();
   }
 
   private static void validateSpans(
-      String rawTemplate, List<TemplateSpan> spans, int promptCount, int pcmCount) {
+      String rawTemplate, List<TemplateSpan> spans, int promptCount, int pcmCount, int gateCount) {
     var previousEnd = 0;
     for (var span : spans) {
       if (span.start() < previousEnd || span.end() > rawTemplate.length()) {
@@ -332,7 +448,14 @@ public record ParsedCommand(
       if (!rawTemplate.regionMatches(span.start(), span.rawText(), 0, span.rawText().length())) {
         throw new IllegalArgumentException("Parsed template span does not match the raw template");
       }
-      int count = span.pcm() ? pcmCount : promptCount;
+      int count;
+      if (span.gate()) {
+        count = gateCount;
+      } else if (span.pcm()) {
+        count = pcmCount;
+      } else {
+        count = promptCount;
+      }
       if (span.parsedIndex() >= count) {
         throw new IllegalArgumentException("Parsed template span has an invalid parsed index");
       }

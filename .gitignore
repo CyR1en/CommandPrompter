@@ -126,7 +126,8 @@ testserver/
 
 # Agent working notes (local-only)
 AGENTS.md
-docs/
+docs/*
+!docs/custom-screens.md
 
 .condegraph/
 .lcm/

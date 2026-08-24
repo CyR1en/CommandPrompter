@@ -149,7 +149,7 @@ public class PlayerUIScreen implements InputScreen {
                 open = false;
                 unregisterListeners();
                 if (callback != null) {
-                    callback.accept(ScreenResult.cancel());
+                    callback.accept(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.GUI_EXIT));
                 }
             }
         });
@@ -329,7 +329,7 @@ public class PlayerUIScreen implements InputScreen {
                         btn.buttonText(), btn.buttonHoverText(), event -> {
                             close();
                             if (callback != null) {
-                                callback.accept(ScreenResult.cancel());
+                                callback.accept(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.MANUAL));
                             }
                         }), slot, 0);
             }
@@ -339,7 +339,7 @@ public class PlayerUIScreen implements InputScreen {
                     cfg.cancelText(), null, event -> {
                         close();
                         if (callback != null) {
-                            callback.accept(ScreenResult.cancel());
+                            callback.accept(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.MANUAL));
                         }
                     }), slot, 0);
         }
@@ -430,7 +430,7 @@ public class PlayerUIScreen implements InputScreen {
     private void handleSearchResult(ScreenResult result, long token, AnvilInputScreen source) {
         if (lifecycleToken.get() != token) return;
         plugin.getPluginLogger().debug("PlayerUI anvil search result for " + player.getName()
-                + " cancelled=" + result.cancelled() + " answer=" + result.answer()
+                + " cancelled=" + result.cancelled()
                 + " source=" + source.getClass().getSimpleName());
         if (result.cancelled()) {
             open();
@@ -440,8 +440,8 @@ public class PlayerUIScreen implements InputScreen {
         try {
             var task = player.getScheduler().run(plugin, st -> {
                 if (lifecycleToken.get() != token || currentHeads == null) return;
-                plugin.getPluginLogger().debug("PlayerUI search: term=" + term
-                        + " pre-filter=" + currentHeads.size());
+                plugin.getPluginLogger().debug("PlayerUI search started; pre-filter="
+                        + currentHeads.size());
                 var serializer = PlainTextComponentSerializer.plainText();
                 var filtered = currentHeads.stream()
                         .filter(item -> {
@@ -484,8 +484,8 @@ public class PlayerUIScreen implements InputScreen {
                 try {
                     var task = player.getScheduler().run(plugin, st -> {
                         if (lifecycleToken.get() != token || currentHeads == null) return;
-                        plugin.getPluginLogger().debug("PlayerUI search: term=" + search
-                                + " pre-filter=" + currentHeads.size());
+                        plugin.getPluginLogger().debug("PlayerUI chat search started; pre-filter="
+                                + currentHeads.size());
                         HandlerList.unregisterAll(this);
                         searchListener = null;
                         var serializer = PlainTextComponentSerializer.plainText();

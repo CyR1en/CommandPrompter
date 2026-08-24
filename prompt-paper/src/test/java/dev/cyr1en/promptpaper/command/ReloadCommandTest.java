@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -14,11 +13,17 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.i18n.Placeholder;
+import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
+import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;
+import dev.cyr1en.promptpaper.item.catalog.CatalogSnapshot;
+import dev.cyr1en.promptpaper.item.catalog.ItemCatalogException;
+import dev.cyr1en.promptpaper.item.catalog.ItemCatalogRegistry;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
+import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import net.kyori.adventure.text.Component;
 import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
@@ -38,7 +43,12 @@ class ReloadCommandTest extends MockBukkitTest {
     private ScreenManager screenManager;
     private PaperConfigLoader loader;
     private PresetRegistry registry;
+    private ItemCatalogRegistry catalogRegistry;
     private PaperI18n reloadI18n;
+    private PaperConfigLoader.PreparedReload preparedConfig;
+    private CommandLineParser preparedParser;
+    private PresetSnapshot preparedPresets;
+    private CatalogSnapshot preparedCatalog;
 
     @BeforeEach
     void setUp() {
@@ -46,6 +56,8 @@ class ReloadCommandTest extends MockBukkitTest {
         screenManager = mock(ScreenManager.class);
         loader = mock(PaperConfigLoader.class);
         registry = mock(PresetRegistry.class);
+        catalogRegistry = mock(ItemCatalogRegistry.class);
+        when(catalogRegistry.getSnapshot()).thenReturn(CatalogSnapshot.empty());
 
         reloadI18n = mock(PaperI18n.class);
         // Player senders localize with the player as the i18n context.
@@ -60,11 +72,25 @@ class ReloadCommandTest extends MockBukkitTest {
                 .thenReturn(Component.text("Failed to reload."));
         when(loader.getI18n()).thenReturn(reloadI18n);
         when(loader.getConfig()).thenReturn(config);
+        preparedConfig = new PaperConfigLoader.PreparedReload(config, promptConfig, reloadI18n);
+        preparedParser = new CommandLineParser();
+        preparedPresets = PresetSnapshot.empty();
+        preparedCatalog = CatalogSnapshot.empty();
+        when(loader.prepareReload()).thenReturn(preparedConfig);
+        when(engine.prepareParser(config)).thenReturn(preparedParser);
+        when(registry.prepareReload(any(TemplateSyntax.class))).thenReturn(preparedPresets);
+        when(catalogRegistry.prepareReload()).thenReturn(preparedCatalog);
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(1)).run();
+            return null;
+        }).when(loader).publishReload(same(preparedConfig), any(Runnable.class));
 
         when(plugin.getEngine()).thenReturn(engine);
         when(plugin.getScreenManager()).thenReturn(screenManager);
         when(plugin.getConfigLoader()).thenReturn(loader);
         when(plugin.getPresetRegistry()).thenReturn(registry);
+        when(plugin.getItemCatalogRegistry()).thenReturn(catalogRegistry);
+        when(plugin.getCatalogRegistry()).thenReturn(catalogRegistry);
         when(engine.beginReload()).thenReturn(true);
 
         cmd = new ReloadCommand(plugin);
@@ -72,16 +98,19 @@ class ReloadCommandTest extends MockBukkitTest {
 
     @Test
     void reloadSuccessSendsSuccessMessage() {
-        doNothing().when(loader).reload();
-
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
 
         cmd.executeReload(sender);
 
-        verify(loader, times(1)).reload();
-        verify(engine, times(1)).reloadParser();
-        verify(registry, times(1)).reload();
+        verify(loader).prepareReload();
+        verify(engine).prepareParser(config);
+        verify(registry).prepareReload(config.templateSyntax());
+        verify(catalogRegistry).prepareReload();
+        verify(loader).publishReload(same(preparedConfig), any(Runnable.class));
+        verify(engine).publishParser(preparedParser);
+        verify(registry).publishReload(preparedPresets);
+        verify(catalogRegistry).publishReload(preparedCatalog);
         verify(sender, times(1)).sendMessage(any(Component.class));
         verify(engine, times(1)).endReload();
     }
@@ -89,24 +118,24 @@ class ReloadCommandTest extends MockBukkitTest {
     @Test
     void reloadCancelsActiveSessionsBeforeReloading() {
         var player = createPlayer("OnlinePlayer");
-        doNothing().when(loader).reload();
 
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
 
         cmd.executeReload(sender);
 
-        verify(screenManager, times(1)).cancelAll(player, true);
+        verify(screenManager, times(1)).cancelAll(player, dev.cyr1en.promptpaper.engine.CancellationMode.DISCARD_ONLY, true);
         verify(engine, times(1)).discardAll();
-        verify(loader, times(1)).reload();
-        verify(engine, times(1)).reloadParser();
-        verify(registry, times(1)).reload();
+        verify(loader).prepareReload();
+        verify(engine).publishParser(preparedParser);
+        verify(registry).publishReload(preparedPresets);
+        verify(catalogRegistry).publishReload(preparedCatalog);
         verify(engine, times(1)).endReload();
     }
 
     @Test
     void reloadFailureSendsErrorMessage() {
-        doThrow(new RuntimeException("boom")).when(loader).reload();
+        doThrow(new RuntimeException("boom")).when(loader).prepareReload();
 
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
@@ -114,7 +143,8 @@ class ReloadCommandTest extends MockBukkitTest {
         cmd.executeReload(sender);
 
         verify(sender, times(1)).sendMessage(any(Component.class));
-        verify(engine, never()).reloadParser();
+        verify(loader, never()).publishReload(any(), any(Runnable.class));
+        verify(engine, never()).publishParser(any());
         verify(engine, times(1)).endReload();
     }
 
@@ -122,7 +152,6 @@ class ReloadCommandTest extends MockBukkitTest {
     void reloadSucceedsEvenWhenRegistryIsNull() {
         // Defensive: a fresh / early reload where the registry has not yet been wired should
         // still succeed for the config side. The reload command must not NPE.
-        doNothing().when(loader).reload();
         when(plugin.getPresetRegistry()).thenReturn(null);
 
         var sender = mock(CommandSender.class);
@@ -130,28 +159,74 @@ class ReloadCommandTest extends MockBukkitTest {
 
         cmd.executeReload(sender);
 
-        verify(loader, times(1)).reload();
-        verify(engine, times(1)).reloadParser();
+        verify(loader).prepareReload();
+        verify(engine).publishParser(preparedParser);
+        verify(catalogRegistry).publishReload(preparedCatalog);
         verify(sender, times(1)).sendMessage(any(Component.class));
         verify(engine, times(1)).endReload();
     }
 
     @Test
-    void presetRegistryFailureSurfacesAsReloadError() {
-        // If the preset reload blows up, the user must see the failure message and the
-        // configLoader.reload() call must have happened first.
-        doNothing().when(loader).reload();
-        doThrow(new PresetRegistry.PresetLoadException("bad json", new RuntimeException()))
-                .when(registry).reload();
+    void reloadSucceedsEvenWhenCatalogRegistryIsNull() {
+        // Defensive: a fresh / early reload where the item catalog registry has not yet been wired should
+        // still succeed for other components. The reload command must not NPE.
+        when(plugin.getItemCatalogRegistry()).thenReturn(null);
 
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
 
         cmd.executeReload(sender);
 
-        verify(loader, times(1)).reload();
-        verify(engine, times(1)).reloadParser();
-        verify(registry, times(1)).reload();
+        verify(loader).prepareReload();
+        verify(engine).publishParser(preparedParser);
+        verify(registry).publishReload(preparedPresets);
+        verify(sender, times(1)).sendMessage(any(Component.class));
+        verify(engine, times(1)).endReload();
+    }
+
+    @Test
+    void presetRegistryFailureSurfacesAsReloadError() {
+        // If preset preparation fails, no staged runtime state may be published.
+        doThrow(new PresetRegistry.PresetLoadException("bad json", new RuntimeException()))
+                .when(registry).prepareReload(any(TemplateSyntax.class));
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(loader).prepareReload();
+        verify(engine).prepareParser(config);
+        verify(registry).prepareReload(config.templateSyntax());
+        verify(catalogRegistry, never()).prepareReload();
+        verify(loader, never()).publishReload(any(), any(Runnable.class));
+        verify(engine, never()).publishParser(any());
+        verify(registry, never()).publishReload(any());
+        verify(catalogRegistry, never()).publishReload(any());
+        // Exactly one error message is sent; success message must not be sent.
+        verify(sender, times(1)).sendMessage(any(Component.class));
+        verify(engine, times(1)).endReload();
+    }
+
+    @Test
+    void catalogRegistryFailureSurfacesAsReloadError() {
+        // If catalog preparation fails, the already prepared config/presets stay unpublished.
+        doThrow(new ItemCatalogException("bad yaml"))
+                .when(catalogRegistry).prepareReload();
+
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        verify(loader).prepareReload();
+        verify(engine).prepareParser(config);
+        verify(registry).prepareReload(config.templateSyntax());
+        verify(catalogRegistry).prepareReload();
+        verify(loader, never()).publishReload(any(), any(Runnable.class));
+        verify(engine, never()).publishParser(any());
+        verify(registry, never()).publishReload(any());
+        verify(catalogRegistry, never()).publishReload(any());
         // Exactly one error message is sent; success message must not be sent.
         verify(sender, times(1)).sendMessage(any(Component.class));
         verify(engine, times(1)).endReload();
@@ -166,7 +241,7 @@ class ReloadCommandTest extends MockBukkitTest {
 
         cmd.executeReload(sender);
 
-        verify(loader, never()).reload();
+        verify(loader, never()).prepareReload();
         verify(engine, never()).endReload();
         verify(sender, times(1)).sendMessage(any(Component.class));
     }
@@ -176,7 +251,7 @@ class ReloadCommandTest extends MockBukkitTest {
         var realEngine = new PromptEngine(plugin, scheduler);
         when(plugin.getEngine()).thenReturn(realEngine);
         when(plugin.getScreenManager()).thenReturn(null);
-        doThrow(new RuntimeException("boom")).when(loader).reload();
+        doThrow(new RuntimeException("boom")).when(loader).prepareReload();
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
 
@@ -190,7 +265,20 @@ class ReloadCommandTest extends MockBukkitTest {
         var realEngine = new PromptEngine(plugin, scheduler);
         when(plugin.getEngine()).thenReturn(realEngine);
         when(plugin.getScreenManager()).thenReturn(null);
-        doNothing().when(loader).reload();
+        var sender = mock(CommandSender.class);
+        when(sender.getName()).thenReturn("TestUser");
+
+        cmd.executeReload(sender);
+
+        assertFalse(realEngine.isReloadInProgress());
+    }
+
+    @Test
+    void realReloadGateClearsAfterCatalogFailure() {
+        var realEngine = new PromptEngine(plugin, scheduler);
+        when(plugin.getEngine()).thenReturn(realEngine);
+        when(plugin.getScreenManager()).thenReturn(null);
+        doThrow(new ItemCatalogException("bad catalog")).when(catalogRegistry).prepareReload();
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("TestUser");
 
@@ -263,12 +351,12 @@ class ReloadCommandTest extends MockBukkitTest {
      */
     @Test
     void playerReloadSuccessLocalizesWithPlayerContext() {
-        doNothing().when(loader).reload();
         var player = createPlayer("Reloader");
 
         cmd.executeReload(player);
 
         verify(reloadI18n).get(eq("command.reload.success"), same(player));
+        verify(catalogRegistry).publishReload(preparedCatalog);
         String message = player.nextMessage();
         assertNotNull(message, "the player must receive the reload success message");
         assertTrue(message.contains("reloaded"), "was: " + message);
@@ -281,7 +369,7 @@ class ReloadCommandTest extends MockBukkitTest {
      */
     @Test
     void playerReloadFailureLocalizesWithPlayerContext() {
-        doThrow(new RuntimeException("boom")).when(loader).reload();
+        doThrow(new RuntimeException("boom")).when(loader).prepareReload();
         var player = createPlayer("Reloader");
 
         cmd.executeReload(player);
@@ -316,7 +404,6 @@ class ReloadCommandTest extends MockBukkitTest {
      */
     @Test
     void consoleReloadSuccessUsesNullContext() {
-        doNothing().when(loader).reload();
         var sender = mock(CommandSender.class);
         when(sender.getName()).thenReturn("Console");
 
@@ -324,6 +411,7 @@ class ReloadCommandTest extends MockBukkitTest {
 
         verify(reloadI18n).get(eq("command.reload.success"), isNull(), any(Placeholder[].class));
         verify(reloadI18n, never()).get(eq("command.reload.success"), any(Player.class));
+        verify(catalogRegistry).publishReload(preparedCatalog);
         verify(sender, times(1)).sendMessage(any(Component.class));
         verify(engine, times(1)).endReload();
     }

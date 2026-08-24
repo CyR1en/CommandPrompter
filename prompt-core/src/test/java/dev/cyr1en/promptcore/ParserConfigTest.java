@@ -46,4 +46,22 @@ class ParserConfigTest {
     var config = ParserConfig.fromArgumentRegex("<.*?>");
     assertEquals(ParserConfig.ANGLE_BRACKETS, config);
   }
+
+  @Test
+  void testMultiCharacterDelimiters() {
+    var config = new ParserConfig("{{", "}}", "%%");
+    assertEquals("{{", config.opening());
+    assertEquals("}}", config.closing());
+    assertEquals("%%", config.escape());
+  }
+
+  @Test
+  void testConstructorValidation() {
+    assertThrows(NullPointerException.class, () -> new ParserConfig(null, ">", "\\"));
+    assertThrows(NullPointerException.class, () -> new ParserConfig("<", null, "\\"));
+    assertThrows(NullPointerException.class, () -> new ParserConfig("<", ">", null));
+    assertThrows(IllegalArgumentException.class, () -> new ParserConfig("", ">", "\\"));
+    assertThrows(IllegalArgumentException.class, () -> new ParserConfig("<", "", "\\"));
+    assertThrows(IllegalArgumentException.class, () -> new ParserConfig("<", ">", ""));
+  }
 }

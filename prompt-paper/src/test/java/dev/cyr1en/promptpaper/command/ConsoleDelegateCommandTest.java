@@ -21,6 +21,8 @@ class ConsoleDelegateCommandTest extends MockBukkitTest {
 
     @BeforeEach
     void setUp() {
+        pluginLogger = mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
+        when(plugin.getPluginLogger()).thenReturn(pluginLogger);
         screenManager = mock(ScreenManager.class);
         var loader = mock(PaperConfigLoader.class);
         var engine = mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
@@ -36,6 +38,7 @@ class ConsoleDelegateCommandTest extends MockBukkitTest {
         cmd.startSession("Console", target, "/mycommand foo");
         verify(screenManager, times(1)).startDelegatedSession(
                 target, "mycommand foo", DispatchMode.CONSOLE, null);
+        verify(pluginLogger).info("Console used /consoledelegate");
     }
 
     @Test

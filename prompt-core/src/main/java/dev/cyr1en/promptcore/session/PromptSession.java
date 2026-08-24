@@ -15,6 +15,10 @@ public final class PromptSession {
 
   private static final Logger LOG = Logger.getLogger(PromptSession.class.getName());
   private static final Pattern COLOR_SYMBOLS = Pattern.compile("[{}\\[\\]<>()$§&\\u00A7]+");
+  private static final Pattern C0_CONTROLS = Pattern.compile("[\\u0000-\\u001F\\u007F]");
+
+  /** Absolute hard cap for answer length at ingestion boundary. */
+  public static final int MAX_ANSWER_LENGTH = 1024;
 
   private final String userId;
   private final ParsedCommand parsedCommand;
@@ -24,6 +28,8 @@ public final class PromptSession {
   private final List<PostCommandMeta> pcmQueue;
   private final SessionState state;
   private final CancelReason cancelReason;
+  private final long incarnation;
+  private final long generation;
 
   /** The lifecycle state of a {@link PromptSession}. */
   public enum SessionState {
@@ -43,7 +49,9 @@ public final class PromptSession {
       List<PromptTag> remaining,
       List<PostCommandMeta> pcmQueue,
       SessionState state,
-      CancelReason cancelReason) {
+      CancelReason cancelReason,
+      long incarnation,
+      long generation) {
     this.userId = userId;
     this.parsedCommand = parsedCommand;
     this.answers = answers;
@@ -52,6 +60,8 @@ public final class PromptSession {
     this.pcmQueue = pcmQueue;
     this.state = state;
     this.cancelReason = cancelReason;
+    this.incarnation = incarnation;
+    this.generation = generation;
   }
 
   /**
@@ -66,10 +76,29 @@ public final class PromptSession {
    * @return a new session in {@link SessionState#AWAITING_INPUT} (or COMPLETED if no prompts)
    */
   public static PromptSession start(String userId, ParsedCommand parsedCommand) {
+    return start(userId, parsedCommand, 0L);
+  }
+
+  /**
+   * Create a new session for a given user, parsed command, and monotonic session incarnation.
+   *
+   * @param userId a platform-agnostic user identifier
+   * @param parsedCommand the parsed command
+   * @param incarnation monotonic incarnation identifier
+   * @return a new session in {@link SessionState#AWAITING_INPUT} (or COMPLETED if no prompts)
+   */
+  public static PromptSession start(String userId, ParsedCommand parsedCommand, long incarnation) {
     var remaining = new ArrayList<>(parsedCommand.promptTags());
     var state = remaining.isEmpty() ? SessionState.COMPLETED : SessionState.AWAITING_INPUT;
     LOG.fine(
-        "Session started for " + userId + " with " + remaining.size() + " prompts, state=" + state);
+        "Session started for "
+            + userId
+            + " (inc="
+            + incarnation
+            + ") with "
+            + remaining.size()
+            + " prompts, state="
+            + state);
     return new PromptSession(
         userId,
         parsedCommand,
@@ -78,7 +107,9 @@ public final class PromptSession {
         remaining,
         List.copyOf(parsedCommand.postCmds()),
         state,
-        null);
+        null,
+        incarnation,
+        0L);
   }
 
   /** The platform-agnostic user identifier this session belongs to. */
@@ -113,7 +144,17 @@ public final class PromptSession {
     return Collections.unmodifiableList(submittedAnswerCounts);
   }
 
-  /** The current lifecycle state of this session. */
+  /** The monotonic incarnation token of this session. */
+  public long incarnation() {
+    return incarnation;
+  }
+
+  /** The monotonic generation token of this session. */
+  public long generation() {
+    return generation;
+  }
+
+  /** The lifecycle state of this session. */
   public SessionState state() {
     return state;
   }
@@ -183,7 +224,7 @@ public final class PromptSession {
     Objects.requireNonNull(answer);
 
     var current = remaining.get(0);
-    var processedAnswer = current.sanitize() ? sanitize(answer) : answer;
+    var processedAnswer = cleanAnswer(answer, current.sanitize());
     var newAnswers = new ArrayList<>(this.answers);
     newAnswers.add(processedAnswer);
     var newCounts = new ArrayList<>(submittedAnswerCounts);
@@ -209,7 +250,9 @@ public final class PromptSession {
         Collections.unmodifiableList(newRemaining),
         pcmQueue,
         newState,
-        null);
+        null,
+        this.incarnation,
+        this.generation + 1);
   }
 
   /**
@@ -281,8 +324,7 @@ public final class PromptSession {
     var newAnswers = new ArrayList<>(this.answers);
     var processed = new ArrayList<String>(answers.size());
     for (var raw : answers) {
-      Objects.requireNonNull(raw, "answers must not contain null elements");
-      processed.add(current.sanitize() ? sanitize(raw) : raw);
+      processed.add(cleanAnswer(raw, current.sanitize()));
     }
     newAnswers.addAll(processed);
     var newCounts = new ArrayList<>(submittedAnswerCounts);
@@ -310,7 +352,9 @@ public final class PromptSession {
         Collections.unmodifiableList(newRemaining),
         pcmQueue,
         newState,
-        null);
+        null,
+        this.incarnation,
+        this.generation + 1);
   }
 
   /**
@@ -334,7 +378,9 @@ public final class PromptSession {
         remaining,
         pcmQueue,
         SessionState.CANCELLED,
-        reason);
+        reason,
+        this.incarnation,
+        this.generation + 1);
   }
 
   /**
@@ -356,18 +402,20 @@ public final class PromptSession {
 
     if (state == SessionState.CANCELLED) {
       onComplete = List.of();
-      onCancel = resolvePCMReferences(parsedCommand.onCancelPCMs());
+      onCancel = parsedCommand.onCancelPCMs();
     } else {
-      onComplete = resolvePCMReferences(parsedCommand.onCompletePCMs());
+      onComplete = parsedCommand.onCompletePCMs();
       onCancel = List.of();
     }
 
     LOG.fine(
         "Session finished for "
             + userId
-            + ": assembled="
-            + command
-            + " answers="
+            + " (inc="
+            + incarnation
+            + ", gen="
+            + generation
+            + "): answers="
             + answers.size()
             + " onComplete="
             + onComplete.size()
@@ -376,46 +424,18 @@ public final class PromptSession {
     return new SessionResult(command, new java.util.ArrayList<>(answers), onComplete, onCancel);
   }
 
-  private List<PostCommandMeta> resolvePCMReferences(List<PostCommandMeta> pcms) {
-    return pcms.stream()
-        .map(
-            pcm -> {
-              // Match only against the original PCM template. appendReplacement prevents an answer
-              // containing "{1}" from being scanned again and substituted by a later answer.
-              var matcher = Pattern.compile("\\{(\\d+)}").matcher(pcm.command());
-              var resolved = new StringBuffer();
-              while (matcher.find()) {
-                int index;
-                try {
-                  index = Integer.parseInt(matcher.group(1));
-                } catch (NumberFormatException e) {
-                  index = -1;
-                }
-                String replacement = "";
-                if (index >= 0 && index < answers.size()) {
-                  replacement = answers.get(index);
-                } else {
-                  LOG.warning(
-                      "Unresolved PCM reference "
-                          + matcher.group()
-                          + " in command: "
-                          + pcm.command());
-                }
-                matcher.appendReplacement(
-                    resolved, java.util.regex.Matcher.quoteReplacement(replacement));
-              }
-              matcher.appendTail(resolved);
-              var resolvedCommand = resolved.toString();
-              resolvedCommand = resolvedCommand.replaceAll("\\s+", " ").trim();
-              return new PostCommandMeta(
-                  resolvedCommand,
-                  pcm.answerIndices(),
-                  pcm.delayTicks(),
-                  pcm.onCancel(),
-                  pcm.dispatchTarget(),
-                  pcm.preset());
-            })
-        .toList();
+  /**
+   * Cleans an answer string at ingestion: strips C0 control characters, validates length against
+   * the hard cap of 1024 characters, and optionally applies color/symbol sanitization.
+   */
+  private static String cleanAnswer(String raw, boolean sanitize) {
+    Objects.requireNonNull(raw, "answers must not contain null elements");
+    var noC0 = C0_CONTROLS.matcher(raw).replaceAll("");
+    if (noC0.length() > MAX_ANSWER_LENGTH) {
+      throw new IllegalArgumentException(
+          "Answer length (" + noC0.length() + ") exceeds maximum limit of " + MAX_ANSWER_LENGTH);
+    }
+    return sanitize ? sanitize(noC0) : noC0;
   }
 
   /**
@@ -439,7 +459,9 @@ public final class PromptSession {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     PromptSession that = (PromptSession) o;
-    return Objects.equals(userId, that.userId)
+    return incarnation == that.incarnation
+        && generation == that.generation
+        && Objects.equals(userId, that.userId)
         && Objects.equals(parsedCommand, that.parsedCommand)
         && Objects.equals(answers, that.answers)
         && Objects.equals(submittedAnswerCounts, that.submittedAnswerCounts)
@@ -459,7 +481,9 @@ public final class PromptSession {
         remaining,
         pcmQueue,
         state,
-        cancelReason);
+        cancelReason,
+        incarnation,
+        generation);
   }
 
   @Override
@@ -473,11 +497,15 @@ public final class PromptSession {
         + ", currentPrompt="
         + currentPrompt().map(PromptTag::key).orElse("none")
         + ", answers="
-        + answers
+        + answers.size()
         + ", counts="
         + submittedAnswerCounts
         + ", remaining="
         + remainingCount()
+        + ", incarnation="
+        + incarnation
+        + ", generation="
+        + generation
         + '}';
   }
 }

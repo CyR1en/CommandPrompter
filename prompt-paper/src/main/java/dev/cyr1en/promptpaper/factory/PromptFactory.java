@@ -206,6 +206,8 @@ public class PromptFactory {
       case dev.cyr1en.promptpaper.preset.SignPrompt sign -> createSign(player, sign);
       case dev.cyr1en.promptpaper.preset.PlayerUiPrompt pui -> createPlayerUi(player, pui);
       case dev.cyr1en.promptpaper.preset.DialogPrompt dialog -> createDialog(player, dialog, context);
+      case dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation -> createConfirmation(player, confirmation);
+      case dev.cyr1en.promptpaper.preset.ItemPrompt item -> createItem(player, item);
     };
     return wrapWithTitle(player, def, screen);
   }
@@ -253,9 +255,12 @@ public class PromptFactory {
     var mappings = promptConfig != null && promptConfig.getScreenMappings() != null
         ? promptConfig.getScreenMappings()
         : Map.<String, ScreenType>of();
-    var screenType = mappings.get(tag.key());
+    var rawKey = tag.key();
+    var normalizedKey = rawKey == null ? "" : rawKey.trim().toLowerCase(java.util.Locale.ROOT);
+    var screenType = mappings.get(normalizedKey);
     boolean isDialog = screenType == ScreenType.DIALOG
-        || (screenType == null && ("d".equals(tag.key()) || tag.isCompound()));
+        || (screenType == null
+            && (ScreenType.fromBuiltInKey(normalizedKey) == ScreenType.DIALOG || tag.isCompound()));
     if (isDialog) {
       // Expand the presentation-only copy of the tag, then build the dialog screen directly so
       // the expanded fields are materialized exactly once.
@@ -372,6 +377,26 @@ public class PromptFactory {
     return raw;
   }
 
+  private dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen createConfirmation(
+      Player player, dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation) {
+    return dev.cyr1en.promptpaper.screen.confirmation.ConfirmationScreenFactory.create(
+        plugin, materialMapper, player, confirmation);
+  }
+
+  private dev.cyr1en.promptpaper.screen.item.ItemPromptScreen createItem(
+      Player player, dev.cyr1en.promptpaper.preset.ItemPrompt item) {
+    if (item.source() == dev.cyr1en.promptcore.ItemSource.CATALOG) {
+      var registry = plugin.getItemCatalogRegistry();
+      var snapshot = registry != null ? registry.snapshot() : dev.cyr1en.promptpaper.item.catalog.CatalogSnapshot.empty();
+      var category = item.category() != null && !item.category().isBlank() ? item.category() : "all";
+      if (!snapshot.hasCategory(category)) {
+        throw new IllegalStateException("Unknown catalog category: '" + category + "' for prompt '" + item.id() + "'");
+      }
+      return new dev.cyr1en.promptpaper.screen.item.ItemPromptScreen(plugin, player, item, snapshot);
+    }
+    return new dev.cyr1en.promptpaper.screen.item.ItemPromptScreen(plugin, player, item);
+  }
+
   /**
    * Extracts the display/prompt text from a {@link PromptDefinition} for use as the title main
    * fallback when the title config's main is empty.
@@ -383,6 +408,8 @@ public class PromptFactory {
       case dev.cyr1en.promptpaper.preset.SignPrompt sign -> sign.promptText();
       case dev.cyr1en.promptpaper.preset.PlayerUiPrompt pui -> pui.promptText();
       case dev.cyr1en.promptpaper.preset.DialogPrompt dialog -> dialog.title();
+      case dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation -> confirmation.promptText();
+      case dev.cyr1en.promptpaper.preset.ItemPrompt item -> item.promptText();
     };
   }
 }

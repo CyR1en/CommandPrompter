@@ -47,6 +47,7 @@ public class MockBukkitTest {
         when(plugin.getLogger()).thenReturn(Logger.getLogger("CommandPrompterPaper"));
         when(plugin.getComponentLogger()).thenReturn(ComponentLogger.logger("CommandPrompterPaper"));
         when(plugin.isEnabled()).thenReturn(true);
+        when(plugin.isPluginActive()).thenReturn(true);
         when(plugin.getPluginLoader()).thenReturn(
                 new org.mockbukkit.mockbukkit.plugin.MockBukkitPluginLoader());
 
@@ -56,9 +57,18 @@ public class MockBukkitTest {
         when(config.promptPrefix()).thenReturn("[Prompter] ");
         when(config.promptTimeout()).thenReturn(300);
         when(config.cancelKeyword()).thenReturn("cancel");
+        when(config.maxAnswerLength()).thenReturn(256);
         when(config.ignoredCommands()).thenReturn(java.util.List.of());
         when(config.locale()).thenReturn("en_US");
         when(config.argumentRegex()).thenReturn("<.*?>");
+        when(config.syntaxPromptOpen()).thenReturn("<");
+        when(config.syntaxPromptClose()).thenReturn(">");
+        when(config.syntaxTemplateOpen()).thenReturn("{");
+        when(config.syntaxTemplateClose()).thenReturn("}");
+        when(config.syntaxTransformSeparator()).thenReturn(":");
+        when(config.syntaxTemplateEscape()).thenReturn("\\");
+        when(config.parserConfig()).thenReturn(dev.cyr1en.promptcore.ParserConfig.ANGLE_BRACKETS);
+        when(config.templateSyntax()).thenReturn(dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT);
         when(config.ignoreMiniMessage()).thenReturn(false);
 
         configLoader = mock(PaperConfigLoader.class);
@@ -86,6 +96,7 @@ public class MockBukkitTest {
         when(i18n.get("prompt.timed_out")).thenReturn(Component.text("Prompt timed out."));
         when(i18n.get("validation.invalid_integer")).thenReturn(Component.text("Please enter a valid integer."));
         when(i18n.get("validation.invalid_string")).thenReturn(Component.text("Input cannot be empty."));
+        when(i18n.get("validation.answer_too_long")).thenReturn(Component.text("Input exceeds maximum length."));
         when(i18n.get("prompt.error.invalid_title_filter")).thenReturn(
                 Component.text("Invalid prompt configuration: TITLE filter cannot be used on a non-compound tag."));
         when(i18n.get("command.error.players_only")).thenReturn(Component.text("Only players can cancel prompts."));
@@ -102,9 +113,11 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.reload.failed"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Failed to reload."));
         when(i18n.get(eq("command.version"), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.3.0-test"));
         when(i18n.get(eq("dialog.too_many_options"), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
+        when(i18n.get(eq("validation.answer_too_long"), any(Placeholder[].class)))
+                .thenReturn(Component.text("Input exceeds maximum length."));
 
         // Key-specific stubs with player context
         when(i18n.get(eq("prompt.error.command_failed"), any(Player.class), any(Placeholder[].class)))
@@ -114,16 +127,24 @@ public class MockBukkitTest {
         when(i18n.get(eq("command.delegate.unknown_permission"), isNull(), any(Placeholder[].class)))
                 .thenReturn(Component.text("Unknown permission key."));
         when(i18n.get(eq("command.version"), any(Player.class), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.3.0-test"));
         when(i18n.get(eq("command.version"), isNull(), any(Placeholder[].class)))
-                .thenReturn(Component.text("CommandPrompterPaper v3.2.0-test"));
+                .thenReturn(Component.text("CommandPrompterPaper v3.3.0-test"));
         when(i18n.get(eq("dialog.no_options"), any(Player.class)))
                 .thenReturn(Component.text("No options available, enter argument manually."));
         when(i18n.get(eq("dialog.too_many_options"), any(Player.class), any(Placeholder[].class)))
                 .thenReturn(Component.text("Too many options, enter argument manually."));
+        when(i18n.get(eq("validation.answer_too_long"), any(Player.class), any(Placeholder[].class)))
+                .thenReturn(Component.text("Input exceeds maximum length."));
+        when(i18n.get(eq("validation.answer_too_long"), any(Player.class)))
+                .thenReturn(Component.text("Input exceeds maximum length."));
 
         // Key-specific stubs with player context (context-aware overloads used by
         // call sites that send a message directly to a Player)
+        when(i18n.get(eq("validation.invalid_integer"), any(Player.class)))
+                .thenReturn(Component.text("Please enter a valid integer."));
+        when(i18n.get(eq("validation.invalid_string"), any(Player.class)))
+                .thenReturn(Component.text("Input cannot be empty."));
         when(i18n.get(eq("prompt.error.session_active"), any(Player.class)))
                 .thenReturn(Component.text("You already have an active prompt."));
         when(i18n.get(eq("command.error.missing_preset"), any(Player.class)))
@@ -167,6 +188,12 @@ public class MockBukkitTest {
 
         scheduler = new MockScheduler(plugin);
         when(plugin.getScheduler()).thenReturn(scheduler);
+
+        var nonceRegistry = new dev.cyr1en.promptpaper.screen.confirmation.NonceResponseRegistry();
+        when(plugin.getNonceRegistry()).thenReturn(nonceRegistry);
+
+        var rateLimiter = new dev.cyr1en.promptpaper.screen.confirmation.ConfirmationRateLimiter();
+        when(plugin.getRateLimiter()).thenReturn(rateLimiter);
     }
 
     @AfterEach

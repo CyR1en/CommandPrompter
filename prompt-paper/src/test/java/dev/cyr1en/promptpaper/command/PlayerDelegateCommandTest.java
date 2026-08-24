@@ -31,6 +31,8 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
 
     @BeforeEach
     void setUp() {
+        pluginLogger = mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
+        when(plugin.getPluginLogger()).thenReturn(pluginLogger);
         screenManager = mock(ScreenManager.class);
         var loader = mock(PaperConfigLoader.class);
         config = mock(CommandPrompterConfig.class);
@@ -61,6 +63,7 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
     void stripsLeadingSlashAndReplacesTargetPlayer() {
         PlayerMock target = createPlayer("Alice");
         var sender = mock(ConsoleCommandSender.class);
+        when(sender.getName()).thenReturn("Console");
 
         var result = cmd.executeDispatch(sender, target, "GAMEMODE",
                 "/msg %target_player% hi");
@@ -68,6 +71,7 @@ class PlayerDelegateCommandTest extends MockBukkitTest {
         assertEquals(com.mojang.brigadier.Command.SINGLE_SUCCESS, result);
         verify(screenManager, times(1)).startDelegatedSession(
                 target, "msg %target_player% hi", DispatchMode.ATTACHMENT, "GAMEMODE");
+        verify(pluginLogger).info("Console used /playerdelegate permKey=GAMEMODE");
     }
 
     @Test

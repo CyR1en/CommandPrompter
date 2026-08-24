@@ -749,4 +749,591 @@ class PromptDefinitionDeserializerTest {
     DialogPrompt dialog = (DialogPrompt) def;
     assertEquals(1024, dialog.base().body().get(0).width());
   }
+
+  // ------------------------------------------------------------------
+  // Confirmation Prompts
+  // ------------------------------------------------------------------
+
+  @Test
+  void confirmationPromptDeserializeFull() {
+    String json =
+        """
+        {
+          "type": "confirmation",
+          "id": "confirm_delete",
+          "mode": "dialog",
+          "title": "Warning",
+          "prompt_text": "Are you sure you want to delete this?",
+          "confirm_text": "Yes, Delete",
+          "cancel_text": "No, Keep",
+          "value_mode": true,
+          "sound": "entity.experience_orb.pickup",
+          "sanitize": false,
+          "title_display": {
+            "main": "Danger",
+            "sub": "Confirm Action",
+            "ticks": 20
+          }
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ConfirmationPrompt.class, def);
+    ConfirmationPrompt cp = (ConfirmationPrompt) def;
+    assertEquals("confirmation", cp.type());
+    assertEquals("confirm_delete", cp.id());
+    assertEquals(dev.cyr1en.promptcore.ConfirmationMode.DIALOG, cp.mode());
+    assertEquals("Warning", cp.title());
+    assertEquals("Are you sure you want to delete this?", cp.promptText());
+    assertEquals("Yes, Delete", cp.confirmText());
+    assertEquals("No, Keep", cp.cancelText());
+    assertTrue(cp.valueMode());
+    assertEquals("entity.experience_orb.pickup", cp.sound());
+    assertFalse(cp.sanitize());
+    assertNotNull(cp.titleDisplay());
+    assertEquals("Danger", cp.titleDisplay().main());
+  }
+
+  @Test
+  void confirmationPromptDeserializeMinimal() {
+    String json =
+        """
+        {
+          "type": "confirmation",
+          "id": "minimal_confirm",
+          "prompt_text": "Proceed?"
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ConfirmationPrompt.class, def);
+    ConfirmationPrompt cp = (ConfirmationPrompt) def;
+    assertEquals("confirmation", cp.type());
+    assertEquals("minimal_confirm", cp.id());
+    assertEquals("Proceed?", cp.promptText());
+    assertTrue(cp.sanitize(), "sanitize should default to true");
+    assertFalse(cp.valueMode(), "value_mode should default to false");
+    assertNull(cp.mode());
+    assertNull(cp.title());
+    assertNull(cp.confirmText());
+    assertNull(cp.cancelText());
+    assertNull(cp.sound());
+    assertNull(cp.titleDisplay());
+  }
+
+  @Test
+  void confirmationPromptSupportsAllModesCaseInsensitively() {
+    for (String mode : List.of("gui", "dialog", "chat", "GUI", "DIALOG", "CHAT", "gUi", "Dialog", "cHaT")) {
+      String json =
+          """
+          {
+            "type": "confirmation",
+            "id": "mode_test",
+            "mode": "%s",
+            "prompt_text": "Test"
+          }
+          """.formatted(mode);
+      PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+      assertInstanceOf(ConfirmationPrompt.class, def);
+      ConfirmationPrompt cp = (ConfirmationPrompt) def;
+      assertEquals(
+          dev.cyr1en.promptcore.ConfirmationMode.valueOf(mode.toUpperCase(java.util.Locale.ROOT)),
+          cp.mode());
+    }
+  }
+
+  @Test
+  void confirmationPromptRejectsInvalidMode() {
+    String json =
+        """
+        {
+          "type": "confirmation",
+          "id": "bad_mode",
+          "mode": "invalid_mode",
+          "prompt_text": "Test"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json, PromptDefinition.class));
+  }
+
+  @Test
+  void confirmationPromptModelTimeoutBounds() {
+    // Null timeout allowed (inherits global)
+    var nullTimeoutPrompt =
+        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, null);
+    assertNull(nullTimeoutPrompt.timeout());
+
+    // Boundary values 1 and 3600 accepted
+    var minPrompt =
+        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 1);
+    assertEquals(1, minPrompt.timeout());
+
+    var maxPrompt =
+        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 3600);
+    assertEquals(3600, maxPrompt.timeout());
+
+    // 0 and 3601 and negative rejected
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 0));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 3601));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, -1));
+  }
+
+  @Test
+  void confirmationPromptJsonTimeoutBounds() {
+    // Timeout 1 accepted and retained
+    String json1 =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_min",
+          "prompt_text": "Proceed?",
+          "timeout": 1
+        }
+        """;
+    PromptDefinition def1 = gson.fromJson(json1, PromptDefinition.class);
+    assertInstanceOf(ConfirmationPrompt.class, def1);
+    assertEquals(1, ((ConfirmationPrompt) def1).timeout());
+
+    // Timeout 3600 accepted and retained
+    String json3600 =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_max",
+          "prompt_text": "Proceed?",
+          "timeout": 3600
+        }
+        """;
+    PromptDefinition def3600 = gson.fromJson(json3600, PromptDefinition.class);
+    assertInstanceOf(ConfirmationPrompt.class, def3600);
+    assertEquals(3600, ((ConfirmationPrompt) def3600).timeout());
+
+    // Timeout 0 rejected
+    String json0 =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_zero",
+          "prompt_text": "Proceed?",
+          "timeout": 0
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
+
+    // Timeout 3601 rejected
+    String json3601 =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_over",
+          "prompt_text": "Proceed?",
+          "timeout": 3601
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
+
+    // Timeout negative rejected
+    String jsonNeg =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_neg",
+          "prompt_text": "Proceed?",
+          "timeout": -5
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonNeg, PromptDefinition.class));
+
+    // Timeout string rejected
+    String jsonStr =
+        """
+        {
+          "type": "confirmation",
+          "id": "timeout_str",
+          "prompt_text": "Proceed?",
+          "timeout": "thirty"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonStr, PromptDefinition.class));
+  }
+
+  // ------------------------------------------------------------------
+  // Item Prompts
+  // ------------------------------------------------------------------
+
+  @Test
+  void itemPromptDeserializeFull() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "select_sword",
+          "prompt_text": "Select your weapon:",
+          "source": "catalog",
+          "output": "material",
+          "category": "swords",
+          "sound": "minecraft:ui.button.click",
+          "sanitize": false,
+          "title_display": {
+            "main": "Weapon Selector",
+            "sub": "Choose wisely",
+            "ticks": 40
+          },
+          "timeout": 60
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ItemPrompt.class, def);
+    ItemPrompt item = (ItemPrompt) def;
+    assertEquals("item", item.type());
+    assertEquals("select_sword", item.id());
+    assertEquals("Select your weapon:", item.promptText());
+    assertEquals(dev.cyr1en.promptcore.ItemSource.CATALOG, item.source());
+    assertEquals(dev.cyr1en.promptcore.ItemOutputFormat.MATERIAL, item.output());
+    assertEquals("swords", item.category());
+    assertEquals("minecraft:ui.button.click", item.sound());
+    assertFalse(item.sanitize());
+    assertNotNull(item.titleDisplay());
+    assertEquals("Weapon Selector", item.titleDisplay().main());
+    assertEquals("Choose wisely", item.titleDisplay().sub());
+    assertEquals(40, item.titleDisplay().ticks());
+    assertEquals(60, item.timeout());
+  }
+
+  @Test
+  void itemPromptDeserializeMinimal() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "minimal_item",
+          "prompt_text": "Pick an item"
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ItemPrompt.class, def);
+    ItemPrompt item = (ItemPrompt) def;
+    assertEquals("item", item.type());
+    assertEquals("minimal_item", item.id());
+    assertEquals("Pick an item", item.promptText());
+    assertEquals(dev.cyr1en.promptcore.ItemSource.INVENTORY, item.source());
+    assertEquals(dev.cyr1en.promptcore.ItemOutputFormat.KEY, item.output());
+    assertNull(item.category());
+    assertNull(item.sound());
+    assertTrue(item.sanitize(), "sanitize should default to true");
+    assertNull(item.titleDisplay());
+    assertNull(item.timeout());
+  }
+
+  @Test
+  void itemPromptSupportsSourceAndOutputAliases() {
+    for (String src : List.of("inv", "inventory", "hand", "mainhand", "armor", "catalog", "INV", "Hand", "CATALOG")) {
+      String json =
+          """
+          {
+            "type": "item",
+            "id": "src_test",
+            "prompt_text": "Test",
+            "source": "%s"
+          }
+          """.formatted(src);
+      PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+      assertInstanceOf(ItemPrompt.class, def);
+      assertEquals(
+          dev.cyr1en.promptcore.ItemSource.fromAlias(src),
+          ((ItemPrompt) def).source());
+    }
+
+    for (String out : List.of("key", "material", "amount", "KEY", "Material", "AMOUNT")) {
+      String json =
+          """
+          {
+            "type": "item",
+            "id": "out_test",
+            "prompt_text": "Test",
+            "output": "%s"
+          }
+          """.formatted(out);
+      PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+      assertInstanceOf(ItemPrompt.class, def);
+      assertEquals(
+          dev.cyr1en.promptcore.ItemOutputFormat.fromAlias(out),
+          ((ItemPrompt) def).output());
+    }
+  }
+
+  @Test
+  void itemPromptCatalogDefaultsCategoryToAll() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "cat_test",
+          "prompt_text": "Test",
+          "source": "catalog"
+        }
+        """;
+    PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
+    assertInstanceOf(ItemPrompt.class, def);
+    ItemPrompt item = (ItemPrompt) def;
+    assertEquals(dev.cyr1en.promptcore.ItemSource.CATALOG, item.source());
+    assertEquals("all", item.category());
+  }
+
+  @Test
+  void itemPromptRejectsSlotOutputForCatalogSource() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "bad_cat",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "output": "slot"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptRejectsCategoryForNonCatalogSource() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "bad_cat2",
+          "prompt_text": "Test",
+          "source": "inventory",
+          "category": "swords"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptRejectsInvalidSource() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "bad_src",
+          "prompt_text": "Test",
+          "source": "invalid_source"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptRejectsInvalidOutput() {
+    String json =
+        """
+        {
+          "type": "item",
+          "id": "bad_out",
+          "prompt_text": "Test",
+          "output": "invalid_output"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptModelTimeoutBounds() {
+    // Null timeout allowed
+    var nullTimeout = new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, null);
+    assertNull(nullTimeout.timeout());
+
+    // Boundary values 1 and 3600
+    var min = new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 1);
+    assertEquals(1, min.timeout());
+
+    var max = new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 3600);
+    assertEquals(3600, max.timeout());
+
+    // Out of bounds
+    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 0));
+    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 3601));
+    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, -1));
+  }
+
+  @Test
+  void itemPromptJsonTimeoutBounds() {
+    String json1 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 1}";
+    PromptDefinition def1 = gson.fromJson(json1, PromptDefinition.class);
+    assertEquals(1, ((ItemPrompt) def1).timeout());
+
+    String json3600 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3600}";
+    PromptDefinition def3600 = gson.fromJson(json3600, PromptDefinition.class);
+    assertEquals(3600, ((ItemPrompt) def3600).timeout());
+
+    String json0 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 0}";
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
+
+    String json3601 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3601}";
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptJsonSoundValidation() {
+    // Valid sound keys
+    String jsonValid =
+        """
+        {
+          "type": "item",
+          "id": "sound_test",
+          "prompt_text": "Test",
+          "sound": "minecraft:block.note_block.bell"
+        }
+        """;
+    ItemPrompt def = (ItemPrompt) gson.fromJson(jsonValid, PromptDefinition.class);
+    assertEquals("minecraft:block.note_block.bell", def.sound());
+
+    // sound_key alias
+    String jsonAlias =
+        """
+        {
+          "type": "item",
+          "id": "sound_alias",
+          "prompt_text": "Test",
+          "sound_key": "entity.player.levelup"
+        }
+        """;
+    ItemPrompt defAlias = (ItemPrompt) gson.fromJson(jsonAlias, PromptDefinition.class);
+    assertEquals("entity.player.levelup", defAlias.sound());
+
+    // Uppercase sound rejected
+    String jsonUpper =
+        """
+        {
+          "type": "item",
+          "id": "sound_upper",
+          "prompt_text": "Test",
+          "sound": "MINECRAFT:BELL"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
+
+    // Blank sound rejected
+    String jsonBlank =
+        """
+        {
+          "type": "item",
+          "id": "sound_blank",
+          "prompt_text": "Test",
+          "sound": ""
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
+
+    // Control characters in sound rejected
+    String jsonCtrl =
+        """
+        {
+          "type": "item",
+          "id": "sound_ctrl",
+          "prompt_text": "Test",
+          "sound": "bell\\u0000key"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
+
+    // Overlength sound rejected (> 256)
+    String jsonOver =
+        """
+        {
+          "type": "item",
+          "id": "sound_over",
+          "prompt_text": "Test",
+          "sound": "minecraft:%s"
+        }
+        """.formatted("a".repeat(250));
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
+  }
+
+  @Test
+  void itemPromptJsonCategoryValidation() {
+    // Valid category
+    String jsonValid =
+        """
+        {
+          "type": "item",
+          "id": "cat_valid",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": "rare_minerals-1.0"
+        }
+        """;
+    ItemPrompt def = (ItemPrompt) gson.fromJson(jsonValid, PromptDefinition.class);
+    assertEquals("rare_minerals-1.0", def.category());
+
+    // Uppercase category rejected
+    String jsonUpper =
+        """
+        {
+          "type": "item",
+          "id": "cat_upper",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": "MINERALS"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
+
+    // Space in category rejected
+    String jsonSpace =
+        """
+        {
+          "type": "item",
+          "id": "cat_space",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": "rare minerals"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonSpace, PromptDefinition.class));
+
+    // Blank category rejected
+    String jsonBlank =
+        """
+        {
+          "type": "item",
+          "id": "cat_blank",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": ""
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
+
+    // Control char in category rejected
+    String jsonCtrl =
+        """
+        {
+          "type": "item",
+          "id": "cat_ctrl",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": "cat\\u0000"
+        }
+        """;
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
+
+    // Overlength category rejected (> 64)
+    String jsonOver =
+        """
+        {
+          "type": "item",
+          "id": "cat_over",
+          "prompt_text": "Test",
+          "source": "catalog",
+          "category": "%s"
+        }
+        """.formatted("c".repeat(65));
+    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
+  }
 }

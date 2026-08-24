@@ -257,7 +257,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
         HandlerList.unregisterAll(this);
         String answer = String.join("\n", lines == null ? new String[0] : lines).trim();
         ScreenResult result = answer.isEmpty()
-                ? ScreenResult.cancel()
+                ? ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.BLANK_INPUT)
                 : ScreenResult.answer(answer);
         try {
             cleanupScreen(true);

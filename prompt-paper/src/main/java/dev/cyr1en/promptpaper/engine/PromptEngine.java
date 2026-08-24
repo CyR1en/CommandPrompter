@@ -5,6 +5,10 @@ import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.config.CommandPrompterConfig;
+import dev.cyr1en.promptpaper.custom.CustomScreenRegistry;
+import dev.cyr1en.promptpaper.custom.ScreenKeyResolver;
+import dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.util.MiniMessageTagFilter;
@@ -12,12 +16,13 @@ import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
-import org.bukkit.permissions.PermissionAttachment;
 
 /**
  * Manages the lifecycle of interactive prompt sessions for players.
@@ -63,25 +68,106 @@ public class PromptEngine {
         public boolean isDelegated() {
             return executeAs == ExecuteAs.CONSOLE || attachmentRequired;
         }
+
+        public DispatchContextSnapshot toSnapshot() {
+            return new DispatchContextSnapshot(executeAs, permissionKey, attachmentRequired, permissionSnapshot);
+        }
     }
 
     private final CommandPrompter plugin;
     private volatile CommandLineParser parser;
     private final Map<UUID, PromptSession> sessions;
-    private final Map<SessionResult, List<PostCommandMeta>> dispatchPcmSnapshots;
+    private final Map<UUID, SessionInceptionArtifacts> sessionInceptionArtifacts;
     private final Scheduler scheduler;
     private final Object sessionLifecycleMonitor;
     private final AtomicBoolean reloadInProgress;
+    private final java.util.concurrent.atomic.AtomicLong sessionIncarnationSequence;
+    private final ScreenKeyResolver screenKeyResolver;
+    private volatile dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry executionRegistry;
+    private volatile dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry leaseRegistry;
+    private volatile dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator executionCoordinator;
+    private final Map<UUID, InterceptResult> lastInterceptResults;
+    private static final java.util.regex.Pattern C0_CONTROLS = java.util.regex.Pattern.compile("[\\u0000-\\u001F\\u007F]");
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private static final int MAX_SUMMARY_LENGTH = 256;
+    private static final int MAX_ID_LENGTH = 64;
 
     public PromptEngine(CommandPrompter plugin, Scheduler scheduler) {
+        this(plugin, scheduler, defaultScreenKeyResolver(plugin), null, null);
+    }
+
+    public PromptEngine(CommandPrompter plugin, Scheduler scheduler, ScreenKeyResolver screenKeyResolver) {
+        this(plugin, scheduler, screenKeyResolver, null, null);
+    }
+
+    public PromptEngine(
+            CommandPrompter plugin,
+            Scheduler scheduler,
+            ScreenKeyResolver screenKeyResolver,
+            dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry executionRegistry) {
+        this(plugin, scheduler, screenKeyResolver, executionRegistry, null);
+    }
+
+    public PromptEngine(
+            CommandPrompter plugin,
+            Scheduler scheduler,
+            ScreenKeyResolver screenKeyResolver,
+            dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry executionRegistry,
+            dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry leaseRegistry) {
         this.plugin = plugin;
         this.parser = buildParser(plugin);
         this.sessions = new ConcurrentHashMap<>();
-        this.dispatchPcmSnapshots = java.util.Collections.synchronizedMap(
-                new java.util.IdentityHashMap<>());
+        this.sessionInceptionArtifacts = new ConcurrentHashMap<>();
         this.scheduler = scheduler;
         this.sessionLifecycleMonitor = new Object();
         this.reloadInProgress = new AtomicBoolean();
+        this.sessionIncarnationSequence = new java.util.concurrent.atomic.AtomicLong();
+        this.screenKeyResolver = screenKeyResolver != null
+                ? screenKeyResolver
+                : defaultScreenKeyResolver(plugin);
+        this.executionRegistry = executionRegistry;
+        this.leaseRegistry = leaseRegistry != null
+                ? leaseRegistry
+                : new dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry();
+        this.lastInterceptResults = new ConcurrentHashMap<>();
+    }
+
+    public void setExecutionRegistry(dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry executionRegistry) {
+        this.executionRegistry = executionRegistry;
+    }
+
+    public void setLeaseRegistry(dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry leaseRegistry) {
+        this.leaseRegistry = leaseRegistry != null
+                ? leaseRegistry
+                : new dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry();
+    }
+
+    public dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry getEffectiveLeaseRegistry() {
+        var reg = leaseRegistry;
+        if (reg != null) return reg;
+        if (plugin != null && plugin.getApprovalCoordinator() != null) {
+            reg = plugin.getApprovalCoordinator().getLeaseRegistry();
+            if (reg != null) return reg;
+        }
+        return new dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry();
+    }
+
+    public dev.cyr1en.promptpaper.approval.PlayerInteractionLeaseRegistry getLeaseRegistry() {
+        return getEffectiveLeaseRegistry();
+    }
+
+    private static ScreenKeyResolver defaultScreenKeyResolver(CommandPrompter plugin) {
+        return new ScreenKeyResolver(
+                new CustomScreenRegistry(),
+                () -> {
+                    if (plugin == null) return Map.of();
+                    var loader = plugin.getConfigLoader();
+                    if (loader == null) return Map.of();
+                    var promptConfig = loader.getPromptConfig();
+                    return promptConfig != null && promptConfig.getScreenMappings() != null
+                            ? promptConfig.getScreenMappings()
+                            : Map.of();
+                });
     }
 
     /**
@@ -92,33 +178,61 @@ public class PromptEngine {
      * tags (e.g. {@code <red>}, {@code </red>}) are not treated as prompts.
      */
     private CommandLineParser buildParser(CommandPrompter plugin) {
+        if (plugin == null || plugin.getConfigLoader() == null) {
+            return this.parser != null ? this.parser : new CommandLineParser();
+        }
         var config = plugin.getConfigLoader().getConfig();
         if (config == null) {
-            return new CommandLineParser();
+            return this.parser != null ? this.parser : new CommandLineParser();
         }
-        var regex = config.argumentRegex();
-        if (regex == null || regex.isBlank()) {
-            regex = "<.*?>";
-        }
-        ParserConfig parserConfig;
         try {
-            parserConfig = ParserConfig.fromArgumentRegex(regex);
-        } catch (IllegalArgumentException e) {
-            plugin.getPluginLogger().err("Failed to parse argument regex '" + regex + "': " + e.getMessage() + ". Falling back to angle brackets.");
-            parserConfig = ParserConfig.ANGLE_BRACKETS;
+            return prepareParser(config);
+        } catch (Exception e) {
+            if (plugin.getPluginLogger() != null) {
+                plugin.getPluginLogger().err("Failed to obtain valid parser configuration: " + e.getMessage());
+            }
+            return this.parser != null ? this.parser : new CommandLineParser();
         }
+    }
 
+    /** Builds and validates a parser for a staged configuration without publishing it. */
+    public CommandLineParser prepareParser(CommandPrompterConfig config) {
+        Objects.requireNonNull(config, "config");
+        ParserConfig parserConfig = Objects.requireNonNull(config.parserConfig(), "parserConfig");
         boolean useFilter = config.ignoreMiniMessage() && "<".equals(parserConfig.opening()) && ">".equals(parserConfig.closing());
         var filter = useFilter ? new MiniMessageTagFilter() : null;
         return new CommandLineParser(parserConfig, filter);
+    }
+
+    /** Publishes a parser returned by {@link #prepareParser(CommandPrompterConfig)}. */
+    public void publishParser(CommandLineParser prepared) {
+        this.parser = Objects.requireNonNull(prepared, "prepared parser");
     }
 
     public CommandLineParser getParser() {
         return this.parser;
     }
 
+    public ScreenKeyResolver getScreenKeyResolver() {
+        return this.screenKeyResolver;
+    }
+
+    public Optional<InterceptResult> lastInterceptResult(Player player) {
+        if (player == null) return Optional.empty();
+        return Optional.ofNullable(lastInterceptResults.get(player.getUniqueId()));
+    }
+
     public void reloadParser() {
-        this.parser = buildParser(plugin);
+        try {
+            var newParser = buildParser(plugin);
+            if (newParser != null) {
+                publishParser(newParser);
+            }
+        } catch (Exception e) {
+            if (plugin != null && plugin.getPluginLogger() != null) {
+                plugin.getPluginLogger().err("Failed to reload parser; retaining current parser: " + e.getMessage());
+            }
+        }
     }
 
     /**
@@ -186,86 +300,175 @@ public class PromptEngine {
      * Parses a command line and, if it contains prompt tags, starts a new
      * session for the player and returns the parsed result.
      *
-     * <p>When {@code config.enablePermission()} is {@code true}, this method
-     * returns empty (and starts no session) for any player that lacks
-     * {@code promptpaper.use}. This is the per-player control gate for the
-     * prompting feature, distinct from the per-command permissions checked
-     * by the command system.
-     *
-     * <h2>Fail-fast on missing presets</h2>
-     *
-     * <p>If the parsed command references any preset prompts ({@code <@id>}) or
-     * preset post-commands ({@code <!@id>}), this method queries the plugin's
-     * {@code PresetRegistry} for each id. If any id is unknown, the session is
-     * <b>not</b> created; a localized error message is sent to the player and a
-     * severe warning is logged with the full list of missing ids and the original
-     * command line. This is the spec-mandated fail-fast behavior — under no
-     * circumstance is the literal tag passed to the underlying command.
-     *
-     * <p>The fail-fast check runs <i>before</i> the {@code hasPrompts()} check so a
-     * command that contains only missing-preset post-commands (no prompt tags) is
-     * still rejected.
+     * <p>Compatibility wrapper around {@link #interceptResult(Player, String)}.
      *
      * @return the parsed command with prompts, or empty if no prompts were found
-     *     (or the command was rejected by the fail-fast check)
+     *     (or the command was rejected)
      */
     public Optional<ParsedCommand> intercept(Player player, String commandLine) {
-        if (rejectIfReloading(player)) return Optional.empty();
-        var config = plugin.getConfigLoader().getConfig();
-        if (config.enablePermission() && !player.hasPermission("promptpaper.use")) {
+        return interceptResult(player, commandLine).toOptional();
+    }
+
+    /**
+     * Authoritative interception method that parses the command line, validates all preset
+     * references, validator aliases, and screen keys fail-closed, and begins a new prompt session
+     * if valid prompts are present.
+     *
+     * @param player the command sender
+     * @param commandLine the raw or normalized command string
+     * @return the typed outcome of the interception attempt
+     */
+    public InterceptResult interceptResult(Player player, String commandLine) {
+        if (rejectIfReloading(player) || (plugin != null && !plugin.isPluginActive())) {
+            var res = new InterceptResult.RejectedFailClosed("Configuration reload or shutdown in progress");
+            recordLastResult(player, res);
+            return res;
+        }
+        var config = plugin != null && plugin.getConfigLoader() != null ? plugin.getConfigLoader().getConfig() : null;
+        if (config != null && config.enablePermission() && !player.hasPermission("promptpaper.use")) {
             plugin.getPluginLogger().debug("Player " + player.getName()
                     + " lacks promptpaper.use, skipping prompt intercept");
-            return Optional.empty();
+            var res = InterceptResult.RejectedPermission.INSTANCE;
+            recordLastResult(player, res);
+            return res;
         }
-        var parsed = getParser().parse(commandLine);
+        ParsedCommand parsed;
+        try {
+            parsed = getParser().parse(commandLine);
+        } catch (IllegalArgumentException e) {
+            var safeMsg = C0_CONTROLS.matcher(e.getMessage() != null ? e.getMessage() : "malformed tag").replaceAll("");
+            if (safeMsg.length() > 128) safeMsg = safeMsg.substring(0, 128);
+            plugin.getPluginLogger().warn("Structural command parse failed for " + player.getName() + ": " + safeMsg);
+            var res = new InterceptResult.RejectedFailClosed("Structural command parse failed: " + safeMsg);
+            recordLastResult(player, res);
+            return res;
+        }
+
+        var presetSnapshot = plugin != null && plugin.getPresetRegistry() != null && plugin.getPresetRegistry().getSnapshot() != null
+                ? plugin.getPresetRegistry().getSnapshot()
+                : dev.cyr1en.promptpaper.preset.PresetSnapshot.empty();
 
         // Fail-fast: any unresolved preset ID or validator alias aborts the command flow.
-        var missingPrompts = findMissingPromptPresets(parsed);
-        var missingPostCmds = findMissingPostCommandPresets(parsed);
+        var missingPrompts = findMissingPromptPresets(parsed, presetSnapshot);
+        var missingPostCmds = findMissingPostCommandPresets(parsed, presetSnapshot);
         var missingValidators = findMissingValidators(parsed);
-        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty() || !missingValidators.isEmpty()) {
-            failFastMissing(player, commandLine, missingPrompts, missingPostCmds, missingValidators);
-            return Optional.empty();
+        var missingGates = findMissingGatePresets(parsed, presetSnapshot);
+        if (!missingPrompts.isEmpty() || !missingPostCmds.isEmpty() || !missingValidators.isEmpty() || !missingGates.isEmpty()) {
+            failFastMissing(player, commandLine, missingPrompts, missingPostCmds, missingValidators, missingGates);
+            var res = new InterceptResult.RejectedFailClosed("Missing presets or validators");
+            recordLastResult(player, res);
+            return res;
+        }
+
+        // Fail-fast: validate every prompt tag key before session creation.
+        var unresolvedKey = findUnresolvedScreenKey(parsed);
+        if (unresolvedKey.isPresent()) {
+            failFastUnresolvedKey(player, unresolvedKey.get());
+            var res = new InterceptResult.RejectedFailClosed("Unresolved screen key: " + sanitizeKey(unresolvedKey.get()));
+            recordLastResult(player, res);
+            return res;
         }
 
         if (!parsed.hasPrompts()) {
+            if (parsed.hasGates()) {
+                var playerUuid = player != null ? String.valueOf(player.getUniqueId()) : "unknown";
+                plugin.getPluginLogger().warn("Fail-fast: command from " + playerUuid
+                        + " contains approval gates with zero prompts; standalone gate execution is not supported");
+                if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+                    player.sendMessage(plugin.getConfigLoader().getI18n().get("command.error.missing_preset", player));
+                }
+                var res = new InterceptResult.RejectedFailClosed("Commands with approval gates but zero prompts are rejected fail-closed");
+                recordLastResult(player, res);
+                return res;
+            }
             plugin.getPluginLogger().debug("No prompts in command from " + player.getName());
-            return Optional.empty();
+            var res = InterceptResult.NoPrompts.INSTANCE;
+            recordLastResult(player, res);
+            return res;
         }
 
-        if (hasActiveSession(player)) {
-            plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
-            return Optional.empty();
+        if (hasActiveSession(player) || hasActiveExecution(player) || hasActiveApprovalLease(player)) {
+            plugin.getPluginLogger().debug("Player " + player.getName() + " already has an active session or execution, aborting new session");
+            if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
+            }
+            var res = InterceptResult.RejectedActiveSession.INSTANCE;
+            recordLastResult(player, res);
+            return res;
         }
 
-        var effectiveParsed = applyPresetSanitize(parsed);
+        var effectiveParsed = applyPresetSanitize(parsed, presetSnapshot);
+        var templateSyntax = plugin != null && plugin.getConfigLoader() != null && plugin.getConfigLoader().getConfig() != null
+                ? plugin.getConfigLoader().getConfig().templateSyntax()
+                : dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT;
+        var planDefinition = dev.cyr1en.promptcore.plan.ExecutionPlanAdapter.fromParsedCommand(effectiveParsed, templateSyntax);
+
+        long candidateIncarnation = sessionIncarnationSequence.incrementAndGet();
+        var claimOpt = getEffectiveLeaseRegistry().acquirePrompt(player.getUniqueId(), candidateIncarnation);
+        if (claimOpt.isEmpty()) {
+            plugin.getPluginLogger().debug("Player " + player.getName()
+                    + " failed to acquire prompt interaction claim, aborting new session");
+            if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
+            }
+            var res = InterceptResult.RejectedActiveSession.INSTANCE;
+            recordLastResult(player, res);
+            return res;
+        }
 
         var accepted = new AtomicBoolean();
         boolean rejectedByReload;
         synchronized (sessionLifecycleMonitor) {
             rejectedByReload = reloadInProgress.get();
             if (!rejectedByReload) {
-                sessions.compute(player.getUniqueId(), (uuid, existing) -> {
-                    if (existing != null && existing.isActive()) return existing;
-                    accepted.set(true);
-                    return PromptSession.start(uuid.toString(), effectiveParsed);
-                });
+                if (hasActiveExecution(player)) {
+                    // Prevent concurrent inception while execution is active
+                } else {
+                    sessions.compute(player.getUniqueId(), (uuid, existing) -> {
+                        if (existing != null && existing.isActive()) return existing;
+                        accepted.set(true);
+                        sessionInceptionArtifacts.put(
+                                uuid,
+                                new SessionInceptionArtifacts(
+                                        candidateIncarnation,
+                                        0L,
+                                        planDefinition,
+                                        presetSnapshot,
+                                        List.copyOf(effectiveParsed.postCmds())));
+                        return PromptSession.start(uuid.toString(), effectiveParsed, candidateIncarnation);
+                    });
+                }
             }
         }
         if (rejectedByReload) {
+            getEffectiveLeaseRegistry().releasePromptIfExact(player.getUniqueId(), candidateIncarnation);
             rejectIfReloading(player);
-            return Optional.empty();
+            var res = new InterceptResult.RejectedFailClosed("Configuration reload in progress");
+            recordLastResult(player, res);
+            return res;
         }
         if (!accepted.get()) {
+            getEffectiveLeaseRegistry().releasePromptIfExact(player.getUniqueId(), candidateIncarnation);
             plugin.getPluginLogger().debug("Player " + player.getName()
                     + " already has an active session, aborting new session");
-            player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
-            return Optional.empty();
+            if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+                player.sendMessage(plugin.getConfigLoader().getI18n().get("prompt.error.session_active", player));
+            }
+            var res = InterceptResult.RejectedActiveSession.INSTANCE;
+            recordLastResult(player, res);
+            return res;
         }
         plugin.getPluginLogger().debug("Intercepted " + effectiveParsed.promptTags().size()
                 + " prompts for " + player.getName());
-        return Optional.of(effectiveParsed);
+        var res = new InterceptResult.Started(effectiveParsed);
+        recordLastResult(player, res);
+        return res;
+    }
+
+    private void recordLastResult(Player player, InterceptResult result) {
+        if (player != null && result != null) {
+            lastInterceptResults.put(player.getUniqueId(), result);
+        }
     }
 
     /**
@@ -275,33 +478,54 @@ public class PromptEngine {
      * player's color codes intact. Commands without preset tags return the same parsed command
      * object unchanged.
      */
-    private ParsedCommand applyPresetSanitize(ParsedCommand parsed) {
+    ParsedCommand applyPresetSanitize(ParsedCommand parsed) {
+        var snapshot = plugin != null && plugin.getPresetRegistry() != null
+                ? plugin.getPresetRegistry().getSnapshot()
+                : null;
+        return applyPresetSanitize(parsed, snapshot);
+    }
+
+    ParsedCommand applyPresetSanitize(ParsedCommand parsed, dev.cyr1en.promptpaper.preset.PresetSnapshot snapshot) {
         if (parsed.promptTags().stream().noneMatch(PromptTag::isPreset)) return parsed;
-        var registry = plugin.getPresetRegistry();
+        var registry = plugin != null ? plugin.getPresetRegistry() : null;
         var adjustedTags = parsed.promptTags().stream()
                 .map(tag -> {
-                    if (!tag.isPreset() || registry == null) return tag;
+                    if (!tag.isPreset()) return tag;
                     // Fail-fast above already rejected unknown ids; fall back defensively.
-                    var sanitize = registry.getPrompt(tag.displayText())
-                            .map(PromptDefinition::sanitize)
-                            .orElse(tag.sanitize());
-                    return new PromptTag(
-                            tag.rawTag(),
-                            tag.key(),
-                            tag.filter(),
-                            tag.displayText(),
-                            sanitize,
-                            tag.validatorAlias(),
-                            tag.type(),
-                            tag.subTags(),
-                            tag.preset(),
-                            tag.title());
+                    var sanitize = (snapshot != null && snapshot.getPrompt(tag.displayText()).isPresent())
+                            ? snapshot.getPrompt(tag.displayText()).map(PromptDefinition::sanitize).orElse(tag.sanitize())
+                            : (registry != null
+                                    ? registry.getPrompt(tag.displayText()).map(PromptDefinition::sanitize).orElse(tag.sanitize())
+                                    : tag.sanitize());
+                    return withSanitize(tag, sanitize);
                 })
                 .toList();
+        return withPromptTags(parsed, adjustedTags);
+    }
+
+    private static PromptTag withSanitize(PromptTag tag, boolean sanitize) {
+        return new PromptTag(
+                tag.rawTag(),
+                tag.key(),
+                tag.filter(),
+                tag.displayText(),
+                sanitize,
+                tag.validatorAlias(),
+                tag.type(),
+                tag.subTags(),
+                tag.preset(),
+                tag.title(),
+                tag.timeout(),
+                tag.flags(),
+                tag.breakIf());
+    }
+
+    private static ParsedCommand withPromptTags(ParsedCommand parsed, List<PromptTag> promptTags) {
         return new ParsedCommand(
                 parsed.templateCommand(),
-                adjustedTags,
+                promptTags,
                 parsed.postCmds(),
+                parsed.preDispatchGates(),
                 parsed.parserConfig(),
                 parsed.rawTemplateCommand(),
                 parsed.templateSpans());
@@ -319,16 +543,35 @@ public class PromptEngine {
 
     /**
      * Whether the given command line contains at least one <b>preset reference</b>
-     * ({@code <@id>} or {@code <!@id>}). The listener uses this to decide whether
+     * ({@code <@id>} or {@code <!@id>}) or approval gate. The listener uses this to decide whether
      * to cancel the {@link org.bukkit.event.player.PlayerCommandPreprocessEvent}
-     * even when no prompt session was started — the literal preset tag must never
+     * even when no prompt session was started — the literal preset or gate tag must never
      * reach the underlying command dispatcher.
      */
     public boolean hasPresetReferences(String commandLine) {
         if (!getParser().hasTagForm(commandLine)) return false;
-        var parsed = getParser().parse(commandLine);
-        return parsed.promptTags().stream().anyMatch(PromptTag::isPreset)
-                || parsed.postCmds().stream().anyMatch(PostCommandMeta::isPreset);
+        try {
+            var parsed = getParser().parse(commandLine);
+            return parsed.promptTags().stream().anyMatch(PromptTag::isPreset)
+                    || parsed.postCmds().stream().anyMatch(PostCommandMeta::isPreset)
+                    || parsed.hasGates();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether parsing the given command line produces a structural parser error
+     * (e.g. invalid timeout, exceeded tag limits).
+     */
+    public boolean hasStructuralParseError(String commandLine) {
+        if (!getParser().hasTagForm(commandLine)) return false;
+        try {
+            getParser().parse(commandLine);
+            return false;
+        } catch (IllegalArgumentException e) {
+            return true;
+        }
     }
 
     /**
@@ -342,13 +585,23 @@ public class PromptEngine {
         sessions.compute(player.getUniqueId(), (uuid, session) -> {
             if (session == null || !session.isActive()) return session;
             found.set(true);
+            long priorIncarnation = session.incarnation();
+            long priorGeneration = session.generation();
             var next = session.submitAnswer(answer);
             if (next.isComplete()) {
                 var result = next.finish();
-                rememberAllPCMs(next, result);
                 completed.set(result);
+                getEffectiveLeaseRegistry().releasePromptIfExact(uuid, priorIncarnation);
                 return null;
             }
+            sessionInceptionArtifacts.computeIfPresent(
+                    uuid,
+                    (u, art) -> {
+                        if (art.incarnation() == priorIncarnation && art.generation() == priorGeneration) {
+                            return art.withGeneration(next.generation());
+                        }
+                        return art;
+                    });
             return next;
         });
         if (!found.get()) {
@@ -377,13 +630,23 @@ public class PromptEngine {
         sessions.compute(player.getUniqueId(), (uuid, session) -> {
             if (session == null || !session.isActive()) return session;
             found.set(true);
+            long priorIncarnation = session.incarnation();
+            long priorGeneration = session.generation();
             var next = session.submitAnswers(answers);
             if (next.isComplete()) {
                 var result = next.finish();
-                rememberAllPCMs(next, result);
                 completed.set(result);
+                getEffectiveLeaseRegistry().releasePromptIfExact(uuid, priorIncarnation);
                 return null;
             }
+            sessionInceptionArtifacts.computeIfPresent(
+                    uuid,
+                    (u, art) -> {
+                        if (art.incarnation() == priorIncarnation && art.generation() == priorGeneration) {
+                            return art.withGeneration(next.generation());
+                        }
+                        return art;
+                    });
             return next;
         });
         if (!found.get()) {
@@ -418,13 +681,23 @@ public class PromptEngine {
         sessions.compute(player.getUniqueId(), (uuid, session) -> {
             if (session == null || !session.isActive()) return session;
             found.set(true);
+            long priorIncarnation = session.incarnation();
+            long priorGeneration = session.generation();
             var next = session.submitAnswers(answers, expectedCount);
             if (next.isComplete()) {
                 var result = next.finish();
-                rememberAllPCMs(next, result);
                 completed.set(result);
+                getEffectiveLeaseRegistry().releasePromptIfExact(uuid, priorIncarnation);
                 return null;
             }
+            sessionInceptionArtifacts.computeIfPresent(
+                    uuid,
+                    (u, art) -> {
+                        if (art.incarnation() == priorIncarnation && art.generation() == priorGeneration) {
+                            return art.withGeneration(next.generation());
+                        }
+                        return art;
+                    });
             return next;
         });
         if (!found.get()) {
@@ -449,23 +722,101 @@ public class PromptEngine {
         return Optional.ofNullable(sessions.get(player.getUniqueId()));
     }
 
+    public dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator getExecutionCoordinator() {
+        if (executionCoordinator != null) return executionCoordinator;
+        if (plugin != null && plugin.getExecutionCoordinator() != null) {
+            return plugin.getExecutionCoordinator();
+        }
+        synchronized (this) {
+            if (executionCoordinator == null) {
+                var reg = executionRegistry != null
+                        ? executionRegistry
+                        : (plugin != null && plugin.getExecutionRegistry() != null
+                                ? plugin.getExecutionRegistry()
+                                : new dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry());
+                var primaryDisp = new dev.cyr1en.promptpaper.execution.dispatch.PaperPrimaryCommandDispatcher(plugin, scheduler);
+                var actionDisp = new dev.cyr1en.promptpaper.execution.dispatch.PaperImmediateActionDispatcher(plugin, scheduler);
+                this.executionCoordinator = new dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator(
+                        plugin, this, reg, primaryDisp, actionDisp);
+            }
+            return executionCoordinator;
+        }
+    }
+
+    public void setExecutionCoordinator(dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator executionCoordinator) {
+        this.executionCoordinator = executionCoordinator;
+    }
+
     /**
      * Cancels the player's active session and dispatches on-cancel commands if present.
      */
     public void cancel(Player player, CancelReason reason) {
-        cancel(player, reason, DispatchContext.player());
+        cancel(player, reason, (DispatchContextSnapshot) null, CancellationMode.USER_ACTIONS);
     }
 
-    /** Atomically cancels a session and dispatches its PCMs with the captured context. */
+    /** Atomically cancels a session and dispatches its cancellation plan via ExecutionCoordinator. */
     public void cancel(Player player, CancelReason reason, DispatchContext dispatchContext) {
+        cancel(player, reason, dispatchContext != null ? dispatchContext.toSnapshot() : null, CancellationMode.USER_ACTIONS);
+    }
+
+    /** Atomically cancels a session and dispatches its cancellation plan via ExecutionCoordinator. */
+    public void cancel(
+            Player player,
+            CancelReason reason,
+            dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot dispatchContextSnapshot) {
+        cancel(player, reason, dispatchContextSnapshot, CancellationMode.USER_ACTIONS);
+    }
+
+    public void cancel(
+            Player player,
+            CancelReason reason,
+            DispatchContext dispatchContext,
+            CancellationMode mode) {
+        cancel(player, reason, dispatchContext != null ? dispatchContext.toSnapshot() : null, mode);
+    }
+
+    public void cancel(
+            Player player,
+            CancelReason reason,
+            dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot dispatchContextSnapshot,
+            CancellationMode mode) {
+        if (player == null) return;
+        UUID uuid = player.getUniqueId();
+
+        if (mode == CancellationMode.DISCARD_ONLY || isReloadInProgress() || (plugin != null && !plugin.isPluginActive())) {
+            var cancelledIncarnation = new java.util.concurrent.atomic.AtomicLong(-1L);
+            sessions.compute(uuid, (key, existing) -> {
+                if (existing != null) {
+                    cancelledIncarnation.set(existing.incarnation());
+                }
+                return null;
+            });
+            sessionInceptionArtifacts.remove(uuid);
+            lastInterceptResults.remove(uuid);
+            if (cancelledIncarnation.get() >= 0) {
+                getEffectiveLeaseRegistry().releasePromptIfExact(uuid, cancelledIncarnation.get());
+            } else {
+                getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
+            }
+            var coordinator = getExecutionCoordinator();
+            if (coordinator != null) {
+                coordinator.cancel(uuid);
+            }
+            return;
+        }
+
         var cancelledResult = new AtomicReference<SessionResult>();
-        sessions.compute(player.getUniqueId(), (uuid, session) -> {
+        var cancelledIncarnation = new java.util.concurrent.atomic.AtomicLong(-1L);
+        var cancelledGeneration = new java.util.concurrent.atomic.AtomicLong(-1L);
+        sessions.compute(player.getUniqueId(), (u, session) -> {
             if (session == null || !session.isActive()) return session;
+            cancelledIncarnation.set(session.incarnation());
+            cancelledGeneration.set(session.generation());
             var cancelled = session.cancel(reason);
             if (cancelled.isCancelled()) {
                 var result = cancelled.finish();
-                rememberAllPCMs(cancelled, result);
                 cancelledResult.set(result);
+                getEffectiveLeaseRegistry().releasePromptIfExact(u, session.incarnation());
             }
             return null;
         });
@@ -474,26 +825,65 @@ public class PromptEngine {
             return;
         }
         plugin.getPluginLogger().debug("Session cancelled for " + player.getName() + " reason=" + reason);
-        dispatchPCMs(player, cancelledResult.get(), true, dispatchContext);
+
+        long inc = cancelledIncarnation.get();
+        long gen = cancelledGeneration.get();
+        var artifactsOpt = takeInceptionArtifacts(player.getUniqueId(), inc, gen);
+        if (artifactsOpt.isEmpty()) {
+            var safePlayer = player != null ? C0_CONTROLS.matcher(player.getName()).replaceAll("") : "unknown";
+            if (safePlayer.length() > 64) safePlayer = safePlayer.substring(0, 64);
+            plugin.getPluginLogger().warn("Missing or mismatched inception artifacts for cancelled session of "
+                    + safePlayer + " (inc=" + inc + ", gen=" + gen + "); failing closed with no on-cancel PCM dispatch");
+            return;
+        }
+
+        var artifacts = artifactsOpt.get();
+        var snapshot = artifacts.presetSnapshot();
+        List<PostCommandMeta> pcms = artifacts.originalPostCommands();
+
+        var completion = dev.cyr1en.promptpaper.execution.runtime.InputCompletion.of(
+                player.getUniqueId(),
+                inc,
+                gen,
+                cancelledResult.get(),
+                artifacts.planDefinition(),
+                snapshot,
+                dispatchContextSnapshot != null
+                        ? dispatchContextSnapshot
+                        : dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot.player(),
+                pcms);
+
+        var coordinator = getExecutionCoordinator();
+        if (coordinator != null) {
+            coordinator.coordinateCancellation(player, completion);
+        }
     }
 
     /**
      * Cancels all active sessions (e.g. during plugin shutdown).
      */
     public void cancelAll() {
+        cancelAll(CancellationMode.DISCARD_ONLY);
+    }
+
+    public void cancelAll(CancellationMode mode) {
         var snapshot = new java.util.ArrayList<>(sessions.keySet());
         for (var uuid : snapshot) {
             var player = plugin.getServer().getPlayer(uuid);
             if (player == null) {
-                sessions.remove(uuid);
+                discard(uuid);
                 continue;
             }
             try {
-                var task = player.getScheduler().run(
-                        plugin,
-                        scheduledTask -> cancel(player, CancelReason.MANUAL),
-                        () -> discard(uuid));
-                if (task == null) discard(uuid);
+                if (mode == CancellationMode.DISCARD_ONLY) {
+                    discard(uuid);
+                } else {
+                    var task = player.getScheduler().run(
+                            plugin,
+                            scheduledTask -> cancel(player, CancelReason.MANUAL, (dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot) null, mode),
+                            () -> discard(uuid));
+                    if (task == null) discard(uuid);
+                }
             } catch (Throwable t) {
                 plugin.getPluginLogger().debug("Unable to cancel session for retired player " + uuid);
                 discard(uuid);
@@ -503,13 +893,105 @@ public class PromptEngine {
 
     /** Drops session state without dispatching cancellation PCMs. */
     public void discard(UUID uuid) {
-        if (uuid != null) sessions.remove(uuid);
+        if (uuid != null) {
+            var s = sessions.remove(uuid);
+            sessionInceptionArtifacts.remove(uuid);
+            lastInterceptResults.remove(uuid);
+            if (s != null) {
+                getEffectiveLeaseRegistry().releasePromptIfExact(uuid, s.incarnation());
+            } else {
+                getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
+            }
+        }
     }
 
     /** Drops all session state without invoking player-affine work. */
     public void discardAll() {
+        for (var entry : sessions.entrySet()) {
+            getEffectiveLeaseRegistry().releasePromptIfExact(entry.getKey(), entry.getValue().incarnation());
+        }
         sessions.clear();
-        dispatchPcmSnapshots.clear();
+        sessionInceptionArtifacts.clear();
+        lastInterceptResults.clear();
+    }
+
+    /**
+     * Atomically takes and removes the captured session inception artifacts for the given player UUID,
+     * verifying that the stored artifacts match the expected incarnation.
+     *
+     * @param uuid player UUID
+     * @param expectedIncarnation expected session incarnation
+     * @return optional containing the inception artifacts, or empty if absent or mismatched
+     */
+    public Optional<SessionInceptionArtifacts> takeInceptionArtifacts(UUID uuid, long expectedIncarnation) {
+        return takeInceptionArtifacts(uuid, expectedIncarnation, -1L);
+    }
+
+    /**
+     * Atomically takes and removes the captured session inception artifacts for the given player UUID,
+     * verifying that the stored artifacts match the expected incarnation and generation.
+     *
+     * @param uuid player UUID
+     * @param expectedIncarnation expected session incarnation
+     * @param expectedGeneration expected session generation (or negative to ignore generation)
+     * @return optional containing the inception artifacts, or empty if absent or mismatched
+     */
+    public Optional<SessionInceptionArtifacts> takeInceptionArtifacts(
+            UUID uuid, long expectedIncarnation, long expectedGeneration) {
+        if (uuid == null) return Optional.empty();
+        var taken = new AtomicReference<SessionInceptionArtifacts>();
+        sessionInceptionArtifacts.compute(uuid, (key, existing) -> {
+            if (existing != null
+                    && existing.incarnation() == expectedIncarnation
+                    && (expectedGeneration < 0 || existing.generation() == expectedGeneration)) {
+                taken.set(existing);
+                return null;
+            }
+            return existing;
+        });
+        return Optional.ofNullable(taken.get());
+    }
+
+    /**
+     * Looks up the captured session inception artifacts for the given player UUID without removing.
+     *
+     * @param uuid player UUID
+     * @return optional containing the inception artifacts, or empty if not found
+     */
+    public Optional<SessionInceptionArtifacts> getInceptionArtifacts(UUID uuid) {
+        if (uuid == null) return Optional.empty();
+        return Optional.ofNullable(sessionInceptionArtifacts.get(uuid));
+    }
+
+    /**
+     * Looks up the captured session inception artifacts for the given player UUID and expected incarnation without removing.
+     *
+     * @param uuid player UUID
+     * @param expectedIncarnation expected session incarnation
+     * @return optional containing the inception artifacts, or empty if absent or mismatched
+     */
+    public Optional<SessionInceptionArtifacts> getInceptionArtifacts(UUID uuid, long expectedIncarnation) {
+        return getInceptionArtifacts(uuid, expectedIncarnation, -1L);
+    }
+
+    /**
+     * Looks up the captured session inception artifacts for the given player UUID, expected incarnation, and expected generation without removing.
+     *
+     * @param uuid player UUID
+     * @param expectedIncarnation expected session incarnation
+     * @param expectedGeneration expected session generation (or negative to ignore generation)
+     * @return optional containing the inception artifacts, or empty if absent or mismatched
+     */
+    public Optional<SessionInceptionArtifacts> getInceptionArtifacts(
+            UUID uuid, long expectedIncarnation, long expectedGeneration) {
+        if (uuid == null) return Optional.empty();
+        var artifacts = sessionInceptionArtifacts.get(uuid);
+        if (artifacts != null
+                && artifacts.incarnation() == expectedIncarnation
+                && (expectedGeneration < 0 || artifacts.generation() == expectedGeneration)) {
+            return Optional.of(artifacts);
+        }
+        return Optional.empty();
     }
 
     /**
@@ -521,364 +1003,43 @@ public class PromptEngine {
     }
 
     /**
-     * Remembers the complete parsed PCM source list for a finished result.
-     *
-     * <p>Prompt-core intentionally puts only the marker-matching list in a normal
-     * {@link SessionResult}. The runtime dispatcher must also see the opposite-marker preset
-     * references so their configured execution policy can be authoritative. Legacy references are
-     * re-resolved here and are still filtered by {@link PostCommandResolver} using their marker.
+     * Returns whether an active execution exists in the execution registry for the player.
      */
-    private void rememberAllPCMs(PromptSession finishedSession, SessionResult result) {
-        var all = finishedSession.parsedCommand().postCmds().stream()
-                .map(pcm -> resolvePCMReferences(pcm, result.answers()))
-                .toList();
-        dispatchPcmSnapshots.put(result, all);
-    }
-
-    /** Mirrors the core session's one-pass substitution for the PCMs added from the opposite list. */
-    private PostCommandMeta resolvePCMReferences(PostCommandMeta pcm, List<String> answers) {
-        var matcher = java.util.regex.Pattern.compile("\\{(\\d+)}").matcher(pcm.command());
-        var resolved = new StringBuffer();
-        while (matcher.find()) {
-            int index;
-            try {
-                index = Integer.parseInt(matcher.group(1));
-            } catch (NumberFormatException e) {
-                index = -1;
-            }
-            var replacement = index >= 0 && index < answers.size() ? answers.get(index) : "";
-            matcher.appendReplacement(
-                    resolved, java.util.regex.Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(resolved);
-        var command = resolved.toString().replaceAll("\\s+", " ").trim();
-        return new PostCommandMeta(
-                command,
-                pcm.answerIndices(),
-                pcm.delayTicks(),
-                pcm.onCancel(),
-                pcm.dispatchTarget(),
-                pcm.preset());
+    public boolean hasActiveExecution(Player player) {
+        if (player == null) return false;
+        return hasActiveExecution(player.getUniqueId());
     }
 
     /**
-     * Dispatches post-completion or on-cancel commands (PCMs) from a session result.
-     *
-     * <p>Each PCM is routed through {@link PostCommandResolver}, which:
-     *
-     * <ul>
-     *   <li>Resolves preset references ({@code <!@id>}) against the
-     *       {@code PresetRegistry}.
-     *   <li>Filters by the preset's {@code executionPolicy}; legacy PCMs retain
-     *       the parser's {@code onCancel} lifecycle hint.
-     *   <li>Resolves session-scoped placeholders ({@code {player}},
-     *       {@code {input}}, {@code {input:N}}, PAPI {@code %…%}).
-     *   <li>Schedules the dispatch with the preset's / legacy delay via the
-     *       Folia-safe {@link Scheduler}.
-     * </ul>
-     *
-     * <p>Commands with a positive delay are scheduled; others run synchronously.
+     * Returns whether an active execution exists in the execution registry for the UUID.
      */
-    public void dispatchPCMs(Player player, SessionResult result, boolean wasCancelled) {
-        dispatchPCMs(player, result, wasCancelled, DispatchContext.player());
-    }
-
-    /** Dispatches PCMs using an immutable snapshot of the original dispatch context. */
-    public void dispatchPCMs(
-            Player player,
-            SessionResult result,
-            boolean wasCancelled,
-            DispatchContext dispatchContext) {
-        if (dispatchContext == null) dispatchContext = DispatchContext.player();
-        // SessionResult's public lifecycle lists are parser-prefiltered. The engine keeps an
-        // identity-bound snapshot of the complete parsed PCM source list for results it creates;
-        // use that snapshot so a preset whose source marker disagrees with its configured policy
-        // is still considered. The resolver applies the authoritative preset policy below.
-        List<PostCommandMeta> pcms;
-        synchronized (dispatchPcmSnapshots) {
-            pcms = dispatchPcmSnapshots.remove(result);
-        }
-        if (pcms == null) {
-            pcms = wasCancelled ? result.onCancelCmds() : result.onCompleteCmds();
-        }
-        plugin.getPluginLogger().debug("Dispatching " + pcms.size() + " PCMs for "
-                + player.getName() + " (cancelled=" + wasCancelled + ")");
-        var resolver = new PostCommandResolver(plugin);
-        var dispatchedPresetIds = new java.util.HashSet<String>();
-        for (var pcm : pcms) {
-            var resolved = resolver.resolve(player, pcm, wasCancelled, result.answers());
-            if (resolved.isEmpty()) {
-                plugin.getPluginLogger().debug(
-                        "PCM filtered out: raw=" + pcm.command()
-                                + " preset=" + pcm.isPreset()
-                                + " onCancel=" + pcm.onCancel());
-                continue;
-            }
-            var res = resolved.get();
-            var effectiveExecuteAs = res.inheritDispatch()
-                    ? dispatchContext.executeAs()
-                    : res.executeAs();
-            if (effectiveExecuteAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
-                plugin.getPluginLogger().warn(
-                        "Player " + (player != null ? player.getName() : "unknown")
-                                + " attempted to execute console PCM without permission: "
-                                + res.command()
-                                + (res.preset() ? " (preset: " + res.sourceId() + ")" : ""));
-                continue;
-            }
-            if (res.preset()
-                    && !dispatchedPresetIds.add(res.sourceId())) {
-                plugin.getPluginLogger().debug(
-                        "Skipping duplicate preset PCM: " + res.sourceId());
-                continue;
-            }
-            schedule(player, res, dispatchContext);
-        }
-    }
-
-    /** Schedules a single resolved post-command for execution. */
-    private void schedule(
-            Player player,
-            PostCommandResolver.Resolved resolved,
-            DispatchContext dispatchContext) {
-        var effectiveExecuteAs = resolved.inheritDispatch()
-                ? dispatchContext.executeAs()
-                : resolved.executeAs();
-        if (effectiveExecuteAs == ExecuteAs.PLAYER) {
-            if (resolved.delayTicks() > 0) {
-                plugin.getPluginLogger().debug(
-                        "Scheduling PCM: source=" + resolved.sourceId()
-                                + " preset=" + resolved.preset()
-                                + " delay=" + resolved.delayTicks() + "t"
-                                + " target=" + effectiveExecuteAs
-                                + " cmd=" + resolved.command());
-                try {
-                    player.getScheduler().runDelayed(
-                            plugin,
-                            scheduledTask -> executeResolved(player, resolved, dispatchContext),
-                            null,
-                            resolved.delayTicks());
-                } catch (Throwable t) {
-                    plugin.getPluginLogger().debug("Player PCM task retired before scheduling: "
-                            + t.getMessage());
-                }
-            } else {
-                plugin.getPluginLogger().debug(
-                        "Dispatching PCM: source=" + resolved.sourceId()
-                                + " preset=" + resolved.preset()
-                                + " target=" + effectiveExecuteAs
-                                + " cmd=" + resolved.command());
-                try {
-                    player.getScheduler().run(
-                            plugin,
-                            scheduledTask -> executeResolved(player, resolved, dispatchContext),
-                            null);
-                } catch (Throwable t) {
-                    plugin.getPluginLogger().debug("Player PCM task retired before scheduling: "
-                            + t.getMessage());
-                }
-            }
-            return;
-        }
-
-        Runnable task = () -> executeResolved(player, resolved, dispatchContext);
-        if (resolved.delayTicks() > 0) {
-            plugin.getPluginLogger().debug(
-                    "Scheduling PCM: source=" + resolved.sourceId()
-                            + " preset=" + resolved.preset()
-                            + " delay=" + resolved.delayTicks() + "t"
-                            + " target=" + effectiveExecuteAs
-                            + " cmd=" + resolved.command());
-            scheduler.runLater(task, resolved.delayTicks());
-        } else {
-            plugin.getPluginLogger().debug(
-                    "Dispatching PCM: source=" + resolved.sourceId()
-                            + " preset=" + resolved.preset()
-                            + " target=" + effectiveExecuteAs
-                            + " cmd=" + resolved.command());
-            scheduler.runSync(task);
-        }
+    public boolean hasActiveExecution(UUID uuid) {
+        if (uuid == null) return false;
+        var reg = executionRegistry != null
+                ? executionRegistry
+                : (plugin != null ? plugin.getExecutionRegistry() : null);
+        return reg != null && reg.hasActiveExecution(uuid);
     }
 
     /**
-     * Checks whether the given player or dispatch context is authorized to execute commands as console.
+     * Returns whether an active approval interaction lease exists for the player.
      */
-    public static boolean canExecuteConsole(Player player, DispatchContext dispatchContext) {
-        if (dispatchContext != null && dispatchContext.isConsoleDelegated()) {
-            return true;
-        }
-        if (player == null) {
-            return false;
-        }
-        return player.isOp()
-                || player.hasPermission("promptpaper.pcm.console")
-                || player.hasPermission("promptpaper.admin")
-                || player.hasPermission("promptpaper.consoledelegate");
+    public boolean hasActiveApprovalLease(Player player) {
+        if (player == null) return false;
+        return hasActiveApprovalLease(player.getUniqueId());
     }
 
     /**
-     * Dispatches a resolved post-command to the appropriate command sender.
-     * {@link dev.cyr1en.promptpaper.preset.ExecuteAs#CONSOLE} routes through
-     * the server console; {@link dev.cyr1en.promptpaper.preset.ExecuteAs#PLAYER}
-     * uses the player.
+     * Returns whether an active approval interaction lease exists for the UUID.
      */
-    private void executeResolved(
-            Player player,
-            PostCommandResolver.Resolved resolved,
-            DispatchContext dispatchContext) {
-        var executeAs = resolved.inheritDispatch()
-                ? dispatchContext.executeAs()
-                : resolved.executeAs();
-        if (executeAs == ExecuteAs.CONSOLE && !canExecuteConsole(player, dispatchContext)) {
-            plugin.getPluginLogger().warn(
-                    "Player " + (player != null ? player.getName() : "unknown")
-                            + " attempted to execute console PCM without permission: "
-                            + resolved.command()
-                            + (resolved.preset() ? " (preset: " + resolved.sourceId() + ")" : ""));
-            return;
-        }
-        if (resolved.inheritDispatch()
-                && executeAs == ExecuteAs.PLAYER
-                && dispatchContext.attachmentRequired()) {
-            executeWithAttachment(
-                    player,
-                    resolved.command(),
-                    dispatchContext.permissionKey(),
-                    dispatchContext.permissionSnapshot(),
-                    resolved.delayTicks() > 0);
-            return;
-        }
-        var sender = switch (executeAs) {
-            case CONSOLE -> plugin.getServer().getConsoleSender();
-            case PLAYER -> player;
-        };
-        try {
-            if (!plugin.getServer().dispatchCommand(sender, resolved.command())) {
-                reportCommandFailure(player, resolved.command(), "dispatch returned false");
-            }
-        } catch (Exception e) {
-            reportCommandFailure(player, resolved.command(), e.getMessage());
-        }
-    }
-
-    private void executeWithAttachment(
-            Player player,
-            String command,
-            String permissionKey,
-            List<String> capturedPermissions,
-            boolean delayed) {
-        if (permissionKey == null || permissionKey.isBlank()
-                || capturedPermissions == null || capturedPermissions.isEmpty()) {
-            plugin.getPluginLogger().err(
-                    "Refusing post-command attachment dispatch for invalid captured key/snapshot: "
-                            + permissionKey);
-            reportCommandFailure(player, command, "invalid permission attachment");
-            return;
-        }
-
-        if (delayed) {
-            var currentPermissions = readPermissionSnapshot(permissionKey);
-            if (currentPermissions.isEmpty()) {
-                plugin.getPluginLogger().err(
-                        "Skipping delayed attachment PCM '" + command
-                                + "': permission key was removed or is unavailable: "
-                                + permissionKey);
-                reportCommandFailure(player, command, "permission attachment changed after scheduling");
-                return;
-            }
-            if (!currentPermissions.get().equals(capturedPermissions)) {
-                plugin.getPluginLogger().err(
-                        "Skipping delayed attachment PCM '" + command
-                                + "': permissions for key " + permissionKey
-                                + " changed from " + capturedPermissions + " to "
-                                + currentPermissions.get());
-                reportCommandFailure(player, command, "permission attachment changed after scheduling");
-                return;
-            }
-        }
-
-        var permissions = capturedPermissions.toArray(new String[0]);
-        var config = plugin.getConfigLoader().getConfig();
-
-        var attachment = new AtomicReference<PermissionAttachment>();
-        var removed = new AtomicBoolean();
-        Runnable remove = () -> {
-            var current = attachment.get();
-            if (current != null && removed.compareAndSet(false, true)) {
-                try {
-                    player.removeAttachment(current);
-                } catch (Exception e) {
-                    plugin.getPluginLogger().debug("Unable to remove permission attachment");
-                }
-            }
-        };
-        boolean removalScheduled = false;
-        boolean failed = false;
-        try {
-            attachment.set(player.addAttachment(plugin));
-            if (attachment.get() == null) {
-                reportCommandFailure(player, command, "unable to create permission attachment");
-                return;
-            }
-            for (var permission : permissions) attachment.get().setPermission(permission, true);
-            attachment.get().getPermissible().recalculatePermissions();
-            if (!plugin.getServer().dispatchCommand(player, command)) {
-                failed = true;
-                reportCommandFailure(player, command, "dispatch returned false");
-            }
-        } catch (Exception e) {
-            failed = true;
-            reportCommandFailure(player, command, e.getMessage());
-        }
-        if (!failed && !removed.get() && config != null && config.permissionAttachmentTicks() > 0) {
-            try {
-                var task = player.getScheduler().runDelayed(
-                        plugin,
-                        scheduledTask -> remove.run(),
-                        () -> {},
-                        config.permissionAttachmentTicks());
-                removalScheduled = task != null;
-            } catch (Exception e) {
-                plugin.getPluginLogger().debug("Attachment removal scheduling failed: "
-                        + e.getMessage());
-            }
-        }
-        if (!removalScheduled) remove.run();
-    }
-
-    /** Reads the current attachment definition only for delayed fail-closed validation. */
-    private Optional<List<String>> readPermissionSnapshot(String permissionKey) {
-        if (permissionKey == null || permissionKey.isBlank()) return Optional.empty();
-        try {
-            var config = plugin.getConfigLoader().getConfig();
-            var permissions = config == null ? null : config.getPermissionAttachment(permissionKey);
-            if (permissions == null || permissions.length == 0) return Optional.empty();
-            return Optional.of(List.copyOf(java.util.Arrays.asList(permissions)));
-        } catch (Exception e) {
-            plugin.getPluginLogger().debug(
-                    "Unable to revalidate permission attachment key " + permissionKey + ": "
-                            + e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-    private void reportCommandFailure(Player player, String command, String detail) {
-        var message = detail != null ? detail : "unknown error";
-        plugin.getPluginLogger().info("Command dispatch failed for '" + command + "': " + message);
-        try {
-            var task = player.getScheduler().run(
-                    plugin,
-                    scheduledTask -> player.sendMessage(plugin.getConfigLoader().getI18n().get(
-                            "prompt.error.command_failed",
-                            player,
-                            Placeholder.of("message", message))),
-                    null);
-            if (task == null) {
-                plugin.getPluginLogger().debug("Unable to send command failure to retired player");
-            }
-        } catch (Exception e) {
-            plugin.getPluginLogger().debug("Unable to send command failure feedback: " + e.getMessage());
-        }
+    public boolean hasActiveApprovalLease(UUID uuid) {
+        if (uuid == null) return false;
+        var reg = leaseRegistry != null
+                ? leaseRegistry
+                : (plugin != null && plugin.getApprovalCoordinator() != null
+                        ? plugin.getApprovalCoordinator().getLeaseRegistry()
+                        : null);
+        return reg != null && reg.isLeased(uuid);
     }
 
     // ------------------------------------------------------------------
@@ -891,9 +1052,13 @@ public class PromptEngine {
      * occurrence in the parsed command.
      */
     private List<String> findMissingPromptPresets(ParsedCommand parsed) {
-        var registry = plugin.getPresetRegistry();
-        if (registry == null) {
-            // If no registry is wired, treat all preset references as missing.
+        var snapshot = plugin != null && plugin.getPresetRegistry() != null ? plugin.getPresetRegistry().getSnapshot() : null;
+        return findMissingPromptPresets(parsed, snapshot);
+    }
+
+    private List<String> findMissingPromptPresets(ParsedCommand parsed, dev.cyr1en.promptpaper.preset.PresetSnapshot snapshot) {
+        var registry = plugin != null ? plugin.getPresetRegistry() : null;
+        if (registry == null && snapshot == null) {
             return parsed.promptTags().stream()
                     .filter(PromptTag::isPreset)
                     .map(PromptTag::displayText)
@@ -902,7 +1067,15 @@ public class PromptEngine {
         return parsed.promptTags().stream()
                 .filter(PromptTag::isPreset)
                 .map(PromptTag::displayText)
-                .filter(id -> registry.getPrompt(id).isEmpty())
+                .filter(id -> {
+                    if (snapshot != null && snapshot.getPrompt(id).isPresent()) {
+                        return false;
+                    }
+                    if (registry != null && registry.getPrompt(id).isPresent()) {
+                        return false;
+                    }
+                    return true;
+                })
                 .toList();
     }
 
@@ -912,8 +1085,13 @@ public class PromptEngine {
      * occurrence in the parsed command.
      */
     private List<String> findMissingPostCommandPresets(ParsedCommand parsed) {
-        var registry = plugin.getPresetRegistry();
-        if (registry == null) {
+        var snapshot = plugin != null && plugin.getPresetRegistry() != null ? plugin.getPresetRegistry().getSnapshot() : null;
+        return findMissingPostCommandPresets(parsed, snapshot);
+    }
+
+    private List<String> findMissingPostCommandPresets(ParsedCommand parsed, dev.cyr1en.promptpaper.preset.PresetSnapshot snapshot) {
+        var registry = plugin != null ? plugin.getPresetRegistry() : null;
+        if (registry == null && snapshot == null) {
             return parsed.postCmds().stream()
                     .filter(PostCommandMeta::isPreset)
                     .map(PostCommandMeta::command)
@@ -922,8 +1100,33 @@ public class PromptEngine {
         return parsed.postCmds().stream()
                 .filter(PostCommandMeta::isPreset)
                 .map(PostCommandMeta::command)
-                .filter(id -> registry.getPostCommand(id).isEmpty())
+                .filter(id -> {
+                    if (snapshot != null && snapshot.getPostCommand(id).isPresent()) {
+                        return false;
+                    }
+                    if (registry != null && registry.getPostCommand(id).isPresent()) {
+                        return false;
+                    }
+                    return true;
+                })
                 .toList();
+    }
+
+    private List<String> findMissingGatePresets(ParsedCommand parsed, dev.cyr1en.promptpaper.preset.PresetSnapshot snapshot) {
+        if (parsed == null || parsed.preDispatchGates() == null || parsed.preDispatchGates().isEmpty()) {
+            return List.of();
+        }
+        var missing = new java.util.ArrayList<String>();
+        for (var gate : parsed.preDispatchGates()) {
+            if (gate instanceof dev.cyr1en.promptcore.plan.PreDispatchGateSpec.Approval approval) {
+                String id = approval.presetId();
+                boolean found = snapshot != null && snapshot.getApprovalGate(id).isPresent();
+                if (!found) {
+                    missing.add(id);
+                }
+            }
+        }
+        return missing;
     }
 
     /**
@@ -965,26 +1168,101 @@ public class PromptEngine {
             List<String> missingPrompts,
             List<String> missingPostCmds,
             List<String> missingValidators) {
+        failFastMissing(player, commandLine, missingPrompts, missingPostCmds, missingValidators, List.of());
+    }
+
+    private void failFastMissing(
+            Player player,
+            String commandLine,
+            List<String> missingPrompts,
+            List<String> missingPostCmds,
+            List<String> missingValidators,
+            List<String> missingGates) {
         var all = new java.util.ArrayList<String>();
         if (!missingPrompts.isEmpty()) {
-            all.add("prompts=" + missingPrompts);
+            all.add("prompts=" + sanitizeLogIdentifiers(missingPrompts));
         }
         if (!missingPostCmds.isEmpty()) {
-            all.add("post-commands=" + missingPostCmds);
+            all.add("post-commands=" + sanitizeLogIdentifiers(missingPostCmds));
         }
         if (!missingValidators.isEmpty()) {
-            all.add("validators=" + missingValidators);
+            all.add("validators=" + sanitizeLogIdentifiers(missingValidators));
+        }
+        if (!missingGates.isEmpty()) {
+            all.add("gates=" + sanitizeLogIdentifiers(missingGates));
         }
         var summary = String.join(", ", all);
+        if (summary.length() > MAX_SUMMARY_LENGTH) {
+            summary = summary.substring(0, MAX_SUMMARY_LENGTH);
+        }
+        var playerUuid = player != null ? String.valueOf(player.getUniqueId()) : "unknown";
         plugin.getPluginLogger().err(
-                "Fail-fast: command from " + player.getName()
+                "Fail-fast: command from " + playerUuid
                         + " references unknown element(s) [" + summary
-                        + "] — command NOT executed. Raw: " + commandLine);
+                        + "] — command NOT executed.");
         var i18n = plugin.getConfigLoader().getI18n();
-        if (!missingValidators.isEmpty() && missingPrompts.isEmpty() && missingPostCmds.isEmpty()) {
+        if (!missingValidators.isEmpty() && missingPrompts.isEmpty() && missingPostCmds.isEmpty() && missingGates.isEmpty()) {
             player.sendMessage(i18n.get("command.error.missing_validator", player));
         } else {
             player.sendMessage(i18n.get("command.error.missing_preset", player));
         }
+    }
+
+    private static String sanitizeLogIdentifier(String id) {
+        if (id == null) return "";
+        var clean = C0_CONTROLS.matcher(id).replaceAll("");
+        if (clean.length() > MAX_ID_LENGTH) {
+            clean = clean.substring(0, MAX_ID_LENGTH);
+        }
+        return MINI_MESSAGE.escapeTags(clean);
+    }
+
+    private static List<String> sanitizeLogIdentifiers(List<String> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        var result = new java.util.ArrayList<String>(ids.size());
+        for (var id : ids) {
+            result.add(sanitizeLogIdentifier(id));
+        }
+        return result;
+    }
+
+    private Optional<String> findUnresolvedScreenKey(ParsedCommand parsed) {
+        if (screenKeyResolver == null) return Optional.empty();
+        for (var tag : parsed.promptTags()) {
+            if (tag.isPreset()) continue;
+            var resolution = screenKeyResolver.resolve(tag.key());
+            if (resolution.isUnresolved()) {
+                return Optional.of(tag.key());
+            }
+            if (tag.isCompound()) {
+                for (var subTag : tag.subTags()) {
+                    if (subTag.isPreset()) continue;
+                    var subResolution = screenKeyResolver.resolve(subTag.key());
+                    if (subResolution.isUnresolved()) {
+                        return Optional.of(subTag.key());
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private void failFastUnresolvedKey(Player player, String rawKey) {
+        var safeKey = sanitizeKey(rawKey);
+        var safePlayer = player != null ? C0_CONTROLS.matcher(player.getName()).replaceAll("") : "unknown";
+        if (safePlayer.length() > 64) safePlayer = safePlayer.substring(0, 64);
+        plugin.getPluginLogger().warn(
+                "Fail-fast: command from " + safePlayer
+                        + " references unknown screen key [" + safeKey
+                        + "] — command NOT executed.");
+        if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+            player.sendMessage(plugin.getConfigLoader().getI18n().get("command.error.missing_preset", player));
+        }
+    }
+
+    private static String sanitizeKey(String key) {
+        if (key == null) return "";
+        var clean = C0_CONTROLS.matcher(key).replaceAll("");
+        return clean.length() > MAX_ID_LENGTH ? clean.substring(0, MAX_ID_LENGTH) : clean;
     }
 }

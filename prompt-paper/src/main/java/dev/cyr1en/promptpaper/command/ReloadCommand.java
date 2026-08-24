@@ -112,7 +112,7 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
                         plugin,
                         scheduledTask -> {
                             try {
-                                plugin.getScreenManager().cancelAll(player, true);
+                                plugin.getScreenManager().cancelAll(player, dev.cyr1en.promptpaper.engine.CancellationMode.DISCARD_ONLY, true);
                             } finally {
                                 finish.run();
                             }
@@ -148,27 +148,55 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
     private void reloadAfterTeardown(
             CommandSender sender, Location feedbackLocation, PromptEngine gateOwner) {
         try {
+            if (plugin.getExecutionCoordinator() != null)
+                plugin.getExecutionCoordinator().cancelAll();
             if (plugin.getEngine() != null)
                 plugin.getEngine().discardAll();
-            plugin.getConfigLoader().reload();
             var loader = plugin.getConfigLoader();
-            var cfg = loader.getConfig();
-            if (cfg != null) {
-                plugin.getPluginLogger().reload(cfg);
-            }
-            if (plugin.getEngine() != null) {
-                plugin.getEngine().reloadParser();
-            }
-            // Reload preset cache; failure aborts the reload.
+            var preparedConfig = loader.prepareReload();
+            var engine = plugin.getEngine();
+            var preparedParser = engine != null
+                    ? engine.prepareParser(preparedConfig.config())
+                    : null;
+
             var registry = plugin.getPresetRegistry();
+            var preparedPresets = registry != null
+                    ? registry.prepareReload(preparedConfig.config().templateSyntax())
+                    : null;
+
+            var catalogRegistry = plugin.getItemCatalogRegistry();
+            var preparedCatalog = catalogRegistry != null
+                    ? catalogRegistry.prepareReload()
+                    : null;
+
+            // Nothing becomes visible until every file and parser has been validated.
+            loader.publishReload(preparedConfig, () -> {
+                if (registry != null) registry.publishReload(preparedPresets);
+                if (catalogRegistry != null) catalogRegistry.publishReload(preparedCatalog);
+                if (engine != null) engine.publishParser(preparedParser);
+            });
+
+            try {
+                plugin.getPluginLogger().reload(preparedConfig.config());
+            } catch (Throwable t) {
+                plugin.getLogger().warning("Configuration published but logger refresh failed: "
+                        + t.getMessage());
+            }
+
             if (registry != null) {
-                registry.reload();
                 var presetMsg = "Loaded presets: <green>" + registry.promptCount() + " prompts</green>, <gold>" +
                         registry.postCommandCount() + " post commands</gold>";
                 plugin.getPluginLogger().info(presetMsg);
                 plugin.getPluginLogger().debug("Loaded prompt IDs: " + String.join(", ", registry.getPromptIds()));
                 plugin.getPluginLogger()
                         .debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
+            }
+            if (catalogRegistry != null) {
+                var catSnapshot = catalogRegistry.getSnapshot();
+                var catalogMsg = "Loaded item catalogs: <green>" + catSnapshot.categoryCount() + " categories</green>, <gold>" +
+                        catSnapshot.totalEntryCount() + " items</gold>";
+                plugin.getPluginLogger().info(catalogMsg);
+                plugin.getPluginLogger().debug("Loaded catalog categories: " + String.join(", ", catSnapshot.categories()));
             }
             sendResult(sender, feedbackLocation, "command.reload.success");
         } catch (Exception e) {

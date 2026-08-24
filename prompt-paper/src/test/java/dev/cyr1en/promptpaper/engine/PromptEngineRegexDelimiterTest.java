@@ -12,6 +12,7 @@ class PromptEngineRegexDelimiterTest extends MockBukkitTest {
     @Test
     void testWithCustomRegexDelimiters() {
         when(config.argumentRegex()).thenReturn("{.*?}");
+        when(config.parserConfig()).thenReturn(new dev.cyr1en.promptcore.ParserConfig("{", "}", "\\"));
         when(config.ignoreMiniMessage()).thenReturn(false);
 
         var engine = new PromptEngine(plugin, scheduler);
@@ -30,6 +31,7 @@ class PromptEngineRegexDelimiterTest extends MockBukkitTest {
     @Test
     void testWithCustomRegexAndIgnoreMiniMessage() {
         when(config.argumentRegex()).thenReturn("{.*?}");
+        when(config.parserConfig()).thenReturn(new dev.cyr1en.promptcore.ParserConfig("{", "}", "\\"));
         when(config.ignoreMiniMessage()).thenReturn(true);
 
         var engine = new PromptEngine(plugin, scheduler);

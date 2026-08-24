@@ -96,7 +96,7 @@ public class PlayerDelegateCommand extends PromptCommand implements Command<Comm
             return Command.SINGLE_SUCCESS;
         }
         plugin.getPluginLogger().info(sender.getName()
-                + " used /playerdelegate permKey=" + permKey + ": " + command);
+                + " used /playerdelegate permKey=" + permKey);
         plugin.getScreenManager().startDelegatedSession(target, command,
                 ScreenManager.DispatchMode.ATTACHMENT, permKey);
         return Command.SINGLE_SUCCESS;

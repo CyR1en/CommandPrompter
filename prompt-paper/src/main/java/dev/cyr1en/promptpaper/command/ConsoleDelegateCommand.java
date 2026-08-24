@@ -75,7 +75,7 @@ public class ConsoleDelegateCommand extends PromptCommand implements Command<Com
      */
     public void startSession(String senderName, Player target, String command) {
         if (command.startsWith("/")) command = command.substring(1);
-        plugin.getPluginLogger().info(senderName + " used /consoledelegate: " + command);
+        plugin.getPluginLogger().info(senderName + " used /consoledelegate");
         plugin.getScreenManager().startDelegatedSession(target, command,
                 ScreenManager.DispatchMode.CONSOLE, null);
     }

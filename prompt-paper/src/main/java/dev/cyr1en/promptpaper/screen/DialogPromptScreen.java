@@ -368,8 +368,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private void onTabClick(String completion) {
         player.getScheduler().run(plugin, scheduledTask -> {
             if (!lifecycle.isOpen()) return;
-            plugin.getPluginLogger().debug("d:tab button clicked for " + player.getName()
-                    + " completion=\"" + completion + "\"");
+            plugin.getPluginLogger().debug("d:tab button clicked for " + player.getName());
             finish(ScreenResult.answer(completion));
         }, null);
     }
@@ -423,8 +422,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             if (v == null) v = "";
             // Apply the same text-input sanitization as the standard path.
             String answer = tag.sanitize() ? v : ComponentUtil.miniToLegacy(v);
-            plugin.getPluginLogger().debug("d:tab fallback confirmed for " + player.getName()
-                    + " answer=\"" + answer + "\"");
+            plugin.getPluginLogger().debug("d:tab fallback confirmed for " + player.getName());
             finish(ScreenResult.answer(answer));
         }, null);
     }
@@ -526,7 +524,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             var answers = readAnswers(view);
             plugin.getPluginLogger().debug("Dialog confirmed for " + player.getName()
                     + " key=" + tag.key() + " rows=" + rows.size()
-                    + " answers=" + answers);
+                    + " answers=" + answers.size());
             finish(ScreenResult.answer(encodeAnswers(answers)));
         }, null);
     }
@@ -535,7 +533,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         player.getScheduler().run(plugin, scheduledTask -> {
             if (!lifecycle.isOpen()) return;
             plugin.getPluginLogger().debug("Dialog cancelled for " + player.getName());
-            finish(ScreenResult.cancel());
+            finish(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.MANUAL));
         }, null);
     }
 
@@ -1039,7 +1037,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     private void onCancelFromView(DialogResponseView view) {
         if (!lifecycle.isOpen()) return;
         plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
-        finish(ScreenResult.cancel());
+        finish(ScreenResult.cancel(dev.cyr1en.promptcore.CancelReason.MANUAL));
     }
 
     /**
@@ -1052,7 +1050,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
         var answers = readAnswersFromDialogPrompt(view);
         plugin.getPluginLogger().debug("Dialog confirmed for " + player.getName()
                 + " id=" + dialogPrompt.id() + " rows=" + inputRows.size()
-                + " answers=" + answers);
+                + " answers=" + answers.size());
         finish(ScreenResult.answer(encodeAnswers(answers)));
     }
 

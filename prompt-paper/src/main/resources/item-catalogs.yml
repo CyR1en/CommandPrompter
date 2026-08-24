@@ -1,0 +1,79 @@
+# ==============================================================================
+# CommandPrompter Item Catalogs
+# ==============================================================================
+# Invariants:
+# - Maximum file size: 1 MiB
+# - Maximum categories: 256
+# - Maximum entries per category: 1024
+# - Category names must match regex: ^[a-z0-9_.-]{1,64}$
+# - The 'all' category is required.
+# ==============================================================================
+
+categories:
+  all:
+    - minecraft:stone
+    - minecraft:granite
+    - minecraft:polished_granite
+    - minecraft:diorite
+    - minecraft:polished_diorite
+    - minecraft:andesite
+    - minecraft:polished_andesite
+    - minecraft:dirt
+    - minecraft:grass_block
+    - minecraft:cobblestone
+    - minecraft:oak_planks
+    - minecraft:spruce_planks
+    - minecraft:birch_planks
+    - minecraft:jungle_planks
+    - minecraft:acacia_planks
+    - minecraft:dark_oak_planks
+    - minecraft:iron_sword
+    - minecraft:diamond_sword
+    - minecraft:netherite_sword
+    - minecraft:bow
+    - minecraft:crossbow
+    - minecraft:shield
+    - minecraft:golden_apple
+    - minecraft:enchanted_golden_apple
+    - minecraft:bread
+    - minecraft:cooked_beef
+    - minecraft:compass
+    - minecraft:clock
+    - minecraft:recovery_compass
+
+  building_blocks:
+    - minecraft:stone
+    - minecraft:granite
+    - minecraft:polished_granite
+    - minecraft:diorite
+    - minecraft:polished_diorite
+    - minecraft:andesite
+    - minecraft:polished_andesite
+    - minecraft:dirt
+    - minecraft:grass_block
+    - minecraft:cobblestone
+    - minecraft:oak_planks
+    - minecraft:spruce_planks
+    - minecraft:birch_planks
+    - minecraft:jungle_planks
+    - minecraft:acacia_planks
+    - minecraft:dark_oak_planks
+
+  combat:
+    - minecraft:iron_sword
+    - minecraft:diamond_sword
+    - minecraft:netherite_sword
+    - minecraft:bow
+    - minecraft:crossbow
+    - minecraft:shield
+
+  food:
+    - minecraft:golden_apple
+    - minecraft:enchanted_golden_apple
+    - minecraft:bread
+    - minecraft:cooked_beef
+
+  tools:
+    - minecraft:compass
+    - minecraft:clock
+    - minecraft:recovery_compass
