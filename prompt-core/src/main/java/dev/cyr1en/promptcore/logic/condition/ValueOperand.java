@@ -22,12 +22,12 @@ public interface ValueOperand {
    *
    * @param indices target set for answer indices
    */
-  void collectAnswerIndices(Set<Integer> indices);
+  default void collectAnswerIndices(Set<Integer> indices) {}
 
   /**
    * Collects all PlaceholderAPI placeholder keys referenced by this operand into the given set.
    *
    * @param placeholders target set for placeholder keys
    */
-  void collectPapiPlaceholders(Set<String> placeholders);
+  default void collectPapiPlaceholders(Set<String> placeholders) {}
 }

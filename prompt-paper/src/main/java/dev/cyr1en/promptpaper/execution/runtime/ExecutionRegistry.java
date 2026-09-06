@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>Indexed by initiator {@link UUID} and unique {@link ExecutionId}.
  *
  * <p>Guarantees:
+ *
  * <ul>
  *   <li>Rejects concurrent execution for the same initiator UUID.
  *   <li>Compare-remove by exact {@link ExecutionId} preventing accidental removal of newer
@@ -34,9 +35,7 @@ public class ExecutionRegistry {
     this.initiatorLock = new Object();
   }
 
-  /**
-   * Result of an attempt to register an {@link ExecutionPlanInstance}.
-   */
+  /** Result of an attempt to register an {@link ExecutionPlanInstance}. */
   public sealed interface RegistrationResult {
     record Success(ExecutionPlanInstance instance) implements RegistrationResult {}
 
@@ -49,8 +48,8 @@ public class ExecutionRegistry {
   /**
    * Attempts to register a new {@link ExecutionPlanInstance}.
    *
-   * <p>Fails and returns {@link RegistrationResult.RejectedAlreadyActive} if an active (non-terminal)
-   * execution already exists for the same initiator UUID.
+   * <p>Fails and returns {@link RegistrationResult.RejectedAlreadyActive} if an active
+   * (non-terminal) execution already exists for the same initiator UUID.
    *
    * @param instance execution instance to register
    * @return registration result
@@ -151,7 +150,7 @@ public class ExecutionRegistry {
         byExecutionId.remove(executionId);
         return true;
       }
-      return byExecutionId.remove(executionId) != null;
+      return false;
     }
   }
 
@@ -189,19 +188,19 @@ public class ExecutionRegistry {
     return true;
   }
 
-  /**
-   * Cancels all registered executions and clears the registry.
-   */
+  /** Cancels all registered executions and clears the registry. */
   public void cancelAll() {
+    List<ExecutionPlanInstance> instances;
     synchronized (initiatorLock) {
-      for (ExecutionPlanInstance instance : byExecutionId.values()) {
-        try {
-          instance.cancel();
-        } catch (Throwable ignored) {
-        }
-      }
+      instances = List.copyOf(byExecutionId.values());
       byInitiator.clear();
       byExecutionId.clear();
+    }
+    for (ExecutionPlanInstance instance : instances) {
+      try {
+        instance.cancel();
+      } catch (Throwable ignored) {
+      }
     }
   }
 

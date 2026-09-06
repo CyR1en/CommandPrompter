@@ -7,14 +7,14 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 /** PlayerMock with the Paper entity scheduler methods implemented. */
 public class TestPlayerMock extends PlayerMock {
 
-    private final EntityScheduler scheduler = new MockEntityScheduler();
+  private final EntityScheduler scheduler = new MockEntityScheduler();
 
-    public TestPlayerMock(ServerMock server, String name) {
-        super(server, name);
-    }
+  public TestPlayerMock(ServerMock server, String name) {
+    super(server, name);
+  }
 
-    @Override
-    public EntityScheduler getScheduler() {
-        return scheduler;
-    }
+  @Override
+  public EntityScheduler getScheduler() {
+    return scheduler;
+  }
 }

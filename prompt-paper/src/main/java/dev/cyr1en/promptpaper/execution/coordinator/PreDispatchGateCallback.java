@@ -1,8 +1,6 @@
 package dev.cyr1en.promptpaper.execution.coordinator;
 
-/**
- * Completion callback for asynchronous pre-dispatch gate evaluations.
- */
+/** Completion callback for asynchronous pre-dispatch gate evaluations. */
 @FunctionalInterface
 public interface PreDispatchGateCallback {
 

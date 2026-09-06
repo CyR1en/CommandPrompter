@@ -12,18 +12,19 @@ import org.junit.jupiter.api.Test;
 
 class PluginDescriptorTest {
 
-    @Test
-    void cancelPermissionDefaultsToTrueInShippedDescriptor() throws IOException {
-        try (var descriptorStream = getClass().getResourceAsStream("/paper-plugin.yml")) {
-            assertNotNull(descriptorStream,
-                    "processed paper-plugin.yml should be on the test classpath");
+  @Test
+  void cancelPermissionDefaultsToTrueInShippedDescriptor() throws IOException {
+    try (var descriptorStream = getClass().getResourceAsStream("/paper-plugin.yml")) {
+      assertNotNull(descriptorStream, "processed paper-plugin.yml should be on the test classpath");
 
-            var descriptor = YamlConfiguration.loadConfiguration(
-                    new InputStreamReader(descriptorStream, StandardCharsets.UTF_8));
+      var descriptor =
+          YamlConfiguration.loadConfiguration(
+              new InputStreamReader(descriptorStream, StandardCharsets.UTF_8));
 
-            assertEquals("Allows cancelling your own active prompt",
-                    descriptor.getString("permissions.promptpaper.cancel.description"));
-            assertTrue(descriptor.getBoolean("permissions.promptpaper.cancel.default"));
-        }
+      assertEquals(
+          "Allows cancelling your own active prompt",
+          descriptor.getString("permissions.promptpaper.cancel.description"));
+      assertTrue(descriptor.getBoolean("permissions.promptpaper.cancel.default"));
     }
+  }
 }

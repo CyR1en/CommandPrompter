@@ -2,7 +2,6 @@ package dev.cyr1en.promptpaper.execution.runtime;
 
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Immutable snapshot of the execution dispatch context.
@@ -38,9 +37,7 @@ public record DispatchContextSnapshot(
     return new DispatchContextSnapshot(ExecuteAs.CONSOLE, null, false, List.of());
   }
 
-  /**
-   * Convenience factory for creating a snapshot.
-   */
+  /** Convenience factory for creating a snapshot. */
   public static DispatchContextSnapshot of(
       ExecuteAs executeAs,
       String permissionKey,

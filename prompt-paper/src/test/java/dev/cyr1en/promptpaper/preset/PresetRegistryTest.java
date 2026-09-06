@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.gson.Gson;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -16,7 +15,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -27,12 +25,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Direct unit coverage for {@link PresetRegistry} and atomic snapshot lifecycle.
- */
+/** Direct unit coverage for {@link PresetRegistry} and atomic snapshot lifecycle. */
 class PresetRegistryTest extends MockBukkitTest {
 
-  private static final String SAMPLE_JSON = """
+  private static final String SAMPLE_JSON =
+      """
       {
         "prompts": [
           {
@@ -113,15 +110,38 @@ class PresetRegistryTest extends MockBukkitTest {
   }
 
   private PresetRegistry newRegistry(String defaultJson) {
-    java.util.function.Supplier<java.io.InputStream> supplier = defaultJson == null
-        ? () -> null
-        : () -> new ByteArrayInputStream(defaultJson.getBytes(StandardCharsets.UTF_8));
+    java.util.function.Supplier<java.io.InputStream> supplier =
+        defaultJson == null
+            ? () -> null
+            : () -> new ByteArrayInputStream(defaultJson.getBytes(StandardCharsets.UTF_8));
     return new PresetRegistry(promptsFile, supplier);
   }
 
   // --------------------------------------------------------------
   // Happy path: All four categories load
   // --------------------------------------------------------------
+
+  @Test
+  void invalidPostCommandDelayPreservesCurrentSnapshot() throws IOException {
+    Files.writeString(promptsFile.toPath(), SAMPLE_JSON, StandardCharsets.UTF_8);
+    var registry = newRegistry(null);
+    registry.reload();
+    var original = registry.getSnapshot();
+
+    for (String delay : List.of("1.9", "4294967297", "-4294967295")) {
+      Files.writeString(
+          promptsFile.toPath(),
+          """
+          {"post_commands":[{"id":"post","command":"say yes",
+          "execution_policy":"on_complete","execute_as":"console","delay_ticks":%s}]}
+          """
+              .formatted(delay),
+          StandardCharsets.UTF_8);
+      var error = assertThrows(PresetRegistry.PresetLoadException.class, registry::reload);
+      assertTrue(error.getMessage().contains("post_commands[0]"));
+      assertSame(original, registry.getSnapshot());
+    }
+  }
 
   @Test
   void loadAllFourCategoriesFromExistingFile() throws IOException {
@@ -349,7 +369,8 @@ class PresetRegistryTest extends MockBukkitTest {
 
   @Test
   void rejectDuplicateIdWithinSameKind() throws IOException {
-    String dup = """
+    String dup =
+        """
         {
           "prompts": [
             {
@@ -380,7 +401,8 @@ class PresetRegistryTest extends MockBukkitTest {
 
   @Test
   void rejectCrossKindIdCollisionPromptAndPostCommand() throws IOException {
-    String collision = """
+    String collision =
+        """
         {
           "prompts": [
             {
@@ -412,7 +434,8 @@ class PresetRegistryTest extends MockBukkitTest {
 
   @Test
   void rejectCrossKindIdCollisionGateAndConditional() throws IOException {
-    String collision = """
+    String collision =
+        """
         {
           "approval_gates": [
             {
@@ -556,8 +579,10 @@ class PresetRegistryTest extends MockBukkitTest {
     sb.append("{\n  \"prompts\": [\n");
     for (int i = 0; i < 256; i++) {
       if (i > 0) sb.append(",\n");
-      sb.append("    {\"type\": \"chat\", \"id\": \"p_").append(i)
-          .append("\", \"prompt_text\": \"t\", \"sanitize\": true, \"cancel\": {\"send\": false, \"message\": \"\", \"clickable\": false, \"hover_message\": \"\"}}");
+      sb.append("    {\"type\": \"chat\", \"id\": \"p_")
+          .append(i)
+          .append(
+              "\", \"prompt_text\": \"t\", \"sanitize\": true, \"cancel\": {\"send\": false, \"message\": \"\", \"clickable\": false, \"hover_message\": \"\"}}");
     }
     sb.append("\n  ]\n}");
     Files.writeString(promptsFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
@@ -575,8 +600,10 @@ class PresetRegistryTest extends MockBukkitTest {
     sb.append("{\n  \"prompts\": [\n");
     for (int i = 0; i < 257; i++) {
       if (i > 0) sb.append(",\n");
-      sb.append("    {\"type\": \"chat\", \"id\": \"p_").append(i)
-          .append("\", \"prompt_text\": \"t\", \"sanitize\": true, \"cancel\": {\"send\": false, \"message\": \"\", \"clickable\": false, \"hover_message\": \"\"}}");
+      sb.append("    {\"type\": \"chat\", \"id\": \"p_")
+          .append(i)
+          .append(
+              "\", \"prompt_text\": \"t\", \"sanitize\": true, \"cancel\": {\"send\": false, \"message\": \"\", \"clickable\": false, \"hover_message\": \"\"}}");
     }
     sb.append("\n  ]\n}");
     Files.writeString(promptsFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
@@ -592,8 +619,10 @@ class PresetRegistryTest extends MockBukkitTest {
     sb.append("{\n  \"post_commands\": [\n");
     for (int i = 0; i < 257; i++) {
       if (i > 0) sb.append(",\n");
-      sb.append("    {\"id\": \"pc_").append(i)
-          .append("\", \"command\": \"say hi\", \"execution_policy\": \"on_complete\", \"execute_as\": \"console\"}");
+      sb.append("    {\"id\": \"pc_")
+          .append(i)
+          .append(
+              "\", \"command\": \"say hi\", \"execution_policy\": \"on_complete\", \"execute_as\": \"console\"}");
     }
     sb.append("\n  ]\n}");
     Files.writeString(promptsFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
@@ -609,7 +638,8 @@ class PresetRegistryTest extends MockBukkitTest {
     sb.append("{\n  \"approval_gates\": [\n");
     for (int i = 0; i < 257; i++) {
       if (i > 0) sb.append(",\n");
-      sb.append("    {\"id\": \"gate_").append(i)
+      sb.append("    {\"id\": \"gate_")
+          .append(i)
           .append("\", \"target\": \"admin\", \"message\": \"msg\"}");
     }
     sb.append("\n  ]\n}");
@@ -626,8 +656,10 @@ class PresetRegistryTest extends MockBukkitTest {
     sb.append("{\n  \"conditional_post_commands\": [\n");
     for (int i = 0; i < 257; i++) {
       if (i > 0) sb.append(",\n");
-      sb.append("    {\"id\": \"cond_").append(i)
-          .append("\", \"condition\": \"{0} == 1\", \"execution_policy\": \"on_complete\", \"if_true\": {\"command\": \"say hi\", \"execute_as\": \"console\"}}");
+      sb.append("    {\"id\": \"cond_")
+          .append(i)
+          .append(
+              "\", \"condition\": \"{0} == 1\", \"execution_policy\": \"on_complete\", \"if_true\": {\"command\": \"say hi\", \"execute_as\": \"console\"}}");
     }
     sb.append("\n  ]\n}");
     Files.writeString(promptsFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
@@ -715,7 +747,8 @@ class PresetRegistryTest extends MockBukkitTest {
 
   @Test
   void oldJsonFormatCompatibility() throws IOException {
-    String legacyJson = """
+    String legacyJson =
+        """
         {
           "prompts": [
             {
@@ -760,7 +793,8 @@ class PresetRegistryTest extends MockBukkitTest {
 
   @Test
   void concurrentReadersSeeCompleteSnapshotGenerations() throws Exception {
-    String jsonGen1 = """
+    String jsonGen1 =
+        """
         {
           "prompts": [
             {"type": "chat", "id": "p_gen1", "prompt_text": "t1", "sanitize": true, "cancel": {"send": false, "message": "", "clickable": false, "hover_message": ""}}
@@ -770,7 +804,8 @@ class PresetRegistryTest extends MockBukkitTest {
           ]
         }
         """;
-    String jsonGen2 = """
+    String jsonGen2 =
+        """
         {
           "prompts": [
             {"type": "chat", "id": "p_gen2", "prompt_text": "t2", "sanitize": true, "cancel": {"send": false, "message": "", "clickable": false, "hover_message": ""}}

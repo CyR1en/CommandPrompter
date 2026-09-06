@@ -1089,4 +1089,41 @@ class CommandLineParserTest {
     assertThrows(
         IllegalArgumentException.class, () -> customParser.parse("/msg {{a:\"unclosed quote}}"));
   }
+
+  @Test
+  void escapedQuotesDoNotCloseQuotedTagContent() {
+    var parsed = parser.parse("/cmd <c:\"A \\\" > B\"> <a:Next>");
+    assertEquals(2, parsed.promptCount());
+    assertEquals(
+        "A \" > B",
+        dev.cyr1en.promptcore.ConfirmationGrammar.parse(parsed.promptTags().getFirst())
+            .promptText());
+    assertEquals("Next", parsed.promptTags().get(1).displayText());
+  }
+
+  @Test
+  void standardFlagsInsideQuotedTextAreLiteral() {
+    var display = "\"Keep -ds -iv:fake -int -str -timeout:bad -t:fake literal\"";
+    for (var key : List.of("a", "c", "i", "customscreen")) {
+      var tag =
+          parser
+              .parse("/cmd <" + key + ":" + display + " -iv:req -timeout:30 -t:Real>")
+              .promptTags()
+              .getFirst();
+      assertEquals(display, tag.displayText());
+      assertTrue(tag.sanitize());
+      assertEquals(PromptTag.AnswerType.NONE, tag.type());
+      assertEquals("req", tag.validatorAlias());
+      assertEquals(30, tag.timeout());
+      assertEquals("Real", tag.title().main());
+    }
+    var compound =
+        parser
+            .parse("/cmd <d:text:" + display + " && d:text:Next -timeout:30>")
+            .promptTags()
+            .getFirst();
+    assertTrue(compound.sanitize());
+    assertEquals(display, compound.subTags().getFirst().displayText());
+    assertEquals(30, compound.timeout());
+  }
 }

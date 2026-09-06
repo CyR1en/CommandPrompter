@@ -67,7 +67,8 @@ class PlayerInteractionLeaseRegistryTest {
         registry.acquire(player, exec2, Duration.ofSeconds(30));
     assertTrue(lease2.isEmpty(), "Collision must be rejected");
 
-    assertEquals(Optional.of(exec1), registry.getLease(player).map(PlayerInteractionLease::executionId));
+    assertEquals(
+        Optional.of(exec1), registry.getLease(player).map(PlayerInteractionLease::executionId));
   }
 
   @Test
@@ -236,7 +237,8 @@ class PlayerInteractionLeaseRegistryTest {
   }
 
   @Test
-  @DisplayName("RACE: Concurrent prompt inception vs approval acquisition yields exactly one winner, never both")
+  @DisplayName(
+      "RACE: Concurrent prompt inception vs approval acquisition yields exactly one winner, never both")
   void testRacePromptInceptionVsApprovalAcquisition() throws Exception {
     UUID player = UUID.randomUUID();
     int iterations = 100;
@@ -265,8 +267,10 @@ class PlayerInteractionLeaseRegistryTest {
 
       latch.countDown();
 
-      Optional<PlayerInteractionLease> promptRes = promptFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
-      Optional<PlayerInteractionLease> approvalRes = approvalFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
+      Optional<PlayerInteractionLease> promptRes =
+          promptFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
+      Optional<PlayerInteractionLease> approvalRes =
+          approvalFuture.get(5, java.util.concurrent.TimeUnit.SECONDS);
 
       exec.shutdown();
 

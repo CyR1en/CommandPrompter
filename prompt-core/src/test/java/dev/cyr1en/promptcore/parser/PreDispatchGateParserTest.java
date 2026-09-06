@@ -206,6 +206,19 @@ class PreDispatchGateParserTest {
   }
 
   @Test
+  void delayedCommandsContainingGateAreNotApprovalGates() {
+    for (var command : List.of("say investigate", "gatekeeper open", "gate open")) {
+      var parsed = parser.parse("/cmd <!:20 " + command + ">");
+      assertEquals(0, parsed.gateCount());
+      assertEquals(command, parsed.postCmds().getFirst().command());
+      assertEquals(20, parsed.postCmds().getFirst().delayTicks());
+    }
+    var preset = parser.parse("/cmd <!:20 @gate_preset>").postCmds().getFirst();
+    assertTrue(preset.isPreset());
+    assertEquals("gate_preset", preset.command());
+  }
+
+  @Test
   void testEscapedGateTagNotParsed() {
     var parsed = parser.parse("/pay Steve 100 \\<!gate:@my_gate\\>");
     assertEquals(0, parsed.gateCount());

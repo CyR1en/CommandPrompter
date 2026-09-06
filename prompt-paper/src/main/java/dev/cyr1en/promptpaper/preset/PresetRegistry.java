@@ -25,15 +25,15 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * <p>The registry is the <i>single source of truth</i> for preset lookups at runtime: {@code
  * <@id>}, {@code <!@id>}, and {@code <#@id>} tag resolution all go through the active {@link
- * PresetSnapshot}. It is loaded once during plugin enable, refreshed in place by {@link
- * #reload()}, and safe to query concurrently from any thread.
+ * PresetSnapshot}. It is loaded once during plugin enable, refreshed in place by {@link #reload()},
+ * and safe to query concurrently from any thread.
  *
  * <h2>Thread safety</h2>
  *
  * <p>Preset definitions across all four categories (prompts, post commands, approval gates,
- * conditional post commands) are loaded and validated locally and atomically published via a
- * single {@code volatile PresetSnapshot} reference. Readers always see a consistent generation,
- * and a failed reload leaves the previous snapshot intact.
+ * conditional post commands) are loaded and validated locally and atomically published via a single
+ * {@code volatile PresetSnapshot} reference. Readers always see a consistent generation, and a
+ * failed reload leaves the previous snapshot intact.
  *
  * <h2>Disk layout & limits</h2>
  *
@@ -59,19 +59,24 @@ public class PresetRegistry {
   private volatile PresetSnapshot snapshot = PresetSnapshot.empty();
 
   /**
-   * Builds a registry that reads from {@code <plugin.getDataFolder()>/presets.json} and uses
-   * {@link PresetGson#presetGson()} for parsing.
+   * Builds a registry that reads from {@code <plugin.getDataFolder()>/presets.json} and uses {@link
+   * PresetGson#presetGson()} for parsing.
    */
   public PresetRegistry(JavaPlugin plugin) {
-    this(plugin, () -> {
-      if (plugin instanceof CommandPrompter cp && cp.getConfigLoader() != null && cp.getConfigLoader().getConfig() != null) {
-        return cp.getConfigLoader().getConfig().templateSyntax();
-      }
-      return TemplateSyntax.DEFAULT;
-    });
+    this(
+        plugin,
+        () -> {
+          if (plugin instanceof CommandPrompter cp
+              && cp.getConfigLoader() != null
+              && cp.getConfigLoader().getConfig() != null) {
+            return cp.getConfigLoader().getConfig().templateSyntax();
+          }
+          return TemplateSyntax.DEFAULT;
+        });
   }
 
-  public PresetRegistry(JavaPlugin plugin, java.util.function.Supplier<TemplateSyntax> syntaxSupplier) {
+  public PresetRegistry(
+      JavaPlugin plugin, java.util.function.Supplier<TemplateSyntax> syntaxSupplier) {
     this.plugin = plugin;
     this.defaultResource = null;
     this.syntaxSupplier = syntaxSupplier != null ? syntaxSupplier : () -> TemplateSyntax.DEFAULT;
@@ -79,14 +84,15 @@ public class PresetRegistry {
   }
 
   /**
-   * Convenience constructor for tests and non-Bukkit embedding: lets the caller specify the
-   * file path and the default-resource supplier directly.
+   * Convenience constructor for tests and non-Bukkit embedding: lets the caller specify the file
+   * path and the default-resource supplier directly.
    *
    * @param promptsFile the on-disk JSON file
    * @param defaultResource supplier for the bundled default (may return {@code null} to skip
    *     extraction when the file is missing)
    */
-  public PresetRegistry(File promptsFile, java.util.function.Supplier<InputStream> defaultResource) {
+  public PresetRegistry(
+      File promptsFile, java.util.function.Supplier<InputStream> defaultResource) {
     this(promptsFile, defaultResource, () -> TemplateSyntax.DEFAULT);
   }
 
@@ -104,13 +110,14 @@ public class PresetRegistry {
    * Loads (or reloads) the registry from disk atomically.
    *
    * <p>Steps:
+   *
    * <ol>
    *   <li>If missing, extract the bundled default resource if available.
    *   <li>Enforce file size bounds (&lt;= 1 MiB) without unbounded memory reads.
    *   <li>Parse the JSON document and validate all four categories: prompts, post_commands,
    *       approval_gates, and conditional_post_commands.
-   *   <li>Enforce category limits (&lt;= 256 entries each), validate non-blank IDs, and reject
-   *       both duplicate IDs and cross-kind ID collisions.
+   *   <li>Enforce category limits (&lt;= 256 entries each), validate non-blank IDs, and reject both
+   *       duplicate IDs and cross-kind ID collisions.
    *   <li>Atomically swap in a new {@link PresetSnapshot} reference.
    * </ol>
    *
@@ -141,8 +148,11 @@ public class PresetRegistry {
       }
       if (bytes.length > MAX_FILE_SIZE_BYTES) {
         throw new PresetLoadException(
-            "File '" + sourcePath() + "' exceeds maximum allowed size of 1 MiB ("
-                + MAX_FILE_SIZE_BYTES + " bytes)",
+            "File '"
+                + sourcePath()
+                + "' exceeds maximum allowed size of 1 MiB ("
+                + MAX_FILE_SIZE_BYTES
+                + " bytes)",
             null);
       }
 
@@ -159,8 +169,8 @@ public class PresetRegistry {
       }
 
       if (!document.isJsonObject()) {
-        throw malformed("document", "<root>", "root",
-            new IllegalArgumentException("expected a JSON object"));
+        throw malformed(
+            "document", "<root>", "root", new IllegalArgumentException("expected a JSON object"));
       }
 
       var root = document.getAsJsonObject();
@@ -168,9 +178,23 @@ public class PresetRegistry {
       Gson gson = PresetGson.presetGson(syntax != null ? syntax : TemplateSyntax.DEFAULT);
 
       var newPrompts =
-          loadDefinitions(gson, root, "prompts", "prompt", PromptDefinition.class, PromptDefinition::id, seenIds);
+          loadDefinitions(
+              gson,
+              root,
+              "prompts",
+              "prompt",
+              PromptDefinition.class,
+              PromptDefinition::id,
+              seenIds);
       var newPostCommands =
-          loadDefinitions(gson, root, "post_commands", "post-command", PostCommand.class, PostCommand::id, seenIds);
+          loadDefinitions(
+              gson,
+              root,
+              "post_commands",
+              "post-command",
+              PostCommand.class,
+              PostCommand::id,
+              seenIds);
       var newApprovalGates =
           loadDefinitions(
               gson,
@@ -192,7 +216,11 @@ public class PresetRegistry {
 
       long nextGeneration = this.snapshot.generation() + 1;
       return new PresetSnapshot(
-          newPrompts, newPostCommands, newApprovalGates, newConditionalPostCommands, nextGeneration);
+          newPrompts,
+          newPostCommands,
+          newApprovalGates,
+          newConditionalPostCommands,
+          nextGeneration);
     } catch (PresetLoadException e) {
       throw e;
     } catch (IOException | JsonParseException | IllegalArgumentException | NullPointerException e) {
@@ -210,16 +238,12 @@ public class PresetRegistry {
     this.snapshot = prepared;
   }
 
-  /**
-   * Returns the current immutable snapshot of all registered presets.
-   */
+  /** Returns the current immutable snapshot of all registered presets. */
   public PresetSnapshot getSnapshot() {
     return this.snapshot;
   }
 
-  /**
-   * Alias for {@link #getSnapshot()} providing concise access to the current snapshot.
-   */
+  /** Alias for {@link #getSnapshot()} providing concise access to the current snapshot. */
   public PresetSnapshot snapshot() {
     return this.snapshot;
   }
@@ -301,9 +325,7 @@ public class PresetRegistry {
     return promptsFile;
   }
 
-  // ------------------------------------------------------------------
   // Internals
-  // ------------------------------------------------------------------
 
   private <T> Map<String, T> loadDefinitions(
       Gson gson,
@@ -320,8 +342,14 @@ public class PresetRegistry {
 
     if (array.size() > MAX_ENTRIES_PER_KIND) {
       throw new PresetLoadException(
-          "Array '" + arrayName + "' in '" + sourcePath() + "' contains " + array.size()
-              + " entries, exceeding maximum allowed limit of " + MAX_ENTRIES_PER_KIND,
+          "Array '"
+              + arrayName
+              + "' in '"
+              + sourcePath()
+              + "' contains "
+              + array.size()
+              + " entries, exceeding maximum allowed limit of "
+              + MAX_ENTRIES_PER_KIND,
           null);
     }
 
@@ -332,11 +360,18 @@ public class PresetRegistry {
       var id = readId(element);
 
       if (element == null || !element.isJsonObject()) {
-        throw malformed(kindLabel, id, location, new IllegalArgumentException("expected a JSON object"));
+        throw malformed(
+            kindLabel, id, location, new IllegalArgumentException("expected a JSON object"));
       }
 
       T definition;
       try {
+        if (PostCommand.class.equals(type)) {
+          var delay = element.getAsJsonObject().get("delay_ticks");
+          if (delay != null && !delay.isJsonNull()) {
+            PresetGson.readInteger(delay, "Post-command delay_ticks");
+          }
+        }
         definition = gson.fromJson(element, type);
         if (definition == null) {
           throw new NullPointerException(kindLabel + " definition deserialized to null");
@@ -362,14 +397,22 @@ public class PresetRegistry {
               defId,
               location,
               new IllegalArgumentException(
-                  "Duplicate " + kindLabel + " id '" + defId + "' already defined at " + existingLocation));
+                  "Duplicate "
+                      + kindLabel
+                      + " id '"
+                      + defId
+                      + "' already defined at "
+                      + existingLocation));
         } else {
           throw malformed(
               kindLabel,
               defId,
               location,
               new IllegalArgumentException(
-                  "Preset id '" + defId + "' collides with existing definition at " + existingLocation));
+                  "Preset id '"
+                      + defId
+                      + "' collides with existing definition at "
+                      + existingLocation));
         }
       }
 
@@ -384,8 +427,7 @@ public class PresetRegistry {
     var element = root.get(name);
     if (element == null || element.isJsonNull()) return null;
     if (!element.isJsonArray()) {
-      throw malformed(name, "<unknown>", name,
-          new IllegalArgumentException("expected an array"));
+      throw malformed(name, "<unknown>", name, new IllegalArgumentException("expected an array"));
     }
     return element.getAsJsonArray();
   }
@@ -402,8 +444,16 @@ public class PresetRegistry {
 
   private PresetLoadException malformed(String kind, String id, String location, Throwable cause) {
     return new PresetLoadException(
-        "Invalid " + kind + " preset id '" + id + "' at '" + sourcePath() + "' ("
-            + location + "): " + safeMessage(cause),
+        "Invalid "
+            + kind
+            + " preset id '"
+            + id
+            + "' at '"
+            + sourcePath()
+            + "' ("
+            + location
+            + "): "
+            + safeMessage(cause),
         cause);
   }
 
@@ -451,7 +501,10 @@ public class PresetRegistry {
     if (plugin != null) plugin.getLogger().info(msg);
   }
 
-  /** Thrown when the prompts file cannot be read, parsed, or validated. The previous cache is preserved. */
+  /**
+   * Thrown when the prompts file cannot be read, parsed, or validated. The previous cache is
+   * preserved.
+   */
   public static class PresetLoadException extends RuntimeException {
     public PresetLoadException(String message, Throwable cause) {
       super(message, cause);

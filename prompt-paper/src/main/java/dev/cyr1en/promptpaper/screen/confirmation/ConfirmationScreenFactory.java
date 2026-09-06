@@ -142,8 +142,7 @@ public final class ConfirmationScreenFactory {
     int timeoutSecs;
     if (confirmation.timeout() != null) {
       timeoutSecs = confirmation.timeout();
-    } else if (plugin.getConfigLoader() != null
-        && plugin.getConfigLoader().getConfig() != null) {
+    } else if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getConfig() != null) {
       timeoutSecs = plugin.getConfigLoader().getConfig().promptTimeout();
     } else {
       timeoutSecs = 60;
@@ -151,9 +150,7 @@ public final class ConfirmationScreenFactory {
     long effectiveTtl = timeoutSecs > 0 ? Math.min(timeoutSecs, 3600) : 3600;
 
     var registry =
-        plugin.getNonceRegistry() != null
-            ? plugin.getNonceRegistry()
-            : new NonceResponseRegistry();
+        plugin.getNonceRegistry() != null ? plugin.getNonceRegistry() : new NonceResponseRegistry();
     var chatView =
         new ConfirmationChatView(
             plugin,
@@ -174,7 +171,10 @@ public final class ConfirmationScreenFactory {
           case CHAT -> List.of(chatView);
         };
 
-    var soundKey = confirmation.sound() != null ? confirmation.sound() : screenConfig != null ? screenConfig.sound() : null;
+    var soundKey =
+        confirmation.sound() != null
+            ? confirmation.sound()
+            : screenConfig != null ? screenConfig.sound() : null;
     Runnable soundAction =
         soundKey != null && !soundKey.isBlank()
             ? () ->

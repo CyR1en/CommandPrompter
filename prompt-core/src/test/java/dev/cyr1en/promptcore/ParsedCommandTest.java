@@ -23,6 +23,18 @@ class ParsedCommandTest {
   private final CommandLineParser parser = new CommandLineParser();
 
   @Test
+  void legacyConstructorStopsAtFirstUnansweredPrompt() {
+    var parsed = parser.parse("/give <a:Player> diamond");
+    var legacy =
+        new ParsedCommand(
+            parsed.templateCommand(),
+            parsed.promptTags(),
+            parsed.postCmds(),
+            parsed.parserConfig());
+    assertEquals("/give ", ParsedCommand.buildPartialCommand(legacy, List.of()));
+  }
+
+  @Test
   void emptyCommandAndNoAnswers() {
     var parsed = parser.parse("");
     var partial = ParsedCommand.buildPartialCommand(parsed, List.of());

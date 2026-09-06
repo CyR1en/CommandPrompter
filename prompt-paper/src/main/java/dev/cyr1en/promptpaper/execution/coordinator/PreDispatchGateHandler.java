@@ -7,8 +7,8 @@ import org.bukkit.entity.Player;
 /**
  * Narrow contract for evaluating pre-dispatch gates.
  *
- * <p>Used by {@link ExecutionCoordinator} to delegate gate evaluation without direct coupling
- * or cyclical dependencies with specific coordinator implementations.
+ * <p>Used by {@link ExecutionCoordinator} to delegate gate evaluation without direct coupling or
+ * cyclical dependencies with specific coordinator implementations.
  */
 @FunctionalInterface
 public interface PreDispatchGateHandler {

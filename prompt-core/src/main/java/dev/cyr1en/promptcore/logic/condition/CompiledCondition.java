@@ -1,6 +1,5 @@
 package dev.cyr1en.promptcore.logic.condition;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -23,11 +22,11 @@ public final class CompiledCondition implements Condition {
 
     Set<Integer> answers = new HashSet<>();
     root.collectAnswerIndices(answers);
-    this.answerIndices = Collections.unmodifiableSet(answers);
+    this.answerIndices = Set.copyOf(answers);
 
     Set<String> placeholders = new HashSet<>();
     root.collectPapiPlaceholders(placeholders);
-    this.papiPlaceholders = Collections.unmodifiableSet(placeholders);
+    this.papiPlaceholders = Set.copyOf(placeholders);
   }
 
   @Override

@@ -59,4 +59,3 @@ public record PlayerUiPrompt(
     this(type, id, promptText, filter, cancelButton, previousButton, nextButton, sanitize, null);
   }
 }
-

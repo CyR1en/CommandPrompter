@@ -39,9 +39,7 @@ public class ResponseCommand extends PromptCommand implements Command<CommandSou
         .requires(src -> allowed(src.getSender()))
         .then(
             Commands.argument("nonce", StringArgumentType.word())
-                .then(
-                    Commands.argument("decision", StringArgumentType.word())
-                        .executes(this)))
+                .then(Commands.argument("decision", StringArgumentType.word()).executes(this)))
         .build();
   }
 
@@ -126,30 +124,31 @@ public class ResponseCommand extends PromptCommand implements Command<CommandSou
                       session.currentIndex(),
                       decision);
 
-              if (consumeResult instanceof ConsumeResult.Success success) {
-                var binding = success.binding();
-                if (binding.callback() != null) {
-                  binding.callback().accept(success.decision());
+              switch (consumeResult) {
+                case ConsumeResult.Success(var binding, var acceptedDecision) -> {
+                  if (binding.callback() != null) {
+                    binding.callback().accept(acceptedDecision);
+                  }
                 }
-              } else if (consumeResult instanceof ConsumeResult.Rejected rejected) {
-                if (rateLimiter == null || rateLimiter.shouldLogRejection(uuid)) {
-                  int attempts = rateLimiter != null ? rateLimiter.attemptCount(uuid) : 1;
-                  String safeReason =
-                      DispatchSanitizer.sanitizeDetail(
-                          rejected.reason() != null ? rejected.reason().name() : "unknown");
-                  plugin
-                      .getPluginLogger()
-                      .warn(
-                          "Confirmation response rejected for "
-                              + player.getName()
-                              + ": "
-                              + safeReason
-                              + " [nonce="
-                              + NonceResponseRegistry.truncateNonce(nonce)
-                              + ", attempts="
-                              + attempts
-                              + "]");
+                case ConsumeResult.Rejected(var reason) -> {
+                  if (rateLimiter == null || rateLimiter.shouldLogRejection(uuid)) {
+                    int attempts = rateLimiter != null ? rateLimiter.attemptCount(uuid) : 1;
+                    String safeReason = DispatchSanitizer.sanitizeDetail(reason.name());
+                    plugin
+                        .getPluginLogger()
+                        .warn(
+                            "Confirmation response rejected for "
+                                + player.getName()
+                                + ": "
+                                + safeReason
+                                + " [nonce="
+                                + NonceResponseRegistry.truncateNonce(nonce)
+                                + ", attempts="
+                                + attempts
+                                + "]");
+                  }
                 }
+                case null -> {}
               }
             },
             () -> {

@@ -4,13 +4,13 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.hook.annotations.TargetPlugin;
 
 /**
- * Hook for the PremiumVanish plugin. Extends {@link SuperVanishHook} since
- * PremiumVanish is a fork that shares the same API.
+ * Hook for the PremiumVanish plugin. Extends {@link SuperVanishHook} since PremiumVanish is a fork
+ * that shares the same API.
  */
 @TargetPlugin(pluginName = "PremiumVanish")
 public class PremiumVanishHook extends SuperVanishHook {
 
-    public PremiumVanishHook(CommandPrompter plugin) {
-        super(plugin);
-    }
+  public PremiumVanishHook(CommandPrompter plugin) {
+    super(plugin);
+  }
 }

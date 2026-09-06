@@ -212,7 +212,8 @@ class ExecutionPlanInstanceTest {
   }
 
   @Test
-  @DisplayName("Exceptions in cleanup hooks or cancellables do not prevent remaining items from running")
+  @DisplayName(
+      "Exceptions in cleanup hooks or cancellables do not prevent remaining items from running")
   void cleanupToleratesExceptions() {
     AtomicBoolean secondTaskCancelled = new AtomicBoolean(false);
     AtomicBoolean secondHookRan = new AtomicBoolean(false);

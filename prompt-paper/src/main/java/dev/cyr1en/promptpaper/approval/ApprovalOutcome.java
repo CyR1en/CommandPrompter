@@ -3,13 +3,9 @@ package dev.cyr1en.promptpaper.approval;
 import java.time.Instant;
 import java.util.Objects;
 
-/**
- * Immutable record representing the terminal outcome of an approval capability evaluation.
- */
+/** Immutable record representing the terminal outcome of an approval capability evaluation. */
 public record ApprovalOutcome(
-    ApprovalCapability capability,
-    ApprovalDecision decision,
-    Instant timestamp) {
+    ApprovalCapability capability, ApprovalDecision decision, Instant timestamp) {
 
   public ApprovalOutcome {
     Objects.requireNonNull(capability, "capability must not be null");

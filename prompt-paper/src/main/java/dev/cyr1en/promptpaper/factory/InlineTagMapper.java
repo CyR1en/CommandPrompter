@@ -20,45 +20,18 @@ import dev.cyr1en.promptpaper.preset.ItemPrompt;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
-import dev.cyr1en.promptpaper.preset.UIButton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Converts a legacy inline {@link PromptTag} (extracted from a command string by the regex
- * parser) into an ephemeral {@link PromptDefinition} record, so the same
- * {@link PromptFactory#create(org.bukkit.entity.Player, PromptDefinition,
- * dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext) factory entry point} can serve
- * both preset and inline prompts.
+ * Maps inline tags to transient prompt definitions for {@link PromptFactory}. Required presentation
+ * fields absent from inline syntax receive valid defaults; screens resolve cosmetic settings from
+ * YAML configuration.
  *
- * <h2>Why</h2>
- *
- * <p>Before Scope 3, the inline syntax ({@code <a:Why?>}) and the preset syntax
- * ({@code <@my_anvil>}) took completely different code paths: inline tags flowed through
- * {@code ScreenRouter.create(PromptTag)} and preset ids through
- * {@code PresetRegistry.getPrompt(id)} + a hand-rolled screen. The factory pipeline collapses
- * both into a single {@code PromptDefinition} → screen path so the runtime behavior is
- * uniform.
- *
- * <h2>Defaults</h2>
- *
- * <p>The JSON schema has many required fields that the inline syntax does not carry
- * ({@code title}, {@code left_button}, etc.). The mapper injects <b>blank-but-valid</b>
- * defaults so the resulting record satisfies its canonical constructor. The screens
- * themselves still pull the cosmetic configuration (button icons, sign material, etc.) from
- * the legacy YAML config — that wiring is unchanged.
- *
- * <h2>Dialog</h2>
- *
- * <p>Dialogs are mapped too, but with a known limitation: per-row {@code constraints} from
- * the JSON schema are <b>not</b> expressible in a single- or compound-{@link PromptTag}, so
- * the mapper produces a {@link DialogPrompt} whose {@code base.inputs} carry the
- * {@link InputType} but no constraints. For inline dialogs this is irrelevant (the
- * constraints live in the YAML dialog config); for preset dialogs the factory will reject
- * them with a clear {@link UnsupportedOperationException} until the full dialog refactor
- * lands.
+ * <p>Inline dialog rows retain input kinds. Their constraints are resolved from the original tag
+ * and YAML configuration by the factory's inline-dialog path.
  */
 public final class InlineTagMapper {
 
@@ -68,16 +41,16 @@ public final class InlineTagMapper {
   private InlineTagMapper() {}
 
   /**
-   * Generates a fresh transient id of the form {@code inline-<uuid>}. Public so the factory
-   * and tests can use the same id shape.
+   * Generates a fresh transient id of the form {@code inline-<uuid>}. Public so the factory and
+   * tests can use the same id shape.
    */
   public static String nextInlineId() {
     return INLINE_ID_PREFIX + UUID.randomUUID();
   }
 
   /**
-   * Maps a {@link PromptTag} to the appropriate {@link PromptDefinition} subtype based on
-   * the tag's {@code key}.
+   * Maps a {@link PromptTag} to the appropriate {@link PromptDefinition} subtype based on the tag's
+   * {@code key}.
    *
    * <table>
    *   <caption>Key → type mapping</caption>
@@ -87,7 +60,8 @@ public final class InlineTagMapper {
    *   <tr><td>{@code "s"}</td><td>{@link SignPrompt}</td></tr>
    *   <tr><td>{@code "p"}</td><td>{@link PlayerUiPrompt}</td></tr>
    *   <tr><td>{@code "d"}</td><td>{@link DialogPrompt}</td></tr>
-   *   <tr><td>other</td><td>{@link ChatPrompt} (fallback)</td></tr>
+   *   <tr><td>{@code "c"}</td><td>{@link ConfirmationPrompt}</td></tr>
+   *   <tr><td>{@code "i"}</td><td>{@link ItemPrompt}</td></tr>
    * </table>
    *
    * @param tag the parsed inline tag
@@ -98,14 +72,15 @@ public final class InlineTagMapper {
   }
 
   /**
-   * Maps a {@link PromptTag} to the appropriate {@link PromptDefinition} subtype using the
-   * provided screen mappings.
+   * Maps a {@link PromptTag} to the appropriate {@link PromptDefinition} subtype using the provided
+   * screen mappings.
    *
    * @param tag the parsed inline tag
    * @param mappings configured screen mappings (e.g. from prompt config)
    * @return a non-null {@link PromptDefinition} with a fresh {@code inline-*} id
    */
-  public static PromptDefinition toPromptDefinition(PromptTag tag, Map<String, ScreenType> mappings) {
+  public static PromptDefinition toPromptDefinition(
+      PromptTag tag, Map<String, ScreenType> mappings) {
     if (tag == null) throw new IllegalArgumentException("tag must not be null");
     var id = nextInlineId();
     var text = tag.displayText() == null ? "" : tag.displayText();
@@ -114,11 +89,20 @@ public final class InlineTagMapper {
     var screenType = resolveScreenType(tag, mappings);
     return switch (screenType) {
       case CHAT -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
-      case ANVIL -> new AnvilPrompt("anvil", id, defaultAnvilTitle(), text,
-          defaultAnvilButton(), defaultAnvilButton(), sanitize, title);
-      case SIGN -> new SignPrompt("sign", id, text, defaultSignLines(), sanitize, title);
-      case PLAYER -> new PlayerUiPrompt("player_ui", id, text, tag.filter(),
-          null, null, null, sanitize, title);
+      case ANVIL ->
+          new AnvilPrompt(
+              "anvil",
+              id,
+              "Anvil",
+              text,
+              defaultAnvilButton(),
+              defaultAnvilButton(),
+              sanitize,
+              title);
+      case SIGN -> new SignPrompt("sign", id, text, List.of(), sanitize, title);
+      case PLAYER ->
+          new PlayerUiPrompt(
+              "player_ui", id, text, tag.filter(), null, null, null, sanitize, title);
       case DIALOG -> toDialogPrompt(tag, id, sanitize, title);
       case CONFIRMATION -> toConfirmationPrompt(tag, id, sanitize, title);
       case ITEM -> toItemPrompt(tag, id, sanitize, title);
@@ -141,8 +125,7 @@ public final class InlineTagMapper {
    * Resolves the title-wrapper config for an inline tag.
    *
    * <p>If the tag has no {@code -t} flag, returns {@code null}. If the flag is the standalone
-   * {@code -t} (no parameters), the {@code main} field is empty — the caller (factory) will
-   * inject the prompt's display text as the main title text when building the wrapper screen.
+   * {@code -t} (no parameters), the prompt's display text supplies the main title.
    *
    * @param tag the parsed inline tag
    * @return a resolved {@link TitleConfig} with a non-empty {@code main}, or {@code null}
@@ -164,34 +147,21 @@ public final class InlineTagMapper {
     return new CancelBehavior(false, "", false, "");
   }
 
-  private static String defaultAnvilTitle() {
-    return "Anvil";
-  }
-
   private static AnvilButton defaultAnvilButton() {
     return new AnvilButton(true, "", "PAPER", "", 0);
-  }
-
-  private static List<String> defaultSignLines() {
-    return List.of();
-  }
-
-  private static UIButton defaultUIButton() {
-    return new UIButton(true, 0, "", "PAPER", "", 0);
   }
 
   /**
    * Builds a {@link DialogPrompt} from a (possibly compound) dialog {@link PromptTag}.
    *
-   * <p>For a single-row tag ({@code <d:text:Label>}) the dialog has one row whose
-   * {@code inputType} is parsed from the tag's {@code filter} segment. For a compound tag
-   * ({@code <d:choice[…] && d:num[…] …>}) each sub-tag becomes one row. The tag's
-   * {@code filter} starting with {@code "tab"} switches the resulting dialog into
-   * {@link DialogType#MULTI_ACTION} mode; everything else falls back to a
-   * {@link DialogType#CONFIRMATION} layout per the spec's Rule 1 / Rule 2 mapping.
+   * <p>For a single-row tag ({@code <d:text:Label>}) the dialog has one row whose {@code inputType}
+   * is parsed from the tag's {@code filter} segment. For a compound tag ({@code <d:choice[…] &&
+   * d:num[…] …>}) each sub-tag becomes one row. The tag's {@code filter} starting with {@code
+   * "tab"} switches the resulting dialog into {@link DialogType#MULTI_ACTION} mode; everything else
+   * falls back to a {@link DialogType#CONFIRMATION} layout per the spec's Rule 1 / Rule 2 mapping.
    *
-   * <p>{@code constraints} are not preserved: the JSON schema stores them as a separate
-   * field that has no analog in a {@link PromptTag}.
+   * <p>{@code constraints} are not preserved: the JSON schema stores them as a separate field that
+   * has no analog in a {@link PromptTag}.
    */
   private static DialogPrompt toDialogPrompt(
       PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
@@ -202,14 +172,14 @@ public final class InlineTagMapper {
       var label = sub.displayText() == null ? "" : sub.displayText();
       rows.add(new DialogRow(label, inputType, null));
     }
-    var dialogTitle = tag.displayText() == null || tag.displayText().isBlank()
-        ? "Dialog"
-        : tag.displayText();
+    var dialogTitle =
+        tag.displayText() == null || tag.displayText().isBlank() ? "Dialog" : tag.displayText();
 
     var base = new DialogBaseConfig(List.of(), rows);
-    var dialogType = isTabFilter(tag)
-        ? new DialogTypeConfig(DialogType.MULTI_ACTION, 2, null, null, null, null, null)
-        : new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null, null, null);
+    var dialogType =
+        isTabFilter(tag)
+            ? new DialogTypeConfig(DialogType.MULTI_ACTION, 2, null, null, null, null, null)
+            : new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null, null, null);
     return new DialogPrompt("dialog", id, dialogTitle, base, dialogType, sanitize, titleConfig);
   }
 

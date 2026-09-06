@@ -8,6 +8,9 @@ import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -124,8 +127,7 @@ class ExecutionRegistryTest {
     assertFalse(registry.verifyAndGet(instance.getExecutionId(), player, 2).isPresent());
 
     // Wrong player UUID
-    assertFalse(
-        registry.verifyAndGet(instance.getExecutionId(), UUID.randomUUID(), 1).isPresent());
+    assertFalse(registry.verifyAndGet(instance.getExecutionId(), UUID.randomUUID(), 1).isPresent());
 
     // Unknown execution ID
     assertFalse(registry.verifyAndGet(ExecutionId.create(), player, 1).isPresent());
@@ -166,6 +168,19 @@ class ExecutionRegistryTest {
   }
 
   @Test
+  void removalWithWrongInitiatorPreservesBothIndexes() {
+    UUID owner = UUID.randomUUID();
+    ExecutionPlanInstance instance = createInstance(owner, 1);
+    registry.register(instance);
+
+    assertFalse(registry.removeIfExact(UUID.randomUUID(), instance.getExecutionId()));
+    assertSame(instance, registry.getByInitiator(owner).orElseThrow());
+    assertSame(instance, registry.getByExecutionId(instance.getExecutionId()).orElseThrow());
+    assertTrue(registry.cancelAndRemove(instance.getExecutionId()));
+    assertFalse(registry.hasActiveExecution(owner));
+  }
+
+  @Test
   @DisplayName("cancelAndRemove idempotently cancels and removes instance")
   void cancelAndRemoveIdempotency() {
     UUID player = UUID.randomUUID();
@@ -198,6 +213,33 @@ class ExecutionRegistryTest {
     assertEquals(0, registry.size());
     assertTrue(inst1.isTerminal());
     assertTrue(inst2.isTerminal());
+  }
+
+  @Test
+  void cancelAllRunsCleanupOutsideRegistryLockAndPreservesNewExecutions() {
+    UUID player = UUID.randomUUID();
+    ExecutionPlanInstance original = createInstance(player, 1);
+    ExecutionPlanInstance replacement = createInstance(player, 2);
+    registry.register(original);
+    var cleanupFailure = new AtomicReference<Throwable>();
+    try (var executor = Executors.newSingleThreadExecutor()) {
+      original.registerCleanupHook(
+          () -> {
+            try {
+              executor.submit(() -> registry.register(replacement)).get(2, TimeUnit.SECONDS);
+            } catch (Exception e) {
+              cleanupFailure.set(e);
+            }
+          });
+
+      registry.cancelAll();
+
+      assertNull(cleanupFailure.get(), "Cleanup must permit another thread to access the registry");
+      assertTrue(original.isTerminal());
+      assertSame(replacement, registry.getByInitiator(player).orElseThrow());
+      assertSame(
+          replacement, registry.getByExecutionId(replacement.getExecutionId()).orElseThrow());
+    }
   }
 
   @Test

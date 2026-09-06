@@ -13,9 +13,7 @@ import dev.cyr1en.promptcore.logic.condition.ConditionCompiler;
 import java.lang.reflect.Type;
 import java.util.Locale;
 
-/**
- * Gson serializer and deserializer for {@link ConditionalPostCommandDefinition}.
- */
+/** Gson serializer and deserializer for {@link ConditionalPostCommandDefinition}. */
 public class ConditionalPostCommandDefinitionDeserializer
     implements JsonDeserializer<ConditionalPostCommandDefinition>,
         JsonSerializer<ConditionalPostCommandDefinition> {

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.Gson;
 import dev.cyr1en.promptcore.logic.condition.Condition;
-import dev.cyr1en.promptcore.logic.condition.ConditionBindings;
 import dev.cyr1en.promptcore.logic.condition.ConditionCompileOptions;
 import dev.cyr1en.promptcore.logic.condition.ConditionCompiler;
 import dev.cyr1en.promptcore.logic.condition.ConditionDepthException;
@@ -75,8 +74,7 @@ class ConditionalPostCommandDefinitionTest {
 
   @Test
   void bothBranchesAbsentThrows() {
-    Condition cond =
-        ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
+    Condition cond = ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
     assertThrows(
         IllegalArgumentException.class,
         () ->
@@ -87,8 +85,7 @@ class ConditionalPostCommandDefinitionTest {
   @ParameterizedTest
   @ValueSource(strings = {"cmd", "cmd-1", "cmd.post", "cmd_2", "a", "123", "a.b-c_d"})
   void validIdsAccepted(String validId) {
-    Condition cond =
-        ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
+    Condition cond = ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
     TrustedPresetAction action = TrustedPresetAction.of("say hi", ExecuteAs.CONSOLE);
     assertDoesNotThrow(
         () ->
@@ -98,20 +95,9 @@ class ConditionalPostCommandDefinitionTest {
 
   @ParameterizedTest
   @ValueSource(
-      strings = {
-        "",
-        "Cmd",
-        "CMD_1",
-        "cmd 1",
-        "cmd@admin",
-        "cmd/sub",
-        "cmd:name",
-        "cmd!",
-        "cmd#1"
-      })
+      strings = {"", "Cmd", "CMD_1", "cmd 1", "cmd@admin", "cmd/sub", "cmd:name", "cmd!", "cmd#1"})
   void invalidIdsRejected(String invalidId) {
-    Condition cond =
-        ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
+    Condition cond = ConditionCompiler.compile("{0} == 1", ConditionCompileOptions.forPreset());
     TrustedPresetAction action = TrustedPresetAction.of("say hi", ExecuteAs.CONSOLE);
     assertThrows(
         IllegalArgumentException.class,
@@ -261,8 +247,7 @@ class ConditionalPostCommandDefinitionTest {
     assertEquals(original.condition().source(), deserialized.condition().source());
     assertEquals(original.executionPolicy(), deserialized.executionPolicy());
     assertEquals(
-        original.ifTrueAction().command().source(),
-        deserialized.ifTrueAction().command().source());
+        original.ifTrueAction().command().source(), deserialized.ifTrueAction().command().source());
     assertEquals(
         original.ifFalseAction().command().source(),
         deserialized.ifFalseAction().command().source());

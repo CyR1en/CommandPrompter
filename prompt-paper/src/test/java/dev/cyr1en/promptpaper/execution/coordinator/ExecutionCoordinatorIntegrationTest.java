@@ -15,10 +15,8 @@ import dev.cyr1en.promptcore.plan.ExecutionPlanAdapter;
 import dev.cyr1en.promptcore.plan.ExecutionPlanDefinition;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import dev.cyr1en.promptpaper.MockBukkitTest;
-import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.execution.dispatch.ActionDispatchCallback;
-import dev.cyr1en.promptpaper.execution.dispatch.ActionProvenance;
 import dev.cyr1en.promptpaper.execution.dispatch.ActionTrustLevel;
 import dev.cyr1en.promptpaper.execution.dispatch.DispatchErrorKind;
 import dev.cyr1en.promptpaper.execution.dispatch.DispatchMode;
@@ -30,35 +28,24 @@ import dev.cyr1en.promptpaper.execution.dispatch.PaperPrimaryCommandDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PermissionAttachmentContext;
 import dev.cyr1en.promptpaper.execution.dispatch.PrimaryCommandDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PrimaryDispatchCallback;
-import dev.cyr1en.promptpaper.execution.dispatch.PrimaryDispatchRequest;
 import dev.cyr1en.promptpaper.execution.postaction.PostActionScheduler;
 import dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot;
-import dev.cyr1en.promptpaper.execution.runtime.ExecutionId;
-import dev.cyr1en.promptpaper.execution.runtime.ExecutionPlanInstance;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionStage;
 import dev.cyr1en.promptpaper.execution.runtime.InputCompletion;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.ExecutionPolicy;
 import dev.cyr1en.promptpaper.preset.PostCommand;
-import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -90,14 +77,7 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
     screenManager =
         new ScreenManager(
-            plugin,
-            engine,
-            plugin.getPromptFactory(),
-            scheduler,
-            null,
-            null,
-            null,
-            coordinator);
+            plugin, engine, plugin.getPromptFactory(), scheduler, null, null, null, coordinator);
   }
 
   private void registerMockCommand(String name, boolean succeed, List<String> executionLog) {
@@ -107,7 +87,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
           public boolean execute(
               @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
             if (executionLog != null) {
-              executionLog.add(commandLabel + (args.length > 0 ? " " + String.join(" ", args) : ""));
+              executionLog.add(
+                  commandLabel + (args.length > 0 ? " " + String.join(" ", args) : ""));
             }
             return succeed;
           }
@@ -148,11 +129,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
-    var sessionResult =
-        new SessionResult("maincmd", List.of("arg1"), List.of(pcm), List.of());
-    var parsed =
-        new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
+    var pcm =
+        new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var sessionResult = new SessionResult("maincmd", List.of("arg1"), List.of(pcm), List.of());
+    var parsed = new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
     var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
     var completion =
         InputCompletion.of(
@@ -204,11 +184,12 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var successPcm = new PostCommandMeta("successpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
-    var cancelPcm = new PostCommandMeta("cancelpcm", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
+    var successPcm =
+        new PostCommandMeta("successpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var cancelPcm =
+        new PostCommandMeta("cancelpcm", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
     var sessionResult =
-        new SessionResult(
-            "badcmd", List.of(), List.of(successPcm), List.of(cancelPcm));
+        new SessionResult("badcmd", List.of(), List.of(successPcm), List.of(cancelPcm));
     var parsed =
         new ParsedCommand(
             "badcmd", List.of(), List.of(successPcm, cancelPcm), ParserConfig.ANGLE_BRACKETS);
@@ -238,7 +219,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertEquals(ExecutionStage.ERROR, instance.getStage());
     assertFalse(executionLog.contains("successpcm"), "Success PCM must NOT be executed on failure");
     assertTrue(executionLog.contains("cancelpcm"), "Cancel PCM should be invoked on failure");
-    assertFalse(registry.hasActiveExecution(player.getUniqueId()), "Terminal instance removed from registry");
+    assertFalse(
+        registry.hasActiveExecution(player.getUniqueId()),
+        "Terminal instance removed from registry");
   }
 
   @Test
@@ -261,9 +244,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var successPcm = new PostCommandMeta("successpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
-    var sessionResult =
-        new SessionResult("throwcmd", List.of(), List.of(successPcm), List.of());
+    var successPcm =
+        new PostCommandMeta("successpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var sessionResult = new SessionResult("throwcmd", List.of(), List.of(successPcm), List.of());
     var parsed =
         new ParsedCommand("throwcmd", List.of(), List.of(successPcm), ParserConfig.ANGLE_BRACKETS);
     var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
@@ -285,8 +268,7 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertNotNull(cb);
 
     cb.onComplete(
-        DispatchOutcome.failure(
-            DispatchErrorKind.EXCEPTION_THROWN, new RuntimeException("boom")));
+        DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, new RuntimeException("boom")));
 
     assertEquals(ExecutionStage.ERROR, instance.getStage());
     assertEquals(0, executionLog.size(), "Success PCM must NOT be executed on exception");
@@ -313,11 +295,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
-    var sessionResult =
-        new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
-    var parsed =
-        new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
+    var pcm =
+        new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var sessionResult = new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
+    var parsed = new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
     var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
     var completion =
         InputCompletion.of(
@@ -349,14 +330,14 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     registerMockCommand("newcmd", true, executionLog);
 
     // Initial snapshot has preset 'mypost' -> 'oldcmd'
-    var postCmdOld = new PostCommand("mypost", "oldcmd", ExecutionPolicy.ON_COMPLETE, ExecuteAs.PLAYER, 0);
-    var initialSnapshot = new PresetSnapshot(Map.of(), Map.of("mypost", postCmdOld), Map.of(), Map.of(), 1L);
+    var postCmdOld =
+        new PostCommand("mypost", "oldcmd", ExecutionPolicy.ON_COMPLETE, ExecuteAs.PLAYER, 0);
+    var initialSnapshot =
+        new PresetSnapshot(Map.of(), Map.of("mypost", postCmdOld), Map.of(), Map.of(), 1L);
 
     var pcm = new PostCommandMeta("mypost", new int[0], 0, false, DispatchTarget.PASSTHROUGH, true);
-    var sessionResult =
-        new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
-    var parsed =
-        new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
+    var sessionResult = new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
+    var parsed = new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
     var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
 
     var completion =
@@ -422,7 +403,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             1L,
             1L,
             new SessionResult("cmd1", List.of(), List.of(), List.of()),
-            ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
+            ExecutionPlanAdapter.fromParsedCommand(
+                new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
             PresetSnapshot.empty(),
             DispatchContextSnapshot.player());
     customCoordinator.coordinate(player, completionPlayer, null);
@@ -435,7 +417,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             2L,
             1L,
             new SessionResult("cmd2", List.of(), List.of(), List.of()),
-            ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
+            ExecutionPlanAdapter.fromParsedCommand(
+                new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
             PresetSnapshot.empty(),
             DispatchContextSnapshot.console());
     customCoordinator.coordinate(player, completionConsole, null);
@@ -451,7 +434,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             3L,
             1L,
             new SessionResult("cmd3", List.of(), List.of(), List.of()),
-            ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd3", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
+            ExecutionPlanAdapter.fromParsedCommand(
+                new ParsedCommand("cmd3", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS)),
             PresetSnapshot.empty(),
             attachmentContext);
     customCoordinator.coordinate(player, completionAttachment, null);
@@ -481,11 +465,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
-    var sessionResult =
-        new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
-    var parsed =
-        new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
+    var pcm =
+        new PostCommandMeta("pcmcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var sessionResult = new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
+    var parsed = new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS);
     var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
     var completion =
         InputCompletion.of(
@@ -525,9 +508,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var sessionResult1 =
-        new SessionResult("cmd1", List.of(), List.of(), List.of());
-    var plan1 = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var sessionResult1 = new SessionResult("cmd1", List.of(), List.of(), List.of());
+    var plan1 =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion1 =
         InputCompletion.of(
             player.getUniqueId(),
@@ -543,9 +527,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertTrue(registry.hasActiveExecution(player.getUniqueId()));
 
     // Second execution attempt while first is still active: must be rejected
-    var sessionResult2 =
-        new SessionResult("cmd2", List.of(), List.of(), List.of());
-    var plan2 = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var sessionResult2 = new SessionResult("cmd2", List.of(), List.of(), List.of());
+    var plan2 =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion2 =
         InputCompletion.of(
             player.getUniqueId(),
@@ -568,11 +553,26 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     registerMockCommand("finalcmd", true, executionLog);
     registerMockCommand("poststep", true, executionLog);
 
-    var pcm = new PostCommandMeta("poststep", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("poststep", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var parsed =
         new ParsedCommand(
             "finalcmd <a:test>",
-            List.of(new PromptTag("<a:test>", "a", "", "test", true, null, PromptTag.AnswerType.STRING, List.of(), false, null, null, Map.of(), null)),
+            List.of(
+                new PromptTag(
+                    "<a:test>",
+                    "a",
+                    "",
+                    "test",
+                    true,
+                    null,
+                    PromptTag.AnswerType.STRING,
+                    List.of(),
+                    false,
+                    null,
+                    null,
+                    Map.of(),
+                    null)),
             List.of(pcm),
             ParserConfig.ANGLE_BRACKETS);
 
@@ -590,14 +590,15 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     // Hand submitted result to screen manager (or screen result path)
     // Verify coordinating through screen manager's coordinator executes command
     var dispatchSnapshot = DispatchContextSnapshot.player();
-    var completion = InputCompletion.of(
-        player.getUniqueId(),
-        artifactsOpt.get().incarnation(),
-        1L,
-        sessionOpt.get(),
-        artifactsOpt.get().planDefinition(),
-        artifactsOpt.get().presetSnapshot(),
-        dispatchSnapshot);
+    var completion =
+        InputCompletion.of(
+            player.getUniqueId(),
+            artifactsOpt.get().incarnation(),
+            1L,
+            sessionOpt.get(),
+            artifactsOpt.get().planDefinition(),
+            artifactsOpt.get().presetSnapshot(),
+            dispatchSnapshot);
 
     coordinator.coordinate(player, completion, sessionOpt.get());
     performTicks(5);
@@ -641,7 +642,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var sessionResult = new SessionResult("cmd", List.of(), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -682,9 +685,12 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, onRetired) -> onRetired.run());
 
-    var pcm = new PostCommandMeta("postcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("postcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("consolecmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("consolecmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("consolecmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -702,7 +708,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     // Fire callback from console dispatcher
     capturedCallback.get().onComplete(DispatchOutcome.success());
 
-    // Verified: zero PCM evaluation, instance transitioned to ERROR / terminal, removed from registry
+    // Verified: zero PCM evaluation, instance transitioned to ERROR / terminal, removed from
+    // registry
     assertEquals(0, executionLog.size(), "No PCMs should be executed on retired hop");
     assertEquals(ExecutionStage.ERROR, instance.getStage());
     assertTrue(instance.isCleanedUp());
@@ -729,7 +736,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     // 1. Session inception and cancel
     engine.interceptResult(player, "/cmd <a:val> <!pcm1>");
     assertTrue(engine.getInceptionArtifacts(player.getUniqueId()).isPresent());
-    assertFalse(engine.getInceptionArtifacts(player.getUniqueId()).get().originalPostCommands().isEmpty());
+    assertFalse(
+        engine.getInceptionArtifacts(player.getUniqueId()).get().originalPostCommands().isEmpty());
 
     engine.cancel(player, CancelReason.MANUAL);
     assertTrue(engine.getInceptionArtifacts(player.getUniqueId()).isEmpty());
@@ -737,7 +745,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     // 2. Execution cancellation releases completion owned state
     var pcm = new PostCommandMeta("pcm1", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("cmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -757,7 +767,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Active execution in ExecutionRegistry causes intercept rejection (fail closed, no leak)")
+  @DisplayName(
+      "Active execution in ExecutionRegistry causes intercept rejection (fail closed, no leak)")
   void activeExecutionCausesInterceptRejection() {
     var player = createPlayer("TestActiveExec");
     var executionLog = new ArrayList<String>();
@@ -777,7 +788,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var sessionResult = new SessionResult("maincmd", List.of(), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -794,7 +807,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
 
     // Now try to intercept a new command with prompt tags for the same player
     var interceptResult = engine.interceptResult(player, "/cmd <a:test>");
-    assertTrue(interceptResult.isRejectedActiveSession(), "Must reject intercept when active execution exists");
+    assertTrue(
+        interceptResult.isRejectedActiveSession(),
+        "Must reject intercept when active execution exists");
     assertTrue(engine.getSession(player).isEmpty(), "Must not create a new prompt session");
   }
 
@@ -814,7 +829,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var sessionResult1 = new SessionResult("cmd1", List.of(), List.of(), List.of());
-    var plan1 = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan1 =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd1", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion1 =
         InputCompletion.of(
             player.getUniqueId(),
@@ -830,7 +847,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
 
     // Second registration attempt collision
     var sessionResult2 = new SessionResult("cmd2", List.of(), List.of(), List.of());
-    var plan2 = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan2 =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd2", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion2 =
         InputCompletion.of(
             player.getUniqueId(),
@@ -872,9 +891,12 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             failingDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("failpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("failpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("goodcmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("goodcmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("goodcmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -919,9 +941,12 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             failingDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("failpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("failpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -943,7 +968,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Gate denied without onDeny runs ON_CANCEL post-actions and transitions to CANCELLED")
+  @DisplayName(
+      "Gate denied without onDeny runs ON_CANCEL post-actions and transitions to CANCELLED")
   void gateDeniedWithoutOnDenyRunsCancelPostActions() {
     var player = createPlayer("TestGateDeniedNoOnDeny");
     var dispatchedActions = new ArrayList<String>();
@@ -969,14 +995,14 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var onCancelPcm =
-        new PostCommandMeta("say cancel-ran", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say cancel-ran", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
     var planDef =
         new ExecutionPlanDefinition(
             TemplateCompiler.compile("primary"),
             List.of(new PreDispatchGateSpec.Approval("gate_1")),
             List.of());
-    var sessionResult =
-        new SessionResult("primary", List.of(), List.of(), List.of(onCancelPcm));
+    var sessionResult = new SessionResult("primary", List.of(), List.of(), List.of(onCancelPcm));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -999,22 +1025,80 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void duplicateGateResultCannotRestartNextGateOrRunStaleDenialAction() {
+    var player = createPlayer("GateReplay");
+    var callbacks = new ArrayList<PreDispatchGateCallback>();
+    var commands = new ArrayList<String>();
+    var customCoordinator =
+        new ExecutionCoordinator(
+            plugin,
+            engine,
+            registry,
+            (request, callback) -> {
+              commands.add(request.command());
+              callback.onComplete(DispatchOutcome.success());
+            },
+            (request, callback) -> {
+              commands.add(request.command());
+              callback.onComplete(DispatchOutcome.success());
+            },
+            (p, instance, spec, index, callback) -> callbacks.add(callback),
+            p -> (task, retired) -> task.run());
+    var plan =
+        new ExecutionPlanDefinition(
+            TemplateCompiler.compile("primary"),
+            List.of(
+                new PreDispatchGateSpec.Approval("first"),
+                new PreDispatchGateSpec.Approval("second")),
+            List.of());
+    var completion =
+        new InputCompletion(
+            player.getUniqueId(),
+            1L,
+            1L,
+            List.of(),
+            "primary",
+            plan,
+            PresetSnapshot.empty(),
+            DispatchContextSnapshot.player());
+
+    var instance = customCoordinator.coordinate(player, completion).orElseThrow();
+    callbacks.getFirst().onResult(PreDispatchGateResult.approved());
+    callbacks.getFirst().onResult(PreDispatchGateResult.approved());
+    callbacks
+        .getFirst()
+        .onResult(
+            PreDispatchGateResult.denied(
+                TrustedPresetAction.of("stale_denial", ExecuteAs.CONSOLE)));
+
+    assertEquals(2, callbacks.size(), "Each gate must be evaluated once");
+    assertEquals(ExecutionStage.PRE_DISPATCH_GATES, instance.getStage());
+    assertTrue(commands.isEmpty(), "A stale denial cannot execute an action");
+    callbacks.get(1).onResult(PreDispatchGateResult.approved());
+    assertEquals(List.of("primary"), commands);
+    assertEquals(ExecutionStage.COMPLETED, instance.getStage());
+  }
+
+  @Test
   @DisplayName("Duplicate and racing outcomes are processed exactly once")
   void duplicateOutcomesProcessedExactlyOnce() {
     var player = createPlayer("TestDupOutcomes");
     var executionCount = new AtomicInteger();
 
-    PrimaryCommandDispatcher controllableDispatcher = (request, callback) -> {
-      // Intentionally invoke callback with different outcomes concurrently
-      callback.onComplete(DispatchOutcome.success());
-      callback.onComplete(DispatchOutcome.failure(DispatchErrorKind.DISPATCH_RETURNED_FALSE, "second"));
-      callback.onComplete(DispatchOutcome.success());
-    };
+    PrimaryCommandDispatcher controllableDispatcher =
+        (request, callback) -> {
+          // Intentionally invoke callback with different outcomes concurrently
+          callback.onComplete(DispatchOutcome.success());
+          callback.onComplete(
+              DispatchOutcome.failure(DispatchErrorKind.DISPATCH_RETURNED_FALSE, "second"));
+          callback.onComplete(DispatchOutcome.success());
+        };
 
-    ImmediateActionDispatcher countingDispatcher = (request, callback) -> {
-      executionCount.incrementAndGet();
-      callback.onComplete(DispatchOutcome.success());
-    };
+    ImmediateActionDispatcher countingDispatcher =
+        (request, callback) -> {
+          executionCount.incrementAndGet();
+          callback.onComplete(DispatchOutcome.success());
+        };
 
     var customCoordinator =
         new ExecutionCoordinator(
@@ -1025,9 +1109,12 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             countingDispatcher,
             p -> (task, retired) -> task.run());
 
-    var pcm = new PostCommandMeta("countpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("countpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("cmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("cmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("cmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1046,7 +1133,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Finding 9: On-deny action provenance uses TRUSTED_PRESET, gateId source, and preserves execute_as")
+  @DisplayName(
+      "Finding 9: On-deny action provenance uses TRUSTED_PRESET, gateId source, and preserves execute_as")
   void onDenyActionProvenanceUsesTrustedPresetAndGateSourceId() {
     var player = createPlayer("TestFinding9Provenance");
     var capturedRequest = new AtomicReference<ImmediateActionRequest>();
@@ -1099,10 +1187,14 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertEquals(ExecuteAs.CONSOLE, reqConsole.executeAs(), "ExecuteAs must be preserved");
     assertEquals("approval-gate:trade_gate_42", reqConsole.sourceId());
     assertNotNull(reqConsole.provenance());
-    assertEquals(ActionTrustLevel.TRUSTED_PRESET, reqConsole.provenance().trustLevel(),
+    assertEquals(
+        ActionTrustLevel.TRUSTED_PRESET,
+        reqConsole.provenance().trustLevel(),
         "Must use TRUSTED_PRESET, never CONSOLE_DELEGATED trust level");
     assertNotEquals(ActionTrustLevel.CONSOLE_DELEGATED, reqConsole.provenance().trustLevel());
-    assertTrue(reqConsole.provenance().consoleDelegated(), "consoleDelegated flag must be true for CONSOLE");
+    assertTrue(
+        reqConsole.provenance().consoleDelegated(),
+        "consoleDelegated flag must be true for CONSOLE");
     assertEquals("approval-gate:trade_gate_42", reqConsole.provenance().sourceId());
 
     // 2. Player on-deny action
@@ -1148,12 +1240,15 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertEquals("approval-gate:player_gate_99", reqPlayer.sourceId());
     assertNotNull(reqPlayer.provenance());
     assertEquals(ActionTrustLevel.TRUSTED_PRESET, reqPlayer.provenance().trustLevel());
-    assertFalse(reqPlayer.provenance().consoleDelegated(), "consoleDelegated flag must be false for PLAYER");
+    assertFalse(
+        reqPlayer.provenance().consoleDelegated(),
+        "consoleDelegated flag must be false for PLAYER");
     assertEquals("approval-gate:player_gate_99", reqPlayer.provenance().sourceId());
   }
 
   @Test
-  @DisplayName("Finding 9: Trusted console denial authorization allows non-op player console execution")
+  @DisplayName(
+      "Finding 9: Trusted console denial authorization allows non-op player console execution")
   void trustedConsoleDenialAuthorizationForNonOpPlayer() {
     var player = createPlayer("NonOpPlayer");
     player.setOp(false);
@@ -1203,7 +1298,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertFalse(registry.hasActiveExecution(player.getUniqueId()));
 
     // Console audit log command executed successfully even though player is non-op
-    assertTrue(executionLog.contains("auditlog denied NonOpPlayer"),
+    assertTrue(
+        executionLog.contains("auditlog denied NonOpPlayer"),
         "Trusted preset console on-deny action must authorize console dispatch for non-op player");
   }
 
@@ -1264,7 +1360,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     capturedCallback.get().onResult(PreDispatchGateResult.denied(onDeny));
 
     // Verify on-deny action was completely skipped because initiator disconnect/cancel won
-    assertEquals(0, dispatchedActions.size(),
+    assertEquals(
+        0,
+        dispatchedActions.size(),
         "On-deny action must not be dispatched when initiator cancel/quit won");
     assertEquals(ExecutionStage.CANCELLED, instance.getStage());
   }
@@ -1332,7 +1430,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Initiator PlayerExecutor retired during denial outcome executes terminal cleanup once")
+  @DisplayName(
+      "Initiator PlayerExecutor retired during denial outcome executes terminal cleanup once")
   void initiatorPlayerExecutorRetiredDuringDenialOutcomeCleansUpOnce() {
     var player = createPlayer("TestRetiredDenyCallback");
     var executionCount = new AtomicInteger();
@@ -1346,7 +1445,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
           callback.onResult(PreDispatchGateResult.denied(onDeny));
         };
 
-    // First gate evaluation succeeds to enter player executor, then retired callback fires on return hop
+    // First gate evaluation succeeds to enter player executor, then retired callback fires on
+    // return hop
     var customCoordinator =
         new ExecutionCoordinator(
             plugin,
@@ -1355,13 +1455,14 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             (req, cb) -> cb.onComplete(DispatchOutcome.success()),
             actionDispatcher,
             gateHandler,
-            p -> (task, onRetired) -> {
-              if (executionCount.incrementAndGet() == 1) {
-                task.run(); // Run gate result
-              } else {
-                onRetired.run(); // Retire on on-deny return hop
-              }
-            });
+            p ->
+                (task, onRetired) -> {
+                  if (executionCount.incrementAndGet() == 1) {
+                    task.run(); // Run gate result
+                  } else {
+                    onRetired.run(); // Retire on on-deny return hop
+                  }
+                });
 
     var planDef =
         new ExecutionPlanDefinition(
@@ -1389,7 +1490,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in primaryDispatcher.dispatch transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in primaryDispatcher.dispatch transitions to ERROR, removes registry, cleans up")
   void primaryDispatcherSynchronousThrowTransitionsToError() {
     var player = createPlayer("TestSyncPrimaryThrow");
 
@@ -1408,7 +1510,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var sessionResult = new SessionResult("fatalcmd", List.of(), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("fatalcmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("fatalcmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1430,7 +1534,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in immediateActionDispatcher.dispatch on-deny transitions to CANCELLED/ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in immediateActionDispatcher.dispatch on-deny transitions to CANCELLED/ERROR, removes registry, cleans up")
   void immediateActionDispatcherOnDenySynchronousThrowTransitionsSafely() {
     var player = createPlayer("TestSyncOnDenyThrow");
 
@@ -1482,13 +1587,17 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in PAPI resolver factory transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in PAPI resolver factory transitions to ERROR, removes registry, cleans up")
   void papiResolverFactorySynchronousThrowTransitionsToError() {
     var player = createPlayer("TestSyncPapiThrow");
 
-    var pcm = new PostCommandMeta("postcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("postcmd", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1525,13 +1634,17 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in PostActionScheduler transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in PostActionScheduler transitions to ERROR, removes registry, cleans up")
   void postActionSchedulerSynchronousThrowTransitionsToError() {
     var player = createPlayer("TestSyncPostSchedulerThrow");
 
-    var pcm = new PostCommandMeta("delayedcmd", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
+    var pcm =
+        new PostCommandMeta("delayedcmd", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
     var sessionResult = new SessionResult("maincmd", List.of(), List.of(pcm), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("maincmd", List.of(), List.of(pcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1571,7 +1684,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in PreDispatchGateHandler.evaluateGate transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in PreDispatchGateHandler.evaluateGate transitions to ERROR, removes registry, cleans up")
   void preDispatchGateHandlerSynchronousThrowTransitionsToError() {
     var player = createPlayer("TestSyncGateThrow");
 
@@ -1617,7 +1731,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Synchronous throw in PlayerExecutor factory transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Synchronous throw in PlayerExecutor factory transitions to ERROR, removes registry, cleans up")
   void playerExecutorFactorySynchronousThrowTransitionsToError() {
     var player = createPlayer("TestSyncExecutorThrow");
 
@@ -1633,7 +1748,9 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             });
 
     var sessionResult = new SessionResult("maincmd", List.of(), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1655,7 +1772,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Callback body unexpected throw inside PlayerExecutor transitions to ERROR, removes registry, cleans up")
+  @DisplayName(
+      "Callback body unexpected throw inside PlayerExecutor transitions to ERROR, removes registry, cleans up")
   void callbackBodyThrowInsidePlayerExecutorTransitionsToError() {
     var player = createPlayer("TestCallbackBodyThrow");
 
@@ -1671,12 +1789,15 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             registry,
             controllableDispatcher,
             immediateActionDispatcher,
-            p -> (task, retired) -> {
-              task.run();
-            });
+            p ->
+                (task, retired) -> {
+                  task.run();
+                });
 
     var sessionResult = new SessionResult("maincmd", List.of(), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand("maincmd", List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1692,8 +1813,10 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     var instance = instanceOpt.get();
 
     // Trigger callback with failure detail that could throw in downstream handler or simulate throw
-    capturedCallback.get().onComplete(
-        DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, "callback failure"));
+    capturedCallback
+        .get()
+        .onComplete(
+            DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, "callback failure"));
 
     assertEquals(ExecutionStage.ERROR, instance.getStage());
     assertTrue(instance.isCleanedUp());
@@ -1701,7 +1824,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Logging regression: command, answers, secrets, newlines, and markup tags are absent from logs and player message is escaped")
+  @DisplayName(
+      "Logging regression: command, answers, secrets, newlines, and markup tags are absent from logs and player message is escaped")
   void loggingRegressionSanitizesSecretsAndMarkup() {
     var player = createPlayer("TestLoggingSecurity");
 
@@ -1709,48 +1833,63 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     var mockLogger = org.mockito.Mockito.mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
     org.mockito.Mockito.when(plugin.getPluginLogger()).thenReturn(mockLogger);
 
-    org.mockito.Mockito.doAnswer(inv -> {
-      capturedLogs.add(inv.getArgument(0));
-      return null;
-    }).when(mockLogger).info(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
-    org.mockito.Mockito.doAnswer(inv -> {
-      capturedLogs.add(inv.getArgument(0));
-      return null;
-    }).when(mockLogger).warn(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
-    org.mockito.Mockito.doAnswer(inv -> {
-      capturedLogs.add(inv.getArgument(0));
-      return null;
-    }).when(mockLogger).err(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
-    org.mockito.Mockito.doAnswer(inv -> {
-      capturedLogs.add(inv.getArgument(0));
-      return null;
-    }).when(mockLogger).debug(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              capturedLogs.add(inv.getArgument(0));
+              return null;
+            })
+        .when(mockLogger)
+        .info(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              capturedLogs.add(inv.getArgument(0));
+              return null;
+            })
+        .when(mockLogger)
+        .warn(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              capturedLogs.add(inv.getArgument(0));
+              return null;
+            })
+        .when(mockLogger)
+        .err(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              capturedLogs.add(inv.getArgument(0));
+              return null;
+            })
+        .when(mockLogger)
+        .debug(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
 
     var capturedPlaceholders = new ArrayList<Placeholder>();
-    org.mockito.Mockito.doAnswer(inv -> {
-      for (int i = 0; i < inv.getArguments().length; i++) {
-        Object arg = inv.getArgument(i);
-        if (arg instanceof Placeholder[] phs) {
-          capturedPlaceholders.addAll(List.of(phs));
-        } else if (arg instanceof Placeholder ph) {
-          capturedPlaceholders.add(ph);
-        }
-      }
-      return net.kyori.adventure.text.Component.text("Command failed.");
-    }).when(i18n).get(
-        org.mockito.ArgumentMatchers.eq("prompt.error.command_failed"),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(Placeholder[].class));
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              for (int i = 0; i < inv.getArguments().length; i++) {
+                Object arg = inv.getArgument(i);
+                if (arg instanceof Placeholder[] phs) {
+                  capturedPlaceholders.addAll(List.of(phs));
+                } else if (arg instanceof Placeholder ph) {
+                  capturedPlaceholders.add(ph);
+                }
+              }
+              return net.kyori.adventure.text.Component.text("Command failed.");
+            })
+        .when(i18n)
+        .get(
+            org.mockito.ArgumentMatchers.eq("prompt.error.command_failed"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(Placeholder[].class));
 
     String secretCommand = "/login secret_pass_12345";
     String secretAnswer = "token_abc_999\n\r\t<click:run_command:/op me><red>malicious</red>";
-    String maliciousErrorDetail = "Error with <click:run_command:/ban all>dangerous_tag\nand\rnewlines";
+    String maliciousErrorDetail =
+        "Error with <click:run_command:/ban all>dangerous_tag\nand\rnewlines";
 
     PrimaryCommandDispatcher failingDispatcher =
         (request, callback) ->
             callback.onComplete(
-                DispatchOutcome.failure(
-                    DispatchErrorKind.EXCEPTION_THROWN, maliciousErrorDetail));
+                DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, maliciousErrorDetail));
 
     var customCoordinator =
         new ExecutionCoordinator(
@@ -1761,8 +1900,11 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
             immediateActionDispatcher,
             p -> (task, retired) -> task.run());
 
-    var sessionResult = new SessionResult(secretCommand, List.of(secretAnswer), List.of(), List.of());
-    var plan = ExecutionPlanAdapter.fromParsedCommand(new ParsedCommand(secretCommand, List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
+    var sessionResult =
+        new SessionResult(secretCommand, List.of(secretAnswer), List.of(), List.of());
+    var plan =
+        ExecutionPlanAdapter.fromParsedCommand(
+            new ParsedCommand(secretCommand, List.of(), List.of(), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -1778,29 +1920,40 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
 
     // 1. Verify secrets and command are NEVER present in any captured log
     for (String log : capturedLogs) {
-      assertFalse(log.contains("secret_pass_12345"), "Log must not contain secret password: " + log);
+      assertFalse(
+          log.contains("secret_pass_12345"), "Log must not contain secret password: " + log);
       assertFalse(log.contains(secretCommand), "Log must not contain assembled command: " + log);
-      assertFalse(log.contains("token_abc_999"), "Log must not contain secret answer token: " + log);
+      assertFalse(
+          log.contains("token_abc_999"), "Log must not contain secret answer token: " + log);
       assertFalse(log.contains("\n"), "Log must not contain raw newline: " + log);
       assertFalse(log.contains("\r"), "Log must not contain raw carriage return: " + log);
-      assertFalse(log.contains("<click:run_command:"), "Log must not contain unescaped click tag: " + log);
+      assertFalse(
+          log.contains("<click:run_command:"), "Log must not contain unescaped click tag: " + log);
     }
 
     // 2. Verify player message placeholder is sanitized and escaped
     assertFalse(capturedPlaceholders.isEmpty());
-    var messagePlaceholder = capturedPlaceholders.stream()
-        .filter(p -> "message".equals(p.key()))
-        .findFirst()
-        .orElseThrow();
+    var messagePlaceholder =
+        capturedPlaceholders.stream()
+            .filter(p -> "message".equals(p.key()))
+            .findFirst()
+            .orElseThrow();
 
     String placeholderVal = messagePlaceholder.value();
     assertFalse(placeholderVal.contains("\n"), "Placeholder must strip newlines");
     assertFalse(placeholderVal.contains("\r"), "Placeholder must strip carriage returns");
-    assertTrue(placeholderVal.contains("\\<click:run_command:"), "Placeholder must have tags escaped with backslash");
-    assertFalse(placeholderVal.startsWith("<click:run_command:"), "Placeholder must not have unescaped leading tag");
+    assertTrue(
+        placeholderVal.contains("\\<click:run_command:"),
+        "Placeholder must have tags escaped with backslash");
+    assertFalse(
+        placeholderVal.startsWith("<click:run_command:"),
+        "Placeholder must not have unescaped leading tag");
 
     // Deserializing with MiniMessage results in literal text without click actions
-    var deserialized = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(placeholderVal);
-    assertNull(deserialized.clickEvent(), "Deserialized component must not have click event from injected markup");
+    var deserialized =
+        net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(placeholderVal);
+    assertNull(
+        deserialized.clickEvent(),
+        "Deserialized component must not have click event from injected markup");
   }
 }

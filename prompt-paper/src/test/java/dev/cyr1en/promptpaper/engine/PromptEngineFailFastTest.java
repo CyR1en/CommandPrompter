@@ -22,10 +22,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Scope 4 fail-fast coverage for {@link PromptEngine#intercept}. Verifies that
- * commands referencing unknown preset ids are rejected with a localized error
- * message and do not start a session, while commands referencing known ids
- * (or no presets at all) behave exactly as before.
+ * Scope 4 fail-fast coverage for {@link PromptEngine#intercept}. Verifies that commands referencing
+ * unknown preset ids are rejected with a localized error message and do not start a session, while
+ * commands referencing known ids (or no presets at all) behave exactly as before.
  */
 class PromptEngineFailFastTest extends MockBukkitTest {
 
@@ -51,7 +50,8 @@ class PromptEngineFailFastTest extends MockBukkitTest {
 
   @Test
   void commandWithKnownPresetPromptStartsSession() {
-    var chat = new ChatPrompt("chat", "my_id", "Why?", new CancelBehavior(false, "", false, ""), true);
+    var chat =
+        new ChatPrompt("chat", "my_id", "Why?", new CancelBehavior(false, "", false, ""), true);
     when(registry.getPrompt("my_id")).thenReturn(Optional.of(chat));
 
     var result = engine.intercept(createPlayer(), "/cmd <@my_id>");
@@ -68,7 +68,9 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     // (no fail-fast). The listener is responsible for cancelling the
     // PlayerCommandPreprocessEvent to keep the literal <!@id> markup out
     // of the dispatcher.
-    var pc = new PostCommand("log_id", "say {player} hi", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
+    var pc =
+        new PostCommand(
+            "log_id", "say {player} hi", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
     when(registry.getPostCommand("log_id")).thenReturn(Optional.of(pc));
 
     var result = engine.intercept(createPlayer(), "/cmd <!@log_id>");
@@ -77,8 +79,11 @@ class PromptEngineFailFastTest extends MockBukkitTest {
 
   @Test
   void commandWithKnownPresetPromptAndPresetPostCommandStartsSession() {
-    var chat = new ChatPrompt("chat", "my_id", "Why?", new CancelBehavior(false, "", false, ""), true);
-    var pc = new PostCommand("log_id", "log {player}", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
+    var chat =
+        new ChatPrompt("chat", "my_id", "Why?", new CancelBehavior(false, "", false, ""), true);
+    var pc =
+        new PostCommand(
+            "log_id", "log {player}", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
     when(registry.getPrompt("my_id")).thenReturn(Optional.of(chat));
     when(registry.getPostCommand("log_id")).thenReturn(Optional.of(pc));
 
@@ -95,10 +100,16 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     // #77: the parser defaults preset tags to sanitize=true, but the preset definition is
     // authoritative. sanitize=false keeps §cHello intact on the screen path; sanitize=true
     // strips it. Each player can only hold one session, so both sides need their own player.
-    when(registry.getPrompt("no_san")).thenReturn(Optional.of(
-            new ChatPrompt("chat", "no_san", "Why?", new CancelBehavior(false, "", false, ""), false)));
-    when(registry.getPrompt("san")).thenReturn(Optional.of(
-            new ChatPrompt("chat", "san", "Why?", new CancelBehavior(false, "", false, ""), true)));
+    when(registry.getPrompt("no_san"))
+        .thenReturn(
+            Optional.of(
+                new ChatPrompt(
+                    "chat", "no_san", "Why?", new CancelBehavior(false, "", false, ""), false)));
+    when(registry.getPrompt("san"))
+        .thenReturn(
+            Optional.of(
+                new ChatPrompt(
+                    "chat", "san", "Why?", new CancelBehavior(false, "", false, ""), true)));
 
     var noSanPlayer = createPlayer("NoSan");
     var noSanResult = engine.intercept(noSanPlayer, "/cmd <@no_san>");
@@ -326,14 +337,16 @@ class PromptEngineFailFastTest extends MockBukkitTest {
   @Test
   void commandWithApprovalGateAndZeroPromptsRejectsFailClosedNeverPassesThrough() {
     var player = createPlayer("GateZeroUser");
-    var gate = new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
+    var gate =
+        new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
             "admin_gate",
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("admin"),
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("Approve?"),
             30,
             dev.cyr1en.promptpaper.preset.SelfApprovalPolicy.AUTO_APPROVE,
             null);
-    var snapshot = new dev.cyr1en.promptpaper.preset.PresetSnapshot(
+    var snapshot =
+        new dev.cyr1en.promptpaper.preset.PresetSnapshot(
             java.util.Map.of(),
             java.util.Map.of(),
             java.util.Map.of("admin_gate", gate),
@@ -356,7 +369,8 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     var player = createPlayer("SnapTestUser1");
 
     // Live registry has gate1, but captured snapshot at inception lacks gate1
-    var gate = new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
+    var gate =
+        new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
             "gate1",
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("admin"),
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("Approve?"),
@@ -376,14 +390,16 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     var player = createPlayer("SnapTestUser2");
 
     // Captured snapshot has gate1, but live registry lacks gate1
-    var gate = new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
+    var gate =
+        new dev.cyr1en.promptpaper.preset.ApprovalGateDefinition(
             "gate1",
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("admin"),
             dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("Approve?"),
             30,
             dev.cyr1en.promptpaper.preset.SelfApprovalPolicy.AUTO_APPROVE,
             null);
-    var snapshot = new dev.cyr1en.promptpaper.preset.PresetSnapshot(
+    var snapshot =
+        new dev.cyr1en.promptpaper.preset.PresetSnapshot(
             java.util.Map.of(),
             java.util.Map.of(),
             java.util.Map.of("gate1", gate),
@@ -423,8 +439,7 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     when(plugin.getPluginLogger()).thenReturn(loggerSpy);
     when(registry.getPrompt(org.mockito.ArgumentMatchers.anyString())).thenReturn(Optional.empty());
 
-    String rawCommand =
-        "/secret_cmd <@x\"<br><red>\n\u0000secret\"y> <@missing_preset>";
+    String rawCommand = "/secret_cmd <@x\"<br><red>\n\u0000secret\"y> <@missing_preset>";
     var result = engine.interceptResult(player, rawCommand);
 
     assertInstanceOf(InterceptResult.RejectedFailClosed.class, result);
@@ -437,9 +452,7 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     assertTrue(loggedMsg.contains(player.getUniqueId().toString()), "Must contain player UUID");
     assertTrue(loggedMsg.contains("prompts="), "Must contain prompts category");
     assertTrue(loggedMsg.contains("missing_preset"), "Must contain missing prompt ID");
-    assertTrue(
-        loggedMsg.contains("\\<br>\\<red>"),
-        "Must escape MiniMessage tags in preset ID");
+    assertTrue(loggedMsg.contains("\\<br>\\<red>"), "Must escape MiniMessage tags in preset ID");
     assertFalse(
         loggedMsg.matches(".*(?<!\\\\)<(br|red|newline|green)>.*"),
         "Must not contain unescaped MiniMessage tags");

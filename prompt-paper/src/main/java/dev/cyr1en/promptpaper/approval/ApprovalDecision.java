@@ -3,9 +3,7 @@ package dev.cyr1en.promptpaper.approval;
 import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Terminal decision for an approval capability.
- */
+/** Terminal decision for an approval capability. */
 public enum ApprovalDecision {
   APPROVED,
   DENIED,
@@ -13,23 +11,19 @@ public enum ApprovalDecision {
   TARGET_DISCONNECTED,
   INITIATOR_DISCONNECTED;
 
-  /**
-   * Returns whether this decision represents approval.
-   */
+  /** Returns whether this decision represents approval. */
   public boolean isApproved() {
     return this == APPROVED;
   }
 
-  /**
-   * Returns whether this decision represents a terminal state.
-   */
+  /** Returns whether this decision represents a terminal state. */
   public boolean isTerminal() {
     return true;
   }
 
   /**
-   * Parses a raw decision string into an ApprovalDecision.
-   * Supports common action strings (e.g. "confirm", "approve", "decline", "deny", "cancel").
+   * Parses a raw decision string into an ApprovalDecision. Supports common action strings (e.g.
+   * "confirm", "approve", "decline", "deny", "cancel").
    *
    * @param raw the raw input string
    * @return optional containing the decision, or empty if unrecognized

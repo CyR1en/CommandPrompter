@@ -16,12 +16,13 @@ public record PapiRefOperand(String placeholder) implements ValueOperand {
   @Override
   public String resolve(ConditionBindings bindings) throws ConditionEvaluationException {
     Objects.requireNonNull(bindings, "bindings cannot be null");
-    var valOpt = bindings.getPlaceholder(placeholder);
-    if (valOpt.isEmpty() || valOpt.get() == null) {
-      throw new ConditionEvaluationException(
-          "Missing or unresolvable placeholder reference: %" + placeholder + "%");
-    }
-    String val = valOpt.get();
+    var val =
+        bindings
+            .getPlaceholder(placeholder)
+            .orElseThrow(
+                () ->
+                    new ConditionEvaluationException(
+                        "Missing or unresolvable placeholder reference: %" + placeholder + "%"));
     if (val.length() > MAX_OPERAND_LENGTH) {
       throw new ConditionEvaluationException(
           "Resolved placeholder %"
@@ -32,11 +33,6 @@ public record PapiRefOperand(String placeholder) implements ValueOperand {
               + MAX_OPERAND_LENGTH);
     }
     return val;
-  }
-
-  @Override
-  public void collectAnswerIndices(Set<Integer> indices) {
-    // No answer indices
   }
 
   @Override

@@ -10,18 +10,18 @@ import org.junit.jupiter.api.Test;
 @DisplayName("ItemScreenHolder Tests")
 class ItemScreenHolderTest {
 
-    @Test
-    @DisplayName("ItemScreenHolder holds screen, mode, and inventory reference")
-    void testHolderFields() {
-        ItemPromptScreen screen = mock(ItemPromptScreen.class);
-        ItemScreenHolder holder = new ItemScreenHolder(ItemScreenMode.ARMOR, screen);
+  @Test
+  @DisplayName("ItemScreenHolder holds screen, mode, and inventory reference")
+  void testHolderFields() {
+    ItemPromptScreen screen = mock(ItemPromptScreen.class);
+    ItemScreenHolder holder = new ItemScreenHolder(ItemScreenMode.ARMOR, screen);
 
-        assertEquals(ItemScreenMode.ARMOR, holder.getMode());
-        assertSame(screen, holder.getScreen());
-        assertNull(holder.getInventory());
+    assertEquals(ItemScreenMode.ARMOR, holder.getMode());
+    assertSame(screen, holder.getScreen());
+    assertNull(holder.getInventory());
 
-        Inventory inv = mock(Inventory.class);
-        holder.setInventory(inv);
-        assertSame(inv, holder.getInventory());
-    }
+    Inventory inv = mock(Inventory.class);
+    holder.setInventory(inv);
+    assertSame(inv, holder.getInventory());
+  }
 }

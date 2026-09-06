@@ -104,9 +104,11 @@ class ChatApprovalPresenterTest {
   }
 
   @Test
-  @DisplayName("Injected MiniMessage tags, newlines, and legacy color markers render literal and non-clickable")
+  @DisplayName(
+      "Injected MiniMessage tags, newlines, and legacy color markers render literal and non-clickable")
   void testInjectedTagsAndColorsRenderLiteral() {
-    String malicious = "<click:run_command:/op attacker><hover:show_text:'bad'>Click to win!</click></hover><newline><green>Green Text</green> §cRed &aGreen [Approve]";
+    String malicious =
+        "<click:run_command:/op attacker><hover:show_text:'bad'>Click to win!</click></hover><newline><green>Green Text</green> §cRed &aGreen [Approve]";
     Component rendered = presenter.render(capability, malicious);
     assertNotNull(rendered);
 
@@ -125,12 +127,8 @@ class ChatApprovalPresenterTest {
 
     // Exactly 2 click events: one confirm button, one decline button
     assertEquals(2, clickEvents.size(), "Only the two code-built buttons must have ClickEvents");
-    assertEquals(
-        "/commandprompter:response " + nonce + " confirm",
-        clickEvents.get(0).value());
-    assertEquals(
-        "/commandprompter:response " + nonce + " decline",
-        clickEvents.get(1).value());
+    assertEquals("/commandprompter:response " + nonce + " confirm", clickEvents.get(0).value());
+    assertEquals("/commandprompter:response " + nonce + " decline", clickEvents.get(1).value());
   }
 
   private void collectClickEvents(Component component, java.util.List<ClickEvent> out) {
@@ -146,12 +144,13 @@ class ChatApprovalPresenterTest {
   @DisplayName("present dispatches rendered Adventure component to Audience")
   void testPresent() {
     AtomicReference<Component> sent = new AtomicReference<>();
-    Audience audience = new Audience() {
-      @Override
-      public void sendMessage(Component message) {
-        sent.set(message);
-      }
-    };
+    Audience audience =
+        new Audience() {
+          @Override
+          public void sendMessage(Component message) {
+            sent.set(message);
+          }
+        };
 
     presenter.present(audience, capability, "Authorize action?");
 

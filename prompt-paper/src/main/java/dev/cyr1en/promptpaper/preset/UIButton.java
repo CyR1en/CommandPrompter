@@ -27,7 +27,8 @@ public record UIButton(
   /** Canonical constructor with null-checks and slot validation. */
   public UIButton {
     if (slot < 0 || slot > 8) {
-      throw new IllegalArgumentException("UIButton slot must be between 0 and 8 (inclusive), got: " + slot);
+      throw new IllegalArgumentException(
+          "UIButton slot must be between 0 and 8 (inclusive), got: " + slot);
     }
     Objects.requireNonNull(buttonText, "button_text must not be null");
     Objects.requireNonNull(buttonIcon, "button_icon must not be null");

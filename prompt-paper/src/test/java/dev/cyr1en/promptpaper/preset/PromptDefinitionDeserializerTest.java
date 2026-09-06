@@ -26,6 +26,53 @@ class PromptDefinitionDeserializerTest {
   private final Gson gson = PresetGson.presetGson();
 
   @Test
+  void timingFieldsRejectFractionalAndOverflowingNumbers() {
+    for (String number : List.of("1.9", "4294967297", "-4294967295")) {
+      String gate =
+          "{\"id\":\"gate\",\"target\":\"Bob\",\"message\":\"Approve?\",\"timeout\":"
+              + number
+              + "}";
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> gson.fromJson(gate, ApprovalGateDefinition.class),
+          number);
+      String action =
+          "{\"command\":\"say yes\",\"execute_as\":\"console\",\"delay_ticks\":" + number + "}";
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> gson.fromJson(action, TrustedPresetAction.class),
+          number);
+      for (String type : List.of("confirmation", "item")) {
+        String prompt =
+            "{\"type\":\""
+                + type
+                + "\",\"id\":\"test\",\"prompt_text\":\"Choose\",\"timeout\":"
+                + number
+                + "}";
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> gson.fromJson(prompt, PromptDefinition.class),
+            type + ": " + number);
+      }
+    }
+  }
+
+  @Test
+  void timingFieldsAcceptExactlyIntegralNumericNotation() {
+    var action =
+        gson.fromJson(
+            "{\"command\":\"say yes\",\"execute_as\":\"console\",\"delay_ticks\":1e1}",
+            TrustedPresetAction.class);
+    assertEquals(10, action.delayTicks());
+    var prompt =
+        (ConfirmationPrompt)
+            gson.fromJson(
+                "{\"type\":\"confirmation\",\"id\":\"test\",\"prompt_text\":\"Choose\",\"timeout\":30.0}",
+                PromptDefinition.class);
+    assertEquals(30, prompt.timeout());
+  }
+
+  @Test
   void chatPromptDeserialize() {
     String json =
         """
@@ -568,16 +615,15 @@ class PromptDefinitionDeserializerTest {
     // The record's canonical constructor enforces type=="dialog".
     var base = new DialogBaseConfig(List.of(), List.of());
     var dt = new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null, null, null);
-    assertThrows(IllegalArgumentException.class,
-        () -> new DialogPrompt("chat", "x", "T", base, dt, true));
+    assertThrows(
+        IllegalArgumentException.class, () -> new DialogPrompt("chat", "x", "T", base, dt, true));
   }
 
   @Test
   void dialogPromptNullDialogTypeRejectedByConstructor() {
     // The schema requires dialog_type; the record enforces non-null too.
     assertThrows(
-        NullPointerException.class,
-        () -> new DialogPrompt("dialog", "x", "T", null, null, true));
+        NullPointerException.class, () -> new DialogPrompt("dialog", "x", "T", null, null, true));
   }
 
   @Test
@@ -821,7 +867,8 @@ class PromptDefinitionDeserializerTest {
 
   @Test
   void confirmationPromptSupportsAllModesCaseInsensitively() {
-    for (String mode : List.of("gui", "dialog", "chat", "GUI", "DIALOG", "CHAT", "gUi", "Dialog", "cHaT")) {
+    for (String mode :
+        List.of("gui", "dialog", "chat", "GUI", "DIALOG", "CHAT", "gUi", "Dialog", "cHaT")) {
       String json =
           """
           {
@@ -830,7 +877,8 @@ class PromptDefinitionDeserializerTest {
             "mode": "%s",
             "prompt_text": "Test"
           }
-          """.formatted(mode);
+          """
+              .formatted(mode);
       PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
       assertInstanceOf(ConfirmationPrompt.class, def);
       ConfirmationPrompt cp = (ConfirmationPrompt) def;
@@ -858,28 +906,92 @@ class PromptDefinitionDeserializerTest {
   void confirmationPromptModelTimeoutBounds() {
     // Null timeout allowed (inherits global)
     var nullTimeoutPrompt =
-        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, null);
+        new ConfirmationPrompt(
+            "confirmation",
+            "c1",
+            null,
+            null,
+            "Proceed?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            null);
     assertNull(nullTimeoutPrompt.timeout());
 
     // Boundary values 1 and 3600 accepted
     var minPrompt =
-        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 1);
+        new ConfirmationPrompt(
+            "confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 1);
     assertEquals(1, minPrompt.timeout());
 
     var maxPrompt =
-        new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 3600);
+        new ConfirmationPrompt(
+            "confirmation",
+            "c1",
+            null,
+            null,
+            "Proceed?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            3600);
     assertEquals(3600, maxPrompt.timeout());
 
     // 0 and 3601 and negative rejected
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 0));
+        () ->
+            new ConfirmationPrompt(
+                "confirmation",
+                "c1",
+                null,
+                null,
+                "Proceed?",
+                null,
+                null,
+                false,
+                null,
+                true,
+                null,
+                0));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, 3601));
+        () ->
+            new ConfirmationPrompt(
+                "confirmation",
+                "c1",
+                null,
+                null,
+                "Proceed?",
+                null,
+                null,
+                false,
+                null,
+                true,
+                null,
+                3601));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ConfirmationPrompt("confirmation", "c1", null, null, "Proceed?", null, null, false, null, true, null, -1));
+        () ->
+            new ConfirmationPrompt(
+                "confirmation",
+                "c1",
+                null,
+                null,
+                "Proceed?",
+                null,
+                null,
+                false,
+                null,
+                true,
+                null,
+                -1));
   }
 
   @Test
@@ -922,7 +1034,8 @@ class PromptDefinitionDeserializerTest {
           "timeout": 0
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
 
     // Timeout 3601 rejected
     String json3601 =
@@ -934,7 +1047,8 @@ class PromptDefinitionDeserializerTest {
           "timeout": 3601
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
 
     // Timeout negative rejected
     String jsonNeg =
@@ -946,7 +1060,8 @@ class PromptDefinitionDeserializerTest {
           "timeout": -5
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonNeg, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonNeg, PromptDefinition.class));
 
     // Timeout string rejected
     String jsonStr =
@@ -958,7 +1073,8 @@ class PromptDefinitionDeserializerTest {
           "timeout": "thirty"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonStr, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonStr, PromptDefinition.class));
   }
 
   // ------------------------------------------------------------------
@@ -1031,7 +1147,9 @@ class PromptDefinitionDeserializerTest {
 
   @Test
   void itemPromptSupportsSourceAndOutputAliases() {
-    for (String src : List.of("inv", "inventory", "hand", "mainhand", "armor", "catalog", "INV", "Hand", "CATALOG")) {
+    for (String src :
+        List.of(
+            "inv", "inventory", "hand", "mainhand", "armor", "catalog", "INV", "Hand", "CATALOG")) {
       String json =
           """
           {
@@ -1040,12 +1158,11 @@ class PromptDefinitionDeserializerTest {
             "prompt_text": "Test",
             "source": "%s"
           }
-          """.formatted(src);
+          """
+              .formatted(src);
       PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
       assertInstanceOf(ItemPrompt.class, def);
-      assertEquals(
-          dev.cyr1en.promptcore.ItemSource.fromAlias(src),
-          ((ItemPrompt) def).source());
+      assertEquals(dev.cyr1en.promptcore.ItemSource.fromAlias(src), ((ItemPrompt) def).source());
     }
 
     for (String out : List.of("key", "material", "amount", "KEY", "Material", "AMOUNT")) {
@@ -1057,12 +1174,12 @@ class PromptDefinitionDeserializerTest {
             "prompt_text": "Test",
             "output": "%s"
           }
-          """.formatted(out);
+          """
+              .formatted(out);
       PromptDefinition def = gson.fromJson(json, PromptDefinition.class);
       assertInstanceOf(ItemPrompt.class, def);
       assertEquals(
-          dev.cyr1en.promptcore.ItemOutputFormat.fromAlias(out),
-          ((ItemPrompt) def).output());
+          dev.cyr1en.promptcore.ItemOutputFormat.fromAlias(out), ((ItemPrompt) def).output());
     }
   }
 
@@ -1145,7 +1262,8 @@ class PromptDefinitionDeserializerTest {
   @Test
   void itemPromptModelTimeoutBounds() {
     // Null timeout allowed
-    var nullTimeout = new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, null);
+    var nullTimeout =
+        new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, null);
     assertNull(nullTimeout.timeout());
 
     // Boundary values 1 and 3600
@@ -1156,26 +1274,38 @@ class PromptDefinitionDeserializerTest {
     assertEquals(3600, max.timeout());
 
     // Out of bounds
-    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 0));
-    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 3601));
-    assertThrows(IllegalArgumentException.class, () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, -1));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 0));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, 3601));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new ItemPrompt("item", "i1", "Prompt", null, null, null, null, true, null, -1));
   }
 
   @Test
   void itemPromptJsonTimeoutBounds() {
-    String json1 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 1}";
+    String json1 =
+        "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 1}";
     PromptDefinition def1 = gson.fromJson(json1, PromptDefinition.class);
     assertEquals(1, ((ItemPrompt) def1).timeout());
 
-    String json3600 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3600}";
+    String json3600 =
+        "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3600}";
     PromptDefinition def3600 = gson.fromJson(json3600, PromptDefinition.class);
     assertEquals(3600, ((ItemPrompt) def3600).timeout());
 
-    String json0 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 0}";
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
+    String json0 =
+        "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 0}";
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(json0, PromptDefinition.class));
 
-    String json3601 = "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3601}";
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
+    String json3601 =
+        "{\"type\": \"item\", \"id\": \"i1\", \"prompt_text\": \"Test\", \"timeout\": 3601}";
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(json3601, PromptDefinition.class));
   }
 
   @Test
@@ -1216,7 +1346,8 @@ class PromptDefinitionDeserializerTest {
           "sound": "MINECRAFT:BELL"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
 
     // Blank sound rejected
     String jsonBlank =
@@ -1228,7 +1359,8 @@ class PromptDefinitionDeserializerTest {
           "sound": ""
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
 
     // Control characters in sound rejected
     String jsonCtrl =
@@ -1240,7 +1372,8 @@ class PromptDefinitionDeserializerTest {
           "sound": "bell\\u0000key"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
 
     // Overlength sound rejected (> 256)
     String jsonOver =
@@ -1251,8 +1384,10 @@ class PromptDefinitionDeserializerTest {
           "prompt_text": "Test",
           "sound": "minecraft:%s"
         }
-        """.formatted("a".repeat(250));
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
+        """
+            .formatted("a".repeat(250));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
   }
 
   @Test
@@ -1282,7 +1417,8 @@ class PromptDefinitionDeserializerTest {
           "category": "MINERALS"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonUpper, PromptDefinition.class));
 
     // Space in category rejected
     String jsonSpace =
@@ -1295,7 +1431,8 @@ class PromptDefinitionDeserializerTest {
           "category": "rare minerals"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonSpace, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonSpace, PromptDefinition.class));
 
     // Blank category rejected
     String jsonBlank =
@@ -1308,7 +1445,8 @@ class PromptDefinitionDeserializerTest {
           "category": ""
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonBlank, PromptDefinition.class));
 
     // Control char in category rejected
     String jsonCtrl =
@@ -1321,7 +1459,8 @@ class PromptDefinitionDeserializerTest {
           "category": "cat\\u0000"
         }
         """;
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonCtrl, PromptDefinition.class));
 
     // Overlength category rejected (> 64)
     String jsonOver =
@@ -1333,7 +1472,9 @@ class PromptDefinitionDeserializerTest {
           "source": "catalog",
           "category": "%s"
         }
-        """.formatted("c".repeat(65));
-    assertThrows(IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
+        """
+            .formatted("c".repeat(65));
+    assertThrows(
+        IllegalArgumentException.class, () -> gson.fromJson(jsonOver, PromptDefinition.class));
   }
 }

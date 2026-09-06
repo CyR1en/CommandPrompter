@@ -7,6 +7,7 @@ import java.util.Objects;
  * Paper-level lifecycle stages for an executing command plan.
  *
  * <p>Stages transition sequentially:
+ *
  * <ol>
  *   <li>{@link #PRE_DISPATCH_GATES} - Evaluating pre-dispatch approval/condition gates.
  *   <li>{@link #PRIMARY_DISPATCH} - Executing the primary command (at most once).
@@ -14,6 +15,7 @@ import java.util.Objects;
  * </ol>
  *
  * <p>Terminal states:
+ *
  * <ul>
  *   <li>{@link #COMPLETED} - All plan actions finished successfully.
  *   <li>{@link #CANCELLED} - Plan cancelled or aborted before or during execution.
@@ -52,17 +54,11 @@ public enum ExecutionStage {
       return false;
     }
     return switch (this) {
-      case PRE_DISPATCH_GATES -> next == PRIMARY_DISPATCH
-          || next == POST_ACTIONS
-          || next == CANCELLED
-          || next == ERROR;
-      case PRIMARY_DISPATCH -> next == POST_ACTIONS
-          || next == COMPLETED
-          || next == CANCELLED
-          || next == ERROR;
-      case POST_ACTIONS -> next == COMPLETED
-          || next == CANCELLED
-          || next == ERROR;
+      case PRE_DISPATCH_GATES ->
+          next == PRIMARY_DISPATCH || next == POST_ACTIONS || next == CANCELLED || next == ERROR;
+      case PRIMARY_DISPATCH ->
+          next == POST_ACTIONS || next == COMPLETED || next == CANCELLED || next == ERROR;
+      case POST_ACTIONS -> next == COMPLETED || next == CANCELLED || next == ERROR;
       case COMPLETED, CANCELLED, ERROR -> false;
     };
   }

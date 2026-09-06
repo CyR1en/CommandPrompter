@@ -73,7 +73,8 @@ public final class ApprovalCapabilityRegistry {
   }
 
   /**
-   * Truncates a nonce to a safe prefix suitable for logging or diagnostics without leaking raw token.
+   * Truncates a nonce to a safe prefix suitable for logging or diagnostics without leaking raw
+   * token.
    *
    * @param nonce the raw nonce token
    * @return safe truncated representation
@@ -91,8 +92,8 @@ public final class ApprovalCapabilityRegistry {
   /**
    * Attempts to register a new approval capability with a relative TTL.
    *
-   * <p>If the target approver or execution already has an active pending capability,
-   * registration fails closed and returns {@link Optional#empty()}.</p>
+   * <p>If the target approver or execution already has an active pending capability, registration
+   * fails closed and returns {@link Optional#empty()}.
    *
    * @param executionId execution ID
    * @param gateId gate preset ID
@@ -100,7 +101,8 @@ public final class ApprovalCapabilityRegistry {
    * @param initiatorIncarnation initiator incarnation
    * @param target target approver UUID
    * @param ttl time to live duration
-   * @return optional containing the registered capability, or empty if target is busy or collision exhausted
+   * @return optional containing the registered capability, or empty if target is busy or collision
+   *     exhausted
    */
   public synchronized Optional<ApprovalCapability> register(
       ExecutionId executionId,
@@ -182,11 +184,12 @@ public final class ApprovalCapabilityRegistry {
   /**
    * Registers a pre-constructed capability.
    *
-   * <p>Rejects pre-constructed duplicates if the nonce is already in use, or if the target/execution
-   * is already busy with an active capability.</p>
+   * <p>Rejects pre-constructed duplicates if the nonce is already in use, or if the
+   * target/execution is already busy with an active capability.
    *
    * @param capability the capability to register
-   * @return true if registered, false if nonce collision or target/execution is busy with another active capability
+   * @return true if registered, false if nonce collision or target/execution is busy with another
+   *     active capability
    */
   public synchronized boolean registerCapability(ApprovalCapability capability) {
     Objects.requireNonNull(capability, "capability must not be null");
@@ -265,7 +268,7 @@ public final class ApprovalCapabilityRegistry {
    *
    * <p>Validates that the nonce exists, has not expired, and that {@code responderTarget} matches
    * the capability's bound target. If responder does not match, the capability is <b>not</b>
-   * consumed or removed.</p>
+   * consumed or removed.
    *
    * @param nonce the raw nonce token
    * @param responderTarget the UUID of the player attempting to respond
@@ -292,9 +295,7 @@ public final class ApprovalCapabilityRegistry {
     return Optional.of(capability);
   }
 
-  /**
-   * Looks up a capability by its nonce without consuming it.
-   */
+  /** Looks up a capability by its nonce without consuming it. */
   public synchronized Optional<ApprovalCapability> getByNonce(String nonce) {
     if (nonce == null) {
       return Optional.empty();
@@ -310,9 +311,7 @@ public final class ApprovalCapabilityRegistry {
     return Optional.empty();
   }
 
-  /**
-   * Looks up the active capability for a target approver.
-   */
+  /** Looks up the active capability for a target approver. */
   public synchronized Optional<ApprovalCapability> getByTarget(UUID target) {
     if (target == null) {
       return Optional.empty();
@@ -324,9 +323,7 @@ public final class ApprovalCapabilityRegistry {
     return Optional.empty();
   }
 
-  /**
-   * Looks up the active capability for an execution ID.
-   */
+  /** Looks up the active capability for an execution ID. */
   public synchronized Optional<ApprovalCapability> getByExecution(ExecutionId executionId) {
     if (executionId == null) {
       return Optional.empty();
@@ -338,9 +335,7 @@ public final class ApprovalCapabilityRegistry {
     return Optional.empty();
   }
 
-  /**
-   * Checks whether a target approver currently has an active pending capability.
-   */
+  /** Checks whether a target approver currently has an active pending capability. */
   public synchronized boolean isTargetBusy(UUID target) {
     return getByTarget(target).isPresent();
   }
@@ -439,7 +434,8 @@ public final class ApprovalCapabilityRegistry {
    * @param incarnation initiator incarnation
    * @return list of invalidated capabilities
    */
-  public synchronized List<ApprovalCapability> invalidateInitiator(UUID initiator, long incarnation) {
+  public synchronized List<ApprovalCapability> invalidateInitiator(
+      UUID initiator, long incarnation) {
     if (initiator == null) {
       return List.of();
     }
@@ -477,9 +473,7 @@ public final class ApprovalCapabilityRegistry {
     return expired.size();
   }
 
-  /**
-   * Clears all capabilities from all indexes.
-   */
+  /** Clears all capabilities from all indexes. */
   public synchronized void clear() {
     byNonce.clear();
     byInitiator.clear();
@@ -487,9 +481,7 @@ public final class ApprovalCapabilityRegistry {
     byExecution.clear();
   }
 
-  /**
-   * Returns the count of active capabilities in the registry after pruning expired ones.
-   */
+  /** Returns the count of active capabilities in the registry after pruning expired ones. */
   public synchronized int size() {
     cleanExpired();
     return byNonce.size();

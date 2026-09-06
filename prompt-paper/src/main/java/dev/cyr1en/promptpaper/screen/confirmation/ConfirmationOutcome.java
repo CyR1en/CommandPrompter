@@ -7,45 +7,46 @@ import java.util.Objects;
  * Result outcome of a confirmation prompt interaction.
  *
  * <p>Represents one of three terminal outcomes:
+ *
  * <ul>
- *   <li>{@link Confirmed} — player explicitly confirmed</li>
- *   <li>{@link Declined} — player explicitly declined or closed the view</li>
- *   <li>{@link Cancelled} — session/prompt was cancelled externally with a {@link CancelReason}</li>
+ *   <li>{@link Confirmed} — player explicitly confirmed
+ *   <li>{@link Declined} — player explicitly declined or closed the view
+ *   <li>{@link Cancelled} — session/prompt was cancelled externally with a {@link CancelReason}
  * </ul>
  */
 public sealed interface ConfirmationOutcome {
 
-    record Confirmed() implements ConfirmationOutcome {}
+  record Confirmed() implements ConfirmationOutcome {}
 
-    record Declined() implements ConfirmationOutcome {}
+  record Declined() implements ConfirmationOutcome {}
 
-    record Cancelled(CancelReason reason) implements ConfirmationOutcome {
-        public Cancelled {
-            Objects.requireNonNull(reason, "reason must not be null");
-        }
+  record Cancelled(CancelReason reason) implements ConfirmationOutcome {
+    public Cancelled {
+      Objects.requireNonNull(reason, "reason must not be null");
     }
+  }
 
-    static ConfirmationOutcome confirmed() {
-        return new Confirmed();
-    }
+  static ConfirmationOutcome confirmed() {
+    return new Confirmed();
+  }
 
-    static ConfirmationOutcome declined() {
-        return new Declined();
-    }
+  static ConfirmationOutcome declined() {
+    return new Declined();
+  }
 
-    static ConfirmationOutcome cancelled(CancelReason reason) {
-        return new Cancelled(reason);
-    }
+  static ConfirmationOutcome cancelled(CancelReason reason) {
+    return new Cancelled(reason);
+  }
 
-    default boolean isConfirmed() {
-        return this instanceof Confirmed;
-    }
+  default boolean isConfirmed() {
+    return this instanceof Confirmed;
+  }
 
-    default boolean isDeclined() {
-        return this instanceof Declined;
-    }
+  default boolean isDeclined() {
+    return this instanceof Declined;
+  }
 
-    default boolean isCancelled() {
-        return this instanceof Cancelled;
-    }
+  default boolean isCancelled() {
+    return this instanceof Cancelled;
+  }
 }

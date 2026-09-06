@@ -15,13 +15,13 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.entity.Player;
 
 /**
- * A decorating {@link InputScreen} that shows an Adventure API on-screen title to the player for
- * a configurable number of ticks before opening the underlying (delegate) prompt screen.
+ * A decorating {@link InputScreen} that shows an Adventure API on-screen title to the player for a
+ * configurable number of ticks before opening the underlying (delegate) prompt screen.
  *
  * <p>The wrapper is inserted by {@link dev.cyr1en.promptpaper.factory.PromptFactory} whenever a
- * {@link PromptDefinition} carries a non-null {@link TitleConfig}. The title is sent immediately
- * in {@link #open()}, and the delegate screen is opened after {@code ticks} ticks (default 70)
- * via a {@link Scheduler#runLater} delayed task.
+ * {@link PromptDefinition} carries a non-null {@link TitleConfig}. The title is sent immediately in
+ * {@link #open()}, and the delegate screen is opened after {@code ticks} ticks (default 70) via a
+ * {@link Scheduler#runLater} delayed task.
  *
  * <p>Lifecycle methods ({@link #onResult}, {@link #close}, {@link #isOpen}) are forwarded to the
  * delegate so the rest of the pipeline ( {@link ScreenManager}, listeners, etc.) is unaware of the
@@ -72,16 +72,16 @@ public class TitleWrapperScreen implements InputScreen {
   }
 
   /**
-   * Sets a hook to be invoked when the wrapped delegate screen is actually opened
-   * (after title display duration).
+   * Sets a hook to be invoked when the wrapped delegate screen is actually opened (after title
+   * display duration).
    */
   public void setOnDelegateOpen(Runnable onDelegateOpen) {
     this.onDelegateOpen = onDelegateOpen;
   }
 
   /**
-   * Sends the Adventure title to the player and schedules the delegate screen to open after
-   * {@code ticks} ticks.
+   * Sends the Adventure title to the player and schedules the delegate screen to open after {@code
+   * ticks} ticks.
    */
   @Override
   public void open() {
@@ -99,40 +99,50 @@ public class TitleWrapperScreen implements InputScreen {
     var title = Title.title(main, sub, times);
     player.showTitle(title);
 
-    plugin.getPluginLogger().debug(
-        "TitleWrapper: showing title for " + player.getName()
-            + " ticks=" + ticks + " ticks, then opening " + delegate.getClass().getSimpleName());
+    plugin
+        .getPluginLogger()
+        .debug(
+            "TitleWrapper: showing title for "
+                + player.getName()
+                + " ticks="
+                + ticks
+                + " ticks, then opening "
+                + delegate.getClass().getSimpleName());
 
     open = true;
     var uuid = player.getUniqueId();
     var task =
-        player.getScheduler().runDelayed(
-            plugin,
-            scheduledTask -> {
-              pendingTask = null;
-              try {
-                delegate.open();
-                if (onDelegateOpen != null) {
-                  onDelegateOpen.run();
-                }
-              } catch (Throwable e) {
-                open = false;
-                if (openFailureCallback != null) {
-                  openFailureCallback.accept(e);
-                } else {
-                  clearRetiredState(uuid);
-                }
-                plugin.getPluginLogger().err("Unable to open wrapped prompt screen: "
-                    + e.getMessage());
-              }
-            },
-            () -> clearRetiredState(uuid),
-            ticks);
+        player
+            .getScheduler()
+            .runDelayed(
+                plugin,
+                scheduledTask -> {
+                  pendingTask = null;
+                  try {
+                    delegate.open();
+                    if (onDelegateOpen != null) {
+                      onDelegateOpen.run();
+                    }
+                  } catch (Throwable e) {
+                    open = false;
+                    if (openFailureCallback != null) {
+                      openFailureCallback.accept(e);
+                    } else {
+                      clearRetiredState(uuid);
+                    }
+                    plugin
+                        .getPluginLogger()
+                        .err("Unable to open wrapped prompt screen: " + e.getMessage());
+                  }
+                },
+                () -> clearRetiredState(uuid),
+                ticks);
     if (task == null) {
       pendingTask = null;
       open = false;
       if (openFailureCallback != null) {
-        openFailureCallback.accept(new IllegalStateException("Failed to schedule delegate open on player scheduler"));
+        openFailureCallback.accept(
+            new IllegalStateException("Failed to schedule delegate open on player scheduler"));
       } else {
         clearRetiredState(uuid);
       }
@@ -173,8 +183,7 @@ public class TitleWrapperScreen implements InputScreen {
   }
 
   /**
-   * Returns {@code true} once {@link #open()} has been called and until {@link #close()} is
-   * called.
+   * Returns {@code true} once {@link #open()} has been called and until {@link #close()} is called.
    */
   @Override
   public boolean isOpen() {
@@ -182,8 +191,8 @@ public class TitleWrapperScreen implements InputScreen {
   }
 
   /**
-   * Forwards the result callback to the delegate screen so results flow directly to the
-   * registered consumer.
+   * Forwards the result callback to the delegate screen so results flow directly to the registered
+   * consumer.
    */
   @Override
   public void onResult(Consumer<ScreenResult> callback) {

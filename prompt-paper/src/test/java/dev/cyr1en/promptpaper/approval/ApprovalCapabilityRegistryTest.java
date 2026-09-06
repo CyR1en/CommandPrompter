@@ -80,7 +80,8 @@ class ApprovalCapabilityRegistryTest {
   }
 
   @Test
-  @DisplayName("register successfully indexes capability across nonce, initiator, target, and execution")
+  @DisplayName(
+      "register successfully indexes capability across nonce, initiator, target, and execution")
   void testRegisterAndIndexing() {
     ExecutionId execId = ExecutionId.create();
     UUID initiator = UUID.randomUUID();
@@ -204,7 +205,13 @@ class ApprovalCapabilityRegistryTest {
     UUID target = UUID.randomUUID();
     ApprovalCapability cap =
         registry
-            .register(ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target, Duration.ofSeconds(30))
+            .register(
+                ExecutionId.create(),
+                "gate1",
+                UUID.randomUUID(),
+                1L,
+                target,
+                Duration.ofSeconds(30))
             .orElseThrow();
 
     Optional<ApprovalCapability> first = registry.consume(cap.nonce(), target);
@@ -220,7 +227,13 @@ class ApprovalCapabilityRegistryTest {
     UUID target = UUID.randomUUID();
     ApprovalCapability cap =
         registry
-            .register(ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target, Duration.ofSeconds(30))
+            .register(
+                ExecutionId.create(),
+                "gate1",
+                UUID.randomUUID(),
+                1L,
+                target,
+                Duration.ofSeconds(30))
             .orElseThrow();
 
     clock.advance(Duration.ofSeconds(35));
@@ -254,7 +267,13 @@ class ApprovalCapabilityRegistryTest {
     UUID target = UUID.randomUUID();
     ApprovalCapability cap =
         registry
-            .register(ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target, Duration.ofSeconds(30))
+            .register(
+                ExecutionId.create(),
+                "gate1",
+                UUID.randomUUID(),
+                1L,
+                target,
+                Duration.ofSeconds(30))
             .orElseThrow();
 
     Optional<ApprovalCapability> removed = registry.invalidateTarget(target);
@@ -270,8 +289,10 @@ class ApprovalCapabilityRegistryTest {
     UUID target1 = UUID.randomUUID();
     UUID target2 = UUID.randomUUID();
 
-    registry.register(ExecutionId.create(), "gate1", initiator, 1L, target1, Duration.ofSeconds(30));
-    registry.register(ExecutionId.create(), "gate2", initiator, 2L, target2, Duration.ofSeconds(30));
+    registry.register(
+        ExecutionId.create(), "gate1", initiator, 1L, target1, Duration.ofSeconds(30));
+    registry.register(
+        ExecutionId.create(), "gate2", initiator, 2L, target2, Duration.ofSeconds(30));
     assertEquals(2, registry.size());
 
     List<ApprovalCapability> removed = registry.invalidateInitiator(initiator);
@@ -310,8 +331,10 @@ class ApprovalCapabilityRegistryTest {
     UUID target1 = UUID.randomUUID();
     UUID target2 = UUID.randomUUID();
 
-    registry.register(ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target1, Duration.ofSeconds(10));
-    registry.register(ExecutionId.create(), "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(60));
+    registry.register(
+        ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target1, Duration.ofSeconds(10));
+    registry.register(
+        ExecutionId.create(), "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(60));
 
     clock.advance(Duration.ofSeconds(20));
 
@@ -328,7 +351,13 @@ class ApprovalCapabilityRegistryTest {
     UUID target = UUID.randomUUID();
     ApprovalCapability cap =
         registry
-            .register(ExecutionId.create(), "gate1", UUID.randomUUID(), 1L, target, Duration.ofSeconds(30))
+            .register(
+                ExecutionId.create(),
+                "gate1",
+                UUID.randomUUID(),
+                1L,
+                target,
+                Duration.ofSeconds(30))
             .orElseThrow();
 
     int threadCount = 16;
@@ -390,7 +419,8 @@ class ApprovalCapabilityRegistryTest {
     ApprovalCapabilityRegistry testRegistry = new ApprovalCapabilityRegistry(scriptedRandom, clock);
 
     // Pre-seed the colliding capability
-    String collisionNonce = "a_" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(collisionBytes);
+    String collisionNonce =
+        "a_" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(collisionBytes);
     ApprovalCapability initialCap =
         new ApprovalCapability(
             collisionNonce,
@@ -406,7 +436,8 @@ class ApprovalCapabilityRegistryTest {
     ExecutionId exec2 = ExecutionId.create();
     UUID target2 = UUID.randomUUID();
     Optional<ApprovalCapability> resultOpt =
-        testRegistry.register(exec2, "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(30));
+        testRegistry.register(
+            exec2, "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(30));
 
     assertTrue(resultOpt.isPresent(), "Registration must succeed after bounded retry loop");
     assertEquals(2, testRegistry.size());
@@ -415,7 +446,8 @@ class ApprovalCapabilityRegistryTest {
   }
 
   @Test
-  @DisplayName("NONCE COLLISION: Exhaustion of MAX_NONCE_GENERATION_ATTEMPTS fails closed without overwriting")
+  @DisplayName(
+      "NONCE COLLISION: Exhaustion of MAX_NONCE_GENERATION_ATTEMPTS fails closed without overwriting")
   void testNonceCollisionExhaustionFailsClosedWithoutOverwriting() {
     byte[] collisionBytes = new byte[16];
     java.util.Arrays.fill(collisionBytes, (byte) 0x55);
@@ -430,7 +462,8 @@ class ApprovalCapabilityRegistryTest {
     ApprovalCapabilityRegistry testRegistry = new ApprovalCapabilityRegistry(scriptedRandom, clock);
 
     // Pre-seed the colliding capability
-    String collisionNonce = "a_" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(collisionBytes);
+    String collisionNonce =
+        "a_" + java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(collisionBytes);
     ApprovalCapability initialCap =
         new ApprovalCapability(
             collisionNonce,
@@ -446,11 +479,15 @@ class ApprovalCapabilityRegistryTest {
     ExecutionId exec2 = ExecutionId.create();
     UUID target2 = UUID.randomUUID();
     Optional<ApprovalCapability> resultOpt =
-        testRegistry.register(exec2, "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(30));
+        testRegistry.register(
+            exec2, "gate2", UUID.randomUUID(), 1L, target2, Duration.ofSeconds(30));
 
     assertTrue(resultOpt.isEmpty(), "Registration must fail closed when retry attempts exhausted");
     assertEquals(1, testRegistry.size(), "Registry size must remain unchanged");
-    assertEquals(initialCap, testRegistry.getByNonce(collisionNonce).orElseThrow(), "Initial capability must remain untouched");
+    assertEquals(
+        initialCap,
+        testRegistry.getByNonce(collisionNonce).orElseThrow(),
+        "Initial capability must remain untouched");
   }
 
   private static final class ScriptedSecureRandom extends java.security.SecureRandom {
@@ -472,9 +509,7 @@ class ApprovalCapabilityRegistryTest {
     }
   }
 
-  /**
-   * Test clock fixture for deterministic instant advancement.
-   */
+  /** Test clock fixture for deterministic instant advancement. */
   private static final class MutableClock extends java.time.Clock {
     private final AtomicReference<Instant> current;
 

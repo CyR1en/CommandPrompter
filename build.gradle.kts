@@ -1,3 +1,9 @@
+import com.diffplug.gradle.spotless.SpotlessExtension
+
+plugins {
+    id("com.diffplug.spotless") version "7.0.2" apply false
+}
+
 allprojects {
     group = "dev.cyr1en"
     version = "3.3.0"
@@ -11,6 +17,24 @@ tasks.register("printVersion") {
 subprojects {
     apply(plugin = "maven-publish")
 
+    plugins.withId("java") {
+        configure<JavaPluginExtension> {
+            toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+        }
+        tasks.withType<Test>().configureEach {
+            useJUnitPlatform()
+        }
+
+        apply(plugin = "com.diffplug.spotless")
+        configure<SpotlessExtension> {
+            java {
+                googleJavaFormat("1.27.0")
+                removeUnusedImports()
+                target("src/**/*.java")
+            }
+        }
+    }
+
     configure<PublishingExtension> {
         repositories {
             maven {
@@ -22,7 +46,7 @@ subprojects {
                 }
             }
         }
-        
+
         publications {
             create<MavenPublication>("mavenJava") {
                 afterEvaluate {

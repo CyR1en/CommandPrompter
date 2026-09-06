@@ -4,8 +4,8 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * Represents the {@code base} block of a {@link DialogPrompt}. Maps to the {@code base}
- * definition in the JSON schema — Paper's native {@code DialogBase} builder shape.
+ * Represents the {@code base} block of a {@link DialogPrompt}. Maps to the {@code base} definition
+ * in the JSON schema — Paper's native {@code DialogBase} builder shape.
  *
  * @param body optional body elements (plain messages, item icons); may be empty
  * @param inputs optional input rows (mirrors the existing {@code dialogRow} schema)

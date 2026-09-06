@@ -44,7 +44,7 @@ public final class TemplateCompiler {
    * @throws TransformException if the template is malformed or exceeds bounds
    */
   public static CompiledTemplate compile(String source, TemplateSyntax syntax) {
-    return compile(source, syntax, (body, sourceOffset) -> body, Set.of());
+    return compile(source, syntax, (body, _) -> body, Set.of());
   }
 
   /**
@@ -293,7 +293,7 @@ public final class TemplateCompiler {
         }
       }
 
-      transformer = parseTransformer(transformSpec, sourceOffset);
+      transformer = parseTransformer(transformSpec);
     }
 
     if (key.isEmpty()) {
@@ -311,7 +311,7 @@ public final class TemplateCompiler {
     return new ReferenceSegment(key, transformer);
   }
 
-  private static Transformer parseTransformer(String spec, int sourceOffset) {
+  private static Transformer parseTransformer(String spec) {
     if (spec.equals("upper")) {
       return UpperTransformer.INSTANCE;
     }
@@ -337,18 +337,18 @@ public final class TemplateCompiler {
     }
 
     if (spec.startsWith("default")) {
-      return parseDefaultTransformer(spec, sourceOffset);
+      return parseDefaultTransformer(spec);
     }
 
     if (spec.startsWith("math")) {
-      return parseMathTransformer(spec, sourceOffset);
+      return parseMathTransformer(spec);
     }
 
     throw new TransformException(
         TransformErrorCode.UNKNOWN_TRANSFORMER, "Unknown transformer: '" + spec + "'");
   }
 
-  private static DefaultTransformer parseDefaultTransformer(String spec, int sourceOffset) {
+  private static DefaultTransformer parseDefaultTransformer(String spec) {
     String afterDefault = spec.substring("default".length()).strip();
     if (!afterDefault.startsWith("=")) {
       throw new TransformException(
@@ -410,7 +410,7 @@ public final class TemplateCompiler {
     return new DefaultTransformer(defaultVal.toString());
   }
 
-  private static MathTransformer parseMathTransformer(String spec, int sourceOffset) {
+  private static MathTransformer parseMathTransformer(String spec) {
     String afterMath = spec.substring("math".length()).strip();
     if (!afterMath.startsWith("(") || !afterMath.endsWith(")")) {
       throw new TransformException(

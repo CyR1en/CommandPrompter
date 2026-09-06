@@ -55,4 +55,3 @@ public record AnvilPrompt(
     this(type, id, title, promptText, leftButton, rightButton, sanitize, null);
   }
 }
-

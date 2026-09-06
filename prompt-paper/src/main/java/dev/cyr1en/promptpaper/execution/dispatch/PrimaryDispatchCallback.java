@@ -10,10 +10,10 @@ package dev.cyr1en.promptpaper.execution.dispatch;
 @FunctionalInterface
 public interface PrimaryDispatchCallback {
 
-    /**
-     * Invoked when dispatch completes, either successfully or with a typed error.
-     *
-     * @param outcome the typed dispatch outcome
-     */
-    void onComplete(DispatchOutcome outcome);
+  /**
+   * Invoked when dispatch completes, either successfully or with a typed error.
+   *
+   * @param outcome the typed dispatch outcome
+   */
+  void onComplete(DispatchOutcome outcome);
 }

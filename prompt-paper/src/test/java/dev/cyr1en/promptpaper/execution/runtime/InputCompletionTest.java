@@ -31,7 +31,14 @@ class InputCompletionTest {
 
     InputCompletion completion =
         new InputCompletion(
-            initiator, 1, 42L, mutableAnswers, "give player1 diamond 64", plan, snapshot, dispatchContext);
+            initiator,
+            1,
+            42L,
+            mutableAnswers,
+            "give player1 diamond 64",
+            plan,
+            snapshot,
+            dispatchContext);
 
     // Modify original list
     mutableAnswers.add("extra");

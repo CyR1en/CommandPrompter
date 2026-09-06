@@ -10,9 +10,7 @@ import com.google.gson.JsonSerializer;
 import java.lang.reflect.Type;
 import java.util.Locale;
 
-/**
- * Gson serializer and deserializer for {@link SelfApprovalPolicy}.
- */
+/** Gson serializer and deserializer for {@link SelfApprovalPolicy}. */
 public class SelfApprovalPolicyDeserializer
     implements JsonDeserializer<SelfApprovalPolicy>, JsonSerializer<SelfApprovalPolicy> {
 

@@ -46,9 +46,7 @@ class ScreenContextTest {
       })
   @DisplayName("Invalid keys throw IllegalArgumentException")
   void invalidKeysThrowException(String invalidKey) {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new ScreenContext(invalidKey, "Display"));
+    assertThrows(IllegalArgumentException.class, () -> new ScreenContext(invalidKey, "Display"));
   }
 
   @ParameterizedTest
@@ -93,9 +91,7 @@ class ScreenContextTest {
     assertFalse(context.flags().containsKey("new_flag"));
     assertFalse(context.sanitize());
 
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> context.flags().put("k", "v"));
+    assertThrows(UnsupportedOperationException.class, () -> context.flags().put("k", "v"));
   }
 
   @Test

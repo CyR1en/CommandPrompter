@@ -63,12 +63,8 @@ class PaperConfigLoaderTest extends MockBukkitTest {
   void collidingConfiguredKeyReloadRejectsAndKeepsOldStateUntilUnregistered() throws Exception {
     when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
 
-    var customRegistry = new CustomScreenRegistry(
-            () -> true,
-            Map::of,
-            PromptConfig.RESERVED_SCREEN_KEYS,
-            null
-    );
+    var customRegistry =
+        new CustomScreenRegistry(() -> true, Map::of, PromptConfig.RESERVED_SCREEN_KEYS, null);
     var resolver = new ScreenKeyResolver(customRegistry, Map.of());
     when(plugin.getScreenKeyResolver()).thenReturn(resolver);
 

@@ -4,7 +4,6 @@ import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * The result of parsing a raw command string.
@@ -159,30 +158,6 @@ public record ParsedCommand(
     return !preDispatchGates.isEmpty();
   }
 
-  /** Defensive accessor for the parsed prompt list. */
-  @Override
-  public List<PromptTag> promptTags() {
-    return List.copyOf(promptTags);
-  }
-
-  /** Defensive accessor for the parsed PCM list. */
-  @Override
-  public List<PostCommandMeta> postCmds() {
-    return List.copyOf(postCmds);
-  }
-
-  /** Defensive accessor for the parsed pre-dispatch gates list. */
-  @Override
-  public List<PreDispatchGateSpec> preDispatchGates() {
-    return List.copyOf(preDispatchGates);
-  }
-
-  /** Defensive accessor for source spans. */
-  @Override
-  public List<TemplateSpan> templateSpans() {
-    return List.copyOf(templateSpans);
-  }
-
   /** PCMs that run on successful completion ({@code <!...>}). */
   public List<PostCommandMeta> onCompletePCMs() {
     return postCmds.stream().filter(pcm -> !pcm.onCancel()).toList();
@@ -283,7 +258,7 @@ public record ParsedCommand(
         for (int i = 0; i < count; i++) {
           parts.add(formatCommandToken(answers.get(answerIndex++)));
         }
-        command.append(parts.stream().collect(Collectors.joining(" ")));
+        command.append(String.join(" ", parts));
       }
       // count == 0: drop the raw tag without consuming an answer.
       cursor = span.end();
@@ -297,14 +272,6 @@ public record ParsedCommand(
 
     var trimmed = command.toString().trim();
     return trimmed.endsWith(" ") ? trimmed : trimmed + " ";
-  }
-
-  /**
-   * Fallback for the old four-argument constructor. New parser output always carries spans; this
-   * path keeps source compatibility for integrations that build ParsedCommand values themselves.
-   */
-  private static String buildLegacyPartialCommand(ParsedCommand parsed, List<String> answers) {
-    return buildLegacyPartialCommand(parsed, answers, inferSubmittedCounts(parsed, answers));
   }
 
   /**
@@ -347,11 +314,11 @@ public record ParsedCommand(
         for (int i = 0; i < count; i++) {
           parts.add(formatCommandToken(answers.get(answerIndex++)));
         }
-        command.append(parts.stream().collect(Collectors.joining(" ")));
+        command.append(String.join(" ", parts));
       }
       cursor = index + tag.rawTag().length();
     }
-    if (cursor == 0 || !stoppedEarly) {
+    if (!stoppedEarly) {
       command.append(unescape(template.substring(cursor), parsed.parserConfig()));
     }
     // Do not use a wildcard PCM expression here: only spans from the parser are authoritative.

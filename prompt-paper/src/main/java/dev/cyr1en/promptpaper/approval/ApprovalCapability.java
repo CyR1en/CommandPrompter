@@ -6,8 +6,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Immutable approval capability bound to a cryptographic nonce, exact execution ID,
- * gate preset ID, initiator UUID + incarnation, target approver UUID, and expiration.
+ * Immutable approval capability bound to a cryptographic nonce, exact execution ID, gate preset ID,
+ * initiator UUID + incarnation, target approver UUID, and expiration.
  */
 public record ApprovalCapability(
     String nonce,
@@ -62,7 +62,8 @@ public record ApprovalCapability(
   }
 
   /**
-   * Truncates the nonce to a safe prefix suitable for logging or diagnostics without leaking the raw token.
+   * Truncates the nonce to a safe prefix suitable for logging or diagnostics without leaking the
+   * raw token.
    *
    * @return safe masked nonce
    */
@@ -76,13 +77,20 @@ public record ApprovalCapability(
   @Override
   public String toString() {
     return "ApprovalCapability["
-        + "nonce=" + safeMaskedNonce()
-        + ", executionId=" + executionId
-        + ", gateId=" + gateId
-        + ", initiator=" + initiator
-        + ", initiatorIncarnation=" + initiatorIncarnation
-        + ", target=" + target
-        + ", expiresAt=" + expiresAt
+        + "nonce="
+        + safeMaskedNonce()
+        + ", executionId="
+        + executionId
+        + ", gateId="
+        + gateId
+        + ", initiator="
+        + initiator
+        + ", initiatorIncarnation="
+        + initiatorIncarnation
+        + ", target="
+        + target
+        + ", expiresAt="
+        + expiresAt
         + "]";
   }
 }

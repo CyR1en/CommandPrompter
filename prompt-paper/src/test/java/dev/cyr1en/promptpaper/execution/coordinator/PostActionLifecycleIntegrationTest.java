@@ -3,7 +3,6 @@ package dev.cyr1en.promptpaper.execution.coordinator;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptcore.DispatchTarget;
 import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.ParserConfig;
@@ -13,18 +12,14 @@ import dev.cyr1en.promptcore.plan.ExecutionPlanAdapter;
 import dev.cyr1en.promptcore.plan.ExecutionPlanDefinition;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import dev.cyr1en.promptpaper.MockBukkitTest;
-import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
-import dev.cyr1en.promptpaper.execution.dispatch.DispatchErrorKind;
 import dev.cyr1en.promptpaper.execution.dispatch.DispatchOutcome;
 import dev.cyr1en.promptpaper.execution.dispatch.ImmediateActionDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PaperImmediateActionDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PaperPrimaryCommandDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PrimaryCommandDispatcher;
 import dev.cyr1en.promptpaper.execution.postaction.PostActionScheduler;
-import dev.cyr1en.promptpaper.execution.postaction.template.PapiReferenceResolver;
 import dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot;
-import dev.cyr1en.promptpaper.execution.runtime.ExecutionPlanInstance;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionStage;
 import dev.cyr1en.promptpaper.execution.runtime.InputCompletion;
@@ -39,7 +34,6 @@ import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.util.CancellableTask;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -135,14 +128,7 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
 
     screenManager =
         new ScreenManager(
-            plugin,
-            engine,
-            plugin.getPromptFactory(),
-            scheduler,
-            null,
-            null,
-            null,
-            null);
+            plugin, engine, plugin.getPromptFactory(), scheduler, null, null, null, null);
 
     registerCapturingCommand("eco");
     registerCapturingCommand("say");
@@ -192,15 +178,21 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var immediatePcm =
-        new PostCommandMeta("say immediate-action", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say immediate-action", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var delayedPcm =
-        new PostCommandMeta("say delayed-action", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say delayed-action", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
 
     var sessionResult =
         new SessionResult("goodcmd", List.of(), List.of(immediatePcm, delayedPcm), List.of());
     var plan =
         ExecutionPlanAdapter.fromParsedCommand(
-            new ParsedCommand("goodcmd", List.of(), List.of(immediatePcm, delayedPcm), ParserConfig.ANGLE_BRACKETS));
+            new ParsedCommand(
+                "goodcmd",
+                List.of(),
+                List.of(immediatePcm, delayedPcm),
+                ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -251,15 +243,21 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var onCompletePcm =
-        new PostCommandMeta("say success-pcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say success-pcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
     var onCancelPcm =
-        new PostCommandMeta("say cancel-pcm", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say cancel-pcm", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
 
     var sessionResult =
         new SessionResult("failcmd", List.of(), List.of(onCompletePcm), List.of(onCancelPcm));
     var plan =
         ExecutionPlanAdapter.fromParsedCommand(
-            new ParsedCommand("failcmd", List.of(), List.of(onCompletePcm, onCancelPcm), ParserConfig.ANGLE_BRACKETS));
+            new ParsedCommand(
+                "failcmd",
+                List.of(),
+                List.of(onCompletePcm, onCancelPcm),
+                ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -301,7 +299,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
         (p, inst, spec, idx, callback) -> {
           var onDenyAction =
               new TrustedPresetAction(
-                  dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile("say on-deny-fired"),
+                  dev.cyr1en.promptcore.logic.transform.TemplateCompiler.compile(
+                      "say on-deny-fired"),
                   ExecuteAs.CONSOLE,
                   0);
           callback.onResult(PreDispatchGateResult.denied(onDenyAction));
@@ -320,7 +319,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var onCancelPcm =
-        new PostCommandMeta("say cancel-chain-action", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say cancel-chain-action", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
 
     var approvalSpec = new PreDispatchGateSpec.Approval("test_preset");
     var plan =
@@ -329,8 +329,7 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             List.of(approvalSpec),
             List.of());
 
-    var sessionResult =
-        new SessionResult("primary", List.of(), List.of(), List.of(onCancelPcm));
+    var sessionResult = new SessionResult("primary", List.of(), List.of(), List.of(onCancelPcm));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -372,7 +371,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
     engine.setExecutionCoordinator(customCoordinator);
 
     var delayedCancelPcm =
-        new PostCommandMeta("say cancel-delayed-50t", new int[0], 50, true, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say cancel-delayed-50t", new int[0], 50, true, DispatchTarget.PASSTHROUGH, false);
 
     var completion =
         new InputCompletion(
@@ -403,7 +403,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("5. Coordinator cancel / quit / reload / disable drops delayed actions and cancels handles")
+  @DisplayName(
+      "5. Coordinator cancel / quit / reload / disable drops delayed actions and cancels handles")
   void quitReloadDisableDropsDelayedActionsAndCancelsHandles() {
     var player = createPlayer("TestDropDelayed");
 
@@ -420,12 +421,14 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var delayedPcm =
-        new PostCommandMeta("say should-never-run", new int[0], 100, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say should-never-run", new int[0], 100, false, DispatchTarget.PASSTHROUGH, false);
 
     var sessionResult = new SessionResult("goodcmd", List.of(), List.of(delayedPcm), List.of());
     var plan =
         ExecutionPlanAdapter.fromParsedCommand(
-            new ParsedCommand("goodcmd", List.of(), List.of(delayedPcm), ParserConfig.ANGLE_BRACKETS));
+            new ParsedCommand(
+                "goodcmd", List.of(), List.of(delayedPcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -473,12 +476,14 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var delayedPcm =
-        new PostCommandMeta("say race-action", new int[0], 10, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say race-action", new int[0], 10, false, DispatchTarget.PASSTHROUGH, false);
 
     var sessionResult = new SessionResult("goodcmd", List.of(), List.of(delayedPcm), List.of());
     var plan =
         ExecutionPlanAdapter.fromParsedCommand(
-            new ParsedCommand("goodcmd", List.of(), List.of(delayedPcm), ParserConfig.ANGLE_BRACKETS));
+            new ParsedCommand(
+                "goodcmd", List.of(), List.of(delayedPcm), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -521,14 +526,18 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var delayed1 =
-        new PostCommandMeta("say action-1", new int[0], 10, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say action-1", new int[0], 10, false, DispatchTarget.PASSTHROUGH, false);
     var delayed2 =
-        new PostCommandMeta("say action-2", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "say action-2", new int[0], 20, false, DispatchTarget.PASSTHROUGH, false);
 
-    var sessionResult = new SessionResult("goodcmd", List.of(), List.of(delayed1, delayed2), List.of());
+    var sessionResult =
+        new SessionResult("goodcmd", List.of(), List.of(delayed1, delayed2), List.of());
     var plan =
         ExecutionPlanAdapter.fromParsedCommand(
-            new ParsedCommand("goodcmd", List.of(), List.of(delayed1, delayed2), ParserConfig.ANGLE_BRACKETS));
+            new ParsedCommand(
+                "goodcmd", List.of(), List.of(delayed1, delayed2), ParserConfig.ANGLE_BRACKETS));
     var completion =
         InputCompletion.of(
             player.getUniqueId(),
@@ -558,7 +567,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("8. PAPI injection FLOW-11 end-to-end: exact token resolved and untrusted inline protected")
+  @DisplayName(
+      "8. PAPI injection FLOW-11 end-to-end: exact token resolved and untrusted inline protected")
   void papiInjectionFlow11EndToEnd() {
     var player = createPlayer("PapiUser");
     player.setOp(true);
@@ -591,7 +601,9 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
     var presetPcm =
         new PostCommandMeta("papi_reward", new int[0], 0, false, DispatchTarget.CONSOLE, true);
     var inlinePcm =
-        new PostCommandMeta("broadcast Inline %server_name% {player}", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "broadcast Inline %server_name% {player}",
+            new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
 
     var sessionResult =
         new SessionResult("goodcmd", List.of(), List.of(presetPcm, inlinePcm), List.of());
@@ -624,22 +636,14 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
 
     var presetV1 =
         new PostCommand(
-            "reward",
-            "eco give {player} 100",
-            ExecutionPolicy.ON_COMPLETE,
-            ExecuteAs.CONSOLE,
-            20);
+            "reward", "eco give {player} 100", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 20);
     presetPostCommands.put("reward", presetV1);
     var capturedSnapshot = currentSnapshot();
 
     // Now reload changes preset definition to 500
     var presetV2 =
         new PostCommand(
-            "reward",
-            "eco give {player} 500",
-            ExecutionPolicy.ON_COMPLETE,
-            ExecuteAs.CONSOLE,
-            20);
+            "reward", "eco give {player} 500", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 20);
     presetPostCommands.put("reward", presetV2);
 
     var customCoordinator =
@@ -697,7 +701,13 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             p -> (task, retired) -> task.run());
 
     var pcm =
-        new PostCommandMeta("msg {player} your answer was {input:1}", new int[]{0}, 0, false, DispatchTarget.PASSTHROUGH, false);
+        new PostCommandMeta(
+            "msg {player} your answer was {input:1}",
+            new int[] {0},
+            0,
+            false,
+            DispatchTarget.PASSTHROUGH,
+            false);
 
     var sessionResult = new SessionResult("goodcmd", List.of("apple"), List.of(pcm), List.of());
     var completion =
@@ -718,7 +728,8 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("11. Zero production calls to deprecated PostCommandResolver, PostCommandPlaceholderResolver, and dispatchPCMs")
+  @DisplayName(
+      "11. Zero production calls to deprecated PostCommandResolver, PostCommandPlaceholderResolver, and dispatchPCMs")
   void noProductionLegacyResolverCallers() throws IOException {
     Path srcMain = Path.of("src/main/java");
     if (!Files.exists(srcMain)) {
@@ -735,7 +746,9 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
             "Production file " + file + " must not reference deprecated PostCommandResolver");
         assertFalse(
             content.contains("PostCommandPlaceholderResolver"),
-            "Production file " + file + " must not reference deprecated PostCommandPlaceholderResolver");
+            "Production file "
+                + file
+                + " must not reference deprecated PostCommandPlaceholderResolver");
         assertFalse(
             content.contains("dispatchPCMs"),
             "Production file " + file + " must not reference deprecated dispatchPCMs");

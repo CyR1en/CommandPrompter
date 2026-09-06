@@ -13,27 +13,42 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
- * Hook for the HuskTowns plugin. Registers a {@code ht} player-list filter
- * that returns all members of the executing player's current town.
+ * Hook for the HuskTowns plugin. Registers a {@code ht} player-list filter that returns all members
+ * of the executing player's current town.
  */
 @TargetPlugin(pluginName = "HuskTowns")
 public class HuskTownsHook extends BaseHook implements FilterHook {
 
-    public HuskTownsHook(CommandPrompter plugin) { super(plugin); }
+  public HuskTownsHook(CommandPrompter plugin) {
+    super(plugin);
+  }
+
+  @Override
+  public void registerFilters(HeadCache cache) {
+    cache.registerFilter(new TownFilter());
+  }
+
+  private static class TownFilter extends CacheFilter {
+    TownFilter() {
+      super(Pattern.compile("ht"), "HuskTowns");
+    }
 
     @Override
-    public void registerFilters(HeadCache cache) {
-        cache.registerFilter(new TownFilter());
+    public CacheFilter reConstruct(String promptKey) {
+      return this;
     }
 
-    private static class TownFilter extends CacheFilter {
-        TownFilter() { super(Pattern.compile("ht"), "HuskTowns"); }
-        @Override public CacheFilter reConstruct(String promptKey) { return this; }
-        @Override public List<Player> filter(Player relative) {
-            var opt = HuskTownsAPI.getInstance().getUserTown(User.of(relative.getUniqueId(), relative.getName()));
-            if (opt.isEmpty()) return List.of();
-            return opt.get().town().getMembers().keySet().stream()
-                    .map(Bukkit::getPlayer).filter(Objects::nonNull).distinct().toList();
-        }
+    @Override
+    public List<Player> filter(Player relative) {
+      var opt =
+          HuskTownsAPI.getInstance()
+              .getUserTown(User.of(relative.getUniqueId(), relative.getName()));
+      if (opt.isEmpty()) return List.of();
+      return opt.get().town().getMembers().keySet().stream()
+          .map(Bukkit::getPlayer)
+          .filter(Objects::nonNull)
+          .distinct()
+          .toList();
     }
+  }
 }

@@ -2,19 +2,13 @@ package dev.cyr1en.promptpaper.preset;
 
 import com.google.gson.annotations.SerializedName;
 
-/**
- * Policy defining whether an action initiated by an authorized approver requires approval.
- */
+/** Policy defining whether an action initiated by an authorized approver requires approval. */
 public enum SelfApprovalPolicy {
-  /**
-   * Approver's own action is automatically approved without gating.
-   */
+  /** Approver's own action is automatically approved without gating. */
   @SerializedName("auto_approve")
   AUTO_APPROVE,
 
-  /**
-   * Approver must explicitly confirm their own action.
-   */
+  /** Approver must explicitly confirm their own action. */
   @SerializedName("require_confirm")
   REQUIRE_CONFIRM;
 

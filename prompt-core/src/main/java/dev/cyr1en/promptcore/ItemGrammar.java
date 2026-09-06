@@ -124,27 +124,8 @@ public final class ItemGrammar {
     }
 
     var promptText = sb.toString().trim();
-    var source = state.source == null ? ItemSource.INVENTORY : state.source;
-    var outputFormat = state.outputFormat == null ? ItemOutputFormat.KEY : state.outputFormat;
-    var category = state.category;
-
-    // Enforce source and category invariants
-    if (source == ItemSource.CATALOG) {
-      if (category == null || category.isBlank()) {
-        category = "all";
-      }
-      if (outputFormat == ItemOutputFormat.SLOT) {
-        throw new IllegalArgumentException(
-            "Output format 'slot' is not supported for catalog source");
-      }
-    } else {
-      if (category != null) {
-        throw new IllegalArgumentException(
-            "Category filter '-cat:' is only valid for catalog source, but source was: " + source);
-      }
-    }
-
-    return new ItemSyntax(promptText, source, outputFormat, category, state.soundKey);
+    return new ItemSyntax(
+        promptText, state.source, state.outputFormat, state.category, state.soundKey);
   }
 
   private static List<Span> extractSpans(String seg) {

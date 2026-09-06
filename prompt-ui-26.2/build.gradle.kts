@@ -3,12 +3,6 @@ plugins {
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
-
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")

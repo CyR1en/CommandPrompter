@@ -8,8 +8,8 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Immutable trusted action definition containing a pre-compiled command template,
- * execution target context, and scheduled tick delay.
+ * Immutable trusted action definition containing a pre-compiled command template, execution target
+ * context, and scheduled tick delay.
  *
  * <p>Constructed only from trusted administrative sources such as {@code presets.json}.
  *
@@ -46,7 +46,8 @@ public record TrustedPresetAction(
     }
   }
 
-  public static TrustedPresetAction of(CompiledTemplate command, ExecuteAs executeAs, int delayTicks) {
+  public static TrustedPresetAction of(
+      CompiledTemplate command, ExecuteAs executeAs, int delayTicks) {
     return new TrustedPresetAction(command, executeAs, delayTicks);
   }
 
@@ -58,7 +59,8 @@ public record TrustedPresetAction(
     return of(commandSource, executeAs, delayTicks, TemplateSyntax.DEFAULT);
   }
 
-  public static TrustedPresetAction of(String commandSource, ExecuteAs executeAs, int delayTicks, TemplateSyntax syntax) {
+  public static TrustedPresetAction of(
+      String commandSource, ExecuteAs executeAs, int delayTicks, TemplateSyntax syntax) {
     Objects.requireNonNull(commandSource, "command source must not be null");
     Objects.requireNonNull(syntax, "syntax must not be null");
     if (commandSource.isBlank()) {
@@ -83,7 +85,8 @@ public record TrustedPresetAction(
     return of(commandSource, executeAs, 0, TemplateSyntax.DEFAULT);
   }
 
-  public static TrustedPresetAction of(String commandSource, ExecuteAs executeAs, TemplateSyntax syntax) {
+  public static TrustedPresetAction of(
+      String commandSource, ExecuteAs executeAs, TemplateSyntax syntax) {
     return of(commandSource, executeAs, 0, syntax);
   }
 }

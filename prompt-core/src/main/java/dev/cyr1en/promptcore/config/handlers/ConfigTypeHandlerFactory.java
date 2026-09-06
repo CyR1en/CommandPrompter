@@ -1,6 +1,11 @@
 package dev.cyr1en.promptcore.config.handlers;
 
-import dev.cyr1en.promptcore.config.handlers.impl.*;
+import dev.cyr1en.promptcore.config.handlers.impl.BooleanHandler;
+import dev.cyr1en.promptcore.config.handlers.impl.DoubleHandler;
+import dev.cyr1en.promptcore.config.handlers.impl.FloatHandler;
+import dev.cyr1en.promptcore.config.handlers.impl.IntegerHandler;
+import dev.cyr1en.promptcore.config.handlers.impl.ListHandler;
+import dev.cyr1en.promptcore.config.handlers.impl.StringHandler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

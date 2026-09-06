@@ -8,10 +8,10 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 /**
  * A {@link TagFilter} that skips MiniMessage formatting tags.
  *
- * <p>When the prompt delimiters are angle brackets ({@code < >}), MiniMessage tags like
- * {@code <red>}, {@code </red>}, {@code <gradient:gold:yellow>}, and {@code <bold>} use the same
- * syntax and would be incorrectly parsed as prompt tags. This filter detects them by deserializing
- * the tag content with a standard MiniMessage instance and comparing the result to plain text.
+ * <p>When the prompt delimiters are angle brackets ({@code < >}), MiniMessage tags like {@code
+ * <red>}, {@code </red>}, {@code <gradient:gold:yellow>}, and {@code <bold>} use the same syntax
+ * and would be incorrectly parsed as prompt tags. This filter detects them by deserializing the tag
+ * content with a standard MiniMessage instance and comparing the result to plain text.
  *
  * <p>Both opening tags ({@code red}) and closing tags ({@code /red}) are detected. A closing tag is
  * recognized when the content starts with {@code /} and the remainder (without the slash) is a
@@ -30,8 +30,8 @@ public final class MiniMessageTagFilter implements TagFilter {
    *
    * <p>For closing tags (content starting with {@code /}), the slash is stripped before checking.
    *
-   * @param content the raw text between the delimiters (e.g. {@code "red"}, {@code "/red"},
-   *     {@code "gradient:gold:yellow"})
+   * @param content the raw text between the delimiters (e.g. {@code "red"}, {@code "/red"}, {@code
+   *     "gradient:gold:yellow"})
    * @return {@code true} if this is a MiniMessage tag, {@code false} otherwise
    */
   @Override

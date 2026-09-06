@@ -5,13 +5,13 @@ import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
- * Dialog-prompt definition: an interactive dialog matching Paper's native {@code Dialog}
- * builder shape ({@code DialogBase} + {@code DialogType}).
+ * Dialog-prompt definition: an interactive dialog matching Paper's native {@code Dialog} builder
+ * shape ({@code DialogBase} + {@code DialogType}).
  *
- * <p>This is the post-refactor shape defined in
- * {@code docs/superpowers/specs/2026-06-16-dialog-ui-refactor-spec.html}. It replaces the
- * legacy flat {@code rows} array with a {@link #base()} + {@link #dialogType()} pair so the
- * preset definition exactly mirrors Paper's builder API.
+ * <p>This is the post-refactor shape defined in {@code
+ * docs/superpowers/specs/2026-06-16-dialog-ui-refactor-spec.html}. It replaces the legacy flat
+ * {@code rows} array with a {@link #base()} + {@link #dialogType()} pair so the preset definition
+ * exactly mirrors Paper's builder API.
  *
  * @param type the discriminator value, always {@code "dialog"}
  * @param id the unique identifier
@@ -19,9 +19,9 @@ import java.util.Objects;
  * @param base optional {@code base} block (body elements + input rows); may be {@code null}
  * @param dialogType the required {@code dialog_type} block describing the action layout
  * @param sanitize whether to strip color codes from the player's input
- * @param titleDisplay optional title-wrapper config; {@code null} when not requested. Distinct
- *     from {@code title} (the dialog window title) — this controls the on-screen Adventure title
- *     shown before the dialog opens.
+ * @param titleDisplay optional title-wrapper config; {@code null} when not requested. Distinct from
+ *     {@code title} (the dialog window title) — this controls the on-screen Adventure title shown
+ *     before the dialog opens.
  */
 public record DialogPrompt(
     String type,
@@ -58,4 +58,3 @@ public record DialogPrompt(
     this(type, id, title, base, dialogType, sanitize, null);
   }
 }
-

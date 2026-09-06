@@ -35,19 +35,19 @@ import org.bukkit.entity.Player;
  * <h2>Expanded exactly once</h2>
  *
  * <ul>
- *   <li>{@code ChatPrompt}: {@code promptText}, {@code cancel.message},
- *       {@code cancel.hoverMessage}.
- *   <li>{@code AnvilPrompt}: {@code title}, {@code promptText}, both {@code AnvilButton}
- *       {@code buttonText} / {@code buttonHoverText}.
+ *   <li>{@code ChatPrompt}: {@code promptText}, {@code cancel.message}, {@code
+ *       cancel.hoverMessage}.
+ *   <li>{@code AnvilPrompt}: {@code title}, {@code promptText}, both {@code AnvilButton} {@code
+ *       buttonText} / {@code buttonHoverText}.
  *   <li>{@code SignPrompt}: {@code promptText}, every {@code defaultLines} entry.
- *   <li>{@code PlayerUiPrompt}: {@code promptText}, every {@code UIButton}
- *       {@code buttonText} / {@code buttonHoverText}.
- *   <li>{@code DialogPrompt}: {@code title}, every {@code DialogBodyConfig.content},
- *       every {@code DialogRow.label}, and the {@code label} / {@code tooltip} of every
- *       static / confirm / cancel / exit {@code ActionButtonConfig}.
+ *   <li>{@code PlayerUiPrompt}: {@code promptText}, every {@code UIButton} {@code buttonText} /
+ *       {@code buttonHoverText}.
+ *   <li>{@code DialogPrompt}: {@code title}, every {@code DialogBodyConfig.content}, every {@code
+ *       DialogRow.label}, and the {@code label} / {@code tooltip} of every static / confirm /
+ *       cancel / exit {@code ActionButtonConfig}.
  *   <li>All variants: {@code titleDisplay.main} / {@code titleDisplay.sub}.
- *   <li>Inline compound {@link PromptTag}: {@code displayText} of every sub-tag (recursively)
- *       and {@code title.main} / {@code title.sub}.
+ *   <li>Inline compound {@link PromptTag}: {@code displayText} of every sub-tag (recursively) and
+ *       {@code title.main} / {@code title.sub}.
  * </ul>
  *
  * <h2>Never expanded</h2>
@@ -58,8 +58,8 @@ import org.bukkit.entity.Player;
  * answers all pass through byte-for-byte unchanged.
  *
  * <p>Null and empty strings are never sent to the expansion delegate: null stays null and an empty
- * {@code titleDisplay.main} keeps its "use the prompt text" fallback meaning for
- * {@link PromptFactory}.
+ * {@code titleDisplay.main} keeps its "use the prompt text" fallback meaning for {@link
+ * PromptFactory}.
  */
 final class PromptPresentationExpander {
 
@@ -83,36 +83,40 @@ final class PromptPresentationExpander {
 
   /**
    * @param expander the per-field expansion function.
-   * @param truncationListener callback invoked when an expanded string exceeds {@value #MAX_DISPLAY_LENGTH}.
+   * @param truncationListener callback invoked when an expanded string exceeds {@value
+   *     #MAX_DISPLAY_LENGTH}.
    */
   PromptPresentationExpander(
-      BiFunction<Player, String, String> expander,
-      TruncationListener truncationListener) {
+      BiFunction<Player, String, String> expander, TruncationListener truncationListener) {
     this.expander = Objects.requireNonNull(expander, "expander");
     this.truncationListener = Objects.requireNonNull(truncationListener, "truncationListener");
   }
 
   /**
-   * Production delegate: resolves PlaceholderAPI placeholders through the registered
-   * {@link PapiHook}, passing text through unchanged when the hook is absent. The hook lookup is
+   * Production delegate: resolves PlaceholderAPI placeholders through the registered {@link
+   * PapiHook}, passing text through unchanged when the hook is absent. The hook lookup is
    * deliberately lazy (inside the lambda) because {@code initHooks()} runs after the factory is
    * constructed during plugin enable.
    *
-   * <p>When an expanded display string exceeds {@value #MAX_DISPLAY_LENGTH}, it emits a safe warning
-   * containing only player identity and lengths — never the expansion content.
+   * <p>When an expanded display string exceeds {@value #MAX_DISPLAY_LENGTH}, it emits a safe
+   * warning containing only player identity and lengths — never the expansion content.
    */
   static PromptPresentationExpander forPlugin(CommandPrompter plugin) {
     return new PromptPresentationExpander(
         (player, text) ->
-            plugin.getHookContainer().getHook(PapiHook.class)
+            plugin
+                .getHookContainer()
+                .getHook(PapiHook.class)
                 .map(h -> h.setPlaceholder(player, text))
                 .orElse(text),
         (player, origLen, maxLen) -> {
           if (plugin != null && plugin.getPluginLogger() != null) {
             var identity = player != null ? player.getName() : "unknown";
-            plugin.getPluginLogger().warn(
-                "Expanded prompt display string truncated for player %s (length: %d, max: %d)",
-                identity, origLen, maxLen);
+            plugin
+                .getPluginLogger()
+                .warn(
+                    "Expanded prompt display string truncated for player %s (length: %d, max: %d)",
+                    identity, origLen, maxLen);
           }
         });
   }
@@ -126,7 +130,8 @@ final class PromptPresentationExpander {
       case SignPrompt sign -> expandSign(player, sign);
       case PlayerUiPrompt pui -> expandPlayerUi(player, pui);
       case DialogPrompt dialog -> expandDialog(player, dialog);
-      case dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation -> expandConfirmation(player, confirmation);
+      case dev.cyr1en.promptpaper.preset.ConfirmationPrompt confirmation ->
+          expandConfirmation(player, confirmation);
       case ItemPrompt item -> expandItem(player, item);
     };
   }
@@ -163,16 +168,14 @@ final class PromptPresentationExpander {
   }
 
   /**
-   * Expands the presentation-only copy of an inline (compound) dialog tag: every sub-tag's
-   * {@code displayText} (recursively) plus the {@code -t} title config. All parser/semantic
-   * components ({@code rawTag}, {@code key}, {@code filter}, {@code validatorAlias}, {@code type},
-   * {@code sanitize}, {@code preset}) are copied through unchanged.
+   * Expands the presentation-only copy of an inline (compound) dialog tag: every sub-tag's {@code
+   * displayText} (recursively) plus the {@code -t} title config. All parser/semantic components
+   * ({@code rawTag}, {@code key}, {@code filter}, {@code validatorAlias}, {@code type}, {@code
+   * sanitize}, {@code preset}) are copied through unchanged.
    */
   PromptTag expandInlineDialog(Player player, PromptTag raw) {
     Objects.requireNonNull(raw, "raw");
-    var subTags = raw.subTags().stream()
-        .map(sub -> expandInlineDialog(player, sub))
-        .toList();
+    var subTags = raw.subTags().stream().map(sub -> expandInlineDialog(player, sub)).toList();
     return new PromptTag(
         raw.rawTag(),
         raw.key(),
@@ -187,9 +190,7 @@ final class PromptPresentationExpander {
         raw.timeout());
   }
 
-  // ------------------------------------------------------------------
   // Per-variant expansion
-  // ------------------------------------------------------------------
 
   private ChatPrompt expandChat(Player player, ChatPrompt chat) {
     return new ChatPrompt(
@@ -326,9 +327,7 @@ final class PromptPresentationExpander {
         button.returnValue());
   }
 
-  // ------------------------------------------------------------------
   // Shared helpers
-  // ------------------------------------------------------------------
 
   /**
    * Expands {@code titleDisplay.main}/{@code sub}. An empty {@code main} is preserved verbatim so
@@ -348,8 +347,8 @@ final class PromptPresentationExpander {
    * unchanged and never reach the delegate (a PAPI expansion of an empty string is a no-op anyway,
    * and the empty-main marker must survive for the title fallback).
    *
-   * <p>Expanded strings exceeding {@value #MAX_DISPLAY_LENGTH} characters are truncated to
-   * {@value #MAX_DISPLAY_LENGTH} and trigger the truncation listener with player identity and lengths.
+   * <p>Expanded strings exceeding {@value #MAX_DISPLAY_LENGTH} characters are truncated to {@value
+   * #MAX_DISPLAY_LENGTH} and trigger the truncation listener with player identity and lengths.
    */
   private String expand(Player player, String text) {
     if (text == null || text.isEmpty()) return text;

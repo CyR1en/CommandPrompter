@@ -6,9 +6,9 @@ import dev.cyr1en.promptcore.PromptTag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit coverage for the {@code <@id>} and {@code <!@id>} preset tag forms (Scope 4). The legacy
- * inline forms and the existing PCM/dialog tests live in {@link CommandLineParserTest}; this class
- * focuses on the new discriminator.
+ * Unit coverage for the {@code <@id>} and {@code <!@id>} preset tag forms. The legacy inline forms
+ * and the existing PCM/dialog tests live in {@link CommandLineParserTest}; this class focuses on
+ * the new discriminator.
  */
 class PresetTagParserTest {
 

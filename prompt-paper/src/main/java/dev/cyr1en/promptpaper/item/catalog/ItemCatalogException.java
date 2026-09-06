@@ -5,11 +5,11 @@ package dev.cyr1en.promptpaper.item.catalog;
  */
 public class ItemCatalogException extends RuntimeException {
 
-    public ItemCatalogException(String message) {
-        super(message);
-    }
+  public ItemCatalogException(String message) {
+    super(message);
+  }
 
-    public ItemCatalogException(String message, Throwable cause) {
-        super(message, cause);
-    }
+  public ItemCatalogException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

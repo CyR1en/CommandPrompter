@@ -4,98 +4,97 @@ import java.util.List;
 
 /** Grouped configuration for the Dialog prompt screen. */
 public record DialogConfig(
-        // Legacy confirm/cancel surfaces kept for backward compatibility.
-        String title,
-        ConfirmButton confirm,
-        CancelButton cancel,
+    // Legacy confirm/cancel surfaces kept for backward compatibility.
+    String title,
+    ConfirmButton confirm,
+    CancelButton cancel,
 
-        // Defaults when the per-tag filter does not override.
-        TextDefaults text,
-        ChoiceDefaults choice,
-        NumberDefaults number,
-        TabDefaults tab
-) {
-    /** Legacy 5-field constructor preserved as a static factory for test sites. */
-    public static DialogConfig legacy(
-            String title,
-            String confirmLabel,
-            String confirmTooltip,
-            String cancelLabel,
-            String cancelTooltip) {
-        return new DialogConfig(
-                title,
-                new ConfirmButton(confirmLabel, confirmTooltip),
-                new CancelButton(cancelLabel, cancelTooltip),
-                TextDefaults.DEFAULTS,
-                ChoiceDefaults.DEFAULTS,
-                NumberDefaults.DEFAULTS,
-                TabDefaults.DEFAULTS);
+    // Defaults when the per-tag filter does not override.
+    TextDefaults text,
+    ChoiceDefaults choice,
+    NumberDefaults number,
+    TabDefaults tab) {
+  /** Legacy 5-field constructor preserved as a static factory for test sites. */
+  public static DialogConfig legacy(
+      String title,
+      String confirmLabel,
+      String confirmTooltip,
+      String cancelLabel,
+      String cancelTooltip) {
+    return new DialogConfig(
+        title,
+        new ConfirmButton(confirmLabel, confirmTooltip),
+        new CancelButton(cancelLabel, cancelTooltip),
+        TextDefaults.DEFAULTS,
+        ChoiceDefaults.DEFAULTS,
+        NumberDefaults.DEFAULTS,
+        TabDefaults.DEFAULTS);
+  }
+
+  public record ConfirmButton(String label, String tooltip) {}
+
+  public record CancelButton(String label, String tooltip) {}
+
+  public record TextDefaults(
+      int maxLength, // default 32
+      boolean multiline, // default false
+      int multilineMaxLines, // default 1 — only used when multiline == true
+      int width // default 200
+      ) {
+    public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1, 200);
+  }
+
+  /**
+   * Defaults for the {@code <d:choice[opt1,opt2,...]:display>} form.
+   *
+   * <p>Per-tag option lists always win — these are used only when a tag declares the choice kind
+   * without an option list (in which case the default is empty and the prompt silently falls back
+   * to a text field).
+   */
+  public record ChoiceDefaults(List<String> defaultOptions) {
+    public static final ChoiceDefaults DEFAULTS = new ChoiceDefaults(List.of());
+  }
+
+  public record NumberDefaults(
+      float min, // default 0.0f
+      float max, // default 100.0f
+      float step, // default 1.0f
+      Float initial // default null → resolved to (min + max) / 2 at build time
+      ) {
+    public static final NumberDefaults DEFAULTS = new NumberDefaults(0.0f, 100.0f, 1.0f, null);
+
+    public NumberDefaults {
+      if (!Float.isFinite(min)
+          || !Float.isFinite(max)
+          || !Float.isFinite(step)
+          || min >= max
+          || step <= 0.0f
+          || !Float.isFinite((min + max) / 2.0f)
+          || (initial != null && !Float.isFinite(initial))) {
+        throw new IllegalArgumentException(
+            "Dialog number defaults must have finite values with min < max and step > 0");
+      }
+      if (initial != null && (initial < min || initial > max)) {
+        throw new IllegalArgumentException(
+            "Dialog number initial value must be within the configured range");
+      }
     }
 
-    public record ConfirmButton(String label, String tooltip) {}
-
-    public record CancelButton(String label, String tooltip) {}
-
-    public record TextDefaults(
-            int maxLength,        // default 32
-            boolean multiline,    // default false
-            int multilineMaxLines,// default 1 — only used when multiline == true
-            int width             // default 200
-    ) {
-        public static final TextDefaults DEFAULTS = new TextDefaults(32, false, 1, 200);
+    /** Effective initial value when no override is given: midpoint. */
+    public float effectiveInitial() {
+      return initial != null ? initial : (min + max) / 2.0f;
     }
+  }
 
-    /**
-     * Defaults for the {@code <d:choice[opt1,opt2,...]:display>} form.
-     *
-     * <p>Per-tag option lists always win — these are used only when a tag
-     * declares the choice kind without an option list (in which case the
-     * default is empty and the prompt silently falls back to a text field).
-     */
-    public record ChoiceDefaults(
-            List<String> defaultOptions
-    ) {
-        public static final ChoiceDefaults DEFAULTS = new ChoiceDefaults(List.of());
-    }
-
-    public record NumberDefaults(
-            float min,            // default 0.0f
-            float max,            // default 100.0f
-            float step,           // default 1.0f
-            Float initial         // default null → resolved to (min + max) / 2 at build time
-    ) {
-        public static final NumberDefaults DEFAULTS = new NumberDefaults(0.0f, 100.0f, 1.0f, null);
-
-        public NumberDefaults {
-            if (!Float.isFinite(min) || !Float.isFinite(max) || !Float.isFinite(step)
-                    || min >= max || step <= 0.0f
-                    || !Float.isFinite((min + max) / 2.0f)
-                    || (initial != null && !Float.isFinite(initial))) {
-                throw new IllegalArgumentException(
-                        "Dialog number defaults must have finite values with min < max and step > 0");
-            }
-            if (initial != null && (initial < min || initial > max)) {
-                throw new IllegalArgumentException(
-                        "Dialog number initial value must be within the configured range");
-            }
-        }
-
-        /** Effective initial value when no override is given: midpoint. */
-        public float effectiveInitial() {
-            return initial != null ? initial : (min + max) / 2.0f;
-        }
-    }
-
-    /**
-     * Defaults for the {@code <d:tab:display>} and {@code <d:tab[N]:display>} forms.
-     *
-     * <p>The {@code maxButtons} threshold controls when the screen switches from a
-     * multi-action button grid to the text-input fallback dialog. A per-tag {@code N}
-     * (in the bracket) always wins; the config default applies when the tag omits it.
-     */
-    public record TabDefaults(
-            int maxButtons // default 5
-    ) {
-        public static final TabDefaults DEFAULTS = new TabDefaults(5);
-    }
+  /**
+   * Defaults for the {@code <d:tab:display>} and {@code <d:tab[N]:display>} forms.
+   *
+   * <p>The {@code maxButtons} threshold controls when the screen switches from a multi-action
+   * button grid to the text-input fallback dialog. A per-tag {@code N} (in the bracket) always
+   * wins; the config default applies when the tag omits it.
+   */
+  public record TabDefaults(int maxButtons // default 5
+      ) {
+    public static final TabDefaults DEFAULTS = new TabDefaults(5);
+  }
 }

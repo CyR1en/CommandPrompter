@@ -1,12 +1,32 @@
 package dev.cyr1en.promptcore.parser;
 
-import dev.cyr1en.promptcore.*;
-import dev.cyr1en.promptcore.logic.condition.*;
+import dev.cyr1en.promptcore.BuiltInPromptType;
+import dev.cyr1en.promptcore.ConfirmationGrammar;
+import dev.cyr1en.promptcore.DispatchTarget;
+import dev.cyr1en.promptcore.ItemGrammar;
+import dev.cyr1en.promptcore.ParsedCommand;
+import dev.cyr1en.promptcore.ParserConfig;
+import dev.cyr1en.promptcore.PostCommandMeta;
+import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.TagFilter;
+import dev.cyr1en.promptcore.TitleConfig;
+import dev.cyr1en.promptcore.logic.condition.Condition;
+import dev.cyr1en.promptcore.logic.condition.ConditionCompileOptions;
+import dev.cyr1en.promptcore.logic.condition.ConditionCompiler;
+import dev.cyr1en.promptcore.logic.condition.ConditionException;
 import dev.cyr1en.promptcore.plan.PostActionSpec;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 /**
@@ -25,20 +45,20 @@ import java.util.regex.Pattern;
 public class CommandLineParser {
 
   private static final Logger LOG = Logger.getLogger(CommandLineParser.class.getName());
+  private static final Pattern PCM_TARGET = Pattern.compile("(?<!\\S)@(console|player)(?=\\s|$)");
+  private static final Pattern ANSWER_REF = Pattern.compile("\\{(\\d+)}");
+  private static final Pattern VALIDATOR_FLAG = Pattern.compile("(?<!\\S)-iv:(\\S*)(?!\\S)");
+  private static final Pattern DS_FLAG = Pattern.compile("(?<!\\S)-ds(?!\\S)");
+  private static final Pattern INT_FLAG = Pattern.compile("(?<!\\S)-int(?!\\S)");
+  private static final Pattern STR_FLAG = Pattern.compile("(?<!\\S)-str(?!\\S)");
+  private static final Pattern TITLE_FLAG =
+      Pattern.compile("(?<!\\S)-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
+  private static final Pattern TIMEOUT_FLAG = Pattern.compile("(?<!\\S)-timeout(?:\\S*)");
+  private static final Pattern TRAILING_KIND_DETECT =
+      Pattern.compile("\\b(?:text|bool|num)(?:\\[[^\\]]*\\])?\\s*$", Pattern.CASE_INSENSITIVE);
 
   private final ParserConfig config;
   private final TagFilter tagFilter;
-  private final Pattern pcmTarget;
-  private final Pattern answerRef;
-  private final Pattern validatorFlag;
-  private final Pattern dsFlag;
-  private final Pattern intFlag;
-  private final Pattern strFlag;
-  private final Pattern titleFlag;
-  private final Pattern timeoutFlag;
-  // Pattern to detect and warn about the deprecated trailing-kind dialog form.
-  private static final Pattern TRAILING_KIND_DETECT =
-      Pattern.compile("\\b(?:text|bool|num)(?:\\[[^\\]]*\\])?\\s*$", Pattern.CASE_INSENSITIVE);
   private final Set<String> seenDeprecationWarnings = ConcurrentHashMap.newKeySet();
 
   /** Maximum allowed prompt tags in a single command. */
@@ -103,15 +123,6 @@ public class CommandLineParser {
   public CommandLineParser(ParserConfig config, TagFilter tagFilter) {
     this.config = config;
     this.tagFilter = tagFilter;
-    this.pcmTarget = Pattern.compile("(?<!\\S)@(console|player)(?=\\s|$)");
-    this.answerRef = Pattern.compile("\\{(\\d+)}");
-    // Flags are tokens, not substrings of display text (for example, cost-int).
-    this.validatorFlag = Pattern.compile("(?<!\\S)-iv:(\\S*)(?!\\S)");
-    this.dsFlag = Pattern.compile("(?<!\\S)-ds(?!\\S)");
-    this.intFlag = Pattern.compile("(?<!\\S)-int(?!\\S)");
-    this.strFlag = Pattern.compile("(?<!\\S)-str(?!\\S)");
-    this.titleFlag = Pattern.compile("(?<!\\S)-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
-    this.timeoutFlag = Pattern.compile("(?<!\\S)-timeout(?:\\S*)");
   }
 
   /** Returns the {@link ParserConfig} used by this parser. */
@@ -205,13 +216,7 @@ public class CommandLineParser {
             + " gates");
 
     return new ParsedCommand(
-        template,
-        Collections.unmodifiableList(promptTags),
-        Collections.unmodifiableList(postCmds),
-        Collections.unmodifiableList(preDispatchGates),
-        config,
-        rawCommand,
-        Collections.unmodifiableList(spans));
+        template, promptTags, postCmds, preDispatchGates, config, rawCommand, spans);
   }
 
   /**
@@ -266,10 +271,10 @@ public class CommandLineParser {
   }
 
   private static boolean isDelayedOrTargetedGate(String content) {
-    if (content.matches("^!:\\d+.*gate.*")) {
+    if (content.matches("^!:\\d+\\s*gate(?:[:@].*|\\s*:.*)")) {
       return true;
     }
-    if (content.matches("^!\\s*@(console|player)\\s+gate.*")) {
+    if (content.matches("^!\\s*@(console|player)\\s+gate(?:[:@].*|\\s*:.*)")) {
       return true;
     }
     return false;
@@ -376,6 +381,8 @@ public class CommandLineParser {
             i = nextIdx + opening.length();
           } else if (rawCommand.startsWith(escape, nextIdx)) {
             i = nextIdx + escape.length();
+          } else if (rawCommand.startsWith("\"", nextIdx)) {
+            i = nextIdx + 1;
           } else {
             i = nextIdx;
           }
@@ -412,15 +419,12 @@ public class CommandLineParser {
   }
 
   private boolean isConfirmationOpener(String s, int index) {
-    if (index >= s.length()) return false;
-    var sub = s.substring(index);
-    return sub.regionMatches(true, 0, "c:", 0, 2) || sub.regionMatches(true, 0, "confirm:", 0, 8);
+    return s.regionMatches(true, index, "c:", 0, 2)
+        || s.regionMatches(true, index, "confirm:", 0, 8);
   }
 
   private boolean isItemOpener(String s, int index) {
-    if (index >= s.length()) return false;
-    var sub = s.substring(index);
-    return sub.regionMatches(true, 0, "i:", 0, 2) || sub.regionMatches(true, 0, "item:", 0, 5);
+    return s.regionMatches(true, index, "i:", 0, 2) || s.regionMatches(true, index, "item:", 0, 5);
   }
 
   private record TagMatch(int start, int end, String content, String rawText) {}
@@ -478,7 +482,7 @@ public class CommandLineParser {
 
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
-    var targetMatcher = pcmTarget.matcher(content);
+    var targetMatcher = PCM_TARGET.matcher(content);
     if (targetMatcher.find()) {
       target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
       content =
@@ -488,7 +492,7 @@ public class CommandLineParser {
 
     // Extract answer references ({N})
     var indices = new ArrayList<Integer>();
-    var refMatcher = answerRef.matcher(content);
+    var refMatcher = ANSWER_REF.matcher(content);
     while (refMatcher.find()) {
       try {
         indices.add(Integer.parseInt(refMatcher.group(1)));
@@ -591,19 +595,18 @@ public class CommandLineParser {
       breakIf = breakIfResult.condition();
     }
 
-    var dsMatcher = dsFlag.matcher(remainder);
-    var newRemainder = dsMatcher.replaceAll("");
+    var newRemainder = stripFlags(DS_FLAG, remainder, false);
     var sanitize = remainder.length() == newRemainder.length();
     remainder = newRemainder;
     var timeout = extractTimeout(remainder);
     if (timeout != null) {
-      remainder = timeoutFlag.matcher(remainder).replaceFirst("");
+      remainder = stripFlags(TIMEOUT_FLAG, remainder, true);
     }
     var validatorAlias = extractValidator(remainder);
-    remainder = validatorFlag.matcher(remainder).replaceAll("");
+    remainder = stripFlags(VALIDATOR_FLAG, remainder, false);
     var type = extractType(remainder);
-    remainder = intFlag.matcher(remainder).replaceAll("");
-    remainder = strFlag.matcher(remainder).replaceAll("");
+    remainder = stripFlags(INT_FLAG, remainder, false);
+    remainder = stripFlags(STR_FLAG, remainder, false);
     var title = extractTitle(remainder);
     remainder = stripTitleFlag(remainder, title);
 
@@ -833,24 +836,21 @@ public class CommandLineParser {
     var contentWithoutBreakIf = breakIfResult.remainingContent();
     var breakIf = breakIfResult.condition();
 
-    var dsMatcher = dsFlag.matcher(contentWithoutBreakIf);
-    var contentWithoutDs = dsMatcher.replaceAll("");
+    var contentWithoutDs = stripFlags(DS_FLAG, contentWithoutBreakIf, false);
     var sanitize = contentWithoutBreakIf.length() == contentWithoutDs.length();
     var timeout = extractTimeout(contentWithoutDs);
     if (timeout != null) {
-      contentWithoutDs = timeoutFlag.matcher(contentWithoutDs).replaceFirst("");
+      contentWithoutDs = stripFlags(TIMEOUT_FLAG, contentWithoutDs, true);
     }
     var validatorAlias = extractValidator(contentWithoutDs);
     var type = extractType(contentWithoutDs);
     var title = extractTitle(contentWithoutDs);
 
     // Strip flags from the compound tag content.
-    var stripped =
-        stripTitleFlag(contentWithoutDs, title)
-            .replaceAll(validatorFlag.pattern(), "")
-            .replaceAll(intFlag.pattern(), "")
-            .replaceAll(strFlag.pattern(), "")
-            .trim();
+    var stripped = stripTitleFlag(contentWithoutDs, title);
+    stripped = stripFlags(VALIDATOR_FLAG, stripped, false);
+    stripped = stripFlags(INT_FLAG, stripped, false);
+    stripped = stripFlags(STR_FLAG, stripped, false).trim();
 
     var subContents = splitCompound(stripped);
     var subTags = new ArrayList<PromptTag>();
@@ -977,9 +977,9 @@ public class CommandLineParser {
    * {@code sub} and {@code ticks}; an empty {@code main} is preserved as an empty string.
    */
   TitleConfig extractTitle(String content) {
-    var m = titleFlag.matcher(content);
-    if (!m.find()) return null;
-    var matched = m.group();
+    var matches = flagMatches(TITLE_FLAG, content);
+    if (matches.isEmpty()) return null;
+    var matched = matches.getFirst().group();
     if (matched.equals("-t")) {
       return new TitleConfig("", null, null);
     }
@@ -1010,7 +1010,7 @@ public class CommandLineParser {
    */
   String stripTitleFlag(String content, TitleConfig title) {
     if (title == null) return content;
-    return titleFlag.matcher(content).replaceFirst("");
+    return stripFlags(TITLE_FLAG, content, true);
   }
 
   /**
@@ -1048,9 +1048,9 @@ public class CommandLineParser {
   }
 
   Integer extractTimeout(String content) {
-    var m = timeoutFlag.matcher(content);
-    if (!m.find()) return null;
-    var matched = m.group();
+    var matches = flagMatches(TIMEOUT_FLAG, content);
+    if (matches.isEmpty()) return null;
+    var matched = matches.getFirst().group();
     if (!matched.startsWith("-timeout:") || matched.length() <= "-timeout:".length()) {
       throw new IllegalArgumentException("Malformed -timeout flag in tag: " + matched);
     }
@@ -1064,25 +1064,61 @@ public class CommandLineParser {
     if (val < 1 || val > 3600) {
       throw new IllegalArgumentException("Timeout value out of range [1, 3600]: " + val);
     }
-    if (m.find()) {
+    if (matches.size() > 1) {
       throw new IllegalArgumentException("Duplicate -timeout flag in tag");
     }
     return val;
   }
 
   private String extractValidator(String content) {
-    var m = validatorFlag.matcher(content);
-    if (!m.find()) return null;
-    var alias = m.group(1);
+    var matches = flagMatches(VALIDATOR_FLAG, content);
+    if (matches.isEmpty()) return null;
+    var alias = matches.getFirst().group(1);
     if (alias.isBlank()) {
       throw new IllegalArgumentException("Blank input-validator alias: ''");
     }
     return alias;
   }
 
+  private List<MatchResult> flagMatches(Pattern pattern, String content) {
+    var matches = new ArrayList<MatchResult>();
+    var matcher = pattern.matcher(content);
+    int cursor = 0;
+    int searchFrom = 0;
+    boolean inQuotes = false;
+    while (matcher.find(searchFrom)) {
+      while (cursor < matcher.start()) {
+        if (content.startsWith(config.escape(), cursor)) {
+          cursor += config.escape().length() + 1;
+        } else {
+          if (content.charAt(cursor) == '"') inQuotes = !inQuotes;
+          cursor++;
+        }
+      }
+      if (!inQuotes && cursor == matcher.start()) {
+        matches.add(matcher.toMatchResult());
+        searchFrom = matcher.end();
+      } else {
+        searchFrom = Math.max(cursor, matcher.start() + 1);
+      }
+    }
+    return matches;
+  }
+
+  private String stripFlags(Pattern pattern, String content, boolean firstOnly) {
+    var output = new StringBuilder(content.length());
+    int cursor = 0;
+    for (var match : flagMatches(pattern, content)) {
+      output.append(content, cursor, match.start());
+      cursor = match.end();
+      if (firstOnly) break;
+    }
+    return output.append(content, cursor, content.length()).toString();
+  }
+
   private PromptTag.AnswerType extractType(String content) {
-    if (intFlag.matcher(content).find()) return PromptTag.AnswerType.INTEGER;
-    if (strFlag.matcher(content).find()) return PromptTag.AnswerType.STRING;
+    if (!flagMatches(INT_FLAG, content).isEmpty()) return PromptTag.AnswerType.INTEGER;
+    if (!flagMatches(STR_FLAG, content).isEmpty()) return PromptTag.AnswerType.STRING;
     return PromptTag.AnswerType.NONE;
   }
 
@@ -1320,31 +1356,9 @@ public class CommandLineParser {
           throw new IllegalArgumentException(
               "Malformed custom flag name '-" + rawName + "' in: " + remaining);
         }
-        if (rawName.length() > MAX_CUSTOM_FLAG_NAME_LENGTH) {
-          throw new IllegalArgumentException(
-              "Custom flag name '-"
-                  + rawName
-                  + "' exceeds maximum length ("
-                  + MAX_CUSTOM_FLAG_NAME_LENGTH
-                  + ")");
-        }
 
         String value = remaining.substring(quoteStart + 1, quoteEnd);
-        if (value.length() > MAX_CUSTOM_FLAG_VALUE_LENGTH) {
-          throw new IllegalArgumentException(
-              "Custom flag value for '-"
-                  + rawName
-                  + "' exceeds maximum length ("
-                  + MAX_CUSTOM_FLAG_VALUE_LENGTH
-                  + ")");
-        }
-
-        String canonicalName = rawName.toLowerCase(Locale.ROOT);
-        if (flags.containsKey(canonicalName)) {
-          throw new IllegalArgumentException("Duplicate custom flag: -" + rawName);
-        }
-
-        flags.put(canonicalName, value);
+        addCustomFlag(flags, rawName, value);
         remaining = remaining.substring(0, dashIdx);
       } else {
         int lastSpace = -1;
@@ -1377,29 +1391,7 @@ public class CommandLineParser {
             throw new IllegalArgumentException(
                 "Malformed custom flag name '-" + rawName + "' in: " + token);
           }
-          if (rawName.length() > MAX_CUSTOM_FLAG_NAME_LENGTH) {
-            throw new IllegalArgumentException(
-                "Custom flag name '-"
-                    + rawName
-                    + "' exceeds maximum length ("
-                    + MAX_CUSTOM_FLAG_NAME_LENGTH
-                    + ")");
-          }
-          if (value.length() > MAX_CUSTOM_FLAG_VALUE_LENGTH) {
-            throw new IllegalArgumentException(
-                "Custom flag value for '-"
-                    + rawName
-                    + "' exceeds maximum length ("
-                    + MAX_CUSTOM_FLAG_VALUE_LENGTH
-                    + ")");
-          }
-
-          String canonicalName = rawName.toLowerCase(Locale.ROOT);
-          if (flags.containsKey(canonicalName)) {
-            throw new IllegalArgumentException("Duplicate custom flag: -" + rawName);
-          }
-
-          flags.put(canonicalName, value);
+          addCustomFlag(flags, rawName, value);
           remaining = remaining.substring(0, tokenStart);
         } else {
           String rawName = token.substring(1);
@@ -1409,21 +1401,7 @@ public class CommandLineParser {
           if (!CUSTOM_FLAG_NAME_PATTERN.matcher(rawName).matches()) {
             break;
           }
-          if (rawName.length() > MAX_CUSTOM_FLAG_NAME_LENGTH) {
-            throw new IllegalArgumentException(
-                "Custom flag name '-"
-                    + rawName
-                    + "' exceeds maximum length ("
-                    + MAX_CUSTOM_FLAG_NAME_LENGTH
-                    + ")");
-          }
-
-          String canonicalName = rawName.toLowerCase(Locale.ROOT);
-          if (flags.containsKey(canonicalName)) {
-            throw new IllegalArgumentException("Duplicate custom flag: -" + rawName);
-          }
-
-          flags.put(canonicalName, "true");
+          addCustomFlag(flags, rawName, "true");
           remaining = remaining.substring(0, tokenStart);
         }
       }
@@ -1450,5 +1428,29 @@ public class CommandLineParser {
     }
 
     return new CustomFlagsResult(remaining, Collections.unmodifiableMap(flags));
+  }
+
+  private static void addCustomFlag(Map<String, String> flags, String rawName, String value) {
+    if (rawName.length() > MAX_CUSTOM_FLAG_NAME_LENGTH) {
+      throw new IllegalArgumentException(
+          "Custom flag name '-"
+              + rawName
+              + "' exceeds maximum length ("
+              + MAX_CUSTOM_FLAG_NAME_LENGTH
+              + ")");
+    }
+    if (value.length() > MAX_CUSTOM_FLAG_VALUE_LENGTH) {
+      throw new IllegalArgumentException(
+          "Custom flag value for '-"
+              + rawName
+              + "' exceeds maximum length ("
+              + MAX_CUSTOM_FLAG_VALUE_LENGTH
+              + ")");
+    }
+
+    var canonicalName = rawName.toLowerCase(Locale.ROOT);
+    if (flags.putIfAbsent(canonicalName, value) != null) {
+      throw new IllegalArgumentException("Duplicate custom flag: -" + rawName);
+    }
   }
 }

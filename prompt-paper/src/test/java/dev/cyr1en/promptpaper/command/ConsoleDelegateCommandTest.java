@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
@@ -16,64 +17,64 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 class ConsoleDelegateCommandTest extends MockBukkitTest {
 
-    private ConsoleDelegateCommand cmd;
-    private ScreenManager screenManager;
+  private ConsoleDelegateCommand cmd;
+  private ScreenManager screenManager;
 
-    @BeforeEach
-    void setUp() {
-        pluginLogger = mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
-        when(plugin.getPluginLogger()).thenReturn(pluginLogger);
-        screenManager = mock(ScreenManager.class);
-        var loader = mock(PaperConfigLoader.class);
-        var engine = mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
-        when(plugin.getScreenManager()).thenReturn(screenManager);
-        when(plugin.getConfigLoader()).thenReturn(loader);
-        when(plugin.getEngine()).thenReturn(engine);
-        cmd = new ConsoleDelegateCommand(plugin);
-    }
+  @BeforeEach
+  void setUp() {
+    pluginLogger = mock(dev.cyr1en.promptpaper.util.PluginLogger.class);
+    when(plugin.getPluginLogger()).thenReturn(pluginLogger);
+    screenManager = mock(ScreenManager.class);
+    var loader = mock(PaperConfigLoader.class);
+    var engine = mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
+    when(plugin.getScreenManager()).thenReturn(screenManager);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getEngine()).thenReturn(engine);
+    cmd = new ConsoleDelegateCommand(plugin);
+  }
 
-    @Test
-    void stripsLeadingSlash() {
-        PlayerMock target = createPlayer("Target");
-        cmd.startSession("Console", target, "/mycommand foo");
-        verify(screenManager, times(1)).startDelegatedSession(
-                target, "mycommand foo", DispatchMode.CONSOLE, null);
-        verify(pluginLogger).info("Console used /consoledelegate");
-    }
+  @Test
+  void stripsLeadingSlash() {
+    PlayerMock target = createPlayer("Target");
+    cmd.startSession("Console", target, "/mycommand foo");
+    verify(screenManager, times(1))
+        .startDelegatedSession(target, "mycommand foo", DispatchMode.CONSOLE, null);
+    verify(pluginLogger).info("Console used /consoledelegate");
+  }
 
-    @Test
-    void replacesTargetPlayerPlaceholder() {
-        PlayerMock target = createPlayer("Alice");
-        cmd.startSession("Console", target, "msg %target_player% hi");
-        verify(screenManager, times(1)).startDelegatedSession(
-                target, "msg %target_player% hi", DispatchMode.CONSOLE, null);
-    }
+  @Test
+  void replacesTargetPlayerPlaceholder() {
+    PlayerMock target = createPlayer("Alice");
+    cmd.startSession("Console", target, "msg %target_player% hi");
+    verify(screenManager, times(1))
+        .startDelegatedSession(target, "msg %target_player% hi", DispatchMode.CONSOLE, null);
+  }
 
-    @Test
-    void noLeadingSlashNoReplacement() {
-        PlayerMock target = createPlayer("Bob");
-        cmd.startSession("Console", target, "plain command");
-        verify(screenManager, times(1)).startDelegatedSession(
-                target, "plain command", DispatchMode.CONSOLE, null);
-    }
+  @Test
+  void noLeadingSlashNoReplacement() {
+    PlayerMock target = createPlayer("Bob");
+    cmd.startSession("Console", target, "plain command");
+    verify(screenManager, times(1))
+        .startDelegatedSession(target, "plain command", DispatchMode.CONSOLE, null);
+  }
 
-    @Test
-    void buildReturnsNonNullLiteralNode() {
-        // ArgumentTypes.player() requires the Paper VanillaArgumentProvider
-        // which is only present in a real server, not in MockBukkit. We
-        // exercise the dispatch logic via startSession() and skip the full
-        // literal build here. The build() call is covered by deploy-time
-        // smoke tests.
-    }
+  @Test
+  void buildReturnsNonNullLiteralNode() {
+    // ArgumentTypes.player() requires the Paper VanillaArgumentProvider
+    // which is only present in a real server, not in MockBukkit. We
+    // exercise the dispatch logic via startSession() and skip the full
+    // literal build here. The build() call is covered by deploy-time
+    // smoke tests.
+  }
 
-    @Test
-    void allowedRequiresConsoleAndPermission() {
-        var console = mock(ConsoleCommandSender.class);
-        when(console.hasPermission("promptpaper.consoledelegate")).thenReturn(true);
-        assertTrue(cmd.allowed(console));
+  @Test
+  void allowedRequiresConsoleAndPermission() {
+    var console = mock(ConsoleCommandSender.class);
+    when(console.hasPermission("promptpaper.consoledelegate")).thenReturn(true);
+    assertTrue(cmd.allowed(console));
 
-        var fakeConsole = mock(ConsoleCommandSender.class);
-        when(fakeConsole.hasPermission("promptpaper.consoledelegate")).thenReturn(false);
-        assertFalse(cmd.allowed(fakeConsole));
-    }
+    var fakeConsole = mock(ConsoleCommandSender.class);
+    when(fakeConsole.hasPermission("promptpaper.consoledelegate")).thenReturn(false);
+    assertFalse(cmd.allowed(fakeConsole));
+  }
 }

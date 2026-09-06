@@ -12,11 +12,11 @@ import net.kyori.adventure.text.format.TextDecoration;
 /**
  * Presenter for chat-based approval requests.
  *
- * <p>Constructs and dispatches grounded Adventure components containing clickable
- * confirm and decline buttons bound to a single-use cryptographic capability nonce.
+ * <p>Constructs and dispatches grounded Adventure components containing clickable confirm and
+ * decline buttons bound to a single-use cryptographic capability nonce.
  *
- * <p>This presenter does <b>not</b> own any PromptSession or InputScreen and performs
- * no scheduling itself; callers are responsible for invoking it on the appropriate entity scheduler.</p>
+ * <p>This presenter does <b>not</b> own any PromptSession or InputScreen and performs no scheduling
+ * itself; callers are responsible for invoking it on the appropriate entity scheduler.
  */
 public final class ChatApprovalPresenter {
 
@@ -44,10 +44,7 @@ public final class ChatApprovalPresenter {
 
   public ChatApprovalPresenter() {
     this(
-        DEFAULT_CONFIRM_LABEL,
-        DEFAULT_DECLINE_LABEL,
-        DEFAULT_CONFIRM_HOVER,
-        DEFAULT_DECLINE_HOVER);
+        DEFAULT_CONFIRM_LABEL, DEFAULT_DECLINE_LABEL, DEFAULT_CONFIRM_HOVER, DEFAULT_DECLINE_HOVER);
   }
 
   public ChatApprovalPresenter(
@@ -103,9 +100,9 @@ public final class ChatApprovalPresenter {
   /**
    * Renders the interactive approval prompt component from a raw prompt string.
    *
-   * <p>The prompt text is sanitized and rendered as literal plain text to prevent
-   * answer-derived MiniMessage or legacy formatting injection, while approve and deny
-   * buttons remain code-built interactive Adventure components.</p>
+   * <p>The prompt text is sanitized and rendered as literal plain text to prevent answer-derived
+   * MiniMessage or legacy formatting injection, while approve and deny buttons remain code-built
+   * interactive Adventure components.
    *
    * @param capability the approval capability
    * @param rawPrompt the prompt message string (will be sanitized and rendered as literal text)
@@ -113,8 +110,7 @@ public final class ChatApprovalPresenter {
    */
   public Component render(ApprovalCapability capability, String rawPrompt) {
     String sanitized = sanitize(rawPrompt);
-    Component promptComponent =
-        sanitized.isEmpty() ? Component.empty() : Component.text(sanitized);
+    Component promptComponent = sanitized.isEmpty() ? Component.empty() : Component.text(sanitized);
     return render(capability, promptComponent);
   }
 
@@ -140,10 +136,7 @@ public final class ChatApprovalPresenter {
             .clickEvent(ClickEvent.runCommand(buildDeclineCommand(capability)));
 
     Component actions =
-        Component.empty()
-            .append(confirmButton)
-            .append(Component.space())
-            .append(declineButton);
+        Component.empty().append(confirmButton).append(Component.space()).append(declineButton);
 
     if (base.equals(Component.empty())) {
       return actions;

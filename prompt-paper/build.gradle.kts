@@ -25,12 +25,6 @@ configurations.all {
     }
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
-
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
@@ -81,7 +75,6 @@ tasks.processResources {
 }
 
 tasks.named<Test>("test") {
-    useJUnitPlatform()
     jvmArgs("-Dnet.bytebuddy.experimental=true")
 }
 
@@ -93,7 +86,7 @@ tasks.shadowJar {
 
     dependsOn(":prompt-ui-26.1:jar", ":prompt-ui-26.2:jar")
     val screenProviderService = "META-INF/services/dev.cyr1en.promptui.ScreenProvider"
-    // MUST use zipTree — avoids Java 25 NMS classes on Java 21 API classpath
+    // Include version-specific bytecode without adding NMS implementations to the compile classpath.
     val nms26_1 = project(":prompt-ui-26.1").tasks.named("jar", Jar::class)
     from(nms26_1.map { zipTree(it.archiveFile) }) {
         exclude(screenProviderService)
@@ -164,7 +157,7 @@ data class ServerProcessRecord(
 )
 
 fun httpGet(url: String): String {
-    // nosemgrep
+
     val conn =
         (URI.create(url).toURL().openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -345,7 +338,7 @@ fun downloadFile(
     println("         → $target")
     target.parentFile.mkdirs()
     val temporary = Files.createTempFile(target.parentFile.toPath(), ".${target.name}.", ".part")
-    // nosemgrep
+
     val conn =
         (URI.create(url).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000

@@ -3,16 +3,12 @@ package dev.cyr1en.promptpaper.approval;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import dev.cyr1en.promptcore.CancelReason;
-import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.logic.transform.CompiledTemplate;
 import dev.cyr1en.promptcore.logic.transform.TemplateCompiler;
-import dev.cyr1en.promptcore.plan.ExecutionPlanAdapter;
 import dev.cyr1en.promptcore.plan.ExecutionPlanDefinition;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.command.ResponseCommand;
-import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.engine.InterceptResult;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator;
@@ -31,10 +27,8 @@ import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.SelfApprovalPolicy;
 import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +39,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -83,14 +76,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     screenManager =
         new ScreenManager(
-            plugin,
-            engine,
-            plugin.getPromptFactory(),
-            scheduler,
-            null,
-            null,
-            null,
-            null);
+            plugin, engine, plugin.getPromptFactory(), scheduler, null, null, null, null);
     lenient().when(plugin.getScreenManager()).thenReturn(screenManager);
 
     approvalCoordinator =
@@ -141,11 +127,71 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
           @Override
           public boolean execute(
               @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
-            commandExecutions.add(commandLabel + (args.length > 0 ? " " + String.join(" ", args) : ""));
+            commandExecutions.add(
+                commandLabel + (args.length > 0 ? " " + String.join(" ", args) : ""));
             return succeed;
           }
         };
     server.getCommandMap().register(name, "promptpaper", cmd);
+  }
+
+  @Test
+  void rejectedTimeoutSchedulingReleasesApprovalAndReportsInitiatorDisconnect() {
+    Player initiator = mock(Player.class);
+    UUID initiatorId = UUID.randomUUID();
+    when(initiator.getUniqueId()).thenReturn(initiatorId);
+    when(initiator.getName()).thenReturn("Alice");
+    when(initiator.getScheduler())
+        .thenReturn(mock(io.papermc.paper.threadedregions.scheduler.EntityScheduler.class));
+    Player approver = createPlayer("Bob");
+    var presenter = mock(ChatApprovalPresenter.class);
+    var coordinator =
+        new ApprovalCoordinator(
+            plugin,
+            scheduler,
+            registry,
+            screenManager,
+            engine,
+            capabilityRegistry,
+            leaseRegistry,
+            presenter,
+            p -> (task, retired) -> task.run(),
+            null);
+    var gate =
+        new ApprovalGateDefinition(
+            "gate",
+            TemplateCompiler.compile("Bob"),
+            TemplateCompiler.compile("Approve {player}?"),
+            30,
+            SelfApprovalPolicy.AUTO_APPROVE,
+            null);
+    var spec = new PreDispatchGateSpec.Approval("gate");
+    var plan =
+        new ExecutionPlanDefinition(TemplateCompiler.compile("primary"), List.of(spec), List.of());
+    var completion =
+        new InputCompletion(
+            initiatorId,
+            1L,
+            1L,
+            List.of(),
+            "primary",
+            plan,
+            new PresetSnapshot(Map.of(), Map.of(), Map.of("gate", gate), Map.of(), 1L),
+            DispatchContextSnapshot.player());
+    var instance =
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+    registry.register(instance);
+    var results = new ArrayList<PreDispatchGateResult>();
+
+    coordinator.evaluateGate(initiator, instance, spec, 0, results::add);
+
+    assertEquals(1, results.size());
+    assertEquals(PreDispatchGateResult.Status.INITIATOR_DISCONNECTED, results.getFirst().status());
+    assertEquals(0, capabilityRegistry.size());
+    assertEquals(0, leaseRegistry.size());
+    assertEquals(0, coordinator.boundPlansCount());
+    verify(presenter, never()).present(any(), any(), anyString());
   }
 
   // =========================================================================
@@ -187,7 +233,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
 
@@ -203,7 +250,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     responseCommand.executeResponse(approver, capability.nonce(), "decline");
 
     // Primary command was NOT executed, on_deny action WAS executed
-    assertFalse(commandExecutions.contains("give Alice diamond 64"), "Primary command must NOT execute");
+    assertFalse(
+        commandExecutions.contains("give Alice diamond 64"), "Primary command must NOT execute");
     assertTrue(commandExecutions.contains("log trade_denied Alice"), "On-deny action MUST execute");
 
     // Execution instance is CANCELLED and cleaned up from registry
@@ -248,7 +296,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
 
     Optional<ApprovalCapability> capOpt = capabilityRegistry.getByTarget(approver.getUniqueId());
@@ -303,7 +352,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
 
     // Auto approved -> directly executed primary
@@ -346,7 +396,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
 
@@ -369,7 +420,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   // =========================================================================
 
   @Test
-  @DisplayName("FLOW-05: Cross-player execution returns to initiator PlayerExecutor and verifies identity")
+  @DisplayName(
+      "FLOW-05: Cross-player execution returns to initiator PlayerExecutor and verifies identity")
   void flow07_crossPlayerSchedulerReVerification() {
     Player initiator = createPlayer("Alice");
     Player approver = createPlayer("Bob");
@@ -387,10 +439,11 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             primaryDispatcher,
             actionDispatcher,
             approvalCoordinator,
-            p -> (task, retired) -> {
-              threadLog.add("executor:" + p.getName());
-              task.run();
-            });
+            p ->
+                (task, retired) -> {
+                  threadLog.add("executor:" + p.getName());
+                  task.run();
+                });
 
     ApprovalGateDefinition gate =
         new ApprovalGateDefinition(
@@ -463,12 +516,15 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             TrustedPresetAction.of("log gate2_denied {player}", ExecuteAs.CONSOLE));
 
     PresetSnapshot snapshot =
-        new PresetSnapshot(Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
+        new PresetSnapshot(
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition plan =
         new ExecutionPlanDefinition(
             TemplateCompiler.compile("give Alice diamond 100"),
-            List.of(new PreDispatchGateSpec.Approval("gate1"), new PreDispatchGateSpec.Approval("gate2")),
+            List.of(
+                new PreDispatchGateSpec.Approval("gate1"),
+                new PreDispatchGateSpec.Approval("gate2")),
             List.of());
 
     InputCompletion completion =
@@ -532,12 +588,15 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             TrustedPresetAction.of("log gate2_denied {player}", ExecuteAs.CONSOLE));
 
     PresetSnapshot snapshot =
-        new PresetSnapshot(Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
+        new PresetSnapshot(
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition plan =
         new ExecutionPlanDefinition(
             TemplateCompiler.compile("give Alice diamond 100"),
-            List.of(new PreDispatchGateSpec.Approval("gate1"), new PreDispatchGateSpec.Approval("gate2")),
+            List.of(
+                new PreDispatchGateSpec.Approval("gate1"),
+                new PreDispatchGateSpec.Approval("gate2")),
             List.of());
 
     InputCompletion completion =
@@ -610,7 +669,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
 
@@ -720,7 +780,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     executionCoordinator.cancel(initiator.getUniqueId());
 
     assertFalse(commandExecutions.contains("give Alice diamond 1"));
-    assertFalse(commandExecutions.contains("log target_left Alice"), "Initiator disconnect MUST skip on_deny");
+    assertFalse(
+        commandExecutions.contains("log target_left Alice"),
+        "Initiator disconnect MUST skip on_deny");
     assertEquals(0, capabilityRegistry.size());
     assertEquals(0, leaseRegistry.size());
   }
@@ -847,14 +909,19 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             0L,
             0,
             Duration.ofSeconds(60),
-            decision -> confirmed.set(decision == dev.cyr1en.promptpaper.screen.confirmation.ConfirmationDecision.CONFIRM));
+            decision ->
+                confirmed.set(
+                    decision
+                        == dev.cyr1en.promptpaper.screen.confirmation.ConfirmationDecision
+                            .CONFIRM));
 
     // Start a prompt session
     engine.intercept(player, "/test <a:why>");
 
     responseCommand.executeResponse(player, binding.nonce(), "confirm");
 
-    assertTrue(confirmed.get(), "ResponseCommand must fall back to local confirmation nonce registry");
+    assertTrue(
+        confirmed.get(), "ResponseCommand must fall back to local confirmation nonce registry");
   }
 
   // =========================================================================
@@ -952,7 +1019,11 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     executionCoordinator.coordinate(initiator, completion);
 
     assertEquals(0, capabilityRegistry.size());
-    assertTrue(leaseRegistry.getLease(approver.getUniqueId()).map(PlayerInteractionLease::isPrompt).orElse(false));
+    assertTrue(
+        leaseRegistry
+            .getLease(approver.getUniqueId())
+            .map(PlayerInteractionLease::isPrompt)
+            .orElse(false));
     assertFalse(commandExecutions.contains("give Alice diamond 1"));
   }
 
@@ -1031,7 +1102,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     when(plugin.getPresetRegistry()).thenReturn(mockRegistry);
 
     // Parse command with unknown gate
-    InterceptResult result = engine.interceptResult(initiator, "/pay <a:amt> <!gate:@unknown_gate>");
+    InterceptResult result =
+        engine.interceptResult(initiator, "/pay <a:amt> <!gate:@unknown_gate>");
 
     assertTrue(result instanceof InterceptResult.RejectedFailClosed);
     assertFalse(engine.hasActiveSession(initiator));
@@ -1128,17 +1200,14 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     List<PreDispatchGateResult> results = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     approvalCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("race_gate"),
-        0,
-        results::add);
+        initiator, instance, new PreDispatchGateSpec.Approval("race_gate"), 0, results::add);
 
     Optional<ApprovalCapability> capOpt = capabilityRegistry.getByTarget(approver.getUniqueId());
     assertTrue(capOpt.isPresent());
@@ -1148,30 +1217,32 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     CountDownLatch startLatch = new CountDownLatch(1);
     CountDownLatch doneLatch = new CountDownLatch(2);
 
-    pool.submit(() -> {
-      try {
-        startLatch.await();
-        var consumed = capabilityRegistry.consume(capability.nonce(), approver.getUniqueId());
-        if (consumed.isPresent()) {
-          approvalCoordinator.handleOutcome(
-              ApprovalOutcome.of(consumed.get(), ApprovalDecision.APPROVED, Instant.now()));
-        }
-      } catch (Exception ignored) {
-      } finally {
-        doneLatch.countDown();
-      }
-    });
+    pool.submit(
+        () -> {
+          try {
+            startLatch.await();
+            var consumed = capabilityRegistry.consume(capability.nonce(), approver.getUniqueId());
+            if (consumed.isPresent()) {
+              approvalCoordinator.handleOutcome(
+                  ApprovalOutcome.of(consumed.get(), ApprovalDecision.APPROVED, Instant.now()));
+            }
+          } catch (Exception ignored) {
+          } finally {
+            doneLatch.countDown();
+          }
+        });
 
-    pool.submit(() -> {
-      try {
-        startLatch.await();
-        approvalCoordinator.handleOutcome(
-            ApprovalOutcome.of(capability, ApprovalDecision.TIMED_OUT, Instant.now()));
-      } catch (Exception ignored) {
-      } finally {
-        doneLatch.countDown();
-      }
-    });
+    pool.submit(
+        () -> {
+          try {
+            startLatch.await();
+            approvalCoordinator.handleOutcome(
+                ApprovalOutcome.of(capability, ApprovalDecision.TIMED_OUT, Instant.now()));
+          } catch (Exception ignored) {
+          } finally {
+            doneLatch.countDown();
+          }
+        });
 
     startLatch.countDown();
     assertTrue(doneLatch.await(5, TimeUnit.SECONDS));
@@ -1228,7 +1299,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     ChatApprovalPresenter mockPresenter = mock(ChatApprovalPresenter.class);
@@ -1244,21 +1316,18 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             capabilityRegistry,
             leaseRegistry,
             mockPresenter,
-            p -> (task, retired) -> {
-              if (p.getUniqueId().equals(approver.getUniqueId())) {
-                capturedTargetRunnable.set(task);
-              } else {
-                task.run();
-              }
-            },
+            p ->
+                (task, retired) -> {
+                  if (p.getUniqueId().equals(approver.getUniqueId())) {
+                    capturedTargetRunnable.set(task);
+                  } else {
+                    task.run();
+                  }
+                },
             (player, delayTicks, onTimeout, onRetired) -> () -> {});
 
     coordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        result -> {});
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, result -> {});
 
     // Ensure target runnable was captured and not yet run
     assertNotNull(capturedTargetRunnable.get());
@@ -1271,7 +1340,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     // Verify presenter was NEVER called to send messages
     verify(mockPresenter, never()).present(any(), any(), anyString());
-    verify(mockPresenter, never()).present(any(), any(), any(net.kyori.adventure.text.Component.class));
+    verify(mockPresenter, never())
+        .present(any(), any(), any(net.kyori.adventure.text.Component.class));
   }
 
   @Test
@@ -1300,11 +1370,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     PresetSnapshot snapshot =
         new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("gate1", gate1, "gate2", gate2),
-            Map.of(),
-            1L);
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition plan =
         new ExecutionPlanDefinition(
@@ -1342,8 +1408,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     assertNotEquals(cap1.nonce(), cap2.nonce());
 
     // Stale outcome from Gate 1 delivered to handleOutcome
-    ApprovalOutcome staleOutcome =
-        ApprovalOutcome.of(cap1, ApprovalDecision.DENIED, Instant.now());
+    ApprovalOutcome staleOutcome = ApprovalOutcome.of(cap1, ApprovalDecision.DENIED, Instant.now());
     approvalCoordinator.handleOutcome(staleOutcome);
 
     // Gate 2 must still be active and untouched!
@@ -1424,11 +1489,13 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("REGRESSION: Replay of an approval nonce never falls through to local confirmation session")
+  @DisplayName(
+      "REGRESSION: Replay of an approval nonce never falls through to local confirmation session")
   void regression_replayNeverLocalFallback() {
     Player approver = createPlayer("Bob");
 
-    var mockNonceRegistry = mock(dev.cyr1en.promptpaper.screen.confirmation.NonceResponseRegistry.class);
+    var mockNonceRegistry =
+        mock(dev.cyr1en.promptpaper.screen.confirmation.NonceResponseRegistry.class);
     when(plugin.getNonceRegistry()).thenReturn(mockNonceRegistry);
 
     // Bob sends a fake or expired a_ nonce
@@ -1479,16 +1546,13 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     List<PreDispatchGateResult> results = new ArrayList<>();
     approvalCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("bad_gate"),
-        0,
-        results::add);
+        initiator, instance, new PreDispatchGateSpec.Approval("bad_gate"), 0, results::add);
 
     assertEquals(1, results.size());
     assertEquals(PreDispatchGateResult.Status.ERROR, results.get(0).status());
@@ -1532,7 +1596,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     AtomicBoolean enteredTargetExecutor = new AtomicBoolean(false);
@@ -1548,32 +1613,30 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             capabilityRegistry,
             leaseRegistry,
             new ChatApprovalPresenter(),
-            p -> (task, retired) -> {
-              if (p.getUniqueId().equals(approver.getUniqueId())) {
-                enteredTargetExecutor.set(true);
-                task.run();
-                if (capabilityRegistry.getByTarget(approver.getUniqueId()).isPresent()) {
-                  acquiredInsideExecutor.set(true);
-                }
-              } else {
-                task.run();
-              }
-            },
+            p ->
+                (task, retired) -> {
+                  if (p.getUniqueId().equals(approver.getUniqueId())) {
+                    enteredTargetExecutor.set(true);
+                    task.run();
+                    if (capabilityRegistry.getByTarget(approver.getUniqueId()).isPresent()) {
+                      acquiredInsideExecutor.set(true);
+                    }
+                  } else {
+                    task.run();
+                  }
+                },
             (player, delayTicks, onTimeout, onRetired) -> () -> {});
 
     coordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        result -> {});
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, result -> {});
 
     assertTrue(enteredTargetExecutor.get(), "Must enter target executor");
     assertTrue(acquiredInsideExecutor.get(), "Capability must be acquired inside target executor");
   }
 
   @Test
-  @DisplayName("REGRESSION: All targets bound before first decision (fails fast if gate 2 is offline)")
+  @DisplayName(
+      "REGRESSION: All targets bound before first decision (fails fast if gate 2 is offline)")
   void regression_allTargetsBoundBeforeFirstDecision() {
     Player initiator = createPlayer("Alice");
     Player approver1 = createPlayer("Bob");
@@ -1598,11 +1661,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     PresetSnapshot snapshot =
         new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("gate1", gate1, "gate2", gate2),
-            Map.of(),
-            1L);
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition plan =
         new ExecutionPlanDefinition(
@@ -1623,7 +1682,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
 
@@ -1664,7 +1724,14 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     // 1. APPROVE outcome leaves bound plans baseline at 0
     InputCompletion c1 =
         new InputCompletion(
-            initiator.getUniqueId(), 1L, 1L, List.of(), "eco give Alice 100", planDef, snapshot, DispatchContextSnapshot.player());
+            initiator.getUniqueId(),
+            1L,
+            1L,
+            List.of(),
+            "eco give Alice 100",
+            planDef,
+            snapshot,
+            DispatchContextSnapshot.player());
     ExecutionPlanInstance inst1 = executionCoordinator.coordinate(initiator, c1).orElseThrow();
     ApprovalCapability cap1 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
     responseCommand.executeResponse(approver, cap1.nonce(), "confirm");
@@ -1673,7 +1740,14 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     // 2. DENY outcome leaves bound plans baseline at 0
     InputCompletion c2 =
         new InputCompletion(
-            initiator.getUniqueId(), 2L, 1L, List.of(), "eco give Alice 100", planDef, snapshot, DispatchContextSnapshot.player());
+            initiator.getUniqueId(),
+            2L,
+            1L,
+            List.of(),
+            "eco give Alice 100",
+            planDef,
+            snapshot,
+            DispatchContextSnapshot.player());
     ExecutionPlanInstance inst2 = executionCoordinator.coordinate(initiator, c2).orElseThrow();
     ApprovalCapability cap2 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
     responseCommand.executeResponse(approver, cap2.nonce(), "decline");
@@ -1683,16 +1757,31 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     // 3. TIMEOUT outcome leaves bound plans baseline at 0
     InputCompletion c3 =
         new InputCompletion(
-            initiator.getUniqueId(), 3L, 1L, List.of(), "eco give Alice 100", planDef, snapshot, DispatchContextSnapshot.player());
+            initiator.getUniqueId(),
+            3L,
+            1L,
+            List.of(),
+            "eco give Alice 100",
+            planDef,
+            snapshot,
+            DispatchContextSnapshot.player());
     ExecutionPlanInstance inst3 = executionCoordinator.coordinate(initiator, c3).orElseThrow();
     ApprovalCapability cap3 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
-    approvalCoordinator.handleOutcome(ApprovalOutcome.of(cap3, ApprovalDecision.TIMED_OUT, Instant.now()));
+    approvalCoordinator.handleOutcome(
+        ApprovalOutcome.of(cap3, ApprovalDecision.TIMED_OUT, Instant.now()));
     assertEquals(0, approvalCoordinator.boundPlansCount());
 
     // 4. TARGET QUIT leaves bound plans baseline at 0
     InputCompletion c4 =
         new InputCompletion(
-            initiator.getUniqueId(), 4L, 1L, List.of(), "eco give Alice 100", planDef, snapshot, DispatchContextSnapshot.player());
+            initiator.getUniqueId(),
+            4L,
+            1L,
+            List.of(),
+            "eco give Alice 100",
+            planDef,
+            snapshot,
+            DispatchContextSnapshot.player());
     ExecutionPlanInstance inst4 = executionCoordinator.coordinate(initiator, c4).orElseThrow();
     approvalCoordinator.onTargetQuit(approver.getUniqueId());
     assertEquals(0, approvalCoordinator.boundPlansCount());
@@ -1700,7 +1789,14 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     // 5. INITIATOR QUIT leaves bound plans baseline at 0
     InputCompletion c5 =
         new InputCompletion(
-            initiator.getUniqueId(), 5L, 1L, List.of(), "eco give Alice 100", planDef, snapshot, DispatchContextSnapshot.player());
+            initiator.getUniqueId(),
+            5L,
+            1L,
+            List.of(),
+            "eco give Alice 100",
+            planDef,
+            snapshot,
+            DispatchContextSnapshot.player());
     ExecutionPlanInstance inst5 = executionCoordinator.coordinate(initiator, c5).orElseThrow();
     approvalCoordinator.onInitiatorQuit(initiator.getUniqueId());
     assertEquals(0, approvalCoordinator.boundPlansCount());
@@ -1737,7 +1833,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("FOLIA BINDING: Delayed target-owned binding cancellation rolls back provisional claims")
+  @DisplayName(
+      "FOLIA BINDING: Delayed target-owned binding cancellation rolls back provisional claims")
   void testDelayedBindingCancellationRollsBackProvisionalClaims() {
     Player initiator = createPlayer("Alice");
     Player approver1 = createPlayer("Bob");
@@ -1762,11 +1859,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     PresetSnapshot snapshot =
         new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("gate1", gate1, "gate2", gate2),
-            Map.of(),
-            1L);
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition planDef =
         new ExecutionPlanDefinition(
@@ -1788,7 +1881,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     AtomicBoolean bobVisited = new AtomicBoolean(false);
@@ -1805,50 +1899,55 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             capabilityRegistry,
             leaseRegistry,
             new ChatApprovalPresenter(),
-            p -> (task, retired) -> {
-              if (p.getUniqueId().equals(approver1.getUniqueId())) {
-                bobVisited.set(true);
-                task.run(); // Bob visited and provisionally claimed
-              } else if (p.getUniqueId().equals(approver2.getUniqueId())) {
-                if (charlieBlocked.get()) {
-                  delayedCharlieTask[0] = task; // hold Charlie's execution
-                } else {
-                  task.run();
-                }
-              } else {
-                task.run();
-              }
-            },
+            p ->
+                (task, retired) -> {
+                  if (p.getUniqueId().equals(approver1.getUniqueId())) {
+                    bobVisited.set(true);
+                    task.run(); // Bob visited and provisionally claimed
+                  } else if (p.getUniqueId().equals(approver2.getUniqueId())) {
+                    if (charlieBlocked.get()) {
+                      delayedCharlieTask[0] = task; // hold Charlie's execution
+                    } else {
+                      task.run();
+                    }
+                  } else {
+                    task.run();
+                  }
+                },
             (player, delayTicks, onTimeout, onRetired) -> () -> {});
 
     customCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        res -> {});
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, res -> {});
 
     // Bob has provisional claim in lease registry
     assertTrue(bobVisited.get());
-    assertTrue(leaseRegistry.isLeased(approver1.getUniqueId()), "Bob must have provisional interaction claim");
+    assertTrue(
+        leaseRegistry.isLeased(approver1.getUniqueId()),
+        "Bob must have provisional interaction claim");
     assertNotNull(delayedCharlieTask[0], "Charlie's task was delayed");
 
     // Cancel execution while delayed
     instance.cancel();
+    assertFalse(
+        leaseRegistry.isLeased(approver1.getUniqueId()),
+        "Cancellation must release Bob immediately without waiting for Charlie's scheduler");
 
     // Now let Charlie run after instance was cancelled
     charlieBlocked.set(false);
     delayedCharlieTask[0].run();
 
     // Bob's provisional claim must be completely rolled back
-    assertFalse(leaseRegistry.isLeased(approver1.getUniqueId()), "Bob's provisional claim must be rolled back");
+    assertFalse(
+        leaseRegistry.isLeased(approver1.getUniqueId()),
+        "Bob's provisional claim must be rolled back");
     assertFalse(leaseRegistry.isLeased(approver2.getUniqueId()), "Charlie must not be leased");
     assertEquals(0, leaseRegistry.size());
     assertEquals(0, customCoordinator.boundPlansCount());
   }
 
   @Test
-  @DisplayName("ATOMIC LEASE: PromptEngine inception vs Approval acquisition on same player rejects race collision")
+  @DisplayName(
+      "ATOMIC LEASE: PromptEngine inception vs Approval acquisition on same player rejects race collision")
   void testPromptEngineInceptionVsApprovalAcquisitionRace() {
     Player player = createPlayer("Eve");
 
@@ -1861,7 +1960,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     ExecutionId execId = ExecutionId.create();
     Optional<PlayerInteractionLease> approvalLeaseOpt =
         leaseRegistry.acquire(player.getUniqueId(), execId, Duration.ofSeconds(30));
-    assertTrue(approvalLeaseOpt.isEmpty(), "Approval acquisition must fail when player has active prompt claim");
+    assertTrue(
+        approvalLeaseOpt.isEmpty(),
+        "Approval acquisition must fail when player has active prompt claim");
 
     // Eve completes the prompt
     engine.submit(player, "64");
@@ -1875,7 +1976,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     assertTrue(afterRelease.isPresent());
 
     // While approval lease is held, PromptEngine inception is rejected!
-    InterceptResult secondIntercept = engine.interceptResult(player, "give <#text prompt: 'Amount:'> diamond");
+    InterceptResult secondIntercept =
+        engine.interceptResult(player, "give <#text prompt: 'Amount:'> diamond");
     assertEquals(InterceptResult.RejectedActiveSession.INSTANCE, secondIntercept);
   }
 
@@ -1893,24 +1995,31 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     AtomicBoolean inTargetExecutor = new AtomicBoolean(false);
 
     Player guardMock = mock(Player.class);
-    when(guardMock.isOnline()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("isOnline() called before target PlayerExecutor!");
-      }
-      return true;
-    });
-    when(guardMock.getUniqueId()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("getUniqueId() called before target PlayerExecutor!");
-      }
-      return targetUuid;
-    });
-    when(guardMock.getName()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("getName() called before target PlayerExecutor!");
-      }
-      return targetName;
-    });
+    when(guardMock.isOnline())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException("isOnline() called before target PlayerExecutor!");
+              }
+              return true;
+            });
+    when(guardMock.getUniqueId())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException(
+                    "getUniqueId() called before target PlayerExecutor!");
+              }
+              return targetUuid;
+            });
+    when(guardMock.getName())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException("getName() called before target PlayerExecutor!");
+              }
+              return targetName;
+            });
 
     ApprovalGateDefinition gate =
         new ApprovalGateDefinition(
@@ -1942,7 +2051,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     ChatApprovalPresenter mockPresenter = mock(ChatApprovalPresenter.class);
@@ -1957,30 +2067,33 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             capabilityRegistry,
             leaseRegistry,
             mockPresenter,
-            p -> (task, retired) -> {
-              if (p == guardMock) {
-                inTargetExecutor.set(true);
-                try {
-                  task.run();
-                } finally {
-                  inTargetExecutor.set(false);
-                }
-              } else {
-                task.run();
-              }
-            },
+            p ->
+                (task, retired) -> {
+                  if (p == guardMock) {
+                    inTargetExecutor.set(true);
+                    try {
+                      task.run();
+                    } finally {
+                      inTargetExecutor.set(false);
+                    }
+                  } else {
+                    task.run();
+                  }
+                },
             (player, delayTicks, onTimeout, onRetired) -> () -> {},
             targetStr -> Optional.of(guardMock));
 
     List<PreDispatchGateResult> results = new ArrayList<>();
-    assertDoesNotThrow(() -> {
-      guardedCoordinator.evaluateGate(
-          initiator,
-          instance,
-          new PreDispatchGateSpec.Approval("guarded_gate"),
-          0,
-          results::add);
-    }, "Evaluating gate with strict guard mock must not throw off-executor access exceptions");
+    assertDoesNotThrow(
+        () -> {
+          guardedCoordinator.evaluateGate(
+              initiator,
+              instance,
+              new PreDispatchGateSpec.Approval("guarded_gate"),
+              0,
+              results::add);
+        },
+        "Evaluating gate with strict guard mock must not throw off-executor access exceptions");
 
     // Capability was acquired inside target executor
     assertTrue(capabilityRegistry.getByTarget(targetUuid).isPresent());
@@ -1988,7 +2101,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("GATE 4 FIX: Default resolver performs no pre-executor Player property reads with guarded Player mock")
+  @DisplayName(
+      "GATE 4 FIX: Default resolver performs no pre-executor Player property reads with guarded Player mock")
   void testDefaultResolverNoPreExecutorPropertyReads() {
     Player initiator = createPlayer("Alice");
     UUID targetUuid = UUID.randomUUID();
@@ -1997,24 +2111,33 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     AtomicBoolean inTargetExecutor = new AtomicBoolean(false);
 
     Player guardMock = mock(Player.class);
-    when(guardMock.isOnline()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("isOnline() called before candidate PlayerExecutor!");
-      }
-      return true;
-    });
-    when(guardMock.getUniqueId()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("getUniqueId() called before candidate PlayerExecutor!");
-      }
-      return targetUuid;
-    });
-    when(guardMock.getName()).thenAnswer(inv -> {
-      if (!inTargetExecutor.get()) {
-        throw new IllegalStateException("getName() called before candidate PlayerExecutor!");
-      }
-      return targetName;
-    });
+    when(guardMock.isOnline())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException(
+                    "isOnline() called before candidate PlayerExecutor!");
+              }
+              return true;
+            });
+    when(guardMock.getUniqueId())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException(
+                    "getUniqueId() called before candidate PlayerExecutor!");
+              }
+              return targetUuid;
+            });
+    when(guardMock.getName())
+        .thenAnswer(
+            inv -> {
+              if (!inTargetExecutor.get()) {
+                throw new IllegalStateException(
+                    "getName() called before candidate PlayerExecutor!");
+              }
+              return targetName;
+            });
 
     // Directly verify ApprovalCoordinator.defaultResolveTarget does not read any properties
     Optional<Player> directLookup = ApprovalCoordinator.defaultResolveTarget(targetUuid.toString());
@@ -2052,7 +2175,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     ChatApprovalPresenter mockPresenter = mock(ChatApprovalPresenter.class);
@@ -2070,18 +2194,19 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             capabilityRegistry,
             leaseRegistry,
             mockPresenter,
-            p -> (task, retired) -> {
-              if (p == guardMock) {
-                inTargetExecutor.set(true);
-                try {
-                  task.run();
-                } finally {
-                  inTargetExecutor.set(false);
-                }
-              } else {
-                task.run();
-              }
-            },
+            p ->
+                (task, retired) -> {
+                  if (p == guardMock) {
+                    inTargetExecutor.set(true);
+                    try {
+                      task.run();
+                    } finally {
+                      inTargetExecutor.set(false);
+                    }
+                  } else {
+                    task.run();
+                  }
+                },
             (player, delayTicks, onTimeout, onRetired) -> () -> {},
             targetStr -> {
               // Simulating platform lookup returning opaque candidate handle
@@ -2092,14 +2217,16 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             });
 
     List<PreDispatchGateResult> results = new ArrayList<>();
-    assertDoesNotThrow(() -> {
-      coordinatorWithDefaultResolver.evaluateGate(
-          initiator,
-          instance,
-          new PreDispatchGateSpec.Approval("default_gate"),
-          0,
-          results::add);
-    }, "Default resolver must not call any Player property methods before entering target PlayerExecutor");
+    assertDoesNotThrow(
+        () -> {
+          coordinatorWithDefaultResolver.evaluateGate(
+              initiator,
+              instance,
+              new PreDispatchGateSpec.Approval("default_gate"),
+              0,
+              results::add);
+        },
+        "Default resolver must not call any Player property methods before entering target PlayerExecutor");
 
     assertTrue(capabilityRegistry.getByTarget(targetUuid).isPresent());
     assertTrue(leaseRegistry.isLeased(targetUuid));
@@ -2141,16 +2268,13 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     List<PreDispatchGateResult> results = new ArrayList<>();
     approvalCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        results::add);
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, results::add);
 
     assertEquals(1, results.size());
     assertEquals(PreDispatchGateResult.Status.ERROR, results.get(0).status());
@@ -2161,7 +2285,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("GATE 4 FIX: Case mismatch between candidate name and target string fails closed on target executor")
+  @DisplayName(
+      "GATE 4 FIX: Case mismatch between candidate name and target string fails closed on target executor")
   void testTargetExecutorCaseMismatchFailsClosed() {
     Player initiator = createPlayer("Alice");
     UUID targetUuid = UUID.randomUUID();
@@ -2203,7 +2328,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     ApprovalCoordinator coordinator =
@@ -2228,11 +2354,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     List<PreDispatchGateResult> results = new ArrayList<>();
     coordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("case_gate"),
-        0,
-        results::add);
+        initiator, instance, new PreDispatchGateSpec.Approval("case_gate"), 0, results::add);
 
     // Target executor enforces exact-name match; case mismatch fails closed
     assertEquals(1, results.size());
@@ -2244,7 +2366,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("PHASE 5.4: Cancellation after plan publication before target task runs releases all provisional claims")
+  @DisplayName(
+      "PHASE 5.4: Cancellation after plan publication before target task runs releases all provisional claims")
   void testCancellationAfterPlanPublicationBeforeTargetTaskReleasesAll() {
     Player initiator = createPlayer("Alice");
     Player approver1 = createPlayer("Bob");
@@ -2268,7 +2391,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             null);
 
     PresetSnapshot snapshot =
-        new PresetSnapshot(Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
+        new PresetSnapshot(
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition planDef =
         new ExecutionPlanDefinition(
@@ -2290,16 +2414,13 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
     // Coordinate upfront candidate binding
     approvalCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        res -> {});
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, res -> {});
 
     // Bound plan was published and provisional claims exist
     assertEquals(1, approvalCoordinator.boundPlansCount());
@@ -2316,7 +2437,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("PHASE 5.4: Repeated sequential gates (2 and 3 gates) retain claim between outcomes and release after final")
+  @DisplayName(
+      "PHASE 5.4: Repeated sequential gates (2 and 3 gates) retain claim between outcomes and release after final")
   void testRepeatedSequentialGatesRetainClaimBetweenOutcomesAndReleaseAfterFinal() {
     Player initiator = createPlayer("Alice");
     Player approver = createPlayer("Bob");
@@ -2348,11 +2470,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     PresetSnapshot snapshot =
         new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("g1", gate1, "g2", gate2, "g3", gate3),
-            Map.of(),
-            1L);
+            Map.of(), Map.of(), Map.of("g1", gate1, "g2", gate2, "g3", gate3), Map.of(), 1L);
 
     ExecutionPlanDefinition planDef =
         new ExecutionPlanDefinition(
@@ -2374,7 +2492,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    ExecutionPlanInstance instance = executionCoordinator.coordinate(initiator, completion).orElseThrow();
+    ExecutionPlanInstance instance =
+        executionCoordinator.coordinate(initiator, completion).orElseThrow();
 
     // Gate 1 active
     ApprovalCapability cap1 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
@@ -2385,7 +2504,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     responseCommand.executeResponse(approver, cap1.nonce(), "confirm");
 
     // Between Gate 1 outcome and Gate 2: lease is RETAINED for Bob!
-    assertTrue(leaseRegistry.isLeased(approver.getUniqueId()), "Lease must be retained after gate 1 for repeated target");
+    assertTrue(
+        leaseRegistry.isLeased(approver.getUniqueId()),
+        "Lease must be retained after gate 1 for repeated target");
 
     // Gate 2 is active
     ApprovalCapability cap2 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
@@ -2395,7 +2516,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     responseCommand.executeResponse(approver, cap2.nonce(), "confirm");
 
     // Between Gate 2 outcome and Gate 3: lease is STILL RETAINED for Bob!
-    assertTrue(leaseRegistry.isLeased(approver.getUniqueId()), "Lease must be retained after gate 2 for repeated target");
+    assertTrue(
+        leaseRegistry.isLeased(approver.getUniqueId()),
+        "Lease must be retained after gate 2 for repeated target");
 
     // Gate 3 is active
     ApprovalCapability cap3 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
@@ -2412,7 +2535,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("PHASE 5.4: Prompt inception attempt between repeated gates is rejected due to retained lease")
+  @DisplayName(
+      "PHASE 5.4: Prompt inception attempt between repeated gates is rejected due to retained lease")
   void testPromptInceptionAttemptBetweenRepeatedGatesRejected() {
     Player initiator = createPlayer("Alice");
     Player approver = createPlayer("Bob");
@@ -2435,19 +2559,12 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             null);
 
     PresetSnapshot snapshot =
-        new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("g1", gate1, "g2", gate2),
-            Map.of(),
-            1L);
+        new PresetSnapshot(Map.of(), Map.of(), Map.of("g1", gate1, "g2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition planDef =
         new ExecutionPlanDefinition(
             TemplateCompiler.compile("give Alice diamond 1"),
-            List.of(
-                new PreDispatchGateSpec.Approval("g1"),
-                new PreDispatchGateSpec.Approval("g2")),
+            List.of(new PreDispatchGateSpec.Approval("g1"), new PreDispatchGateSpec.Approval("g2")),
             List.of());
 
     InputCompletion completion =
@@ -2469,7 +2586,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     responseCommand.executeResponse(approver, cap1.nonce(), "confirm");
 
     // While Gate 2 is pending/presented, Bob attempts to start a prompt session
-    InterceptResult promptResult = engine.interceptResult(approver, "give <#text prompt: 'Amount:'> diamond");
+    InterceptResult promptResult =
+        engine.interceptResult(approver, "give <#text prompt: 'Amount:'> diamond");
     assertEquals(
         InterceptResult.RejectedActiveSession.INSTANCE,
         promptResult,
@@ -2481,7 +2599,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     // Now after final gate completion, lease is released and prompt inception succeeds
     assertEquals(0, leaseRegistry.size());
-    InterceptResult promptAfterRelease = engine.interceptResult(approver, "give <#text prompt: 'Amount:'> diamond");
+    InterceptResult promptAfterRelease =
+        engine.interceptResult(approver, "give <#text prompt: 'Amount:'> diamond");
     assertTrue(promptAfterRelease instanceof InterceptResult.Started);
   }
 
@@ -2521,7 +2640,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   // =========================================================================
 
   @Test
-  @DisplayName("REMEDIATION: Capability registration failure after multi-target upfront binding releases ALL provisional claims")
+  @DisplayName(
+      "REMEDIATION: Capability registration failure after multi-target upfront binding releases ALL provisional claims")
   void testCapabilityRegistrationFailureReleasesAllMultiTargetProvisionalClaims() {
     Player initiator = createPlayer("Alice");
     Player approver1 = createPlayer("Bob");
@@ -2546,11 +2666,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     PresetSnapshot snapshot =
         new PresetSnapshot(
-            Map.of(),
-            Map.of(),
-            Map.of("gate1", gate1, "gate2", gate2),
-            Map.of(),
-            1L);
+            Map.of(), Map.of(), Map.of("gate1", gate1, "gate2", gate2), Map.of(), 1L);
 
     ExecutionPlanDefinition planDef =
         new ExecutionPlanDefinition(
@@ -2572,10 +2688,12 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             DispatchContextSnapshot.player());
 
     ExecutionPlanInstance instance =
-        new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
+        new ExecutionPlanInstance(
+            ExecutionId.create(), completion, ExecutionStage.PRE_DISPATCH_GATES);
     registry.register(instance);
 
-    // Create a capability registry mock/wrapper where register() fails (forced nonce exhaustion / failure)
+    // Create a capability registry mock/wrapper where register() fails (forced nonce exhaustion /
+    // failure)
     ApprovalCapabilityRegistry mockCapRegistry = mock(ApprovalCapabilityRegistry.class);
     when(mockCapRegistry.isTargetBusy(any())).thenReturn(false);
     when(mockCapRegistry.register(any(), any(), any(), anyLong(), any(), any()))
@@ -2596,11 +2714,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
     List<PreDispatchGateResult> results = new ArrayList<>();
     failingCapCoordinator.evaluateGate(
-        initiator,
-        instance,
-        new PreDispatchGateSpec.Approval("gate1"),
-        0,
-        results::add);
+        initiator, instance, new PreDispatchGateSpec.Approval("gate1"), 0, results::add);
 
     // 1. Gate evaluation reports ERROR
     assertEquals(1, results.size());
@@ -2608,14 +2722,22 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     assertTrue(results.get(0).detail().contains("Failed to register approval capability"));
 
     // 2. Full exact cleanup released ALL provisional claims for both Bob and Charlie
-    assertFalse(leaseRegistry.isLeased(approver1.getUniqueId()), "Bob's claim must be released on capability failure");
-    assertFalse(leaseRegistry.isLeased(approver2.getUniqueId()), "Charlie's claim must be released on capability failure");
+    assertFalse(
+        leaseRegistry.isLeased(approver1.getUniqueId()),
+        "Bob's claim must be released on capability failure");
+    assertFalse(
+        leaseRegistry.isLeased(approver2.getUniqueId()),
+        "Charlie's claim must be released on capability failure");
     assertEquals(0, leaseRegistry.size(), "Every provisional claim must be released");
-    assertEquals(0, failingCapCoordinator.boundPlansCount(), "Bound plan must be removed on capability failure");
+    assertEquals(
+        0,
+        failingCapCoordinator.boundPlansCount(),
+        "Bound plan must be removed on capability failure");
   }
 
   @Test
-  @DisplayName("REMEDIATION: Self-gate player onTargetQuit produces INITIATOR_DISCONNECTED and skips on_deny")
+  @DisplayName(
+      "REMEDIATION: Self-gate player onTargetQuit produces INITIATOR_DISCONNECTED and skips on_deny")
   void testSelfGateOnTargetQuitProducesInitiatorDisconnectedAndSkipsOnDeny() {
     Player initiator = createPlayer("Alice");
 
@@ -2648,7 +2770,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
     assertEquals(ExecutionStage.PRE_DISPATCH_GATES, instance.getStage());
@@ -2660,8 +2783,11 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     approvalCoordinator.onTargetQuit(initiator.getUniqueId());
 
     // Primary command and on_deny action MUST be skipped
-    assertFalse(commandExecutions.contains("eco give Alice 100"), "Primary command must NOT execute");
-    assertFalse(commandExecutions.contains("log self_denied Alice"), "On-deny action MUST be skipped for initiator disconnect");
+    assertFalse(
+        commandExecutions.contains("eco give Alice 100"), "Primary command must NOT execute");
+    assertFalse(
+        commandExecutions.contains("log self_denied Alice"),
+        "On-deny action MUST be skipped for initiator disconnect");
 
     // Execution stage CANCELLED and baseline clean
     assertEquals(ExecutionStage.CANCELLED, instance.getStage());
@@ -2671,7 +2797,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("REMEDIATION: Self-gate player quit through CommandPrompter ordering produces INITIATOR_DISCONNECTED once")
+  @DisplayName(
+      "REMEDIATION: Self-gate player quit through CommandPrompter ordering produces INITIATOR_DISCONNECTED once")
   void testSelfGateCommandPrompterQuitOrderingProducesInitiatorDisconnectedOnce() {
     Player initiator = createPlayer("Alice");
 
@@ -2704,7 +2831,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     ExecutionPlanInstance instance = instanceOpt.get();
 
@@ -2713,7 +2841,8 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     approvalCoordinator.onTargetQuit(initiator.getUniqueId());
 
     assertFalse(commandExecutions.contains("eco give Alice 100"));
-    assertFalse(commandExecutions.contains("log self_denied Alice"), "On-deny action must be skipped");
+    assertFalse(
+        commandExecutions.contains("log self_denied Alice"), "On-deny action must be skipped");
     assertEquals(ExecutionStage.CANCELLED, instance.getStage());
     assertEquals(0, capabilityRegistry.size());
     assertEquals(0, leaseRegistry.size());

@@ -56,18 +56,12 @@ public record ApprovalGateDefinition(
     }
   }
 
-  public ApprovalGateDefinition(
-      String id,
-      CompiledTemplate target,
-      CompiledTemplate message) {
+  public ApprovalGateDefinition(String id, CompiledTemplate target, CompiledTemplate message) {
     this(id, target, message, DEFAULT_TIMEOUT, SelfApprovalPolicy.AUTO_APPROVE, null);
   }
 
   public ApprovalGateDefinition(
-      String id,
-      CompiledTemplate target,
-      CompiledTemplate message,
-      int timeout) {
+      String id, CompiledTemplate target, CompiledTemplate message, int timeout) {
     this(id, target, message, timeout, SelfApprovalPolicy.AUTO_APPROVE, null);
   }
 
@@ -86,7 +80,14 @@ public record ApprovalGateDefinition(
       int timeout,
       SelfApprovalPolicy selfApprovalPolicy,
       TrustedPresetAction onDenyAction) {
-    return of(id, targetSource, messageSource, timeout, selfApprovalPolicy, onDenyAction, TemplateSyntax.DEFAULT);
+    return of(
+        id,
+        targetSource,
+        messageSource,
+        timeout,
+        selfApprovalPolicy,
+        onDenyAction,
+        TemplateSyntax.DEFAULT);
   }
 
   public static ApprovalGateDefinition of(
@@ -114,8 +115,7 @@ public record ApprovalGateDefinition(
 
   private static void validateSource(String source, String fieldName) {
     if (source.isBlank()) {
-      throw new IllegalArgumentException(
-          fieldName + " template source must not be empty or blank");
+      throw new IllegalArgumentException(fieldName + " template source must not be empty or blank");
     }
     if (source.length() > MAX_SOURCE_LENGTH) {
       throw new IllegalArgumentException(
@@ -133,8 +133,7 @@ public record ApprovalGateDefinition(
 
   private static void validateTemplate(CompiledTemplate template, String fieldName) {
     if (template.source().isBlank()) {
-      throw new IllegalArgumentException(
-          fieldName + " template must not be empty or blank");
+      throw new IllegalArgumentException(fieldName + " template must not be empty or blank");
     }
     if (template.source().length() > MAX_SOURCE_LENGTH) {
       throw new IllegalArgumentException(

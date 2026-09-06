@@ -34,16 +34,18 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
- * Coordinates approval gate evaluation, capability issuance, interaction leases,
- * presentation on target player schedulers, and timeout/response handling.
+ * Coordinates approval gate evaluation, capability issuance, interaction leases, presentation on
+ * target player schedulers, and timeout/response handling.
  *
- * <p>Implements {@link PreDispatchGateHandler} to integrate seamlessly with {@link ExecutionCoordinator}.
+ * <p>Implements {@link PreDispatchGateHandler} to integrate seamlessly with {@link
+ * ExecutionCoordinator}.
  */
 public class ApprovalCoordinator implements PreDispatchGateHandler {
 
@@ -63,7 +65,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
   public static final class BoundApprovalPlan {
     private final ExecutionId executionId;
     private final List<BoundGate> boundGates;
-    private final Map<UUID, java.util.concurrent.atomic.AtomicInteger> remainingGatesPerTarget;
+    private final Map<UUID, AtomicInteger> remainingGatesPerTarget;
 
     public BoundApprovalPlan(ExecutionId executionId, List<BoundGate> boundGates) {
       this.executionId = Objects.requireNonNull(executionId, "executionId must not be null");
@@ -71,7 +73,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       this.remainingGatesPerTarget = new ConcurrentHashMap<>();
       for (BoundGate gate : boundGates) {
         remainingGatesPerTarget
-            .computeIfAbsent(gate.targetUuid(), u -> new java.util.concurrent.atomic.AtomicInteger(0))
+            .computeIfAbsent(gate.targetUuid(), ignored -> new AtomicInteger())
             .incrementAndGet();
       }
     }
@@ -122,8 +124,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       ApprovalCapability capability,
       ApprovalGateDefinition gateDefinition,
       ExecutionPlanInstance instance,
-      Player initiatorPlayer,
-      PlayerExecutor initiatorExecutor,
       PreDispatchGateCallback callback,
       AtomicBoolean outcomeReported,
       AtomicReference<CancellableTask> timeoutTaskRef,
@@ -131,7 +131,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       int gateIndex) {}
 
   private final CommandPrompter plugin;
-  private final Scheduler scheduler;
   private final ExecutionRegistry executionRegistry;
   private final ScreenManager screenManager;
   private final PromptEngine engine;
@@ -144,7 +143,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
 
   private final Map<ExecutionId, PendingApproval> pendingByExecution = new ConcurrentHashMap<>();
   private final Map<UUID, PendingApproval> pendingByTarget = new ConcurrentHashMap<>();
-  private final Map<ExecutionId, BoundApprovalPlan> boundPlansByExecution = new ConcurrentHashMap<>();
+  private final Map<ExecutionId, BoundApprovalPlan> boundPlansByExecution =
+      new ConcurrentHashMap<>();
 
   public ApprovalCoordinator(
       CommandPrompter plugin,
@@ -204,7 +204,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       TimeoutScheduler timeoutScheduler,
       TargetResolver targetResolver) {
     this.plugin = plugin;
-    this.scheduler = scheduler;
     this.executionRegistry = executionRegistry;
     this.screenManager = screenManager;
     this.engine = engine;
@@ -260,7 +259,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     return boundPlansByExecution.size();
   }
 
-  public synchronized boolean removeBoundPlanIfExact(ExecutionId executionId, BoundApprovalPlan plan) {
+  public synchronized boolean removeBoundPlanIfExact(
+      ExecutionId executionId, BoundApprovalPlan plan) {
     if (executionId == null || plan == null) {
       return false;
     }
@@ -284,7 +284,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     long expectedIncarnation = instance.getIncarnation();
     UUID initiatorUuid = instance.getInitiatorUuid();
 
-    // Check if plan is already bound
     BoundApprovalPlan plan = boundPlansByExecution.get(executionId);
     if (plan != null) {
       executeBoundGate(
@@ -299,7 +298,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       return;
     }
 
-    // Upfront Initial Plan Binding: render strings on initiator, resolve candidate handles globally
     List<PreDispatchGateSpec> allGateSpecs =
         completion
             .getCompiledPlan()
@@ -348,14 +346,17 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       if (resolvedCandidateOpt.isEmpty()) {
         callback.onResult(
             PreDispatchGateResult.error(
-                "Target approver '" + targetStr + "' for gate '" + gId + "' is offline or ambiguous"));
+                "Target approver '"
+                    + targetStr
+                    + "' for gate '"
+                    + gId
+                    + "' is offline or ambiguous"));
         return;
       }
 
       candidates.add(new CandidateGate(i, gId, gDef, targetStr, resolvedCandidateOpt.get()));
     }
 
-    // Enter target PlayerExecutors in sequence to verify online/name/busy, acquire provisional claims, and bind
     bindCandidateGatesChain(
         0,
         candidates,
@@ -393,8 +394,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     }
 
     if (index >= candidates.size()) {
-      // All candidates verified and provisionally claimed!
-      BoundApprovalPlan boundPlan = new BoundApprovalPlan(executionId, List.copyOf(boundGatesSoFar));
+      BoundApprovalPlan boundPlan =
+          new BoundApprovalPlan(executionId, List.copyOf(boundGatesSoFar));
       boundPlansByExecution.put(executionId, boundPlan);
       instance.registerCleanupHook(() -> cleanupExecution(executionId, boundPlan));
 
@@ -494,7 +495,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
 
           // Establish provisional exact interaction claim
           Duration ttl = Duration.ofSeconds(Math.max(60, candidate.definition().timeout() * 2L));
-          Optional<PlayerInteractionLease> leaseOpt = leaseRegistry.acquire(targetUuid, executionId, ttl);
+          Optional<PlayerInteractionLease> leaseOpt =
+              leaseRegistry.acquire(targetUuid, executionId, ttl);
           if (leaseOpt.isEmpty()) {
             rollbackProvisionalClaims(provisionalClaimsSoFar, executionId);
             callback.onResult(
@@ -504,6 +506,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
           }
 
           provisionalClaimsSoFar.add(targetUuid);
+          instance.registerCleanupHook(() -> leaseRegistry.releaseIfExact(targetUuid, executionId));
           boundGatesSoFar.add(
               new BoundGate(
                   candidate.gateIndex(),
@@ -512,7 +515,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
                   targetUuid,
                   targetName));
 
-          // Continue binding next candidate
           bindCandidateGatesChain(
               index + 1,
               candidates,
@@ -562,7 +564,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     ApprovalGateDefinition gate = currentGate.definition();
     UUID targetUuid = currentGate.targetUuid();
 
-    // 2. Self-approval policy check
     if (targetUuid.equals(initiatorUuid)) {
       if (gate.selfApprovalPolicy() == SelfApprovalPolicy.AUTO_APPROVE) {
         if (plugin != null && plugin.getPluginLogger() != null) {
@@ -606,8 +607,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
 
     PlayerExecutor targetExecutor = playerExecutorFactory.apply(targetPlayer);
 
-    // 3. For each target, enter target PlayerExecutor before reading target UUID/name/online,
-    // checking busy state, acquiring lease/capability, and presentation.
     targetExecutor.execute(
         () -> {
           if (instance.isTerminal()
@@ -626,7 +625,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
             return;
           }
 
-          // Busy policy checks across all sources
           if (screenManager != null && screenManager.hasActiveScreen(targetPlayer)) {
             cleanupExecution(executionId, plan);
             callback.onResult(
@@ -649,7 +647,9 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
               cleanupExecution(executionId, plan);
               callback.onResult(
                   PreDispatchGateResult.error(
-                      "Target approver " + targetPlayer.getName() + " has an active command execution"));
+                      "Target approver "
+                          + targetPlayer.getName()
+                          + " has an active command execution"));
               return;
             }
           }
@@ -658,11 +658,12 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
             cleanupExecution(executionId, plan);
             callback.onResult(
                 PreDispatchGateResult.error(
-                    "Target approver " + targetPlayer.getName() + " already has a pending approval request"));
+                    "Target approver "
+                        + targetPlayer.getName()
+                        + " already has a pending approval request"));
             return;
           }
 
-          // Render message successfully BEFORE publishing capability/pending
           TemplateBindings bindings =
               ExecutionCoordinator.createTemplateBindings(initiatorPlayer, completion.answers());
           RenderResult msgResult = gate.message().render(bindings, MathMode.STRICT);
@@ -680,7 +681,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
           }
           String renderedMsg = msgResult.renderedText();
 
-          // Acquire/refresh interaction lease & capability
           Duration ttl = Duration.ofSeconds(gate.timeout());
           Optional<PlayerInteractionLease> leaseOpt =
               leaseRegistry.acquire(targetUuid, executionId, ttl);
@@ -704,14 +704,14 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
             cleanupExecution(executionId, plan);
             callback.onResult(
                 PreDispatchGateResult.error(
-                    "Failed to register approval capability for approver " + targetPlayer.getName()));
+                    "Failed to register approval capability for approver "
+                        + targetPlayer.getName()));
             return;
           }
 
           ApprovalCapability capability = capOpt.get();
           AtomicBoolean outcomeReported = new AtomicBoolean(false);
           AtomicReference<CancellableTask> timeoutRef = new AtomicReference<>();
-          PlayerExecutor initiatorExecutor = playerExecutorFactory.apply(initiatorPlayer);
 
           PendingApproval pending =
               new PendingApproval(
@@ -719,8 +719,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
                   capability,
                   gate,
                   instance,
-                  initiatorPlayer,
-                  initiatorExecutor,
                   callback,
                   outcomeReported,
                   timeoutRef,
@@ -740,10 +738,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
                   () -> {
                     if (outcomeReported.compareAndSet(false, true)) {
                       logTerminalDecision(
-                          initiatorUuid,
-                          targetUuid,
-                          gate.id(),
-                          ApprovalDecision.TIMED_OUT.name());
+                          initiatorUuid, targetUuid, gate.id(), ApprovalDecision.TIMED_OUT.name());
                       cleanupExecution(executionId, plan);
                       callback.onResult(PreDispatchGateResult.timedOut(gate.onDenyAction()));
                     }
@@ -763,14 +758,19 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
           timeoutRef.set(timeoutTask);
           instance.registerCancellable(timeoutTask);
 
-          // Re-verify exact claim, pending record, capability equality, lease ownership before send
           if (instance.isTerminal()
               || instance.getStage() != ExecutionStage.PRE_DISPATCH_GATES
               || instance.getIncarnation() != expectedIncarnation
               || outcomeReported.get()
               || pendingByExecution.get(executionId) != pending
-              || !capabilityRegistry.getByExecution(executionId).map(c -> c.equals(capability)).orElse(false)
-              || !leaseRegistry.getLease(targetUuid).map(l -> executionId.equals(l.executionId())).orElse(false)
+              || !capabilityRegistry
+                  .getByExecution(executionId)
+                  .map(c -> c.equals(capability))
+                  .orElse(false)
+              || !leaseRegistry
+                  .getLease(targetUuid)
+                  .map(l -> executionId.equals(l.executionId()))
+                  .orElse(false)
               || !capability.target().equals(targetUuid)
               || !capability.executionId().equals(executionId)
               || !capability.gateId().equals(gate.id())) {
@@ -840,7 +840,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       return;
     }
 
-    // Atomically consume capability
     Optional<ApprovalCapability> consumedOpt = capabilityRegistry.consume(nonce, responderUuid);
     if (consumedOpt.isEmpty()) {
       if (plugin != null && plugin.getPluginLogger() != null && shouldLog) {
@@ -880,7 +879,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       return;
     }
 
-    // Compare FULL capability (nonce, executionId, gateId, initiator, initiatorIncarnation, target, expiresAt)
     if (!pending.capability().equals(capability)) {
       capabilityRegistry.invalidateNonce(capability.nonce());
       return;
@@ -904,35 +902,48 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       capabilityRegistry.invalidateExecution(executionId);
 
       ApprovalDecision decision = outcome.decision();
-      if (decision == ApprovalDecision.APPROVED) {
-        int remaining =
-            pending.boundPlan() != null
-                ? pending.boundPlan().decrementRemaining(capability.target())
-                : 0;
-        if (remaining <= 0) {
-          leaseRegistry.releaseIfExact(capability.target(), executionId);
+      switch (decision) {
+        case APPROVED -> {
+          int remaining =
+              pending.boundPlan() != null
+                  ? pending.boundPlan().decrementRemaining(capability.target())
+                  : 0;
+          if (remaining <= 0) {
+            leaseRegistry.releaseIfExact(capability.target(), executionId);
+          }
+          if (pending.boundPlan() != null
+              && pending.gateIndex() == pending.boundPlan().boundGates().size() - 1) {
+            removeBoundPlanIfExact(executionId, pending.boundPlan());
+          }
+          pending.callback().onResult(PreDispatchGateResult.approved());
         }
-        if (pending.boundPlan() != null
-            && pending.gateIndex() == pending.boundPlan().boundGates().size() - 1) {
-          removeBoundPlanIfExact(executionId, pending.boundPlan());
+        case DENIED -> {
+          cleanupExecution(executionId, pending.boundPlan());
+          pending
+              .callback()
+              .onResult(PreDispatchGateResult.denied(pending.gateDefinition().onDenyAction()));
         }
-        pending.callback().onResult(PreDispatchGateResult.approved());
-      } else {
-        cleanupExecution(executionId, pending.boundPlan());
-        if (decision == ApprovalDecision.DENIED) {
-          pending.callback().onResult(PreDispatchGateResult.denied(pending.gateDefinition().onDenyAction()));
-        } else if (decision == ApprovalDecision.TIMED_OUT) {
-          pending.callback().onResult(PreDispatchGateResult.timedOut(pending.gateDefinition().onDenyAction()));
-        } else if (decision == ApprovalDecision.TARGET_DISCONNECTED) {
+        case TIMED_OUT -> {
+          cleanupExecution(executionId, pending.boundPlan());
+          pending
+              .callback()
+              .onResult(PreDispatchGateResult.timedOut(pending.gateDefinition().onDenyAction()));
+        }
+        case TARGET_DISCONNECTED -> {
+          cleanupExecution(executionId, pending.boundPlan());
           if (capability.initiator().equals(capability.target())) {
             pending.callback().onResult(PreDispatchGateResult.initiatorDisconnected());
           } else {
-            pending.callback().onResult(PreDispatchGateResult.targetDisconnected(pending.gateDefinition().onDenyAction()));
+            pending
+                .callback()
+                .onResult(
+                    PreDispatchGateResult.targetDisconnected(
+                        pending.gateDefinition().onDenyAction()));
           }
-        } else if (decision == ApprovalDecision.INITIATOR_DISCONNECTED) {
+        }
+        case INITIATOR_DISCONNECTED -> {
+          cleanupExecution(executionId, pending.boundPlan());
           pending.callback().onResult(PreDispatchGateResult.initiatorDisconnected());
-        } else {
-          pending.callback().onResult(PreDispatchGateResult.error("Unknown decision: " + decision));
         }
       }
     }
@@ -952,7 +963,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       return;
     }
     if (pending.capability().initiator().equals(targetUuid)
-        || (pending.instance() != null && targetUuid.equals(pending.instance().getInitiatorUuid()))) {
+        || (pending.instance() != null
+            && targetUuid.equals(pending.instance().getInitiatorUuid()))) {
       if (pending.outcomeReported().compareAndSet(false, true)) {
         logTerminalDecision(
             pending.capability().initiator(),
@@ -974,8 +986,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
       pending
           .callback()
           .onResult(
-              PreDispatchGateResult.targetDisconnected(
-                  pending.gateDefinition().onDenyAction()));
+              PreDispatchGateResult.targetDisconnected(pending.gateDefinition().onDenyAction()));
     }
   }
 
@@ -1024,7 +1035,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
   }
 
   /**
-   * Cleans up an execution exact-removing its bound plan and releasing all interaction claims and capabilities.
+   * Cleans up an execution exact-removing its bound plan and releasing all interaction claims and
+   * capabilities.
    *
    * @param executionId execution ID
    * @param boundPlan bound plan if known, or null
@@ -1056,10 +1068,6 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     leaseRegistry.releaseAllForExecution(executionId);
   }
 
-  private synchronized void cleanupPending(ExecutionId executionId, ApprovalCapability capability) {
-    cleanupExecution(executionId, null);
-  }
-
   private CancellableTask defaultScheduleTimeout(
       Player player, long delayTicks, Runnable onTimeout, Runnable onRetired) {
     if (player == null) {
@@ -1068,13 +1076,11 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
     }
     try {
       var scheduledTask =
-          player
-              .getScheduler()
-              .runDelayed(
-                  plugin,
-                  st -> onTimeout.run(),
-                  onRetired,
-                  delayTicks);
+          player.getScheduler().runDelayed(plugin, st -> onTimeout.run(), onRetired, delayTicks);
+      if (scheduledTask == null) {
+        if (onRetired != null) onRetired.run();
+        return () -> {};
+      }
       return () -> {
         try {
           scheduledTask.cancel();
@@ -1088,15 +1094,16 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
   }
 
   /**
-   * Resolves a candidate target player handle by UUID or exact name lookup without reading player properties.
+   * Resolves a candidate target player handle by UUID or exact name lookup without reading player
+   * properties.
    *
-   * <p>This method performs platform lookup (via {@link Bukkit#getPlayer(UUID)} or
-   * {@link Bukkit#getPlayerExact(String)}) solely to obtain an opaque candidate {@link Player} handle.
+   * <p>This method performs platform lookup (via {@link Bukkit#getPlayer(UUID)} or {@link
+   * Bukkit#getPlayerExact(String)}) solely to obtain an opaque candidate {@link Player} handle.
    * Target resolver implementations MUST NOT iterate over live players or call any methods on the
-   * {@link Player} instance (such as {@code getName()}, {@code getUniqueId()}, or {@code isOnline()})
-   * prior to entering the candidate's {@link PlayerExecutor}.
-   * All exact-name matching, online state checks, identity capture, and ambiguity validation
-   * are performed exclusively inside the candidate player's {@link PlayerExecutor}.
+   * {@link Player} instance (such as {@code getName()}, {@code getUniqueId()}, or {@code
+   * isOnline()}) prior to entering the candidate's {@link PlayerExecutor}. All exact-name matching,
+   * online state checks, identity capture, and ambiguity validation are performed exclusively
+   * inside the candidate player's {@link PlayerExecutor}.
    *
    * @param targetNameOrUuid the rendered target name or UUID string
    * @return optional containing the opaque candidate player handle, or empty if not found

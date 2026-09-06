@@ -15,30 +15,24 @@ class ConfigValidationTest extends MockBukkitTest {
   void playerUiSizeMustBeAValidChestSize() {
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            new PromptConfigTestData().copy(Map.of("playerUISize", 20)));
+        () -> new PromptConfigTestData().copy(Map.of("playerUISize", 20)));
   }
 
   @Test
   void dialogNumberDefaultsRejectInvalidRanges() {
     var data = new PromptConfigTestData();
     assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("dialogNumberMin", Float.NaN)));
+        IllegalArgumentException.class, () -> data.copy(Map.of("dialogNumberMin", Float.NaN)));
     assertThrows(
         IllegalArgumentException.class,
         () -> data.copy(Map.of("dialogNumberMin", 10.0f, "dialogNumberMax", 10.0f)));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("dialogNumberStep", 0.0f)));
+    assertThrows(IllegalArgumentException.class, () -> data.copy(Map.of("dialogNumberStep", 0.0f)));
   }
 
   @Test
   void allConfiguredValidatorRegexesAreCompiledDuringConstruction() {
     var data = new PromptConfigTestData();
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("intSampleRegex", "[")));
+    assertThrows(IllegalArgumentException.class, () -> data.copy(Map.of("intSampleRegex", "[")));
   }
 
   @Test
@@ -54,7 +48,8 @@ class ConfigValidationTest extends MockBukkitTest {
     var data = new PromptConfigTestData();
     assertThrows(
         IllegalArgumentException.class,
-        () -> data.copy(Map.of("confirmationConfirmItemSlot", 15, "confirmationCancelItemSlot", 15)));
+        () ->
+            data.copy(Map.of("confirmationConfirmItemSlot", 15, "confirmationCancelItemSlot", 15)));
     assertThrows(
         IllegalArgumentException.class,
         () -> data.copy(Map.of("confirmationConfirmItemSlot", 13, "confirmationInfoItemSlot", 13)));
@@ -72,19 +67,15 @@ class ConfigValidationTest extends MockBukkitTest {
 
     // Slot 27 rejected
     assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("confirmationConfirmItemSlot", 27)));
+        IllegalArgumentException.class, () -> data.copy(Map.of("confirmationConfirmItemSlot", 27)));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("confirmationCancelItemSlot", 27)));
+        IllegalArgumentException.class, () -> data.copy(Map.of("confirmationCancelItemSlot", 27)));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("confirmationInfoItemSlot", 27)));
+        IllegalArgumentException.class, () -> data.copy(Map.of("confirmationInfoItemSlot", 27)));
 
     // Negative slot rejected
     assertThrows(
-        IllegalArgumentException.class,
-        () -> data.copy(Map.of("confirmationConfirmItemSlot", -1)));
+        IllegalArgumentException.class, () -> data.copy(Map.of("confirmationConfirmItemSlot", -1)));
   }
 
   @Test
@@ -206,7 +197,8 @@ class ConfigValidationTest extends MockBukkitTest {
         }
         var byName = new HashMap<String, Integer>();
         for (int i = 0; i < components.length; i++) byName.put(components[i].getName(), i);
-        for (var entry : changes.entrySet()) arguments[byName.get(entry.getKey())] = entry.getValue();
+        for (var entry : changes.entrySet())
+          arguments[byName.get(entry.getKey())] = entry.getValue();
         Class<?>[] types =
             java.util.Arrays.stream(components)
                 .map(java.lang.reflect.RecordComponent::getType)

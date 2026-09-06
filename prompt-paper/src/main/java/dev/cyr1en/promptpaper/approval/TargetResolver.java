@@ -3,9 +3,7 @@ package dev.cyr1en.promptpaper.approval;
 import java.util.Optional;
 import org.bukkit.entity.Player;
 
-/**
- * Seam for resolving target approver string tokens to exact online Player entities.
- */
+/** Seam for resolving target approver string tokens to exact online Player entities. */
 @FunctionalInterface
 public interface TargetResolver {
 

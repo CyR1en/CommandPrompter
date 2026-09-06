@@ -69,10 +69,13 @@ class CommandPrompterAPISignatureTest {
   @DisplayName("Documentation EcoItemInputScreen example conforms to the InputScreen contract")
   void docsEcoItemInputScreenConformsToContract() {
     Plugin mockPlugin = createMockPlugin();
-    var context = new ScreenContext("ecoitem", "Pick weapon", Map.of("glow", "true", "rarity", "legendary"), false);
+    var context =
+        new ScreenContext(
+            "ecoitem", "Pick weapon", Map.of("glow", "true", "rarity", "legendary"), false);
 
     // Simulate construction exactly as documented in docs/custom-screens.md
-    PromptScreenFactory factory = (player, ctx) -> new DocsEcoItemInputScreen(mockPlugin, player, ctx);
+    PromptScreenFactory factory =
+        (player, ctx) -> new DocsEcoItemInputScreen(mockPlugin, player, ctx);
     InputScreen screen = factory.createScreen(null, context);
 
     assertNotNull(screen);

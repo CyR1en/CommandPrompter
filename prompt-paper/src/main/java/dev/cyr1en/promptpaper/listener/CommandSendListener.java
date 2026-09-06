@@ -8,31 +8,46 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 
 /**
- * Hides CommandPrompter's own commands from tab-completion when the
- * {@code command-tab-complete} config option is disabled.
+ * Hides CommandPrompter's own commands from tab-completion when the {@code command-tab-complete}
+ * config option is disabled.
  */
 public class CommandSendListener implements Listener {
 
-    private static final List<String> KEYS = List.of(
-            "commandprompter", "cmdp",
-            "consoledelegate", "cd",
-            "playerdelegate", "pd"
-    );
+  private static final List<String> KEYS =
+      List.of(
+          "commandprompter",
+          "cmdp",
+          "consoledelegate",
+          "cd",
+          "playerdelegate",
+          "pd",
+          "commandprompter:response");
 
-    private final CommandPrompter plugin;
+  private final CommandPrompter plugin;
 
-    public CommandSendListener(CommandPrompter plugin) {
-        this.plugin = plugin;
+  public CommandSendListener(CommandPrompter plugin) {
+    this.plugin = plugin;
+  }
+
+  /** Strips plugin commands from the player's tab-complete list when the config option is off. */
+  @EventHandler(priority = EventPriority.HIGHEST)
+  public void onCommandSend(PlayerCommandSendEvent event) {
+    var config = plugin.getConfigLoader().getConfig();
+    if (!config.commandTabComplete()) {
+      event
+          .getCommands()
+          .removeIf(
+              command ->
+                  KEYS.contains(command)
+                      || (command.startsWith("commandprompterpaper:")
+                          && KEYS.contains(command.substring("commandprompterpaper:".length()))));
+      plugin
+          .getPluginLogger()
+          .debug(
+              "Removed "
+                  + KEYS.size()
+                  + " internal commands from tab complete for "
+                  + event.getPlayer().getName());
     }
-
-    /** Strips plugin commands from the player's tab-complete list when the config option is off. */
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onCommandSend(PlayerCommandSendEvent event) {
-        var config = plugin.getConfigLoader().getConfig();
-        if (!config.commandTabComplete()) {
-            event.getCommands().removeAll(KEYS);
-            plugin.getPluginLogger().debug("Removed " + KEYS.size()
-                    + " internal commands from tab complete for " + event.getPlayer().getName());
-        }
-    }
+  }
 }

@@ -44,12 +44,7 @@ public record SignPrompt(
    * canonical constructor with {@code titleDisplay = null}.
    */
   public SignPrompt(
-      String type,
-      String id,
-      String promptText,
-      List<String> defaultLines,
-      boolean sanitize) {
+      String type, String id, String promptText, List<String> defaultLines, boolean sanitize) {
     this(type, id, promptText, defaultLines, sanitize, null);
   }
 }
-

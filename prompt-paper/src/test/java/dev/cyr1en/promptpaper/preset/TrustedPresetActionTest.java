@@ -75,8 +75,7 @@ class TrustedPresetActionTest {
   void c0ControlCharactersRejected() {
     String badCmd = "say hello\u0000world";
     assertThrows(
-        IllegalArgumentException.class,
-        () -> TrustedPresetAction.of(badCmd, ExecuteAs.CONSOLE, 0));
+        IllegalArgumentException.class, () -> TrustedPresetAction.of(badCmd, ExecuteAs.CONSOLE, 0));
   }
 
   @Test

@@ -5,6 +5,7 @@ import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptcore.logic.transform.MathMode;
 import dev.cyr1en.promptcore.logic.transform.RenderResult;
 import dev.cyr1en.promptcore.logic.transform.TemplateBindings;
+import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
 import dev.cyr1en.promptcore.plan.ExecutionPlanDefinition;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import dev.cyr1en.promptpaper.CommandPrompter;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -46,21 +48,22 @@ import org.bukkit.entity.Player;
 /**
  * Coordinates the execution lifecycle of command prompt plans after input completion.
  *
- * <p>Phase 5.5 execution coordinator:
  * <ul>
  *   <li>Enforces single active execution per initiator via {@link ExecutionRegistry}.
- *   <li>Evaluates pre-dispatch approval gates sequentially in {@link ExecutionStage#PRE_DISPATCH_GATES}
- *       via {@link PreDispatchGateHandler}.
+ *   <li>Evaluates pre-dispatch approval gates sequentially in {@link
+ *       ExecutionStage#PRE_DISPATCH_GATES} via {@link PreDispatchGateHandler}.
  *   <li>Upon gate approval, transitions to {@link ExecutionStage#PRIMARY_DISPATCH}, claims primary
  *       execution, and dispatches primary command.
  *   <li>Upon gate denial/timeout/disconnect, aborts primary command, dispatches optional immediate
  *       on-deny action, and runs lifecycle CANCEL post-actions.
- *   <li>Runs post-actions sequentially via {@link PostActionRunner} in {@link ExecutionStage#POST_ACTIONS},
- *       remaining active until runner completion before transitioning to terminal {@link ExecutionStage#COMPLETED}
- *       (or {@link ExecutionStage#ERROR} / {@link ExecutionStage#CANCELLED}).
- *   <li>Coordinates standalone input cancellation plans through {@link #coordinateCancellation(Player, InputCompletion)}.
- *   <li>All dispatcher and gate callbacks re-enter initiator {@link PlayerExecutor}, verify
- *       exact identity/stage/registry state.
+ *   <li>Runs post-actions sequentially via {@link PostActionRunner} in {@link
+ *       ExecutionStage#POST_ACTIONS}, remaining active until runner completion before transitioning
+ *       to terminal {@link ExecutionStage#COMPLETED} (or {@link ExecutionStage#ERROR} / {@link
+ *       ExecutionStage#CANCELLED}).
+ *   <li>Coordinates standalone input cancellation plans through {@link
+ *       #coordinateCancellation(Player, InputCompletion)}.
+ *   <li>All dispatcher and gate callbacks re-enter initiator {@link PlayerExecutor}, verify exact
+ *       identity/stage/registry state.
  * </ul>
  */
 public class ExecutionCoordinator {
@@ -85,7 +88,16 @@ public class ExecutionCoordinator {
       ExecutionRegistry registry,
       PrimaryCommandDispatcher primaryDispatcher,
       ImmediateActionDispatcher immediateActionDispatcher) {
-    this(plugin, engine, registry, primaryDispatcher, immediateActionDispatcher, null, null, null, null);
+    this(
+        plugin,
+        engine,
+        registry,
+        primaryDispatcher,
+        immediateActionDispatcher,
+        null,
+        null,
+        null,
+        null);
   }
 
   public ExecutionCoordinator(
@@ -95,7 +107,16 @@ public class ExecutionCoordinator {
       PrimaryCommandDispatcher primaryDispatcher,
       ImmediateActionDispatcher immediateActionDispatcher,
       PreDispatchGateHandler preDispatchGateHandler) {
-    this(plugin, engine, registry, primaryDispatcher, immediateActionDispatcher, preDispatchGateHandler, null, null, null);
+    this(
+        plugin,
+        engine,
+        registry,
+        primaryDispatcher,
+        immediateActionDispatcher,
+        preDispatchGateHandler,
+        null,
+        null,
+        null);
   }
 
   public ExecutionCoordinator(
@@ -105,7 +126,16 @@ public class ExecutionCoordinator {
       PrimaryCommandDispatcher primaryDispatcher,
       ImmediateActionDispatcher immediateActionDispatcher,
       Function<Player, PlayerExecutor> playerExecutorFactory) {
-    this(plugin, engine, registry, primaryDispatcher, immediateActionDispatcher, null, null, null, playerExecutorFactory);
+    this(
+        plugin,
+        engine,
+        registry,
+        primaryDispatcher,
+        immediateActionDispatcher,
+        null,
+        null,
+        null,
+        playerExecutorFactory);
   }
 
   public ExecutionCoordinator(
@@ -144,16 +174,15 @@ public class ExecutionCoordinator {
     this.primaryDispatcher =
         Objects.requireNonNull(primaryDispatcher, "primaryDispatcher must not be null");
     this.immediateActionDispatcher =
-        Objects.requireNonNull(immediateActionDispatcher, "immediateActionDispatcher must not be null");
+        Objects.requireNonNull(
+            immediateActionDispatcher, "immediateActionDispatcher must not be null");
     this.preDispatchGateHandler = preDispatchGateHandler;
     this.postActionScheduler =
         postActionScheduler != null
             ? postActionScheduler
             : (plugin != null ? PostActionScheduler.forPlugin(plugin) : (p, t, r, d) -> () -> {});
     this.papiResolverFactory =
-        papiResolverFactory != null
-            ? papiResolverFactory
-            : p -> defaultPapiResolver(plugin, p);
+        papiResolverFactory != null ? papiResolverFactory : p -> defaultPapiResolver(plugin, p);
     this.playerExecutorFactory =
         playerExecutorFactory != null
             ? playerExecutorFactory
@@ -170,7 +199,7 @@ public class ExecutionCoordinator {
     return primaryDispatcher;
   }
 
-  /** Returns the immediate action dispatcher (seam for Phase 5.4 denial actions and 5.5 post-actions). */
+  /** Returns the immediate action dispatcher used for denial actions and post-actions. */
   public ImmediateActionDispatcher getImmediateActionDispatcher() {
     return immediateActionDispatcher;
   }
@@ -191,8 +220,8 @@ public class ExecutionCoordinator {
   }
 
   /**
-   * Sanitizes detail messages by stripping C0 control characters, capping length,
-   * and escaping MiniMessage tags so it remains literal text when logged or sent to players.
+   * Sanitizes detail messages by stripping C0 control characters, capping length, and escaping
+   * MiniMessage tags so it remains literal text when logged or sent to players.
    *
    * @param raw the raw detail message
    * @return sanitized, bounded, escaped message
@@ -251,8 +280,7 @@ public class ExecutionCoordinator {
    * @param completion immutable input completion snapshot
    * @return optional containing the active execution instance, or empty if rejected
    */
-  public Optional<ExecutionPlanInstance> coordinate(
-      Player player, InputCompletion completion) {
+  public Optional<ExecutionPlanInstance> coordinate(Player player, InputCompletion completion) {
     return coordinate(player, completion, null);
   }
 
@@ -269,12 +297,17 @@ public class ExecutionCoordinator {
     Objects.requireNonNull(player, "player must not be null");
     Objects.requireNonNull(completion, "completion must not be null");
 
-    if (plugin != null && (!plugin.isPluginActive() || (plugin.getEngine() != null && plugin.getEngine().isReloadInProgress()))) {
+    if (plugin != null
+        && (!plugin.isPluginActive()
+            || (plugin.getEngine() != null && plugin.getEngine().isReloadInProgress()))) {
       return Optional.empty();
     }
 
     List<PreDispatchGateSpec> gates =
-        completion.getCompiledPlan().map(ExecutionPlanDefinition::preDispatchGates).orElse(List.of());
+        completion
+            .getCompiledPlan()
+            .map(ExecutionPlanDefinition::preDispatchGates)
+            .orElse(List.of());
 
     ExecutionId executionId = ExecutionId.create();
     ExecutionStage initialStage =
@@ -285,9 +318,14 @@ public class ExecutionCoordinator {
     ExecutionRegistry.RegistrationResult regResult = registry.register(instance);
     if (!(regResult instanceof ExecutionRegistry.RegistrationResult.Success)) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().warn(
-            "Rejected execution registration for initiator " + player.getUniqueId()
-                + " (result: " + regResult.getClass().getSimpleName() + ")");
+        plugin
+            .getPluginLogger()
+            .warn(
+                "Rejected execution registration for initiator "
+                    + player.getUniqueId()
+                    + " (result: "
+                    + regResult.getClass().getSimpleName()
+                    + ")");
       }
       instance.tryTransitionTo(ExecutionStage.ERROR);
       reportCommandFailure(
@@ -302,7 +340,8 @@ public class ExecutionCoordinator {
     try {
       initiatorExecutor = playerExecutorFactory.apply(player);
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, player.getUniqueId(), t, "executor creation failure");
+      handleSynchronousFailure(
+          player, instance, executionId, player.getUniqueId(), t, "executor creation failure");
       return Optional.of(instance);
     }
 
@@ -315,30 +354,35 @@ public class ExecutionCoordinator {
       try {
         dispatchPrimaryOrPostActions(player, instance, initiatorExecutor);
       } catch (Throwable t) {
-        handleSynchronousFailure(player, instance, executionId, player.getUniqueId(), t, "primary dispatch error");
+        handleSynchronousFailure(
+            player, instance, executionId, player.getUniqueId(), t, "primary dispatch error");
       }
       return Optional.of(instance);
     }
 
     if (preDispatchGateHandler == null) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().err(
-            "PreDispatchGateHandler is not configured [execId=" + executionId + ", initiator=" + player.getUniqueId() + "]");
+        plugin
+            .getPluginLogger()
+            .err(
+                "PreDispatchGateHandler is not configured [execId="
+                    + executionId
+                    + ", initiator="
+                    + player.getUniqueId()
+                    + "]");
       }
       instance.tryTransitionTo(ExecutionStage.ERROR);
       registry.removeIfExact(player.getUniqueId(), executionId);
       reportCommandFailure(
-          player,
-          executionId,
-          player.getUniqueId(),
-          "pre-dispatch gates handler not available");
+          player, executionId, player.getUniqueId(), "pre-dispatch gates handler not available");
       return Optional.of(instance);
     }
 
     try {
       evaluateGateSequence(player, instance, gates, 0, initiatorExecutor);
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, player.getUniqueId(), t, "gate evaluation error");
+      handleSynchronousFailure(
+          player, instance, executionId, player.getUniqueId(), t, "gate evaluation error");
     }
     return Optional.of(instance);
   }
@@ -356,7 +400,9 @@ public class ExecutionCoordinator {
     Objects.requireNonNull(player, "player must not be null");
     Objects.requireNonNull(completion, "completion must not be null");
 
-    if (plugin != null && (!plugin.isPluginActive() || (plugin.getEngine() != null && plugin.getEngine().isReloadInProgress()))) {
+    if (plugin != null
+        && (!plugin.isPluginActive()
+            || (plugin.getEngine() != null && plugin.getEngine().isReloadInProgress()))) {
       return Optional.empty();
     }
 
@@ -367,9 +413,14 @@ public class ExecutionCoordinator {
     ExecutionRegistry.RegistrationResult regResult = registry.register(instance);
     if (!(regResult instanceof ExecutionRegistry.RegistrationResult.Success)) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().warn(
-            "Rejected cancellation execution registration for initiator " + player.getUniqueId()
-                + " (result: " + regResult.getClass().getSimpleName() + ")");
+        plugin
+            .getPluginLogger()
+            .warn(
+                "Rejected cancellation execution registration for initiator "
+                    + player.getUniqueId()
+                    + " (result: "
+                    + regResult.getClass().getSimpleName()
+                    + ")");
       }
       instance.tryTransitionTo(ExecutionStage.ERROR);
       return Optional.empty();
@@ -379,7 +430,13 @@ public class ExecutionCoordinator {
     try {
       initiatorExecutor = playerExecutorFactory.apply(player);
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, completion.initiatorUuid(), t, "executor creation failure");
+      handleSynchronousFailure(
+          player,
+          instance,
+          executionId,
+          completion.initiatorUuid(),
+          t,
+          "executor creation failure");
       return Optional.of(instance);
     }
 
@@ -400,7 +457,8 @@ public class ExecutionCoordinator {
             registry.removeIfExact(initiatorUuid, executionId);
           });
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "cancellation post-action failure");
+      handleSynchronousFailure(
+          player, instance, executionId, initiatorUuid, t, "cancellation post-action failure");
     }
 
     return Optional.of(instance);
@@ -424,7 +482,13 @@ public class ExecutionCoordinator {
       try {
         dispatchPrimaryOrPostActions(player, instance, initiatorExecutor);
       } catch (Throwable t) {
-        handleSynchronousFailure(player, instance, instance.getExecutionId(), instance.getInitiatorUuid(), t, "primary dispatch error");
+        handleSynchronousFailure(
+            player,
+            instance,
+            instance.getExecutionId(),
+            instance.getInitiatorUuid(),
+            t,
+            "primary dispatch error");
       }
       return;
     }
@@ -433,6 +497,7 @@ public class ExecutionCoordinator {
     ExecutionId executionId = instance.getExecutionId();
     UUID initiatorUuid = instance.getInitiatorUuid();
     long expectedIncarnation = instance.getIncarnation();
+    AtomicBoolean resultConsumed = new AtomicBoolean();
 
     try {
       preDispatchGateHandler.evaluateGate(
@@ -441,6 +506,9 @@ public class ExecutionCoordinator {
           gateSpec,
           gateIndex,
           result -> {
+            if (!resultConsumed.compareAndSet(false, true)) {
+              return;
+            }
             try {
               initiatorExecutor.execute(
                   () -> {
@@ -456,7 +524,8 @@ public class ExecutionCoordinator {
                           result,
                           initiatorExecutor);
                     } catch (Throwable t) {
-                      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "gate callback error");
+                      handleSynchronousFailure(
+                          player, instance, executionId, initiatorUuid, t, "gate callback error");
                     }
                   },
                   () -> handleInitiatorRetired(instance, executionId, initiatorUuid));
@@ -465,7 +534,8 @@ public class ExecutionCoordinator {
             }
           });
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "gate evaluation invocation error");
+      handleSynchronousFailure(
+          player, instance, executionId, initiatorUuid, t, "gate evaluation invocation error");
     }
   }
 
@@ -483,47 +553,67 @@ public class ExecutionCoordinator {
         registry.verifyAndGet(executionId, initiatorUuid, expectedIncarnation);
     if (verifiedOpt.isEmpty() || verifiedOpt.get() != instance) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding stale or unverified gate callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + ", inc=" + expectedIncarnation + "]");
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding stale or unverified gate callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + ", inc="
+                    + expectedIncarnation
+                    + "]");
       }
       return;
     }
 
     if (instance.getStage() != ExecutionStage.PRE_DISPATCH_GATES) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding gate callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + "] in unexpected stage: " + instance.getStage());
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding gate callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "] in unexpected stage: "
+                    + instance.getStage());
       }
       return;
     }
 
-    if (result == null || result.status() == PreDispatchGateResult.Status.ERROR) {
+    if (result == null) {
       instance.tryTransitionTo(ExecutionStage.ERROR);
       registry.removeIfExact(initiatorUuid, executionId);
-      reportCommandFailure(
-          player,
-          executionId,
-          initiatorUuid,
-          result != null && result.detail() != null ? result.detail() : "gate evaluation error");
+      reportCommandFailure(player, executionId, initiatorUuid, "gate evaluation error");
       return;
     }
 
-    if (result.status() == PreDispatchGateResult.Status.APPROVED) {
-      evaluateGateSequence(player, instance, gates, gateIndex + 1, initiatorExecutor);
-      return;
+    switch (result.status()) {
+      case ERROR -> {
+        instance.tryTransitionTo(ExecutionStage.ERROR);
+        registry.removeIfExact(initiatorUuid, executionId);
+        reportCommandFailure(
+            player,
+            executionId,
+            initiatorUuid,
+            result.detail() != null ? result.detail() : "gate evaluation error");
+        return;
+      }
+      case APPROVED -> {
+        evaluateGateSequence(player, instance, gates, gateIndex + 1, initiatorExecutor);
+        return;
+      }
+      case INITIATOR_DISCONNECTED -> {
+        instance.tryTransitionTo(ExecutionStage.CANCELLED);
+        registry.removeIfExact(initiatorUuid, executionId);
+        return;
+      }
+      case DENIED, TIMED_OUT, TARGET_DISCONNECTED -> {
+        // Continue below with the shared cancellation action path.
+      }
     }
 
-    if (result.status() == PreDispatchGateResult.Status.INITIATOR_DISCONNECTED) {
-      instance.tryTransitionTo(ExecutionStage.CANCELLED);
-      registry.removeIfExact(initiatorUuid, executionId);
-      return;
-    }
-
-    // DENIED, TIMED_OUT, or TARGET_DISCONNECTED -> abort primary
     Optional<TrustedPresetAction> onDenyOpt = result.getOnDenyAction();
     PreDispatchGateSpec gateSpec =
         (gateIndex >= 0 && gateIndex < gates.size()) ? gates.get(gateIndex) : null;
@@ -544,9 +634,15 @@ public class ExecutionCoordinator {
             initiatorExecutor);
       } catch (Throwable t) {
         if (plugin != null && plugin.getPluginLogger() != null) {
-          plugin.getPluginLogger().err(
-              "Exception in dispatchOnDenyAction [execId=" + executionId + ", initiator=" + initiatorUuid + "]: "
-                  + sanitizeDetail(t.getMessage()));
+          plugin
+              .getPluginLogger()
+              .err(
+                  "Exception in dispatchOnDenyAction [execId="
+                      + executionId
+                      + ", initiator="
+                      + initiatorUuid
+                      + "]: "
+                      + sanitizeDetail(t.getMessage()));
         }
         runGateCancellationPostActions(player, instance, initiatorExecutor);
       }
@@ -568,20 +664,31 @@ public class ExecutionCoordinator {
         registry.verifyAndGet(executionId, initiatorUuid, expectedIncarnation);
     if (verifiedOpt.isEmpty() || verifiedOpt.get() != instance) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding stale or unverified on-deny dispatch [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + ", inc=" + expectedIncarnation + "]");
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding stale or unverified on-deny dispatch [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + ", inc="
+                    + expectedIncarnation
+                    + "]");
       }
       return;
     }
 
     if (instance.getStage() != ExecutionStage.PRE_DISPATCH_GATES) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding on-deny dispatch [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + "] in unexpected stage: " + instance.getStage());
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding on-deny dispatch [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "] in unexpected stage: "
+                    + instance.getStage());
       }
       return;
     }
@@ -592,10 +699,18 @@ public class ExecutionCoordinator {
 
     if (renderResult.isFailure()) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().err(
-            "Failed to render on-deny action command [execId=" + executionId
-                + ", initiator=" + initiatorUuid + "]: "
-                + sanitizeDetail(renderResult.error() != null ? renderResult.error().message() : "render error"));
+        plugin
+            .getPluginLogger()
+            .err(
+                "Failed to render on-deny action command [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "]: "
+                    + sanitizeDetail(
+                        renderResult.error() != null
+                            ? renderResult.error().message()
+                            : "render error"));
       }
       runGateCancellationPostActions(player, instance, initiatorExecutor);
       return;
@@ -628,7 +743,13 @@ public class ExecutionCoordinator {
                           actionOutcome,
                           initiatorExecutor);
                     } catch (Throwable t) {
-                      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "on-deny callback error");
+                      handleSynchronousFailure(
+                          player,
+                          instance,
+                          executionId,
+                          initiatorUuid,
+                          t,
+                          "on-deny callback error");
                     }
                   },
                   () -> handleInitiatorRetired(instance, executionId, initiatorUuid));
@@ -638,10 +759,15 @@ public class ExecutionCoordinator {
           });
     } catch (Throwable t) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().err(
-            "Exception dispatching on-deny action [execId=" + executionId
-                + ", initiator=" + initiatorUuid + "]: "
-                + sanitizeDetail(t.getMessage()));
+        plugin
+            .getPluginLogger()
+            .err(
+                "Exception dispatching on-deny action [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "]: "
+                    + sanitizeDetail(t.getMessage()));
       }
       runGateCancellationPostActions(player, instance, initiatorExecutor);
     }
@@ -659,30 +785,47 @@ public class ExecutionCoordinator {
         registry.verifyAndGet(executionId, initiatorUuid, expectedIncarnation);
     if (verifiedOpt.isEmpty() || verifiedOpt.get() != instance) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding stale or unverified on-deny callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + ", inc=" + expectedIncarnation + "]");
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding stale or unverified on-deny callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + ", inc="
+                    + expectedIncarnation
+                    + "]");
       }
       return;
     }
 
     if (instance.getStage() != ExecutionStage.PRE_DISPATCH_GATES) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding on-deny callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + "] in unexpected stage: " + instance.getStage());
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding on-deny callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "] in unexpected stage: "
+                    + instance.getStage());
       }
       return;
     }
 
     if (actionOutcome != null && !actionOutcome.isSuccess()) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().warn(
-            "On-deny action execution failed [execId=" + executionId
-                + ", initiator=" + initiatorUuid + "]: "
-                + sanitizeDetail(actionOutcome.error() != null ? actionOutcome.error().detail() : "failed"));
+        plugin
+            .getPluginLogger()
+            .warn(
+                "On-deny action execution failed [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "]: "
+                    + sanitizeDetail(
+                        actionOutcome.error() != null ? actionOutcome.error().detail() : "failed"));
       }
     }
 
@@ -690,9 +833,7 @@ public class ExecutionCoordinator {
   }
 
   private void runGateCancellationPostActions(
-      Player player,
-      ExecutionPlanInstance instance,
-      PlayerExecutor initiatorExecutor) {
+      Player player, ExecutionPlanInstance instance, PlayerExecutor initiatorExecutor) {
     UUID initiatorUuid = instance.getInitiatorUuid();
     ExecutionId executionId = instance.getExecutionId();
     if (!instance.tryTransitionTo(ExecutionStage.POST_ACTIONS)) {
@@ -717,9 +858,7 @@ public class ExecutionCoordinator {
   }
 
   private void dispatchPrimaryOrPostActions(
-      Player player,
-      ExecutionPlanInstance instance,
-      PlayerExecutor initiatorExecutor) {
+      Player player, ExecutionPlanInstance instance, PlayerExecutor initiatorExecutor) {
     InputCompletion completion = instance.getInputCompletion();
     String command = completion.assembledCommand();
     UUID initiatorUuid = completion.initiatorUuid();
@@ -779,7 +918,13 @@ public class ExecutionCoordinator {
                           completion,
                           initiatorExecutor);
                     } catch (Throwable t) {
-                      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "primary dispatch callback error");
+                      handleSynchronousFailure(
+                          player,
+                          instance,
+                          executionId,
+                          initiatorUuid,
+                          t,
+                          "primary dispatch callback error");
                     }
                   },
                   () -> handleInitiatorRetired(instance, executionId, initiatorUuid));
@@ -788,7 +933,8 @@ public class ExecutionCoordinator {
             }
           });
     } catch (Throwable t) {
-      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "primary dispatcher error");
+      handleSynchronousFailure(
+          player, instance, executionId, initiatorUuid, t, "primary dispatcher error");
     }
   }
 
@@ -815,10 +961,15 @@ public class ExecutionCoordinator {
       }
     } catch (Throwable t) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().err(
-            "Exception resolving PapiReferenceResolver [execId=" + executionId
-                + ", initiator=" + initiatorUuid + "]: "
-                + sanitizeDetail(t.getMessage()));
+        plugin
+            .getPluginLogger()
+            .err(
+                "Exception resolving PapiReferenceResolver [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "]: "
+                    + sanitizeDetail(t.getMessage()));
       }
       onFailure.accept(
           DispatchError.of(
@@ -828,9 +979,12 @@ public class ExecutionCoordinator {
       return;
     }
 
-    var templateSyntax = plugin != null && plugin.getConfigLoader() != null && plugin.getConfigLoader().getConfig() != null
+    var templateSyntax =
+        plugin != null
+                && plugin.getConfigLoader() != null
+                && plugin.getConfigLoader().getConfig() != null
             ? plugin.getConfigLoader().getConfig().templateSyntax()
-            : dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT;
+            : TemplateSyntax.DEFAULT;
 
     try {
       PostActionRunner.execute(
@@ -862,7 +1016,13 @@ public class ExecutionCoordinator {
                         onFailure.accept(result != null ? result.error() : null);
                       }
                     } catch (Throwable t) {
-                      handleSynchronousFailure(player, instance, executionId, initiatorUuid, t, "post-action callback error");
+                      handleSynchronousFailure(
+                          player,
+                          instance,
+                          executionId,
+                          initiatorUuid,
+                          t,
+                          "post-action callback error");
                     }
                   },
                   () -> handleInitiatorRetired(instance, executionId, initiatorUuid));
@@ -872,10 +1032,15 @@ public class ExecutionCoordinator {
           });
     } catch (Throwable t) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().err(
-            "Exception launching PostActionRunner [execId=" + executionId
-                + ", initiator=" + initiatorUuid + "]: "
-                + sanitizeDetail(t.getMessage()));
+        plugin
+            .getPluginLogger()
+            .err(
+                "Exception launching PostActionRunner [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "]: "
+                    + sanitizeDetail(t.getMessage()));
       }
       onFailure.accept(
           DispatchError.of(
@@ -894,10 +1059,15 @@ public class ExecutionCoordinator {
       String category) {
     String detail = t != null && t.getMessage() != null ? t.getMessage() : category;
     if (plugin != null && plugin.getPluginLogger() != null) {
-      plugin.getPluginLogger().err(
-          "Execution failure [execId=" + executionId
-              + ", initiator=" + initiatorUuid + "]: "
-              + sanitizeDetail(detail));
+      plugin
+          .getPluginLogger()
+          .err(
+              "Execution failure [execId="
+                  + executionId
+                  + ", initiator="
+                  + initiatorUuid
+                  + "]: "
+                  + sanitizeDetail(detail));
     }
     instance.tryTransitionTo(ExecutionStage.ERROR);
     registry.removeIfExact(initiatorUuid, executionId);
@@ -905,14 +1075,16 @@ public class ExecutionCoordinator {
   }
 
   private void handleInitiatorRetired(
-      ExecutionPlanInstance instance,
-      ExecutionId executionId,
-      UUID initiatorUuid) {
+      ExecutionPlanInstance instance, ExecutionId executionId, UUID initiatorUuid) {
     if (plugin != null && plugin.getPluginLogger() != null) {
-      plugin.getPluginLogger().debug(
-          "Initiator PlayerExecutor retired [execId=" + executionId
-              + ", initiator=" + initiatorUuid
-              + "]; running safe retirement cleanup");
+      plugin
+          .getPluginLogger()
+          .debug(
+              "Initiator PlayerExecutor retired [execId="
+                  + executionId
+                  + ", initiator="
+                  + initiatorUuid
+                  + "]; running safe retirement cleanup");
     }
     instance.tryTransitionTo(ExecutionStage.ERROR);
     registry.removeIfExact(initiatorUuid, executionId);
@@ -932,20 +1104,31 @@ public class ExecutionCoordinator {
         registry.verifyAndGet(executionId, initiatorUuid, expectedIncarnation);
     if (verifiedOpt.isEmpty() || verifiedOpt.get() != instance) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding stale or unverified dispatch callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + ", inc=" + expectedIncarnation + "]");
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding stale or unverified dispatch callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + ", inc="
+                    + expectedIncarnation
+                    + "]");
       }
       return;
     }
 
     if (instance.getStage() != ExecutionStage.PRIMARY_DISPATCH) {
       if (plugin != null && plugin.getPluginLogger() != null) {
-        plugin.getPluginLogger().debug(
-            "Discarding callback [execId=" + executionId
-                + ", initiator=" + initiatorUuid
-                + "] in unexpected stage: " + instance.getStage());
+        plugin
+            .getPluginLogger()
+            .debug(
+                "Discarding callback [execId="
+                    + executionId
+                    + ", initiator="
+                    + initiatorUuid
+                    + "] in unexpected stage: "
+                    + instance.getStage());
       }
       return;
     }
@@ -977,9 +1160,7 @@ public class ExecutionCoordinator {
           });
     } else {
       String detail =
-          outcome != null && outcome.error() != null
-              ? outcome.error().detail()
-              : "dispatch failed";
+          outcome != null && outcome.error() != null ? outcome.error().detail() : "dispatch failed";
       reportCommandFailure(player, executionId, initiatorUuid, detail);
 
       if (!instance.tryTransitionTo(ExecutionStage.POST_ACTIONS)) {
@@ -1036,7 +1217,9 @@ public class ExecutionCoordinator {
   }
 
   private void sendCompletedCommand(Player player, String command) {
-    if (player != null && plugin != null && plugin.getConfigLoader() != null
+    if (player != null
+        && plugin != null
+        && plugin.getConfigLoader() != null
         && plugin.getConfigLoader().getConfig() != null
         && plugin.getConfigLoader().getConfig().showCompleted()) {
       try {
@@ -1047,29 +1230,42 @@ public class ExecutionCoordinator {
   }
 
   private void reportCommandFailure(
-      Player player,
-      ExecutionId executionId,
-      UUID initiatorUuid,
-      String detail) {
+      Player player, ExecutionId executionId, UUID initiatorUuid, String detail) {
     String safeDetail = sanitizeDetail(detail);
     String execIdStr = executionId != null ? executionId.toString() : "unknown";
-    String uuidStr = initiatorUuid != null ? initiatorUuid.toString() : (player != null ? player.getUniqueId().toString() : "unknown");
+    String uuidStr =
+        initiatorUuid != null
+            ? initiatorUuid.toString()
+            : (player != null ? player.getUniqueId().toString() : "unknown");
 
     if (plugin != null && plugin.getPluginLogger() != null) {
-      plugin.getPluginLogger().info(
-          "Command execution failed [execId=" + execIdStr + ", initiator=" + uuidStr + "]: " + safeDetail);
+      plugin
+          .getPluginLogger()
+          .info(
+              "Command execution failed [execId="
+                  + execIdStr
+                  + ", initiator="
+                  + uuidStr
+                  + "]: "
+                  + safeDetail);
     }
-    if (player != null && plugin != null && plugin.getConfigLoader() != null && plugin.getConfigLoader().getI18n() != null) {
+    if (player != null
+        && plugin != null
+        && plugin.getConfigLoader() != null
+        && plugin.getConfigLoader().getI18n() != null) {
       try {
         var executor = playerExecutorFactory.apply(player);
         executor.execute(
             () -> {
               try {
                 player.sendMessage(
-                    plugin.getConfigLoader().getI18n().get(
-                        "prompt.error.command_failed",
-                        player,
-                        Placeholder.of("message", safeDetail)));
+                    plugin
+                        .getConfigLoader()
+                        .getI18n()
+                        .get(
+                            "prompt.error.command_failed",
+                            player,
+                            Placeholder.of("message", safeDetail)));
               } catch (Throwable ignored) {
               }
             },

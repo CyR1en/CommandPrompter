@@ -53,11 +53,11 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
- * Unit coverage for the three new classes in the {@code factory} package:
- * {@link PromptFactory}, {@link MaterialMapper}, and {@link InlineTagMapper}.
+ * Unit coverage for the three new classes in the {@code factory} package: {@link PromptFactory},
+ * {@link MaterialMapper}, and {@link InlineTagMapper}.
  *
- * <p>The {@link MockBukkitTest} base sets up a mock plugin, server, and config loader; we
- * rely on that for the factory's plugin reference.
+ * <p>The {@link MockBukkitTest} base sets up a mock plugin, server, and config loader; we rely on
+ * that for the factory's plugin reference.
  */
 class PromptFactoryTest extends MockBukkitTest {
 
@@ -74,10 +74,12 @@ class PromptFactoryTest extends MockBukkitTest {
    * expanded exactly once and that semantic fields were never sent to the expander.
    */
   private PromptFactory factoryWithExpander(List<String> expanded) {
-    var expander = new PromptPresentationExpander((player, value) -> {
-      expanded.add(value);
-      return "[" + value + "]";
-    });
+    var expander =
+        new PromptPresentationExpander(
+            (player, value) -> {
+              expanded.add(value);
+              return "[" + value + "]";
+            });
     return new PromptFactory(plugin, expander);
   }
 
@@ -236,22 +238,43 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void inlineMapperUppercaseBuiltinsResolveIdentically() {
-    assertInstanceOf(AnvilPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<A:val>", "A", null, "val")));
-    assertInstanceOf(AnvilPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<ANVIL:val>", "ANVIL", null, "val")));
-    assertInstanceOf(SignPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<S:val>", "S", null, "val")));
-    assertInstanceOf(SignPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<SIGN:val>", "SIGN", null, "val")));
-    assertInstanceOf(PlayerUiPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<P:val>", "P", null, "val")));
-    assertInstanceOf(PlayerUiPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<PLAYER:val>", "PLAYER", null, "val")));
-    assertInstanceOf(DialogPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<D:val>", "D", null, "val")));
-    assertInstanceOf(DialogPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<DIALOG:val>", "DIALOG", null, "val")));
-    assertInstanceOf(dev.cyr1en.promptpaper.preset.ConfirmationPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<C:val>", "C", null, "val")));
-    assertInstanceOf(dev.cyr1en.promptpaper.preset.ConfirmationPrompt.class, InlineTagMapper.toPromptDefinition(new PromptTag("<CONFIRM:val>", "CONFIRM", null, "val")));
+    assertInstanceOf(
+        AnvilPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<A:val>", "A", null, "val")));
+    assertInstanceOf(
+        AnvilPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<ANVIL:val>", "ANVIL", null, "val")));
+    assertInstanceOf(
+        SignPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<S:val>", "S", null, "val")));
+    assertInstanceOf(
+        SignPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<SIGN:val>", "SIGN", null, "val")));
+    assertInstanceOf(
+        PlayerUiPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<P:val>", "P", null, "val")));
+    assertInstanceOf(
+        PlayerUiPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<PLAYER:val>", "PLAYER", null, "val")));
+    assertInstanceOf(
+        DialogPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<D:val>", "D", null, "val")));
+    assertInstanceOf(
+        DialogPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<DIALOG:val>", "DIALOG", null, "val")));
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.preset.ConfirmationPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<C:val>", "C", null, "val")));
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.preset.ConfirmationPrompt.class,
+        InlineTagMapper.toPromptDefinition(new PromptTag("<CONFIRM:val>", "CONFIRM", null, "val")));
   }
 
   @Test
   void inlineMapperCustomMappingResolvesValidKey() {
     var tagCustom = new PromptTag("<custom:Sign here>", "custom", null, "Sign here");
-    var defCustom = InlineTagMapper.toPromptDefinition(tagCustom, Map.of("custom", ScreenType.SIGN));
+    var defCustom =
+        InlineTagMapper.toPromptDefinition(tagCustom, Map.of("custom", ScreenType.SIGN));
     assertInstanceOf(SignPrompt.class, defCustom);
   }
 
@@ -268,11 +291,15 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createAnvilPromptYieldsAnvilScreen() {
-    var anvil = new AnvilPrompt(
-        "anvil", "p1", "Rename", "New",
-        new AnvilButton(true, "Cancel", "BARRIER", "Click", 0),
-        new AnvilButton(true, "OK", "PAPER", "Click", 0),
-        true);
+    var anvil =
+        new AnvilPrompt(
+            "anvil",
+            "p1",
+            "Rename",
+            "New",
+            new AnvilButton(true, "Cancel", "BARRIER", "Click", 0),
+            new AnvilButton(true, "OK", "PAPER", "Click", 0),
+            true);
     var screen = factory.create(createPlayer(), anvil);
     assertInstanceOf(AnvilPromptScreen.class, screen);
   }
@@ -286,54 +313,103 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createPlayerUiPromptYieldsPlayerUIScreen() {
-    var pui = new PlayerUiPrompt(
-        "player_ui", "p1", "Choose", "online",
-        new UIButton(true, 0, "Cancel", "BARRIER", "Cancel", 0),
-        new UIButton(true, 1, "Prev", "ARROW", "Prev", 0),
-        new UIButton(true, 2, "Next", "ARROW", "Next", 0),
-        true);
+    var pui =
+        new PlayerUiPrompt(
+            "player_ui",
+            "p1",
+            "Choose",
+            "online",
+            new UIButton(true, 0, "Cancel", "BARRIER", "Cancel", 0),
+            new UIButton(true, 1, "Prev", "ARROW", "Prev", 0),
+            new UIButton(true, 2, "Next", "ARROW", "Next", 0),
+            true);
     var screen = factory.create(createPlayer(), pui);
     assertInstanceOf(PlayerUIScreen.class, screen);
   }
 
   @Test
   void createConfirmationPromptYieldsConfirmationScreen() {
-    var confGui = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
-        "confirmation", "c1", dev.cyr1en.promptcore.ConfirmationMode.GUI,
-        "Confirm", "Are you sure?", "Yes", "No", false, null, true);
+    var confGui =
+        new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+            "confirmation",
+            "c1",
+            dev.cyr1en.promptcore.ConfirmationMode.GUI,
+            "Confirm",
+            "Are you sure?",
+            "Yes",
+            "No",
+            false,
+            null,
+            true);
     var screenGui = factory.create(createPlayer(), confGui);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenGui);
-    var confScreenGui = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenGui;
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenGui);
+    var confScreenGui =
+        (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenGui;
     assertEquals(2, confScreenGui.fallbackChain().size());
 
-    var confChat = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
-        "confirmation", "c2", dev.cyr1en.promptcore.ConfirmationMode.CHAT,
-        null, "Chat confirm?", null, null, true, null, false);
+    var confChat =
+        new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+            "confirmation",
+            "c2",
+            dev.cyr1en.promptcore.ConfirmationMode.CHAT,
+            null,
+            "Chat confirm?",
+            null,
+            null,
+            true,
+            null,
+            false);
     var screenChat = factory.create(createPlayer(), confChat);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenChat);
-    var confScreenChat = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenChat;
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenChat);
+    var confScreenChat =
+        (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenChat;
     assertEquals(1, confScreenChat.fallbackChain().size());
     assertTrue(confScreenChat.isValueMode());
 
-    var confDialog = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
-        "confirmation", "c3", dev.cyr1en.promptcore.ConfirmationMode.DIALOG,
-        "Title", "Dialog confirm?", "Y", "N", false, "ui.button.click", true);
+    var confDialog =
+        new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+            "confirmation",
+            "c3",
+            dev.cyr1en.promptcore.ConfirmationMode.DIALOG,
+            "Title",
+            "Dialog confirm?",
+            "Y",
+            "N",
+            false,
+            "ui.button.click",
+            true);
     var screenDialog = factory.create(createPlayer(), confDialog);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenDialog);
-    var confScreenDialog = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenDialog;
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screenDialog);
+    var confScreenDialog =
+        (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screenDialog;
     assertEquals(3, confScreenDialog.fallbackChain().size());
   }
 
   @Test
   void createConfirmationWithTitleDisplayIsWrapped() {
     var title = new TitleConfig("Confirm Title", "Sub", 40);
-    var conf = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
-        "confirmation", "c1", dev.cyr1en.promptcore.ConfirmationMode.GUI,
-        "Confirm", "Are you sure?", "Yes", "No", false, null, true, title);
+    var conf =
+        new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+            "confirmation",
+            "c1",
+            dev.cyr1en.promptcore.ConfirmationMode.GUI,
+            "Confirm",
+            "Are you sure?",
+            "Yes",
+            "No",
+            false,
+            null,
+            true,
+            title);
     var screen = factory.create(createPlayer(), conf);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, wrapper.delegate());
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class,
+        wrapper.delegate());
   }
 
   @Test
@@ -380,15 +456,17 @@ class PromptFactoryTest extends MockBukkitTest {
       // failure is specifically about a Paper dialog class (not
       // something else like a NullPointerException in our code).
       var msg = e.getMessage();
-      assertTrue(msg != null && (msg.contains("papermc/paper")
-              || msg.contains("net/kyori/adventure/dialog")),
+      assertTrue(
+          msg != null
+              && (msg.contains("papermc/paper") || msg.contains("net/kyori/adventure/dialog")),
           "Expected NoClassDefFoundError on a Paper dialog class, got: " + msg);
     }
   }
 
   @Test
   void createRejectsNullDefinition() {
-    assertThrows(IllegalArgumentException.class,
+    assertThrows(
+        IllegalArgumentException.class,
         () -> factory.create(createPlayer(), (PromptDefinition) null));
   }
 
@@ -396,21 +474,31 @@ class PromptFactoryTest extends MockBukkitTest {
   void factoryResolvesBadAnvilMaterialWithoutCrashing() {
     // A bogus button_icon in JSON should produce a non-fatal warning and
     // fall back to PAPER — the anvil screen must still be created.
-    var anvil = new AnvilPrompt(
-        "anvil", "p_bad", "T", "X",
-        new AnvilButton(true, "L", "NOT_A_REAL_MATERIAL", "H", 0),
-        new AnvilButton(true, "R", "PAPER", "H", 0),
-        true);
+    var anvil =
+        new AnvilPrompt(
+            "anvil",
+            "p_bad",
+            "T",
+            "X",
+            new AnvilButton(true, "L", "NOT_A_REAL_MATERIAL", "H", 0),
+            new AnvilButton(true, "R", "PAPER", "H", 0),
+            true);
     var screen = factory.create(createPlayer(), anvil);
     assertInstanceOf(AnvilPromptScreen.class, screen);
   }
 
   @Test
   void factoryResolvesBadPlayerUiMaterialWithoutCrashing() {
-    var pui = new PlayerUiPrompt(
-        "player_ui", "p_bad", "Choose", null,
-        new UIButton(true, 0, "X", "GARBAGE", "H", 0),
-        null, null, true);
+    var pui =
+        new PlayerUiPrompt(
+            "player_ui",
+            "p_bad",
+            "Choose",
+            null,
+            new UIButton(true, 0, "X", "GARBAGE", "H", 0),
+            null,
+            null,
+            true);
     var screen = factory.create(createPlayer(), pui);
     assertInstanceOf(PlayerUIScreen.class, screen);
   }
@@ -449,7 +537,8 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createFromTagRejectsNullTag() {
-    assertThrows(IllegalArgumentException.class,
+    assertThrows(
+        IllegalArgumentException.class,
         () -> factory.createFromTag(createPlayer(), (PromptTag) null));
   }
 
@@ -461,9 +550,7 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createFromTagWithConfiguredScreenMappingsResolvesValidCustomKey() {
-    Mockito.when(promptConfig.getScreenMappings()).thenReturn(Map.of(
-        "custom", ScreenType.SIGN
-    ));
+    Mockito.when(promptConfig.getScreenMappings()).thenReturn(Map.of("custom", ScreenType.SIGN));
 
     var tagCustom = new PromptTag("<custom:Sign>", "custom", null, "Sign");
     var screenCustom = factory.createFromTag(createPlayer(), tagCustom);
@@ -498,8 +585,8 @@ class PromptFactoryTest extends MockBukkitTest {
   @Test
   void createChatWithTitleDisplayIsWrapped() {
     var title = new TitleConfig("Hello", "World", 50);
-    var chat = new ChatPrompt("chat", "p1", "Why?",
-        new CancelBehavior(false, "", false, ""), true, title);
+    var chat =
+        new ChatPrompt("chat", "p1", "Why?", new CancelBehavior(false, "", false, ""), true, title);
     var screen = factory.create(createPlayer(), chat);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
@@ -509,11 +596,16 @@ class PromptFactoryTest extends MockBukkitTest {
   @Test
   void createAnvilWithTitleDisplayIsWrapped() {
     var title = new TitleConfig("Main", null, null);
-    var anvil = new AnvilPrompt(
-        "anvil", "p1", "Rename", "New",
-        new AnvilButton(true, "Cancel", "BARRIER", "Click", 0),
-        new AnvilButton(true, "OK", "PAPER", "Click", 0),
-        true, title);
+    var anvil =
+        new AnvilPrompt(
+            "anvil",
+            "p1",
+            "Rename",
+            "New",
+            new AnvilButton(true, "Cancel", "BARRIER", "Click", 0),
+            new AnvilButton(true, "OK", "PAPER", "Click", 0),
+            true,
+            title);
     var screen = factory.create(createPlayer(), anvil);
     assertInstanceOf(TitleWrapperScreen.class, screen);
   }
@@ -522,8 +614,9 @@ class PromptFactoryTest extends MockBukkitTest {
   void titleDisplayWithEmptyMainInjectsPromptText() {
     // Empty main → factory should inject the prompt's display text.
     var title = new TitleConfig("", null, null);
-    var chat = new ChatPrompt("chat", "p1", "Default Text",
-        new CancelBehavior(false, "", false, ""), true, title);
+    var chat =
+        new ChatPrompt(
+            "chat", "p1", "Default Text", new CancelBehavior(false, "", false, ""), true, title);
     var screen = factory.create(createPlayer(), chat);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     // The wrapper is created — the main injection happens inside wrapWithTitle.
@@ -533,9 +626,18 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void inlineMapperPassesTitleToChatPrompt() {
-    var titleTag = new PromptTag("<test>", "", null, "Why?", true, null,
-        PromptTag.AnswerType.NONE, java.util.List.of(), false,
-        new TitleConfig("Title Main", "Sub", 60));
+    var titleTag =
+        new PromptTag(
+            "<test>",
+            "",
+            null,
+            "Why?",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            java.util.List.of(),
+            false,
+            new TitleConfig("Title Main", "Sub", 60));
     var def = InlineTagMapper.toPromptDefinition(titleTag);
     assertInstanceOf(ChatPrompt.class, def);
     var chat = (ChatPrompt) def;
@@ -548,9 +650,18 @@ class PromptFactoryTest extends MockBukkitTest {
   @Test
   void inlineMapperStandaloneTitleInjectsDisplayText() {
     // Standalone -t flag → main is empty, mapper should inject displayText.
-    var titleTag = new PromptTag("<test>", "", null, "Prompt Text", true, null,
-        PromptTag.AnswerType.NONE, java.util.List.of(), false,
-        new TitleConfig("", null, null));
+    var titleTag =
+        new PromptTag(
+            "<test>",
+            "",
+            null,
+            "Prompt Text",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            java.util.List.of(),
+            false,
+            new TitleConfig("", null, null));
     var def = InlineTagMapper.toPromptDefinition(titleTag);
     assertInstanceOf(ChatPrompt.class, def);
     var chat = (ChatPrompt) def;
@@ -570,9 +681,18 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createFromTagWithTitleFlagWrapsScreen() {
-    var tag = new PromptTag("<a:Why?>", "a", null, "Why?", true, null,
-        PromptTag.AnswerType.NONE, java.util.List.of(), false,
-        new TitleConfig("Title", null, 40));
+    var tag =
+        new PromptTag(
+            "<a:Why?>",
+            "a",
+            null,
+            "Why?",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            java.util.List.of(),
+            false,
+            new TitleConfig("Title", null, 40));
     var screen = factory.createFromTag(createPlayer(), tag);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
@@ -592,24 +712,31 @@ class PromptFactoryTest extends MockBukkitTest {
   // ------------------------------------------------------------------
 
   /**
-   * A preset tag whose id looks like a PAPI placeholder must be looked up in the registry with
-   * the raw id — it is never sent to the expansion delegate — while every presentation field of
-   * the resolved definition is expanded exactly once.
+   * A preset tag whose id looks like a PAPI placeholder must be looked up in the registry with the
+   * raw id — it is never sent to the expansion delegate — while every presentation field of the
+   * resolved definition is expanded exactly once.
    */
   @Test
   void presetLookupUsesRawDisplayTextAndExpandsResolvedFieldsExactlyOnce() {
     var registry = Mockito.mock(PresetRegistry.class);
     Mockito.when(plugin.getPresetRegistry()).thenReturn(registry);
-    var rawChat = new ChatPrompt("chat", "%preset_id%", "Hello %player_name%",
-        new CancelBehavior(false, "Bye %player_name%", false, "Hover %player_name%"), true);
+    var rawChat =
+        new ChatPrompt(
+            "chat",
+            "%preset_id%",
+            "Hello %player_name%",
+            new CancelBehavior(false, "Bye %player_name%", false, "Hover %player_name%"),
+            true);
     Mockito.when(registry.getPrompt("%preset_id%")).thenReturn(Optional.of(rawChat));
 
     List<String> expanded = new ArrayList<>();
     var testFactory = factoryWithExpander(expanded);
 
     // key="" + preset=true + displayText=the id — exactly what <@%preset_id%> parses to.
-    var tag = new PromptTag("<@%preset_id%>", "", null, "%preset_id%", true, null,
-        PromptTag.AnswerType.NONE, List.of(), true);
+    var tag =
+        new PromptTag(
+            "<@%preset_id%>",
+            "", null, "%preset_id%", true, null, PromptTag.AnswerType.NONE, List.of(), true);
 
     var screen = testFactory.createFromTag(createPlayer(), tag);
 
@@ -626,15 +753,21 @@ class PromptFactoryTest extends MockBukkitTest {
   }
 
   /**
-   * An empty {@code titleDisplay.main} stays empty through the presentation expander (it is a
-   * "use the prompt text" marker, not presentation text), and the factory's title fallback uses
-   * the already-expanded prompt text without re-expanding it.
+   * An empty {@code titleDisplay.main} stays empty through the presentation expander (it is a "use
+   * the prompt text" marker, not presentation text), and the factory's title fallback uses the
+   * already-expanded prompt text without re-expanding it.
    */
   @Test
   void emptyTitleMainIsPreservedAndFallbackUsesExpandedPromptTextOnce() {
     var title = new TitleConfig("", null, 40);
-    var chat = new ChatPrompt("chat", "p1", "Hello %player_name%",
-        new CancelBehavior(false, "", false, ""), true, title);
+    var chat =
+        new ChatPrompt(
+            "chat",
+            "p1",
+            "Hello %player_name%",
+            new CancelBehavior(false, "", false, ""),
+            true,
+            title);
 
     List<String> expanded = new ArrayList<>();
     var testFactory = factoryWithExpander(expanded);
@@ -652,9 +785,9 @@ class PromptFactoryTest extends MockBukkitTest {
   }
 
   /**
-   * A non-dialog inline tag flows through {@link InlineTagMapper} on the raw tag and then
-   * {@link PromptFactory#create}, so the display text is expanded exactly once (never twice by
-   * the mapper and the factory).
+   * A non-dialog inline tag flows through {@link InlineTagMapper} on the raw tag and then {@link
+   * PromptFactory#create}, so the display text is expanded exactly once (never twice by the mapper
+   * and the factory).
    */
   @Test
   void inlineTagDisplayTextIsExpandedExactlyOnce() {
@@ -679,16 +812,30 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createConfirmation_inlineTimeout_propagatesToChatViewTtl() {
-    var tag = new PromptTag("<c:Confirm? -timeout:1 -mode:chat>", "c", null, "Confirm? -timeout:1 -mode:chat", true, null,
-        PromptTag.AnswerType.NONE, List.of(), false, null, 1);
+    var tag =
+        new PromptTag(
+            "<c:Confirm? -timeout:1 -mode:chat>",
+            "c",
+            null,
+            "Confirm? -timeout:1 -mode:chat",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            List.of(),
+            false,
+            null,
+            1);
     var screen = factory.createFromTag(createPlayer(), tag);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
     var confScreen = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screen;
-    var chatView = confScreen.fallbackChain().stream()
-        .filter(v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
-        .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
-        .findFirst()
-        .orElseThrow();
+    var chatView =
+        confScreen.fallbackChain().stream()
+            .filter(
+                v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
+            .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
+            .findFirst()
+            .orElseThrow();
     assertEquals(java.time.Duration.ofSeconds(1), chatView.getTtl());
   }
 
@@ -697,64 +844,109 @@ class PromptFactoryTest extends MockBukkitTest {
     Mockito.when(config.promptTimeout()).thenReturn(45);
     var tag = new PromptTag("<c:Confirm? -mode:chat>", "c", null, "Confirm? -mode:chat");
     var screen = factory.createFromTag(createPlayer(), tag);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
     var confScreen = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screen;
-    var chatView = confScreen.fallbackChain().stream()
-        .filter(v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
-        .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
-        .findFirst()
-        .orElseThrow();
+    var chatView =
+        confScreen.fallbackChain().stream()
+            .filter(
+                v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
+            .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
+            .findFirst()
+            .orElseThrow();
     assertEquals(java.time.Duration.ofSeconds(45), chatView.getTtl());
   }
 
   @Test
   void createConfirmation_presetTimeout_respectsLowerTimeout() {
     Mockito.when(config.promptTimeout()).thenReturn(300);
-    var preset = new ConfirmationPrompt(
-        "confirmation", "c_low", dev.cyr1en.promptcore.ConfirmationMode.CHAT,
-        null, "Proceed?", null, null, false, null, true, null, 15);
+    var preset =
+        new ConfirmationPrompt(
+            "confirmation",
+            "c_low",
+            dev.cyr1en.promptcore.ConfirmationMode.CHAT,
+            null,
+            "Proceed?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            15);
     var screen = factory.create(createPlayer(), preset);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
     var confScreen = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screen;
-    var chatView = confScreen.fallbackChain().stream()
-        .filter(v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
-        .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
-        .findFirst()
-        .orElseThrow();
+    var chatView =
+        confScreen.fallbackChain().stream()
+            .filter(
+                v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
+            .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
+            .findFirst()
+            .orElseThrow();
     assertEquals(java.time.Duration.ofSeconds(15), chatView.getTtl());
   }
 
   @Test
   void createConfirmation_globalTimeoutZero_capsTtlAt3600() {
     Mockito.when(config.promptTimeout()).thenReturn(0);
-    var preset = new ConfirmationPrompt(
-        "confirmation", "c_zero", dev.cyr1en.promptcore.ConfirmationMode.CHAT,
-        null, "Proceed?", null, null, false, null, true, null, null);
+    var preset =
+        new ConfirmationPrompt(
+            "confirmation",
+            "c_zero",
+            dev.cyr1en.promptcore.ConfirmationMode.CHAT,
+            null,
+            "Proceed?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            null);
     var screen = factory.create(createPlayer(), preset);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
     var confScreen = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screen;
-    var chatView = confScreen.fallbackChain().stream()
-        .filter(v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
-        .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
-        .findFirst()
-        .orElseThrow();
+    var chatView =
+        confScreen.fallbackChain().stream()
+            .filter(
+                v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
+            .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
+            .findFirst()
+            .orElseThrow();
     assertEquals(java.time.Duration.ofSeconds(3600), chatView.getTtl());
   }
 
   @Test
   void createConfirmation_maxTimeout_capsTtlAt3600() {
     Mockito.when(config.promptTimeout()).thenReturn(3600);
-    var preset = new ConfirmationPrompt(
-        "confirmation", "c_max", dev.cyr1en.promptcore.ConfirmationMode.CHAT,
-        null, "Proceed?", null, null, false, null, true, null, 3600);
+    var preset =
+        new ConfirmationPrompt(
+            "confirmation",
+            "c_max",
+            dev.cyr1en.promptcore.ConfirmationMode.CHAT,
+            null,
+            "Proceed?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            3600);
     var screen = factory.create(createPlayer(), preset);
-    assertInstanceOf(dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
+    assertInstanceOf(
+        dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen.class, screen);
     var confScreen = (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationPromptScreen) screen;
-    var chatView = confScreen.fallbackChain().stream()
-        .filter(v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
-        .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
-        .findFirst()
-        .orElseThrow();
+    var chatView =
+        confScreen.fallbackChain().stream()
+            .filter(
+                v -> v instanceof dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView)
+            .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
+            .findFirst()
+            .orElseThrow();
     assertEquals(java.time.Duration.ofSeconds(3600), chatView.getTtl());
   }
 
@@ -764,9 +956,16 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createItemPromptInventorySourceYieldsItemPromptScreen() {
-    var itemPrompt = new ItemPrompt(
-        "item", "i1", "Select item", ItemSource.INVENTORY, ItemOutputFormat.KEY,
-        null, null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i1",
+            "Select item",
+            ItemSource.INVENTORY,
+            ItemOutputFormat.KEY,
+            null,
+            null,
+            true);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(ItemPromptScreen.class, screen);
     var itemScreen = (ItemPromptScreen) screen;
@@ -777,9 +976,16 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createItemPromptHandSourceYieldsItemPromptScreen() {
-    var itemPrompt = new ItemPrompt(
-        "item", "i2", "Select held item", ItemSource.HAND, ItemOutputFormat.SLOT,
-        null, null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i2",
+            "Select held item",
+            ItemSource.HAND,
+            ItemOutputFormat.SLOT,
+            null,
+            null,
+            true);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(ItemPromptScreen.class, screen);
     var itemScreen = (ItemPromptScreen) screen;
@@ -790,9 +996,16 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createItemPromptArmorSourceYieldsItemPromptScreen() {
-    var itemPrompt = new ItemPrompt(
-        "item", "i3", "Select armor item", ItemSource.ARMOR, ItemOutputFormat.AMOUNT,
-        null, null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i3",
+            "Select armor item",
+            ItemSource.ARMOR,
+            ItemOutputFormat.AMOUNT,
+            null,
+            null,
+            true);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(ItemPromptScreen.class, screen);
     var itemScreen = (ItemPromptScreen) screen;
@@ -804,16 +1017,25 @@ class PromptFactoryTest extends MockBukkitTest {
   @Test
   void createItemPromptCatalogSourceWithValidCategoryYieldsScreenWithCapturedSnapshot() {
     var entry = CatalogEntry.of(org.bukkit.Material.STONE);
-    var snapshot = new CatalogSnapshot(Map.of(
-        "all", List.of(entry),
-        "weapons", List.of(entry)));
+    var snapshot =
+        new CatalogSnapshot(
+            Map.of(
+                "all", List.of(entry),
+                "weapons", List.of(entry)));
     var catalogRegistry = Mockito.mock(ItemCatalogRegistry.class);
     Mockito.when(catalogRegistry.snapshot()).thenReturn(snapshot);
     Mockito.when(plugin.getItemCatalogRegistry()).thenReturn(catalogRegistry);
 
-    var itemPrompt = new ItemPrompt(
-        "item", "i4", "Catalog prompt", ItemSource.CATALOG, ItemOutputFormat.MATERIAL,
-        "weapons", "ui.button.click", true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i4",
+            "Catalog prompt",
+            ItemSource.CATALOG,
+            ItemOutputFormat.MATERIAL,
+            "weapons",
+            "ui.button.click",
+            true);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(ItemPromptScreen.class, screen);
     var itemScreen = (ItemPromptScreen) screen;
@@ -831,9 +1053,16 @@ class PromptFactoryTest extends MockBukkitTest {
     Mockito.when(catalogRegistry.snapshot()).thenReturn(snapshot);
     Mockito.when(plugin.getItemCatalogRegistry()).thenReturn(catalogRegistry);
 
-    var itemPrompt = new ItemPrompt(
-        "item", "i_all", "All items", ItemSource.CATALOG, ItemOutputFormat.KEY,
-        null, null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_all",
+            "All items",
+            ItemSource.CATALOG,
+            ItemOutputFormat.KEY,
+            null,
+            null,
+            true);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(ItemPromptScreen.class, screen);
     var itemScreen = (ItemPromptScreen) screen;
@@ -849,9 +1078,16 @@ class PromptFactoryTest extends MockBukkitTest {
     Mockito.when(catalogRegistry.snapshot()).thenReturn(snapshot);
     Mockito.when(plugin.getItemCatalogRegistry()).thenReturn(catalogRegistry);
 
-    var itemPrompt = new ItemPrompt(
-        "item", "i_bad", "Catalog prompt", ItemSource.CATALOG, ItemOutputFormat.KEY,
-        "nonexistent", null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_bad",
+            "Catalog prompt",
+            ItemSource.CATALOG,
+            ItemOutputFormat.KEY,
+            "nonexistent",
+            null,
+            true);
     assertThrows(IllegalStateException.class, () -> factory.create(createPlayer(), itemPrompt));
   }
 
@@ -859,18 +1095,33 @@ class PromptFactoryTest extends MockBukkitTest {
   void createItemPromptCatalogSourceNullRegistryThrowsIllegalStateException() {
     Mockito.when(plugin.getItemCatalogRegistry()).thenReturn(null);
 
-    var itemPrompt = new ItemPrompt(
-        "item", "i_null_reg", "Catalog prompt", ItemSource.CATALOG, ItemOutputFormat.KEY,
-        "all", null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_null_reg",
+            "Catalog prompt",
+            ItemSource.CATALOG,
+            ItemOutputFormat.KEY,
+            "all",
+            null,
+            true);
     assertThrows(IllegalStateException.class, () -> factory.create(createPlayer(), itemPrompt));
   }
 
   @Test
   void createItemPromptWithTitleDisplayIsWrapped() {
     var title = new TitleConfig("Choose Item", "Subtitle", 50);
-    var itemPrompt = new ItemPrompt(
-        "item", "i_title", "Select item", ItemSource.INVENTORY, ItemOutputFormat.KEY,
-        null, null, true, title);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_title",
+            "Select item",
+            ItemSource.INVENTORY,
+            ItemOutputFormat.KEY,
+            null,
+            null,
+            true,
+            title);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
@@ -880,9 +1131,17 @@ class PromptFactoryTest extends MockBukkitTest {
   @Test
   void createItemPromptWithEmptyTitleMainInjectsPromptText() {
     var title = new TitleConfig("", null, 50);
-    var itemPrompt = new ItemPrompt(
-        "item", "i_empty_title", "Select your weapon", ItemSource.INVENTORY, ItemOutputFormat.KEY,
-        null, null, true, title);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_empty_title",
+            "Select your weapon",
+            ItemSource.INVENTORY,
+            ItemOutputFormat.KEY,
+            null,
+            null,
+            true,
+            title);
     var screen = factory.create(createPlayer(), itemPrompt);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
@@ -900,9 +1159,18 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void createFromTagItemTagWithTitleFlagWrapsScreen() {
-    var tag = new PromptTag("<i:Select item>", "i", null, "Select item", true, null,
-        PromptTag.AnswerType.NONE, java.util.List.of(), false,
-        new TitleConfig("Item Title", null, 40));
+    var tag =
+        new PromptTag(
+            "<i:Select item>",
+            "i",
+            null,
+            "Select item",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            java.util.List.of(),
+            false,
+            new TitleConfig("Item Title", null, 40));
     var screen = factory.createFromTag(createPlayer(), tag);
     assertInstanceOf(TitleWrapperScreen.class, screen);
     var wrapper = (TitleWrapperScreen) screen;
@@ -911,9 +1179,16 @@ class PromptFactoryTest extends MockBukkitTest {
 
   @Test
   void itemPromptPresentationExpansionExpandsPromptTextExactlyOnce() {
-    var itemPrompt = new ItemPrompt(
-        "item", "i_papi", "Select item for %player_name%", ItemSource.INVENTORY, ItemOutputFormat.KEY,
-        null, null, true);
+    var itemPrompt =
+        new ItemPrompt(
+            "item",
+            "i_papi",
+            "Select item for %player_name%",
+            ItemSource.INVENTORY,
+            ItemOutputFormat.KEY,
+            null,
+            null,
+            true);
     List<String> expanded = new ArrayList<>();
     var testFactory = factoryWithExpander(expanded);
 

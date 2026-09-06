@@ -11,9 +11,7 @@ import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
 import java.lang.reflect.Type;
 import java.util.Locale;
 
-/**
- * Gson serializer and deserializer for {@link TrustedPresetAction}.
- */
+/** Gson serializer and deserializer for {@link TrustedPresetAction}. */
 public class TrustedPresetActionDeserializer
     implements JsonDeserializer<TrustedPresetAction>, JsonSerializer<TrustedPresetAction> {
 
@@ -83,7 +81,7 @@ public class TrustedPresetActionDeserializer
 
     int delayTicks = 0;
     if (obj.has("delay_ticks") && !obj.get("delay_ticks").isJsonNull()) {
-      delayTicks = obj.get("delay_ticks").getAsInt();
+      delayTicks = PresetGson.readInteger(obj.get("delay_ticks"), "Action delay_ticks");
     }
 
     return TrustedPresetAction.of(commandSource, executeAs, delayTicks, syntax);

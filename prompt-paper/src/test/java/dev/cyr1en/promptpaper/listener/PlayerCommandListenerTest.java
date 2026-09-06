@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
@@ -17,245 +18,293 @@ import java.util.Optional;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class PlayerCommandListenerTest extends MockBukkitTest {
 
-    private ScreenManager screenManager;
-    private PlayerCommandListener listener;
-    private CommandPrompter plugin;
-    private PluginLogger logger;
-    private PromptEngine engine;
+  private ScreenManager screenManager;
+  private PlayerCommandListener listener;
+  private CommandPrompter plugin;
+  private PluginLogger logger;
+  private PromptEngine engine;
 
-    @BeforeEach
-    void setUpListener() {
-        screenManager = mock(ScreenManager.class);
-        plugin = mock(CommandPrompter.class);
-        logger = mock(PluginLogger.class);
-        engine = mock(PromptEngine.class);
-        var loader = mock(PaperConfigLoader.class);
-        when(plugin.getConfigLoader()).thenReturn(loader);
-        when(plugin.getPluginLogger()).thenReturn(logger);
-        when(plugin.getEngine()).thenReturn(engine);
-        var config = mock(dev.cyr1en.promptpaper.config.CommandPrompterConfig.class);
-        when(loader.getConfig()).thenReturn(config);
-        when(config.ignoredCommands()).thenReturn(java.util.List.of());
-        when(config.allowedWhileInPrompt()).thenReturn(java.util.List.of());
-        when(config.enablePermission()).thenReturn(false);
-        when(screenManager.hasActiveScreen(any())).thenReturn(true);
-        // Default: command has no tag form.
-        when(engine.commandHasTagForm(anyString())).thenReturn(false);
-        when(engine.hasPresetReferences(anyString())).thenReturn(false);
-        listener = new PlayerCommandListener(plugin, screenManager, engine);
-    }
+  @BeforeEach
+  void setUpListener() {
+    screenManager = mock(ScreenManager.class);
+    plugin = mock(CommandPrompter.class);
+    logger = mock(PluginLogger.class);
+    engine = mock(PromptEngine.class);
+    var loader = mock(PaperConfigLoader.class);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getPluginLogger()).thenReturn(logger);
+    when(plugin.getEngine()).thenReturn(engine);
+    var config = mock(dev.cyr1en.promptpaper.config.CommandPrompterConfig.class);
+    when(loader.getConfig()).thenReturn(config);
+    when(config.ignoredCommands()).thenReturn(java.util.List.of());
+    when(config.allowedWhileInPrompt()).thenReturn(java.util.List.of());
+    when(config.enablePermission()).thenReturn(false);
+    when(screenManager.hasActiveScreen(any())).thenReturn(true);
+    // Default: command has no tag form.
+    when(engine.commandHasTagForm(anyString())).thenReturn(false);
+    when(engine.hasPresetReferences(anyString())).thenReturn(false);
+    listener = new PlayerCommandListener(plugin, screenManager, engine);
+  }
 
-    @Test
-    void commandInterceptionCancelsEventWhenScreenActive() {
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/some command");
-        listener.onPlayerCommand(event);
+  @Test
+  void commandInterceptionCancelsEventWhenScreenActive() {
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/some command");
+    listener.onPlayerCommand(event);
 
-        assertTrue(event.isCancelled());
-        verify(screenManager).startSession(eq(player), eq("some command"));
-    }
+    assertTrue(event.isCancelled());
+    verify(screenManager).startSession(eq(player), eq("some command"));
+  }
 
-    @Test
-    void commandPrompterCommandIsNotIntercepted() {
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/commandprompter reload");
-        listener.onPlayerCommand(event);
+  @Test
+  void commandPrompterCommandIsNotIntercepted() {
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/commandprompter reload");
+    listener.onPlayerCommand(event);
 
-        assertFalse(event.isCancelled());
-    }
+    assertFalse(event.isCancelled());
+  }
 
-    @Test
-    void cmdpAliasIsNotIntercepted() {
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmdp cancel");
-        listener.onPlayerCommand(event);
+  @Test
+  void cmdpAliasIsNotIntercepted() {
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmdp cancel");
+    listener.onPlayerCommand(event);
 
-        assertFalse(event.isCancelled());
-    }
+    assertFalse(event.isCancelled());
+  }
 
-    @Test
-    void pluginCommandPrefixesAreNotExcluded() {
-        when(screenManager.hasActiveScreen(any())).thenReturn(false, true);
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmdpfoo <value>");
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "/commandprompter:response nonce confirm",
+        "/commandprompterpaper:commandprompter cancel",
+        "/commandprompterpaper:cmdp cancel",
+        "/commandprompterpaper:commandprompter:response nonce decline"
+      })
+  void internalResponsesAndNamespacedCommandsWorkDuringPrompts(String command) {
+    var event = new PlayerCommandPreprocessEvent(createPlayer(), command);
+    listener.onPlayerCommand(event);
+    assertFalse(event.isCancelled());
+    org.mockito.Mockito.verify(screenManager, org.mockito.Mockito.never())
+        .startSession(any(), anyString());
+  }
 
-        listener.onPlayerCommand(event);
+  @Test
+  void configuredAllowedCommandRunsWhilePromptRemainsOpen() {
+    when(plugin.getConfigLoader().getConfig().allowedWhileInPrompt())
+        .thenReturn(java.util.List.of("msg"));
+    var event = new PlayerCommandPreprocessEvent(createPlayer(), "/msg Notch hello");
+    listener.onPlayerCommand(event);
+    assertFalse(event.isCancelled());
+    org.mockito.Mockito.verify(screenManager, org.mockito.Mockito.never())
+        .startSession(any(), anyString());
+  }
 
-        assertTrue(event.isCancelled());
-        verify(screenManager).startSession(eq(player), eq("cmdpfoo <value>"));
-    }
+  @Test
+  void pluginCommandPrefixesAreNotExcluded() {
+    when(screenManager.hasActiveScreen(any())).thenReturn(false, true);
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmdpfoo <value>");
 
-    @Test
-    void cancelledEventIsSkipped() {
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/some command");
-        event.setCancelled(true);
-        listener.onPlayerCommand(event);
+    listener.onPlayerCommand(event);
 
-        assertTrue(event.isCancelled());
-    }
+    assertTrue(event.isCancelled());
+    verify(screenManager).startSession(eq(player), eq("cmdpfoo <value>"));
+  }
 
-    @Test
-    void normalCommandDoesNotInterceptWhenNoActiveScreen() {
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/some command");
-        listener.onPlayerCommand(event);
+  @Test
+  void cancelledEventIsSkipped() {
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/some command");
+    event.setCancelled(true);
+    listener.onPlayerCommand(event);
 
-        assertFalse(event.isCancelled());
-    }
+    assertTrue(event.isCancelled());
+  }
 
-    // --- Scope 4: preset tag fail-fast ---
+  @Test
+  void normalCommandDoesNotInterceptWhenNoActiveScreen() {
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/some command");
+    listener.onPlayerCommand(event);
 
-    @Test
-    void presetPromptTagCancelsEventEvenWhenNoSessionStarts() {
-        // The command has a preset prompt tag. The fail-fast path
-        // (engine returns empty) means no screen is started, but the
-        // event must STILL be cancelled so the literal <@id> markup is
-        // never dispatched.
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(engine.hasPresetReferences(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <@missing>");
-        listener.onPlayerCommand(event);
+    assertFalse(event.isCancelled());
+  }
 
-        assertTrue(event.isCancelled());
-        verify(screenManager).startSession(eq(player), eq("cmd <@missing>"));
-    }
+  // --- Scope 4: preset tag fail-fast ---
 
-    @Test
-    void presetPostCommandTagCancelsEvent() {
-        // A command with only a preset post-command (no prompt tags) has
-        // no session, but the listener must still cancel so the literal
-        // <!@id> markup is never dispatched.
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(engine.hasPresetReferences(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <!@missing_log>");
-        listener.onPlayerCommand(event);
+  @Test
+  void presetPromptTagCancelsEventEvenWhenNoSessionStarts() {
+    // The command has a preset prompt tag. The fail-fast path
+    // (engine returns empty) means no screen is started, but the
+    // event must STILL be cancelled so the literal <@id> markup is
+    // never dispatched.
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(engine.hasPresetReferences(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <@missing>");
+    listener.onPlayerCommand(event);
 
-        assertTrue(event.isCancelled());
-    }
+    assertTrue(event.isCancelled());
+    verify(screenManager).startSession(eq(player), eq("cmd <@missing>"));
+  }
 
-    @Test
-    void legacyInlineTagsDoNotCancelWhenNoScreen() {
-        // Legacy inline tags (<a:why>, <!log>) without presets must pass
-        // through unchanged — same as the pre-Scope-4 behavior. The
-        // listener should NOT cancel when the command has tag form
-        // but no preset references AND no session starts.
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(engine.hasPresetReferences(anyString())).thenReturn(false);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <a:why>");
-        listener.onPlayerCommand(event);
+  @Test
+  void presetPostCommandTagCancelsEvent() {
+    // A command with only a preset post-command (no prompt tags) has
+    // no session, but the listener must still cancel so the literal
+    // <!@id> markup is never dispatched.
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(engine.hasPresetReferences(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <!@missing_log>");
+    listener.onPlayerCommand(event);
 
-        assertFalse(event.isCancelled());
-    }
+    assertTrue(event.isCancelled());
+  }
 
-    @Test
-    void presetCommandNotCancelledWhenPermissionDenied() {
-        // When the player lacks the use permission, the engine returns
-        // empty (no fail-fast, no session). The listener must not
-        // cancel — the command should dispatch normally so the
-        // permission system can surface the right error.
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(engine.hasPresetReferences(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var config = plugin.getConfigLoader().getConfig();
-        when(config.enablePermission()).thenReturn(true);
-        // Use a Mockito mock Player so we can stub hasPermission cleanly.
-        var player = mock(org.bukkit.entity.Player.class);
-        when(player.getServer()).thenReturn(server);
-        when(player.hasPermission("promptpaper.use")).thenReturn(false);
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <@my_prompt>");
-        listener.onPlayerCommand(event);
+  @Test
+  void legacyInlineTagsDoNotCancelWhenNoScreen() {
+    // Legacy inline tags (<a:why>, <!log>) without presets must pass
+    // through unchanged — same as the pre-Scope-4 behavior. The
+    // listener should NOT cancel when the command has tag form
+    // but no preset references AND no session starts.
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(engine.hasPresetReferences(anyString())).thenReturn(false);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <a:why>");
+    listener.onPlayerCommand(event);
 
-        assertFalse(event.isCancelled(),
-                "Permission-denied commands must not be cancelled by the listener");
-    }
+    assertFalse(event.isCancelled());
+  }
 
-    @Test
-    void taggedCommandIsCancelledWhileReloadBarrierIsActive() {
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        when(engine.isReloadInProgress()).thenReturn(true);
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        var player = createPlayer();
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <value>");
+  @Test
+  void presetCommandNotCancelledWhenPermissionDenied() {
+    // When the player lacks the use permission, the engine returns
+    // empty (no fail-fast, no session). The listener must not
+    // cancel — the command should dispatch normally so the
+    // permission system can surface the right error.
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(engine.hasPresetReferences(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var config = plugin.getConfigLoader().getConfig();
+    when(config.enablePermission()).thenReturn(true);
+    // Use a Mockito mock Player so we can stub hasPermission cleanly.
+    var player = mock(org.bukkit.entity.Player.class);
+    when(player.getServer()).thenReturn(server);
+    when(player.hasPermission("promptpaper.use")).thenReturn(false);
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <@my_prompt>");
+    listener.onPlayerCommand(event);
 
-        listener.onPlayerCommand(event);
+    assertFalse(
+        event.isCancelled(), "Permission-denied commands must not be cancelled by the listener");
+  }
 
-        assertTrue(event.isCancelled());
-        verify(engine).rejectIfReloading(eq(player));
-        verify(screenManager, org.mockito.Mockito.never()).startSession(any(), anyString());
-    }
+  @Test
+  void taggedCommandIsCancelledWhileReloadBarrierIsActive() {
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    when(engine.isReloadInProgress()).thenReturn(true);
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    var player = createPlayer();
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <value>");
 
-    @Test
-    void customScreenKeyStartedCancelsEvent() {
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        when(engine.lastInterceptResult(eq(player)))
-                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.Started(
-                        new dev.cyr1en.promptcore.ParsedCommand("cmd", java.util.List.of(), java.util.List.of(), dev.cyr1en.promptcore.ParserConfig.ANGLE_BRACKETS, "cmd", java.util.List.of()))));
+    listener.onPlayerCommand(event);
 
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <custom_screen:value>");
-        listener.onPlayerCommand(event);
+    assertTrue(event.isCancelled());
+    verify(engine).rejectIfReloading(eq(player));
+    verify(screenManager, org.mockito.Mockito.never()).startSession(any(), anyString());
+  }
 
-        assertTrue(event.isCancelled());
-        verify(screenManager).startSession(eq(player), eq("cmd <custom_screen:value>"));
-    }
+  @Test
+  void customScreenKeyStartedCancelsEvent() {
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    when(engine.lastInterceptResult(eq(player)))
+        .thenReturn(
+            Optional.of(
+                new dev.cyr1en.promptpaper.engine.InterceptResult.Started(
+                    new dev.cyr1en.promptcore.ParsedCommand(
+                        "cmd",
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        dev.cyr1en.promptcore.ParserConfig.ANGLE_BRACKETS,
+                        "cmd",
+                        java.util.List.of()))));
 
-    @Test
-    void unknownCustomScreenKeyRejectedFailClosedCancelsEvent() {
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        when(engine.lastInterceptResult(eq(player)))
-                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed("unknown screen key")));
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <custom_screen:value>");
+    listener.onPlayerCommand(event);
 
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <unknown_key:value>");
-        listener.onPlayerCommand(event);
+    assertTrue(event.isCancelled());
+    verify(screenManager).startSession(eq(player), eq("cmd <custom_screen:value>"));
+  }
 
-        assertTrue(event.isCancelled());
-        verify(screenManager).startSession(eq(player), eq("cmd <unknown_key:value>"));
-    }
+  @Test
+  void unknownCustomScreenKeyRejectedFailClosedCancelsEvent() {
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    when(engine.lastInterceptResult(eq(player)))
+        .thenReturn(
+            Optional.of(
+                new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed(
+                    "unknown screen key")));
 
-    @Test
-    void commandWithApprovalGateAndZeroPromptsCancelsEvent() {
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(engine.hasPresetReferences(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        when(engine.lastInterceptResult(eq(player)))
-                .thenReturn(Optional.of(new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed(
-                        "Commands with approval gates but zero prompts are rejected fail-closed")));
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <unknown_key:value>");
+    listener.onPlayerCommand(event);
 
-        var event = new PlayerCommandPreprocessEvent(player, "/pay Bob 100 <!gate:@admin_gate>");
-        listener.onPlayerCommand(event);
+    assertTrue(event.isCancelled());
+    verify(screenManager).startSession(eq(player), eq("cmd <unknown_key:value>"));
+  }
 
-        assertTrue(event.isCancelled(), "Gate command with 0 prompts must cancel PlayerCommandPreprocessEvent to prevent pass-through");
-        verify(screenManager).startSession(eq(player), eq("pay Bob 100 <!gate:@admin_gate>"));
-    }
+  @Test
+  void commandWithApprovalGateAndZeroPromptsCancelsEvent() {
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(engine.hasPresetReferences(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    when(engine.lastInterceptResult(eq(player)))
+        .thenReturn(
+            Optional.of(
+                new dev.cyr1en.promptpaper.engine.InterceptResult.RejectedFailClosed(
+                    "Commands with approval gates but zero prompts are rejected fail-closed")));
 
-    @Test
-    void playerWithActiveApprovalLeaseRejectedActiveSessionCancelsEvent() {
-        when(engine.commandHasTagForm(anyString())).thenReturn(true);
-        when(screenManager.hasActiveScreen(any())).thenReturn(false);
-        var player = createPlayer();
-        when(engine.lastInterceptResult(eq(player)))
-                .thenReturn(Optional.of(dev.cyr1en.promptpaper.engine.InterceptResult.RejectedActiveSession.INSTANCE));
+    var event = new PlayerCommandPreprocessEvent(player, "/pay Bob 100 <!gate:@admin_gate>");
+    listener.onPlayerCommand(event);
 
-        var event = new PlayerCommandPreprocessEvent(player, "/cmd <a:prompt>");
-        listener.onPlayerCommand(event);
+    assertTrue(
+        event.isCancelled(),
+        "Gate command with 0 prompts must cancel PlayerCommandPreprocessEvent to prevent pass-through");
+    verify(screenManager).startSession(eq(player), eq("pay Bob 100 <!gate:@admin_gate>"));
+  }
 
-        assertTrue(event.isCancelled(), "Leased player running tagged command must cancel event to prevent raw tag leakage");
-        verify(screenManager).startSession(eq(player), eq("cmd <a:prompt>"));
-    }
+  @Test
+  void playerWithActiveApprovalLeaseRejectedActiveSessionCancelsEvent() {
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    when(screenManager.hasActiveScreen(any())).thenReturn(false);
+    var player = createPlayer();
+    when(engine.lastInterceptResult(eq(player)))
+        .thenReturn(
+            Optional.of(
+                dev.cyr1en.promptpaper.engine.InterceptResult.RejectedActiveSession.INSTANCE));
+
+    var event = new PlayerCommandPreprocessEvent(player, "/cmd <a:prompt>");
+    listener.onPlayerCommand(event);
+
+    assertTrue(
+        event.isCancelled(),
+        "Leased player running tagged command must cancel event to prevent raw tag leakage");
+    verify(screenManager).startSession(eq(player), eq("cmd <a:prompt>"));
+  }
 }

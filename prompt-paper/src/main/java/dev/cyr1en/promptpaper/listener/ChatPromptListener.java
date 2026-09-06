@@ -8,58 +8,70 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 /**
- * Default Bukkit chat listener that captures player chat input when a
- * chat-type screen is active. Registered as a fallback when no
- * {@link dev.cyr1en.promptpaper.hook.hooks.ChatListenerHook} (e.g. CarbonChat) is available.
- * Handles both Paper's {@link AsyncChatEvent} and the legacy {@link AsyncPlayerChatEvent}.
+ * Default Bukkit chat listener that captures player chat input when a chat-type screen is active.
+ * Registered as a fallback when no {@link dev.cyr1en.promptpaper.hook.hooks.ChatListenerHook} (e.g.
+ * CarbonChat) is available. Handles both Paper's {@link AsyncChatEvent} and the legacy {@link
+ * AsyncPlayerChatEvent}.
  */
 public class ChatPromptListener implements Listener {
 
-    private final CommandPrompter plugin;
-    private final ScreenManager screenManager;
+  private final CommandPrompter plugin;
+  private final ScreenManager screenManager;
 
-    public ChatPromptListener(CommandPrompter plugin, ScreenManager screenManager) {
-        this.plugin = plugin;
-        this.screenManager = screenManager;
-    }
+  public ChatPromptListener(CommandPrompter plugin, ScreenManager screenManager) {
+    this.plugin = plugin;
+    this.screenManager = screenManager;
+  }
 
-    /**
-     * Intercepts chat messages when the player has an active chat screen,
-     * cancels the event to prevent the message from reaching other listeners,
-     * and forwards the serialized text to the screen manager on the player's scheduler.
-     */
-    public void onPlayerChat(AsyncChatEvent event) {
-        var player = event.getPlayer();
-        plugin.getPluginLogger().debug("Chat event: player=" + player.getName()
-                + " cancelled=" + event.isCancelled()
-                + " hasChatScreen=" + screenManager.hasChatScreen(player));
-        if (event.isCancelled()) return;
-        if (!screenManager.hasChatScreen(player)) return;
-        event.setCancelled(true);
-        var message = event.message();
-        plugin.getPluginLogger().debug("Chat input captured for " + player.getName());
-        try {
-            var task = player.getScheduler().run(plugin, scheduledTask -> {
-                screenManager.handleChatInput(player, ComponentUtil.serialize(message));
-            }, null);
-            if (task == null) {
-                plugin.getPluginLogger().debug("Chat input task retired for " + player.getUniqueId());
-            }
-        } catch (Exception e) {
-            plugin.getPluginLogger().debug("Unable to schedule chat input: " + e.getMessage());
-        }
+  /**
+   * Intercepts chat messages when the player has an active chat screen, cancels the event to
+   * prevent the message from reaching other listeners, and forwards the serialized text to the
+   * screen manager on the player's scheduler.
+   */
+  public void onPlayerChat(AsyncChatEvent event) {
+    var player = event.getPlayer();
+    plugin
+        .getPluginLogger()
+        .debug(
+            "Chat event: player="
+                + player.getName()
+                + " cancelled="
+                + event.isCancelled()
+                + " hasChatScreen="
+                + screenManager.hasChatScreen(player));
+    if (event.isCancelled()) return;
+    if (!screenManager.hasChatScreen(player)) return;
+    event.setCancelled(true);
+    var message = event.message();
+    plugin.getPluginLogger().debug("Chat input captured for " + player.getName());
+    try {
+      var task =
+          player
+              .getScheduler()
+              .run(
+                  plugin,
+                  scheduledTask -> {
+                    screenManager.handleChatInput(player, ComponentUtil.serialize(message));
+                  },
+                  null);
+      if (task == null) {
+        plugin.getPluginLogger().debug("Chat input task retired for " + player.getUniqueId());
+      }
+    } catch (Exception e) {
+      plugin.getPluginLogger().debug("Unable to schedule chat input: " + e.getMessage());
     }
+  }
 
-    /**
-     * Returns the {@link EventPriority} configured for chat response listeners,
-     * falling back to {@link EventPriority#LOWEST} on parse failure.
-     */
-    public EventPriority resolvePriority() {
-        var configPriority = plugin.getConfigLoader().getPromptConfig().responseListenerPriority();
-        try {
-            return EventPriority.valueOf(configPriority.trim().toUpperCase());
-        } catch (Exception e) {
-            return EventPriority.LOWEST;
-        }
+  /**
+   * Returns the {@link EventPriority} configured for chat response listeners, falling back to
+   * {@link EventPriority#LOWEST} on parse failure.
+   */
+  public EventPriority resolvePriority() {
+    var configPriority = plugin.getConfigLoader().getPromptConfig().responseListenerPriority();
+    try {
+      return EventPriority.valueOf(configPriority.trim().toUpperCase());
+    } catch (Exception e) {
+      return EventPriority.LOWEST;
     }
+  }
 }

@@ -1,7 +1,14 @@
 package dev.cyr1en.promptcore.session;
 
-import dev.cyr1en.promptcore.*;
-import java.util.*;
+import dev.cyr1en.promptcore.CancelReason;
+import dev.cyr1en.promptcore.ParsedCommand;
+import dev.cyr1en.promptcore.PostCommandMeta;
+import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.SessionResult;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -54,10 +61,10 @@ public final class PromptSession {
       long generation) {
     this.userId = userId;
     this.parsedCommand = parsedCommand;
-    this.answers = answers;
-    this.submittedAnswerCounts = submittedAnswerCounts;
-    this.remaining = remaining;
-    this.pcmQueue = pcmQueue;
+    this.answers = List.copyOf(answers);
+    this.submittedAnswerCounts = List.copyOf(submittedAnswerCounts);
+    this.remaining = List.copyOf(remaining);
+    this.pcmQueue = List.copyOf(pcmQueue);
     this.state = state;
     this.cancelReason = cancelReason;
     this.incarnation = incarnation;
@@ -88,7 +95,7 @@ public final class PromptSession {
    * @return a new session in {@link SessionState#AWAITING_INPUT} (or COMPLETED if no prompts)
    */
   public static PromptSession start(String userId, ParsedCommand parsedCommand, long incarnation) {
-    var remaining = new ArrayList<>(parsedCommand.promptTags());
+    var remaining = parsedCommand.promptTags();
     var state = remaining.isEmpty() ? SessionState.COMPLETED : SessionState.AWAITING_INPUT;
     LOG.fine(
         "Session started for "
@@ -105,7 +112,7 @@ public final class PromptSession {
         List.of(),
         List.of(),
         remaining,
-        List.copyOf(parsedCommand.postCmds()),
+        parsedCommand.postCmds(),
         state,
         null,
         incarnation,
@@ -124,12 +131,12 @@ public final class PromptSession {
 
   /** Unmodifiable view of the post-command queue snapshot held by this session. */
   public List<PostCommandMeta> pcmQueue() {
-    return Collections.unmodifiableList(pcmQueue);
+    return pcmQueue;
   }
 
   /** Unmodifiable list of answers collected so far, in prompt order. */
   public List<String> answers() {
-    return Collections.unmodifiableList(answers);
+    return answers;
   }
 
   /**
@@ -141,7 +148,7 @@ public final class PromptSession {
    * nothing.
    */
   public List<Integer> submittedAnswerCounts() {
-    return Collections.unmodifiableList(submittedAnswerCounts);
+    return submittedAnswerCounts;
   }
 
   /** The monotonic incarnation token of this session. */
@@ -182,7 +189,7 @@ public final class PromptSession {
   /** Returns the current prompt waiting for an answer, or empty if no prompts remain. */
   public Optional<PromptTag> currentPrompt() {
     if (remaining.isEmpty()) return Optional.empty();
-    return Optional.of(remaining.get(0));
+    return Optional.of(remaining.getFirst());
   }
 
   /** Number of remaining prompts to answer. */
@@ -223,14 +230,14 @@ public final class PromptSession {
     }
     Objects.requireNonNull(answer);
 
-    var current = remaining.get(0);
+    var current = remaining.getFirst();
     var processedAnswer = cleanAnswer(answer, current.sanitize());
     var newAnswers = new ArrayList<>(this.answers);
     newAnswers.add(processedAnswer);
     var newCounts = new ArrayList<>(submittedAnswerCounts);
     newCounts.add(1);
     var newRemaining = new ArrayList<>(remaining);
-    newRemaining.remove(0);
+    newRemaining.removeFirst();
 
     var newState = newRemaining.isEmpty() ? SessionState.COMPLETED : SessionState.AWAITING_INPUT;
     LOG.fine(
@@ -245,9 +252,9 @@ public final class PromptSession {
     return new PromptSession(
         userId,
         parsedCommand,
-        Collections.unmodifiableList(newAnswers),
-        Collections.unmodifiableList(newCounts),
-        Collections.unmodifiableList(newRemaining),
+        newAnswers,
+        newCounts,
+        newRemaining,
         pcmQueue,
         newState,
         null,
@@ -272,7 +279,7 @@ public final class PromptSession {
     if (answers.isEmpty()) {
       throw new IllegalStateException("Compound submit requires at least one answer");
     }
-    var current = remaining.get(0);
+    var current = remaining.getFirst();
     var expected = current.isCompound() ? current.subTags().size() : 1;
     return submitAnswers(answers, expected);
   }
@@ -320,7 +327,7 @@ public final class PromptSession {
               + answers.size());
     }
 
-    var current = remaining.get(0);
+    var current = remaining.getFirst();
     var newAnswers = new ArrayList<>(this.answers);
     var processed = new ArrayList<String>(answers.size());
     for (var raw : answers) {
@@ -330,7 +337,7 @@ public final class PromptSession {
     var newCounts = new ArrayList<>(submittedAnswerCounts);
     newCounts.add(expectedCount);
     var newRemaining = new ArrayList<>(remaining);
-    newRemaining.remove(0);
+    newRemaining.removeFirst();
 
     var newState = newRemaining.isEmpty() ? SessionState.COMPLETED : SessionState.AWAITING_INPUT;
     LOG.fine(
@@ -347,9 +354,9 @@ public final class PromptSession {
     return new PromptSession(
         userId,
         parsedCommand,
-        Collections.unmodifiableList(newAnswers),
-        Collections.unmodifiableList(newCounts),
-        Collections.unmodifiableList(newRemaining),
+        newAnswers,
+        newCounts,
+        newRemaining,
         pcmQueue,
         newState,
         null,
@@ -397,16 +404,15 @@ public final class PromptSession {
     var command =
         ParsedCommand.buildPartialCommand(parsedCommand, answers, submittedAnswerCounts).trim();
 
-    List<PostCommandMeta> onComplete;
-    List<PostCommandMeta> onCancel;
-
-    if (state == SessionState.CANCELLED) {
-      onComplete = List.of();
-      onCancel = parsedCommand.onCancelPCMs();
-    } else {
-      onComplete = parsedCommand.onCompletePCMs();
-      onCancel = List.of();
-    }
+    var result =
+        switch (state) {
+          case COMPLETED ->
+              new SessionResult(command, answers, parsedCommand.onCompletePCMs(), List.of());
+          case CANCELLED ->
+              new SessionResult(command, answers, List.of(), parsedCommand.onCancelPCMs());
+          case AWAITING_INPUT ->
+              throw new IllegalStateException("Cannot finish session with unanswered prompts");
+        };
 
     LOG.fine(
         "Session finished for "
@@ -418,10 +424,10 @@ public final class PromptSession {
             + "): answers="
             + answers.size()
             + " onComplete="
-            + onComplete.size()
+            + result.onCompleteCmds().size()
             + " onCancel="
-            + onCancel.size());
-    return new SessionResult(command, new java.util.ArrayList<>(answers), onComplete, onCancel);
+            + result.onCancelCmds().size());
+    return result;
   }
 
   /**
@@ -457,8 +463,7 @@ public final class PromptSession {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    PromptSession that = (PromptSession) o;
+    if (!(o instanceof PromptSession that)) return false;
     return incarnation == that.incarnation
         && generation == that.generation
         && Objects.equals(userId, that.userId)

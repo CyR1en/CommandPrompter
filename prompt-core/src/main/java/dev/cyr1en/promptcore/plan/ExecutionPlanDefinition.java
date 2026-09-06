@@ -72,14 +72,4 @@ public record ExecutionPlanDefinition(
     }
     return total;
   }
-
-  @Override
-  public List<PreDispatchGateSpec> preDispatchGates() {
-    return List.copyOf(preDispatchGates);
-  }
-
-  @Override
-  public List<PostActionSpec> postActions() {
-    return List.copyOf(postActions);
-  }
 }

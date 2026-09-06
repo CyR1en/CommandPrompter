@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 /**
  * Trusted preset conditional post-command definition.
  *
- * <p>Evaluates a compiled condition (with PlaceholderAPI support permitted) and executes either
- * the {@code if_true} or {@code if_false} trusted action branch.
+ * <p>Evaluates a compiled condition (with PlaceholderAPI support permitted) and executes either the
+ * {@code if_true} or {@code if_false} trusted action branch.
  *
  * @param id the unique identifier matching {@code ^[a-z0-9_.-]{1,64}$}
  * @param condition the pre-compiled condition expression

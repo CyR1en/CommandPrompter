@@ -56,7 +56,7 @@ public record CompiledTemplate(String source, List<TemplateSegment> segments) {
           switch (segment) {
             case LiteralSegment literal -> literal.text();
             case EscapedLiteralSegment literal -> literal.text();
-            default -> null;
+            case ReferenceSegment _ -> null;
           };
       if (literalText != null) {
         sb.append(literalText);

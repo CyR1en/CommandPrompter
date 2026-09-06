@@ -7,30 +7,32 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Immutable prompt context passed to a {@link PromptScreenFactory} when creating an {@link dev.cyr1en.promptui.InputScreen}.
+ * Immutable prompt context passed to a {@link PromptScreenFactory} when creating an {@link
+ * dev.cyr1en.promptui.InputScreen}.
  *
- * <p>Contains the canonical lowercase prompt key, the display text (with flags stripped), any parsed
- * arbitrary custom flags, and the answer sanitization toggle.
+ * <p>Contains the canonical lowercase prompt key, the display text (with flags stripped), any
+ * parsed arbitrary custom flags, and the answer sanitization toggle.
  *
  * <h2>Custom Flags</h2>
  *
  * <p>Custom prompt tags can specify arbitrary key-value flags at the end of the tag:
+ *
  * <pre>{@code <ecoitem:Pick weapon -glow -rarity:legendary -desc:"Super sword">}</pre>
  *
  * <p>These flags are parsed into the immutable {@link #flags()} map and can be accessed with helper
- * methods like {@link #flag(String)}, {@link #booleanFlag(String)}, or {@link #flagOrDefault(String, String)}.
+ * methods like {@link #flag(String)}, {@link #booleanFlag(String)}, or {@link
+ * #flagOrDefault(String, String)}.
  *
- * @param key the canonical lowercase prompt key (e.g., {@code "ecoitem"}); must match {@code ^[a-z][a-z0-9_]{0,31}$}
+ * @param key the canonical lowercase prompt key (e.g., {@code "ecoitem"}); must match {@code
+ *     ^[a-z][a-z0-9_]{0,31}$}
  * @param displayText the prompt display text shown to the user (non-null, may be empty)
  * @param flags immutable map of custom flag names to string values (non-null)
- * @param sanitize whether input answers should be sanitized (stripping color codes and special characters)
+ * @param sanitize whether input answers should be sanitized (stripping color codes and special
+ *     characters)
  * @since 3.3.0
  */
 public record ScreenContext(
-    String key,
-    String displayText,
-    Map<String, String> flags,
-    boolean sanitize) {
+    String key, String displayText, Map<String, String> flags, boolean sanitize) {
 
   private static final Pattern KEY_PATTERN = Pattern.compile("^[a-z][a-z0-9_]{0,31}$");
 

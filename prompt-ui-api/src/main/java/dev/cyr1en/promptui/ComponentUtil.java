@@ -8,12 +8,11 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.md_5.bungee.api.ChatColor;
 
 /**
- * Utility methods for converting between MiniMessage, legacy {@code &}-code,
- * and Adventure {@link Component} formats.
+ * Utility methods for converting between MiniMessage, legacy {@code &}-code, and Adventure {@link
+ * Component} formats.
  *
- * <p>All public methods are null-safe: they return {@code null} when given
- * {@code null} input. Malformed MiniMessage input falls back to a plain text
- * component or string rather than throwing.</p>
+ * <p>All public methods are null-safe: they return {@code null} when given {@code null} input.
+ * Malformed MiniMessage input falls back to a plain text component or string rather than throwing.
  */
 public final class ComponentUtil {
 
@@ -25,37 +24,38 @@ public final class ComponentUtil {
   private static final Pattern HEX_PATTERN = Pattern.compile("#[a-fA-F0-9]{6}");
 
   /** Single-char {@code &X} → MiniMessage tag name. */
-  private static final Map<Character, String> LEGACY_CODE_TO_MINI = Map.ofEntries(
-      Map.entry('0', "black"),
-      Map.entry('1', "dark_blue"),
-      Map.entry('2', "dark_green"),
-      Map.entry('3', "dark_aqua"),
-      Map.entry('4', "dark_red"),
-      Map.entry('5', "dark_purple"),
-      Map.entry('6', "gold"),
-      Map.entry('7', "gray"),
-      Map.entry('8', "dark_gray"),
-      Map.entry('9', "blue"),
-      Map.entry('a', "green"),
-      Map.entry('b', "aqua"),
-      Map.entry('c', "red"),
-      Map.entry('d', "light_purple"),
-      Map.entry('e', "yellow"),
-      Map.entry('f', "white"),
-      Map.entry('k', "obfuscated"),
-      Map.entry('l', "bold"),
-      Map.entry('m', "strikethrough"),
-      Map.entry('n', "underlined"),
-      Map.entry('o', "italic"),
-      Map.entry('r', "reset"),
-      Map.entry('x', "color"),
-      Map.entry('X', "color"),
-      Map.entry('K', "obfuscated"),
-      Map.entry('L', "bold"),
-      Map.entry('M', "strikethrough"),
-      Map.entry('N', "underlined"),
-      Map.entry('O', "italic"),
-      Map.entry('R', "reset"));
+  private static final Map<Character, String> LEGACY_CODE_TO_MINI =
+      Map.ofEntries(
+          Map.entry('0', "black"),
+          Map.entry('1', "dark_blue"),
+          Map.entry('2', "dark_green"),
+          Map.entry('3', "dark_aqua"),
+          Map.entry('4', "dark_red"),
+          Map.entry('5', "dark_purple"),
+          Map.entry('6', "gold"),
+          Map.entry('7', "gray"),
+          Map.entry('8', "dark_gray"),
+          Map.entry('9', "blue"),
+          Map.entry('a', "green"),
+          Map.entry('b', "aqua"),
+          Map.entry('c', "red"),
+          Map.entry('d', "light_purple"),
+          Map.entry('e', "yellow"),
+          Map.entry('f', "white"),
+          Map.entry('k', "obfuscated"),
+          Map.entry('l', "bold"),
+          Map.entry('m', "strikethrough"),
+          Map.entry('n', "underlined"),
+          Map.entry('o', "italic"),
+          Map.entry('r', "reset"),
+          Map.entry('x', "color"),
+          Map.entry('X', "color"),
+          Map.entry('K', "obfuscated"),
+          Map.entry('L', "bold"),
+          Map.entry('M', "strikethrough"),
+          Map.entry('N', "underlined"),
+          Map.entry('O', "italic"),
+          Map.entry('R', "reset"));
 
   private ComponentUtil() {}
 
@@ -78,23 +78,19 @@ public final class ComponentUtil {
     }
   }
 
-  /**
-   * Serializes a {@link Component} back to its MiniMessage string form.
-   */
+  /** Serializes a {@link Component} back to its MiniMessage string form. */
   public static String serialize(Component component) {
     return MINI_MESSAGE.serialize(component);
   }
 
-  /**
-   * Strips {@code §} and {@code &} color/formatting codes from the given text.
-   */
+  /** Strips {@code §} and {@code &} color/formatting codes from the given text. */
   public static String stripColor(String text) {
     return text.replaceAll("[§&][0-9a-fk-orxlmno]", "");
   }
 
   /**
-   * Converts a {@code &}-coded string to its legacy {@code §X} form, translating
-   * {@code &}-prefixed hex codes ({@code &#RRGGBB} and {@code &x&R&G&B...}) as well.
+   * Converts a {@code &}-coded string to its legacy {@code §X} form, translating {@code &}-prefixed
+   * hex codes ({@code &#RRGGBB} and {@code &x&R&G&B...}) as well.
    *
    * @return the legacy-formatted string, or {@code null} on null input
    */
@@ -119,9 +115,9 @@ public final class ComponentUtil {
   /**
    * Converts a MiniMessage-tagged string to its legacy {@code §X} (section-sign) form.
    *
-   * <p>Use this when a {@code -ds} (don't-sanitize) prompt answer must be inserted into a
-   * Bukkit command dispatch path that does not understand MiniMessage. Falls back to the
-   * raw input on malformed MiniMessage.
+   * <p>Use this when a {@code -ds} (don't-sanitize) prompt answer must be inserted into a Bukkit
+   * command dispatch path that does not understand MiniMessage. Falls back to the raw input on
+   * malformed MiniMessage.
    *
    * @return the legacy string, or {@code null}/{@code empty} on null/empty input
    */
@@ -136,9 +132,9 @@ public final class ComponentUtil {
   }
 
   /**
-   * Rewrites {@code &}-prefixed legacy codes to MiniMessage tags in-place. Handles
-   * single codes ({@code &6}), 6-digit hex ({@code &#RRGGBB}), and spelled-out hex
-   * ({@code &x&R&G&B...}). Non-code characters and existing MiniMessage tags pass through.
+   * Rewrites {@code &}-prefixed legacy codes to MiniMessage tags in-place. Handles single codes
+   * ({@code &6}), 6-digit hex ({@code &#RRGGBB}), and spelled-out hex ({@code &x&R&G&B...}).
+   * Non-code characters and existing MiniMessage tags pass through.
    */
   private static String convertLegacyInline(String input) {
     if (input.indexOf('&') < 0) return input;

@@ -37,12 +37,12 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Direct unit coverage for {@link PromptPresentationExpander} — the single
- * presentation-materialization boundary. Uses a deterministic non-idempotent expander
- * ({@code value -> "[" + value + "]"}) so every assertion proves a field was expanded
- * exactly once, and semantic / parser fields can be asserted byte-for-byte unchanged.
+ * presentation-materialization boundary. Uses a deterministic non-idempotent expander ({@code value
+ * -> "[" + value + "]"}) so every assertion proves a field was expanded exactly once, and semantic
+ * / parser fields can be asserted byte-for-byte unchanged.
  *
- * <p>No MockBukkit inventories are involved: the expander never touches Bukkit APIs, so a
- * bare mocked {@link Player} suffices.
+ * <p>No MockBukkit inventories are involved: the expander never touches Bukkit APIs, so a bare
+ * mocked {@link Player} suffices.
  */
 class PromptPresentationExpanderTest {
 
@@ -65,11 +65,14 @@ class PromptPresentationExpanderTest {
 
   @Test
   void chatExpandsPresentationFieldsExactlyOnce() {
-    var raw = new ChatPrompt(
-        "chat", "chat_id", "prompt %a%",
-        new CancelBehavior(true, "cancel %b%", false, "hover %c%"),
-        true,
-        new TitleConfig("main %d%", "sub %e%", 40));
+    var raw =
+        new ChatPrompt(
+            "chat",
+            "chat_id",
+            "prompt %a%",
+            new CancelBehavior(true, "cancel %b%", false, "hover %c%"),
+            true,
+            new TitleConfig("main %d%", "sub %e%", 40));
 
     var out = (ChatPrompt) expand(raw);
 
@@ -89,10 +92,9 @@ class PromptPresentationExpanderTest {
 
   @Test
   void chatNullTitleDisplayAndEmptyCancelStringsStayRaw() {
-    var raw = new ChatPrompt(
-        "chat", "chat_id", "prompt %a%",
-        new CancelBehavior(false, "", false, ""),
-        false);
+    var raw =
+        new ChatPrompt(
+            "chat", "chat_id", "prompt %a%", new CancelBehavior(false, "", false, ""), false);
 
     var out = (ChatPrompt) expand(raw);
 
@@ -109,12 +111,16 @@ class PromptPresentationExpanderTest {
 
   @Test
   void anvilExpandsPresentationFieldsExactlyOnce() {
-    var raw = new AnvilPrompt(
-        "anvil", "anvil_id", "anvil %a%", "prompt %b%",
-        new AnvilButton(true, "left %c%", "STONE", "left hover %d%", 7),
-        new AnvilButton(true, "right %e%", "minecraft:DIAMOND", "right hover %f%", 9),
-        false,
-        new TitleConfig("main %g%", null, 50));
+    var raw =
+        new AnvilPrompt(
+            "anvil",
+            "anvil_id",
+            "anvil %a%",
+            "prompt %b%",
+            new AnvilButton(true, "left %c%", "STONE", "left hover %d%", 7),
+            new AnvilButton(true, "right %e%", "minecraft:DIAMOND", "right hover %f%", 9),
+            false,
+            new TitleConfig("main %g%", null, 50));
 
     var out = (AnvilPrompt) expand(raw);
 
@@ -144,11 +150,14 @@ class PromptPresentationExpanderTest {
 
   @Test
   void signExpandsPromptTextAndEveryDefaultLine() {
-    var raw = new SignPrompt(
-        "sign", "sign_id", "prompt %a%",
-        List.of("line one %b%", "line two %c%"),
-        true,
-        new TitleConfig("", "sub %d%", null));
+    var raw =
+        new SignPrompt(
+            "sign",
+            "sign_id",
+            "prompt %a%",
+            List.of("line one %b%", "line two %c%"),
+            true,
+            new TitleConfig("", "sub %d%", null));
 
     var out = (SignPrompt) expand(raw);
 
@@ -178,13 +187,17 @@ class PromptPresentationExpanderTest {
 
   @Test
   void playerUiExpandsPromptTextAndButtonsButNeverFilterOrIcons() {
-    var raw = new PlayerUiPrompt(
-        "player_ui", "pui_id", "prompt %a%", "world %filter%",
-        new UIButton(true, 3, "cancel %b%", "BARRIER", "cancel hover %c%", 5),
-        new UIButton(true, 4, "prev %d%", "ARROW", "prev hover %e%", 6),
-        null,
-        false,
-        new TitleConfig("main %f%", null, 20));
+    var raw =
+        new PlayerUiPrompt(
+            "player_ui",
+            "pui_id",
+            "prompt %a%",
+            "world %filter%",
+            new UIButton(true, 3, "cancel %b%", "BARRIER", "cancel hover %c%", 5),
+            new UIButton(true, 4, "prev %d%", "ARROW", "prev hover %e%", 6),
+            null,
+            false,
+            new TitleConfig("main %f%", null, 20));
 
     var out = (PlayerUiPrompt) expand(raw);
 
@@ -218,21 +231,23 @@ class PromptPresentationExpanderTest {
     var body = new DialogBodyConfig(DialogBodyType.PLAIN_MESSAGE, "body %a%", null, 1);
     var item = new DialogBodyConfig(DialogBodyType.ITEM, null, "STONE", 3, 64);
     var textRow = new DialogRow("label %b%", InputType.TEXT, null);
-    var numRow = new DialogRow(
-        "num %c%", InputType.NUMBER,
-        List.of(new JsonPrimitive(1), new JsonPrimitive(10)), 50, 2, 300);
+    var numRow =
+        new DialogRow(
+            "num %c%",
+            InputType.NUMBER, List.of(new JsonPrimitive(1), new JsonPrimitive(10)), 50, 2, 300);
     var base = new DialogBaseConfig(List.of(body, item), List.of(textRow, numRow));
 
     var action = new ActionButtonConfig("act %d%", "act tip %e%", "ret %f%");
     var exit = new ActionButtonConfig("exit %g%", null, "exit ret %h%");
     var confirm = new ActionButtonConfig("confirm %i%", "confirm tip %j%", null);
     var cancel = new ActionButtonConfig("cancel %k%", null, null);
-    var dt = new DialogTypeConfig(DialogType.MULTI_ACTION, 3, List.of(action), null,
-        exit, confirm, cancel);
+    var dt =
+        new DialogTypeConfig(
+            DialogType.MULTI_ACTION, 3, List.of(action), null, exit, confirm, cancel);
 
-    var raw = new DialogPrompt(
-        "dialog", "dialog_id", "title %z%", base, dt, true,
-        new TitleConfig("t %l%", null, 70));
+    var raw =
+        new DialogPrompt(
+            "dialog", "dialog_id", "title %z%", base, dt, true, new TitleConfig("t %l%", null, 70));
 
     var out = (DialogPrompt) expand(raw);
 
@@ -278,8 +293,15 @@ class PromptPresentationExpanderTest {
 
   @Test
   void dialogPreservesNullBaseAndNullActions() {
-    var dt = new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null,
-        new ActionButtonConfig("confirm %a%", null, null), null);
+    var dt =
+        new DialogTypeConfig(
+            DialogType.CONFIRMATION,
+            null,
+            null,
+            null,
+            null,
+            new ActionButtonConfig("confirm %a%", null, null),
+            null);
     var raw = new DialogPrompt("dialog", "dialog_id", "title %b%", null, dt, true);
 
     var out = (DialogPrompt) expand(raw);
@@ -302,17 +324,18 @@ class PromptPresentationExpanderTest {
     var textRow = new PromptTag("<d:text:Enter %c%>", "d", "text", "Enter %c%");
     var numRow = new PromptTag("<d:num[0,24]:Value %d%>", "d", "num[0,24]", "Value %d%");
     var choiceRow = new PromptTag("<d:choice[x,y]:Pick %e%>", "d", "choice[x,y]", "Pick %e%");
-    var block = new PromptTag(
-        "<d:title:Header %a% && d:text:Enter %c%>",
-        "d",
-        null,
-        "",
-        true,
-        "req",
-        PromptTag.AnswerType.INTEGER,
-        List.of(titleRow, bodyRow, textRow, numRow, choiceRow),
-        false,
-        new TitleConfig("Main %f%", "Sub %g%", 60));
+    var block =
+        new PromptTag(
+            "<d:title:Header %a% && d:text:Enter %c%>",
+            "d",
+            null,
+            "",
+            true,
+            "req",
+            PromptTag.AnswerType.INTEGER,
+            List.of(titleRow, bodyRow, textRow, numRow, choiceRow),
+            false,
+            new TitleConfig("Main %f%", "Sub %g%", 60));
 
     var out = expander.expandInlineDialog(player, block);
 
@@ -343,18 +366,19 @@ class PromptPresentationExpanderTest {
 
   @Test
   void confirmationExpandsPresentationFieldsExactlyOnce() {
-    var raw = new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
-        "confirmation",
-        "confirm_id",
-        dev.cyr1en.promptcore.ConfirmationMode.GUI,
-        "title %a%",
-        "prompt %b%",
-        "yes %c%",
-        "no %d%",
-        true,
-        "sound.key",
-        true,
-        new TitleConfig("main %e%", "sub %f%", 50));
+    var raw =
+        new dev.cyr1en.promptpaper.preset.ConfirmationPrompt(
+            "confirmation",
+            "confirm_id",
+            dev.cyr1en.promptcore.ConfirmationMode.GUI,
+            "title %a%",
+            "prompt %b%",
+            "yes %c%",
+            "no %d%",
+            true,
+            "sound.key",
+            true,
+            new TitleConfig("main %e%", "sub %f%", 50));
 
     var out = (dev.cyr1en.promptpaper.preset.ConfirmationPrompt) expand(raw);
 
@@ -376,17 +400,18 @@ class PromptPresentationExpanderTest {
 
   @Test
   void itemExpandsPresentationFieldsExactlyOnce() {
-    var raw = new dev.cyr1en.promptpaper.preset.ItemPrompt(
-        "item",
-        "item_id",
-        "prompt %a%",
-        dev.cyr1en.promptcore.ItemSource.CATALOG,
-        dev.cyr1en.promptcore.ItemOutputFormat.MATERIAL,
-        "weapons",
-        "minecraft:ui.button.click",
-        false,
-        new TitleConfig("main %b%", "sub %c%", 35),
-        120);
+    var raw =
+        new dev.cyr1en.promptpaper.preset.ItemPrompt(
+            "item",
+            "item_id",
+            "prompt %a%",
+            dev.cyr1en.promptcore.ItemSource.CATALOG,
+            dev.cyr1en.promptcore.ItemOutputFormat.MATERIAL,
+            "weapons",
+            "minecraft:ui.button.click",
+            false,
+            new TitleConfig("main %b%", "sub %c%", 35),
+            120);
 
     var out = (dev.cyr1en.promptpaper.preset.ItemPrompt) expand(raw);
 
@@ -416,8 +441,18 @@ class PromptPresentationExpanderTest {
 
   @Test
   void inlineDialogEmptyMainIsPreservedForFactoryFallback() {
-    var tag = new PromptTag("<d:text:Enter %a%>", "d", "text", "Enter %a%", true, null,
-        PromptTag.AnswerType.NONE, List.of(), false, new TitleConfig("", "sub %b%", 30));
+    var tag =
+        new PromptTag(
+            "<d:text:Enter %a%>",
+            "d",
+            "text",
+            "Enter %a%",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            List.of(),
+            false,
+            new TitleConfig("", "sub %b%", 30));
     var out = expander.expandInlineDialog(player, tag);
     assertEquals("[Enter %a%]", out.displayText());
     assertEquals("", out.title().main());
@@ -432,12 +467,13 @@ class PromptPresentationExpanderTest {
   @Test
   void exact1024LengthStringIsPreservedUnchangedAndUnflagged() {
     var flagged = new AtomicBoolean(false);
-    var exactExpander = new PromptPresentationExpander(
-        (p, text) -> "A".repeat(1024),
-        (p, orig, max) -> flagged.set(true));
+    var exactExpander =
+        new PromptPresentationExpander(
+            (p, text) -> "A".repeat(1024), (p, orig, max) -> flagged.set(true));
 
-    var raw = new ChatPrompt("chat", "chat_id", "prompt",
-        new CancelBehavior(false, "", false, ""), false);
+    var raw =
+        new ChatPrompt(
+            "chat", "chat_id", "prompt", new CancelBehavior(false, "", false, ""), false);
     var out = (ChatPrompt) exactExpander.expand(player, raw);
 
     assertEquals(1024, out.promptText().length());
@@ -451,16 +487,18 @@ class PromptPresentationExpanderTest {
     var flaggedOrigLen = new AtomicInteger();
     var flaggedMaxLen = new AtomicInteger();
 
-    var longExpander = new PromptPresentationExpander(
-        (p, text) -> "X".repeat(2048),
-        (p, orig, max) -> {
-          flaggedPlayer.set(p);
-          flaggedOrigLen.set(orig);
-          flaggedMaxLen.set(max);
-        });
+    var longExpander =
+        new PromptPresentationExpander(
+            (p, text) -> "X".repeat(2048),
+            (p, orig, max) -> {
+              flaggedPlayer.set(p);
+              flaggedOrigLen.set(orig);
+              flaggedMaxLen.set(max);
+            });
 
-    var raw = new ChatPrompt("chat", "chat_id", "prompt",
-        new CancelBehavior(true, "cancel_raw", false, ""), true);
+    var raw =
+        new ChatPrompt(
+            "chat", "chat_id", "prompt", new CancelBehavior(true, "cancel_raw", false, ""), true);
     var out = (ChatPrompt) longExpander.expand(player, raw);
 
     assertEquals(1024, out.promptText().length());
@@ -487,35 +525,44 @@ class PromptPresentationExpanderTest {
     var hookContainerMock = mock(dev.cyr1en.promptpaper.hook.HookContainer.class);
     org.mockito.Mockito.when(pluginMock.getHookContainer()).thenReturn(hookContainerMock);
     var papiHookMock = mock(dev.cyr1en.promptpaper.hook.hooks.PapiHook.class);
-    org.mockito.Mockito.when(hookContainerMock.getHook(dev.cyr1en.promptpaper.hook.hooks.PapiHook.class))
+    org.mockito.Mockito.when(
+            hookContainerMock.getHook(dev.cyr1en.promptpaper.hook.hooks.PapiHook.class))
         .thenReturn(java.util.Optional.of(papiHookMock));
 
     String secretContent = "SUPER_SECRET_PAYLOAD_CONTENT_THAT_SHOULD_NOT_LEAK";
     String hugeExpansion = secretContent + "Z".repeat(1500);
-    org.mockito.Mockito.when(papiHookMock.setPlaceholder(player, "%secret%")).thenReturn(hugeExpansion);
+    org.mockito.Mockito.when(papiHookMock.setPlaceholder(player, "%secret%"))
+        .thenReturn(hugeExpansion);
 
-    org.mockito.Mockito.doAnswer(invocation -> {
-      String format = invocation.getArgument(0);
-      Object identity = invocation.getArgument(1);
-      Object orig = invocation.getArgument(2);
-      Object max = invocation.getArgument(3);
-      warnings.add(String.format(format, identity, orig, max));
-      return null;
-    }).when(loggerMock).warn(
-        org.mockito.ArgumentMatchers.anyString(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any(),
-        org.mockito.ArgumentMatchers.any());
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              String format = invocation.getArgument(0);
+              Object identity = invocation.getArgument(1);
+              Object orig = invocation.getArgument(2);
+              Object max = invocation.getArgument(3);
+              warnings.add(String.format(format, identity, orig, max));
+              return null;
+            })
+        .when(loggerMock)
+        .warn(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any());
 
     var prodExpander = PromptPresentationExpander.forPlugin(pluginMock);
-    var raw = new ChatPrompt("chat", "chat_id", "%secret%", new CancelBehavior(false, "", false, ""), false);
+    var raw =
+        new ChatPrompt(
+            "chat", "chat_id", "%secret%", new CancelBehavior(false, "", false, ""), false);
     var out = (ChatPrompt) prodExpander.expand(player, raw);
 
     assertEquals(1024, out.promptText().length());
     assertEquals(1, warnings.size());
     String warningMsg = warnings.get(0);
     assertTrue(warningMsg.contains("Alice"), "Warning must contain player identity");
-    assertTrue(warningMsg.contains(String.valueOf(hugeExpansion.length())), "Warning must contain original length");
+    assertTrue(
+        warningMsg.contains(String.valueOf(hugeExpansion.length())),
+        "Warning must contain original length");
     assertTrue(warningMsg.contains("1024"), "Warning must contain max length");
     assertFalse(warningMsg.contains(secretContent), "Warning must NOT contain expansion content");
   }

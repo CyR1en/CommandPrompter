@@ -11,9 +11,7 @@ import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
 import java.lang.reflect.Type;
 import java.util.Locale;
 
-/**
- * Gson serializer and deserializer for {@link ApprovalGateDefinition}.
- */
+/** Gson serializer and deserializer for {@link ApprovalGateDefinition}. */
 public class ApprovalGateDefinitionDeserializer
     implements JsonDeserializer<ApprovalGateDefinition>, JsonSerializer<ApprovalGateDefinition> {
 
@@ -60,7 +58,7 @@ public class ApprovalGateDefinitionDeserializer
 
     int timeout = ApprovalGateDefinition.DEFAULT_TIMEOUT;
     if (obj.has("timeout") && !obj.get("timeout").isJsonNull()) {
-      timeout = obj.get("timeout").getAsInt();
+      timeout = PresetGson.readInteger(obj.get("timeout"), "Approval gate timeout");
     }
 
     SelfApprovalPolicy policy = SelfApprovalPolicy.AUTO_APPROVE;

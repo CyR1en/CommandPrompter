@@ -70,8 +70,7 @@ class ApprovalGateDefinitionTest {
   void invalidIdsRejected(String invalidId) {
     CompiledTemplate t = TemplateCompiler.compile("target");
     CompiledTemplate m = TemplateCompiler.compile("message");
-    assertThrows(
-        IllegalArgumentException.class, () -> new ApprovalGateDefinition(invalidId, t, m));
+    assertThrows(IllegalArgumentException.class, () -> new ApprovalGateDefinition(invalidId, t, m));
   }
 
   @Test
@@ -90,8 +89,7 @@ class ApprovalGateDefinitionTest {
     // Min 1 and Max 3600 allowed
     assertDoesNotThrow(
         () ->
-            new ApprovalGateDefinition(
-                "gate_min", t, m, 1, SelfApprovalPolicy.AUTO_APPROVE, null));
+            new ApprovalGateDefinition("gate_min", t, m, 1, SelfApprovalPolicy.AUTO_APPROVE, null));
     assertDoesNotThrow(
         () ->
             new ApprovalGateDefinition(
@@ -119,8 +117,7 @@ class ApprovalGateDefinitionTest {
   void onDenyActionMustHaveZeroDelay() {
     CompiledTemplate t = TemplateCompiler.compile("target");
     CompiledTemplate m = TemplateCompiler.compile("message");
-    TrustedPresetAction nonZeroDelay =
-        TrustedPresetAction.of("say denied", ExecuteAs.CONSOLE, 10);
+    TrustedPresetAction nonZeroDelay = TrustedPresetAction.of("say denied", ExecuteAs.CONSOLE, 10);
 
     assertThrows(
         IllegalArgumentException.class,
@@ -143,28 +140,16 @@ class ApprovalGateDefinitionTest {
         () ->
             ApprovalGateDefinition.of(
                 "gate_long", "target", longStr, 30, SelfApprovalPolicy.AUTO_APPROVE, null));
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile(longStr));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile(longStr));
   }
 
   @Test
   void templateControlCharactersRejectedAtCompileTime() {
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile("target\u0000bad"));
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile("msg\u0007bad"));
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile("target\tname"));
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile("target\nname"));
-    assertThrows(
-        TransformException.class,
-        () -> TemplateCompiler.compile("target\r\nname"));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile("target\u0000bad"));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile("msg\u0007bad"));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile("target\tname"));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile("target\nname"));
+    assertThrows(TransformException.class, () -> TemplateCompiler.compile("target\r\nname"));
   }
 
   @ParameterizedTest
@@ -196,7 +181,12 @@ class ApprovalGateDefinitionTest {
         IllegalArgumentException.class,
         () ->
             ApprovalGateDefinition.of(
-                "gate_blank", blankTarget, "Valid Message", 30, SelfApprovalPolicy.AUTO_APPROVE, null));
+                "gate_blank",
+                blankTarget,
+                "Valid Message",
+                30,
+                SelfApprovalPolicy.AUTO_APPROVE,
+                null));
   }
 
   @ParameterizedTest
@@ -206,7 +196,12 @@ class ApprovalGateDefinitionTest {
         IllegalArgumentException.class,
         () ->
             ApprovalGateDefinition.of(
-                "gate_blank", "ValidTarget", blankMessage, 30, SelfApprovalPolicy.AUTO_APPROVE, null));
+                "gate_blank",
+                "ValidTarget",
+                blankMessage,
+                30,
+                SelfApprovalPolicy.AUTO_APPROVE,
+                null));
   }
 
   @ParameterizedTest
@@ -309,8 +304,7 @@ class ApprovalGateDefinitionTest {
         }
         """;
     assertThrows(
-        IllegalArgumentException.class,
-        () -> gson.fromJson(json, ApprovalGateDefinition.class));
+        IllegalArgumentException.class, () -> gson.fromJson(json, ApprovalGateDefinition.class));
   }
 
   @Test
@@ -321,7 +315,8 @@ class ApprovalGateDefinitionTest {
 
     String noTarget = "{\"id\": \"gate_1\", \"message\": \"msg\"}";
     assertThrows(
-        IllegalArgumentException.class, () -> gson.fromJson(noTarget, ApprovalGateDefinition.class));
+        IllegalArgumentException.class,
+        () -> gson.fromJson(noTarget, ApprovalGateDefinition.class));
 
     String noMsg = "{\"id\": \"gate_1\", \"target\": \"admin\"}";
     assertThrows(
@@ -342,8 +337,7 @@ class ApprovalGateDefinitionTest {
             """,
             escapeJsonString(blankTarget));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> gson.fromJson(json, ApprovalGateDefinition.class));
+        IllegalArgumentException.class, () -> gson.fromJson(json, ApprovalGateDefinition.class));
   }
 
   @ParameterizedTest
@@ -360,8 +354,7 @@ class ApprovalGateDefinitionTest {
             """,
             escapeJsonString(blankMessage));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> gson.fromJson(json, ApprovalGateDefinition.class));
+        IllegalArgumentException.class, () -> gson.fromJson(json, ApprovalGateDefinition.class));
   }
 
   @ParameterizedTest
@@ -402,8 +395,7 @@ class ApprovalGateDefinitionTest {
             """,
             escapeJsonString(controlStr));
     assertThrows(
-        IllegalArgumentException.class,
-        () -> gson.fromJson(jsonMsg, ApprovalGateDefinition.class));
+        IllegalArgumentException.class, () -> gson.fromJson(jsonMsg, ApprovalGateDefinition.class));
   }
 
   @Test
@@ -467,7 +459,6 @@ class ApprovalGateDefinitionTest {
     assertEquals(original.selfApprovalPolicy(), deserialized.selfApprovalPolicy());
     assertNotNull(deserialized.onDenyAction());
     assertEquals(
-        original.onDenyAction().command().source(),
-        deserialized.onDenyAction().command().source());
+        original.onDenyAction().command().source(), deserialized.onDenyAction().command().source());
   }
 }

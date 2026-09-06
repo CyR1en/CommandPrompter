@@ -37,8 +37,8 @@ public record ConfirmationPrompt(
     implements PromptDefinition {
 
   /**
-   * Canonical constructor. Enforces {@code type == "confirmation"}, non-null required fields,
-   * and timeout bounds [1, 3600].
+   * Canonical constructor. Enforces {@code type == "confirmation"}, non-null required fields, and
+   * timeout bounds [1, 3600].
    */
   public ConfirmationPrompt {
     Objects.requireNonNull(type, "type must not be null");

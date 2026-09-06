@@ -8,18 +8,16 @@ import dev.cyr1en.promptcore.BuiltInPromptType;
  * <p>Mapped from the {@code screen-mappings} section of {@code prompt-config.yml}.
  */
 public enum ScreenType {
-    CHAT,
-    ANVIL,
-    SIGN,
-    DIALOG,
-    PLAYER,
-    CONFIRMATION,
-    ITEM;
+  CHAT,
+  ANVIL,
+  SIGN,
+  DIALOG,
+  PLAYER,
+  CONFIRMATION,
+  ITEM;
 
-    /** Resolves a canonical built-in prompt key, or returns {@code null} for a custom key. */
-    public static ScreenType fromBuiltInKey(String key) {
-        return BuiltInPromptType.resolve(key)
-                .map(type -> ScreenType.valueOf(type.name()))
-                .orElse(null);
-    }
+  /** Resolves a canonical built-in prompt key, or returns {@code null} for a custom key. */
+  public static ScreenType fromBuiltInKey(String key) {
+    return BuiltInPromptType.resolve(key).map(type -> ScreenType.valueOf(type.name())).orElse(null);
+  }
 }

@@ -27,120 +27,127 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 class CancelCommandTest extends MockBukkitTest {
 
-    private CancelCommand cmd;
-    private PromptEngine engine;
-    private ScreenManager screenManager;
+  private CancelCommand cmd;
+  private PromptEngine engine;
+  private ScreenManager screenManager;
 
-    @BeforeEach
-    void setUpCancelCommand() {
-        engine = mock(PromptEngine.class);
-        when(plugin.getEngine()).thenReturn(engine);
-        screenManager = mock(ScreenManager.class);
-        when(plugin.getScreenManager()).thenReturn(screenManager);
-        cmd = new CancelCommand(plugin);
-    }
+  @BeforeEach
+  void setUpCancelCommand() {
+    engine = mock(PromptEngine.class);
+    when(plugin.getEngine()).thenReturn(engine);
+    screenManager = mock(ScreenManager.class);
+    when(plugin.getScreenManager()).thenReturn(screenManager);
+    cmd = new CancelCommand(plugin);
+  }
 
-    @Test
-    void nonPlayerSenderGetsErrorMessage() {
-        var sender = mock(CommandSender.class);
-        cmd.executeCancel(sender);
-        verify(sender, times(1)).sendMessage(any(Component.class));
-        verify(screenManager, never()).cancelAll(any());
-        // Console/block senders keep context-free formatting (no PAPI context).
-        verify(i18n).get("command.error.players_only");
-    }
+  @Test
+  void nonPlayerSenderGetsErrorMessage() {
+    var sender = mock(CommandSender.class);
+    cmd.executeCancel(sender);
+    verify(sender, times(1)).sendMessage(any(Component.class));
+    verify(screenManager, never()).cancelAll(any());
+    // Console/block senders keep context-free formatting (no PAPI context).
+    verify(i18n).get("command.error.players_only");
+  }
 
-    @Test
-    void playerWithoutActiveSessionGetsNotice() {
-        PlayerMock player = createPlayer("Alice");
-        when(engine.hasActiveSession(player)).thenReturn(false);
-        cmd.executeCancel(player);
-        verify(screenManager, never()).cancelAll(any());
-        // The notice is sent directly to the player → player i18n context.
-        verify(i18n).get(eq("command.cancel.no_active_prompt"), same(player));
-    }
+  @Test
+  void playerWithoutActiveSessionGetsNotice() {
+    PlayerMock player = createPlayer("Alice");
+    when(engine.hasActiveSession(player)).thenReturn(false);
+    cmd.executeCancel(player);
+    verify(screenManager, never()).cancelAll(any());
+    // The notice is sent directly to the player → player i18n context.
+    verify(i18n).get(eq("command.cancel.no_active_prompt"), same(player));
+  }
 
-    @Test
-    void playerWithActiveSessionIsCancelled() {
-        when(config.showCancelled()).thenReturn(true);
-        PlayerMock player = createPlayer("Bob");
-        when(engine.hasActiveSession(player)).thenReturn(true);
-        cmd.executeCancel(player);
-        verify(screenManager, times(1)).cancelAll(player);
-        // The cancellation feedback is sent directly to the player → player i18n context.
-        verify(i18n).get(eq("prompt.cancelled"), same(player));
-    }
+  @Test
+  void playerWithActiveSessionIsCancelled() {
+    when(config.showCancelled()).thenReturn(true);
+    PlayerMock player = createPlayer("Bob");
+    when(engine.hasActiveSession(player)).thenReturn(true);
+    cmd.executeCancel(player);
+    verify(screenManager, times(1)).cancelAll(player);
+    // The cancellation feedback is sent directly to the player → player i18n context.
+    verify(i18n).get(eq("prompt.cancelled"), same(player));
+  }
 
-    @Test
-    void buildReturnsNonNullLiteralNode() {
-        assertNotNull(cmd.build());
-    }
+  @Test
+  void buildReturnsNonNullLiteralNode() {
+    assertNotNull(cmd.build());
+  }
 
-    @Test
-    void allowedRequiresPromptPaperCancelPermission() {
-        var sender = mock(CommandSender.class);
-        when(sender.hasPermission("promptpaper.cancel")).thenReturn(false);
-        assertFalse(cmd.allowed(sender));
+  @Test
+  void allowedRequiresPromptPaperCancelPermission() {
+    var sender = mock(CommandSender.class);
+    when(sender.hasPermission("promptpaper.cancel")).thenReturn(false);
+    assertFalse(cmd.allowed(sender));
 
-        var withPerm = mock(CommandSender.class);
-        when(withPerm.hasPermission("promptpaper.cancel")).thenReturn(true);
-        assertTrue(cmd.allowed(withPerm));
-    }
+    var withPerm = mock(CommandSender.class);
+    when(withPerm.hasPermission("promptpaper.cancel")).thenReturn(true);
+    assertTrue(cmd.allowed(withPerm));
+  }
 
-    @Test
-    void nonOpPlayerCanCancelOwnSessionByDefault() {
-        server.getPluginManager().addPermission(
-                new Permission("promptpaper.cancel", PermissionDefault.TRUE));
+  @Test
+  void nonOpPlayerCanCancelOwnSessionByDefault() {
+    server
+        .getPluginManager()
+        .addPermission(new Permission("promptpaper.cancel", PermissionDefault.TRUE));
 
-        PlayerMock player = createPlayer("Casey");
-        player.setOp(false);
+    PlayerMock player = createPlayer("Casey");
+    player.setOp(false);
 
-        assertFalse(player.isOp());
-        assertTrue(cmd.allowed(player),
-                "promptpaper.cancel should allow non-op players by default");
+    assertFalse(player.isOp());
+    assertTrue(cmd.allowed(player), "promptpaper.cancel should allow non-op players by default");
 
-        player.addAttachment(plugin, "promptpaper.cancel", false);
-        assertFalse(cmd.allowed(player),
-                "an explicit permission denial should still disable self-cancellation");
-    }
+    player.addAttachment(plugin, "promptpaper.cancel", false);
+    assertFalse(
+        cmd.allowed(player),
+        "an explicit permission denial should still disable self-cancellation");
+  }
 
-    @Test
-    void sec04TwoPlayerCancelRemovesOnlyExecutingPlayerSessionAndLeavesOtherPlayerFunctional() {
-        var promptConfig = mock(PromptConfig.class);
-        when(promptConfig.getScreenMappings()).thenReturn(Map.of("", ScreenType.CHAT));
-        org.mockito.Mockito.lenient().when(promptConfig.sendCancelText()).thenReturn(false);
-        org.mockito.Mockito.lenient().when(promptConfig.responseListenerPriority()).thenReturn("LOWEST");
-        when(configLoader.getPromptConfig()).thenReturn(promptConfig);
-        when(config.showCancelled()).thenReturn(true);
+  @Test
+  void sec04TwoPlayerCancelRemovesOnlyExecutingPlayerSessionAndLeavesOtherPlayerFunctional() {
+    var promptConfig = mock(PromptConfig.class);
+    when(promptConfig.getScreenMappings()).thenReturn(Map.of("", ScreenType.CHAT));
+    org.mockito.Mockito.lenient().when(promptConfig.sendCancelText()).thenReturn(false);
+    org.mockito.Mockito.lenient()
+        .when(promptConfig.responseListenerPriority())
+        .thenReturn("LOWEST");
+    when(configLoader.getPromptConfig()).thenReturn(promptConfig);
+    when(config.showCancelled()).thenReturn(true);
 
-        var realEngine = new PromptEngine(plugin, scheduler);
-        var realFactory = new PromptFactory(plugin);
-        var realScreenManager = new ScreenManager(plugin, realEngine, realFactory, scheduler);
-        when(plugin.getEngine()).thenReturn(realEngine);
-        when(plugin.getScreenManager()).thenReturn(realScreenManager);
+    var realEngine = new PromptEngine(plugin, scheduler);
+    var realFactory = new PromptFactory(plugin);
+    var realScreenManager = new ScreenManager(plugin, realEngine, realFactory, scheduler);
+    when(plugin.getEngine()).thenReturn(realEngine);
+    when(plugin.getScreenManager()).thenReturn(realScreenManager);
 
-        PlayerMock playerA = createPlayer("PlayerA");
-        PlayerMock playerB = createPlayer("PlayerB");
+    PlayerMock playerA = createPlayer("PlayerA");
+    PlayerMock playerB = createPlayer("PlayerB");
 
-        realScreenManager.startSession(playerA, "/say <promptA>");
-        realScreenManager.startSession(playerB, "/say <promptB>");
+    realScreenManager.startSession(playerA, "/say <promptA>");
+    realScreenManager.startSession(playerB, "/say <promptB>");
 
-        assertTrue(realEngine.hasActiveSession(playerA), "Player A must have an active session");
-        assertTrue(realEngine.hasActiveSession(playerB), "Player B must have an active session");
-        assertTrue(realScreenManager.hasActiveScreen(playerA), "Player A must have an active screen");
-        assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B must have an active screen");
+    assertTrue(realEngine.hasActiveSession(playerA), "Player A must have an active session");
+    assertTrue(realEngine.hasActiveSession(playerB), "Player B must have an active session");
+    assertTrue(realScreenManager.hasActiveScreen(playerA), "Player A must have an active screen");
+    assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B must have an active screen");
 
-        cmd.executeCancel(playerA);
+    cmd.executeCancel(playerA);
 
-        assertFalse(realEngine.hasActiveSession(playerA), "Player A's session must be removed");
-        assertFalse(realScreenManager.hasActiveScreen(playerA), "Player A's screen must be removed");
+    assertFalse(realEngine.hasActiveSession(playerA), "Player A's session must be removed");
+    assertFalse(realScreenManager.hasActiveScreen(playerA), "Player A's screen must be removed");
 
-        assertTrue(realEngine.hasActiveSession(playerB), "Player B's session must remain active");
-        assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B's screen must remain active");
+    assertTrue(realEngine.hasActiveSession(playerB), "Player B's session must remain active");
+    assertTrue(realScreenManager.hasActiveScreen(playerB), "Player B's screen must remain active");
 
-        // Player B's prompt remains fully functional and accepts input
-        realScreenManager.handleChatInput(playerB, "BobTarget");
-        assertFalse(realEngine.hasActiveSession(playerB), "Player B's session should complete after submitting answer");
-        assertFalse(realScreenManager.hasActiveScreen(playerB), "Player B's screen should be closed after session completion");
-    }
+    // Player B's prompt remains fully functional and accepts input
+    realScreenManager.handleChatInput(playerB, "BobTarget");
+    assertFalse(
+        realEngine.hasActiveSession(playerB),
+        "Player B's session should complete after submitting answer");
+    assertFalse(
+        realScreenManager.hasActiveScreen(playerB),
+        "Player B's screen should be closed after session completion");
+  }
 }

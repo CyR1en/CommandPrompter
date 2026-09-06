@@ -14,7 +14,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
@@ -181,7 +180,8 @@ class RuntimeStateConcurrencyTest {
   }
 
   @RepeatedTest(20)
-  @DisplayName("Racing dispatch claim vs cancellation guarantees at most one claim and consistent terminal state")
+  @DisplayName(
+      "Racing dispatch claim vs cancellation guarantees at most one claim and consistent terminal state")
   void racingDispatchVsCancel() throws Exception {
     int threadCount = 16;
     ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -231,15 +231,15 @@ class RuntimeStateConcurrencyTest {
           instance.isTerminal(),
           "Instance must reach a terminal stage after concurrent cancellation");
       assertTrue(
-          instance.isCleanedUp(),
-          "Instance must be cleaned up when reaching a terminal stage");
+          instance.isCleanedUp(), "Instance must be cleaned up when reaching a terminal stage");
     } finally {
       executor.shutdownNow();
     }
   }
 
   @RepeatedTest(20)
-  @DisplayName("Racing cleanup hook registration vs cleanup execution executes each hook exactly once")
+  @DisplayName(
+      "Racing cleanup hook registration vs cleanup execution executes each hook exactly once")
   void racingHookRegistrationVsCleanup() throws Exception {
     int registerThreads = 32;
     int cleanupThreads = 8;
@@ -316,7 +316,8 @@ class RuntimeStateConcurrencyTest {
   }
 
   @RepeatedTest(20)
-  @DisplayName("Racing cancellable registration vs cleanup execution cancels each task exactly once")
+  @DisplayName(
+      "Racing cancellable registration vs cleanup execution cancels each task exactly once")
   void racingCancellableRegistrationVsCleanup() throws Exception {
     int registerThreads = 32;
     int cleanupThreads = 8;

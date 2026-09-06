@@ -13,7 +13,7 @@ import java.util.Objects;
  *
  * @param assembledCommand the final command string with answers substituted in
  * @param answers the raw collected answers, in prompt order. Used by the dispatcher for
- *     post-command placeholder resolution (Scope 5)
+ *     post-command placeholder resolution
  * @param onCompleteCmds PCMs that run after successful completion (empty if cancelled)
  * @param onCancelCmds PCMs that run on cancel (empty if completed)
  */

@@ -8,13 +8,12 @@ import java.util.Optional;
  * Result of evaluating a pre-dispatch gate.
  *
  * @param status the outcome status of the gate evaluation
- * @param onDenyAction optional immediate action to execute upon denial, timeout, or target disconnect
+ * @param onDenyAction optional immediate action to execute upon denial, timeout, or target
+ *     disconnect
  * @param detail diagnostic error detail if status is {@link Status#ERROR}
  */
 public record PreDispatchGateResult(
-    Status status,
-    TrustedPresetAction onDenyAction,
-    String detail) {
+    Status status, TrustedPresetAction onDenyAction, String detail) {
 
   public enum Status {
     APPROVED,

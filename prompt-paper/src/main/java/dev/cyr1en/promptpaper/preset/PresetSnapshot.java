@@ -10,8 +10,8 @@ import java.util.Set;
 /**
  * Immutable snapshot of all preset definitions loaded from {@code presets.json}.
  *
- * <p>Contains insertion-ordered, deeply immutable maps for prompts, legacy post-commands,
- * approval gates, and conditional post-commands, along with a monotonic generation number.
+ * <p>Contains insertion-ordered, deeply immutable maps for prompts, legacy post-commands, approval
+ * gates, and conditional post-commands, along with a monotonic generation number.
  *
  * <p>Safe to retain by an in-flight prompt session across registry reloads.
  *
@@ -31,9 +31,7 @@ public record PresetSnapshot(
   public static final PresetSnapshot EMPTY =
       new PresetSnapshot(Map.of(), Map.of(), Map.of(), Map.of(), 0L);
 
-  /**
-   * Returns an empty snapshot with generation 0.
-   */
+  /** Returns an empty snapshot with generation 0. */
   public static PresetSnapshot empty() {
     return EMPTY;
   }
@@ -54,9 +52,7 @@ public record PresetSnapshot(
         Collections.unmodifiableMap(new LinkedHashMap<>(conditionalPostCommands));
   }
 
-  /**
-   * Convenience 4-argument constructor with generation = 0.
-   */
+  /** Convenience 4-argument constructor with generation = 0. */
   public PresetSnapshot(
       Map<String, PromptDefinition> prompts,
       Map<String, PostCommand> postCommands,
@@ -65,25 +61,19 @@ public record PresetSnapshot(
     this(prompts, postCommands, approvalGates, conditionalPostCommands, 0L);
   }
 
-  /**
-   * Looks up a prompt by its id. Returns empty if not present or if id is null.
-   */
+  /** Looks up a prompt by its id. Returns empty if not present or if id is null. */
   public Optional<PromptDefinition> getPrompt(String id) {
     if (id == null) return Optional.empty();
     return Optional.ofNullable(prompts.get(id));
   }
 
-  /**
-   * Looks up a post-command by its id. Returns empty if not present or if id is null.
-   */
+  /** Looks up a post-command by its id. Returns empty if not present or if id is null. */
   public Optional<PostCommand> getPostCommand(String id) {
     if (id == null) return Optional.empty();
     return Optional.ofNullable(postCommands.get(id));
   }
 
-  /**
-   * Looks up an approval gate by its id. Returns empty if not present or if id is null.
-   */
+  /** Looks up an approval gate by its id. Returns empty if not present or if id is null. */
   public Optional<ApprovalGateDefinition> getApprovalGate(String id) {
     if (id == null) return Optional.empty();
     return Optional.ofNullable(approvalGates.get(id));
@@ -97,23 +87,17 @@ public record PresetSnapshot(
     return Optional.ofNullable(conditionalPostCommands.get(id));
   }
 
-  /**
-   * Returns an unmodifiable set of all registered prompt ids in insertion order.
-   */
+  /** Returns an unmodifiable set of all registered prompt ids in insertion order. */
   public Set<String> getPromptIds() {
     return prompts.keySet();
   }
 
-  /**
-   * Returns an unmodifiable set of all registered post-command ids in insertion order.
-   */
+  /** Returns an unmodifiable set of all registered post-command ids in insertion order. */
   public Set<String> getPostCommandIds() {
     return postCommands.keySet();
   }
 
-  /**
-   * Returns an unmodifiable set of all registered approval gate ids in insertion order.
-   */
+  /** Returns an unmodifiable set of all registered approval gate ids in insertion order. */
   public Set<String> getApprovalGateIds() {
     return approvalGates.keySet();
   }
@@ -125,44 +109,35 @@ public record PresetSnapshot(
     return conditionalPostCommands.keySet();
   }
 
-  /**
-   * Number of registered prompt definitions.
-   */
+  /** Number of registered prompt definitions. */
   public int promptCount() {
     return prompts.size();
   }
 
-  /**
-   * Number of registered post-command definitions.
-   */
+  /** Number of registered post-command definitions. */
   public int postCommandCount() {
     return postCommands.size();
   }
 
-  /**
-   * Number of registered approval gate definitions.
-   */
+  /** Number of registered approval gate definitions. */
   public int approvalGateCount() {
     return approvalGates.size();
   }
 
-  /**
-   * Number of registered conditional post-command definitions.
-   */
+  /** Number of registered conditional post-command definitions. */
   public int conditionalPostCommandCount() {
     return conditionalPostCommands.size();
   }
 
-  /**
-   * Total number of definitions across all four kinds in this snapshot.
-   */
+  /** Total number of definitions across all four kinds in this snapshot. */
   public int totalCount() {
-    return prompts.size() + postCommands.size() + approvalGates.size() + conditionalPostCommands.size();
+    return prompts.size()
+        + postCommands.size()
+        + approvalGates.size()
+        + conditionalPostCommands.size();
   }
 
-  /**
-   * Returns true if all four definition maps are empty.
-   */
+  /** Returns true if all four definition maps are empty. */
   public boolean isEmpty() {
     return prompts.isEmpty()
         && postCommands.isEmpty()

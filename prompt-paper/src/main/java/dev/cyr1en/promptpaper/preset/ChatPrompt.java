@@ -46,4 +46,3 @@ public record ChatPrompt(
     this(type, id, promptText, cancel, sanitize, null);
   }
 }
-

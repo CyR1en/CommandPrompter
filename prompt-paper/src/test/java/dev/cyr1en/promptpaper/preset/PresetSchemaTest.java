@@ -16,8 +16,8 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
- * Validates the presets JSON schema integrity, keyword syntax ($ref / $defs),
- * reference resolution, and byte-for-byte synchronization between repo copies.
+ * Validates the presets JSON schema integrity, keyword syntax ($ref / $defs), reference resolution,
+ * and byte-for-byte synchronization between repo copies.
  */
 class PresetSchemaTest {
 
@@ -44,7 +44,10 @@ class PresetSchemaTest {
   void schemaCopiesAreByteForByteSynchronized() throws Exception {
     String rootContent = readRootSchema();
     String resourceContent = readResourceSchema();
-    assertEquals(rootContent, resourceContent, "Both presets.schema.json copies must be byte-for-byte identical");
+    assertEquals(
+        rootContent,
+        resourceContent,
+        "Both presets.schema.json copies must be byte-for-byte identical");
   }
 
   @Test
@@ -68,7 +71,8 @@ class PresetSchemaTest {
     assertTrue(violations.isEmpty(), "Found bare 'ref' or 'defs' in schema: " + violations);
   }
 
-  private void findBareRefOrDefsViolations(JsonElement element, String path, List<String> violations) {
+  private void findBareRefOrDefsViolations(
+      JsonElement element, String path, List<String> violations) {
     if (element.isJsonObject()) {
       JsonObject obj = element.getAsJsonObject();
       for (var entry : obj.entrySet()) {
@@ -105,7 +109,9 @@ class PresetSchemaTest {
     for (String ref : refs) {
       assertTrue(ref.startsWith("#/$defs/"), "Ref should target #/$defs/..., got: " + ref);
       String target = ref.substring("#/$defs/".length());
-      assertTrue(definedKeys.contains(target), "Unresolved reference: " + ref + " (available: " + definedKeys + ")");
+      assertTrue(
+          definedKeys.contains(target),
+          "Unresolved reference: " + ref + " (available: " + definedKeys + ")");
     }
   }
 
@@ -131,7 +137,8 @@ class PresetSchemaTest {
     JsonObject root = JsonParser.parseString(content).getAsJsonObject();
     JsonObject props = root.getAsJsonObject("properties");
 
-    for (String arrayName : List.of("prompts", "post_commands", "approval_gates", "conditional_post_commands")) {
+    for (String arrayName :
+        List.of("prompts", "post_commands", "approval_gates", "conditional_post_commands")) {
       assertTrue(props.has(arrayName), "Root schema must have property: " + arrayName);
       JsonObject arrProp = props.getAsJsonObject(arrayName);
       assertEquals("array", arrProp.get("type").getAsString());
@@ -159,7 +166,8 @@ class PresetSchemaTest {
 
     JsonObject onDeny = props.getAsJsonObject("on_deny");
     assertNotNull(onDeny);
-    JsonArray delayEnum = onDeny.getAsJsonObject("properties").getAsJsonObject("delay_ticks").getAsJsonArray("enum");
+    JsonArray delayEnum =
+        onDeny.getAsJsonObject("properties").getAsJsonObject("delay_ticks").getAsJsonArray("enum");
     assertEquals(1, delayEnum.size());
     assertEquals(0, delayEnum.get(0).getAsInt());
   }
@@ -176,10 +184,14 @@ class PresetSchemaTest {
     assertEquals("^[a-z0-9_.-]{1,64}$", props.getAsJsonObject("id").get("pattern").getAsString());
     assertEquals(1, props.getAsJsonObject("condition").get("minLength").getAsInt());
     assertEquals(1024, props.getAsJsonObject("condition").get("maxLength").getAsInt());
-    assertEquals("#/$defs/trustedPresetAction", props.getAsJsonObject("if_true").get("$ref").getAsString());
-    assertEquals("#/$defs/trustedPresetAction", props.getAsJsonObject("if_false").get("$ref").getAsString());
+    assertEquals(
+        "#/$defs/trustedPresetAction", props.getAsJsonObject("if_true").get("$ref").getAsString());
+    assertEquals(
+        "#/$defs/trustedPresetAction", props.getAsJsonObject("if_false").get("$ref").getAsString());
 
-    assertTrue(cmd.has("anyOf"), "conditionalPostCommand must have anyOf constraint for branch requirement");
+    assertTrue(
+        cmd.has("anyOf"),
+        "conditionalPostCommand must have anyOf constraint for branch requirement");
   }
 
   @Test
@@ -226,18 +238,17 @@ class PresetSchemaTest {
     java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patternStr);
 
     // Accepted case variations
-    List<String> validModes = List.of(
-        "gui", "chat", "dialog",
-        "GUI", "CHAT", "DIALOG",
-        "Gui", "Chat", "Dialog",
-        "gUi", "cHaT", "dIaLoG");
+    List<String> validModes =
+        List.of(
+            "gui", "chat", "dialog", "GUI", "CHAT", "DIALOG", "Gui", "Chat", "Dialog", "gUi",
+            "cHaT", "dIaLoG");
     for (String m : validModes) {
       assertTrue(pattern.matcher(m).matches(), "Pattern should match mode: " + m);
     }
 
     // Rejected invalid modes
-    List<String> invalidModes = List.of(
-        "invalid", "unknown", "telepathy", "", "gui1", "dialogs", "chat_mode");
+    List<String> invalidModes =
+        List.of("invalid", "unknown", "telepathy", "", "gui1", "dialogs", "chat_mode");
     for (String m : invalidModes) {
       assertFalse(pattern.matcher(m).matches(), "Pattern should reject mode: " + m);
     }

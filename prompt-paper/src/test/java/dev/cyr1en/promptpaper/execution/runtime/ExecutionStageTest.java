@@ -88,9 +88,14 @@ class ExecutionStageTest {
   @Test
   @DisplayName("Mapping to PlanLifecycleStage produces correct counterparts")
   void toPlanLifecycleStageMapping() {
-    assertEquals(PlanLifecycleStage.PRE_DISPATCH_GATES, ExecutionStage.PRE_DISPATCH_GATES.toPlanLifecycleStage());
-    assertEquals(PlanLifecycleStage.PRIMARY_DISPATCH, ExecutionStage.PRIMARY_DISPATCH.toPlanLifecycleStage());
-    assertEquals(PlanLifecycleStage.POST_ACTIONS, ExecutionStage.POST_ACTIONS.toPlanLifecycleStage());
+    assertEquals(
+        PlanLifecycleStage.PRE_DISPATCH_GATES,
+        ExecutionStage.PRE_DISPATCH_GATES.toPlanLifecycleStage());
+    assertEquals(
+        PlanLifecycleStage.PRIMARY_DISPATCH,
+        ExecutionStage.PRIMARY_DISPATCH.toPlanLifecycleStage());
+    assertEquals(
+        PlanLifecycleStage.POST_ACTIONS, ExecutionStage.POST_ACTIONS.toPlanLifecycleStage());
     assertEquals(PlanLifecycleStage.TERMINATED, ExecutionStage.COMPLETED.toPlanLifecycleStage());
     assertEquals(PlanLifecycleStage.CANCEL_ABORT, ExecutionStage.CANCELLED.toPlanLifecycleStage());
     assertEquals(PlanLifecycleStage.CANCEL_ABORT, ExecutionStage.ERROR.toPlanLifecycleStage());

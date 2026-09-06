@@ -11,33 +11,33 @@ import org.junit.jupiter.api.Test;
 
 class DialogLifecycleTest {
 
-    @Test
-    void terminalResultClosesDialogBeforeNotifyingSessionManager() {
-        var lifecycle = new DialogLifecycle();
-        var events = new ArrayList<String>();
-        var result = ScreenResult.answer("answer");
-        lifecycle.onResult(received -> events.add("result:" + received.answer()));
-        lifecycle.opened();
+  @Test
+  void terminalResultClosesDialogBeforeNotifyingSessionManager() {
+    var lifecycle = new DialogLifecycle();
+    var events = new ArrayList<String>();
+    var result = ScreenResult.answer("answer");
+    lifecycle.onResult(received -> events.add("result:" + received.answer()));
+    lifecycle.opened();
 
-        assertTrue(lifecycle.finish(result, () -> events.add("close")));
+    assertTrue(lifecycle.finish(result, () -> events.add("close")));
 
-        assertEquals(List.of("close", "result:answer"), events);
-        assertFalse(lifecycle.isOpen());
+    assertEquals(List.of("close", "result:answer"), events);
+    assertFalse(lifecycle.isOpen());
 
-        assertFalse(lifecycle.finish(result, () -> events.add("duplicate-close")));
-        assertEquals(List.of("close", "result:answer"), events);
-    }
+    assertFalse(lifecycle.finish(result, () -> events.add("duplicate-close")));
+    assertEquals(List.of("close", "result:answer"), events);
+  }
 
-    @Test
-    void externalCloseDoesNotDeliverAResult() {
-        var lifecycle = new DialogLifecycle();
-        var events = new ArrayList<String>();
-        lifecycle.onResult(result -> events.add("result"));
-        lifecycle.opened();
+  @Test
+  void externalCloseDoesNotDeliverAResult() {
+    var lifecycle = new DialogLifecycle();
+    var events = new ArrayList<String>();
+    lifecycle.onResult(result -> events.add("result"));
+    lifecycle.opened();
 
-        assertTrue(lifecycle.close(() -> events.add("close")));
+    assertTrue(lifecycle.close(() -> events.add("close")));
 
-        assertEquals(List.of("close"), events);
-        assertFalse(lifecycle.isOpen());
-    }
+    assertEquals(List.of("close"), events);
+    assertFalse(lifecycle.isOpen());
+  }
 }

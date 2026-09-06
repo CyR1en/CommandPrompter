@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.preset;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import dev.cyr1en.promptcore.ConfirmationMode;
@@ -22,17 +23,28 @@ public final class PresetGson {
 
   private PresetGson() {}
 
+  static int readInteger(JsonElement value, String field) {
+    if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+      throw new IllegalArgumentException(field + " must be an integer");
+    }
+    try {
+      return value.getAsBigDecimal().intValueExact();
+    } catch (ArithmeticException | NumberFormatException e) {
+      throw new IllegalArgumentException(field + " must be a 32-bit integer", e);
+    }
+  }
+
   /**
-   * Build a {@link Gson} instance configured with deserializers for all preset definitions
-   * using default template syntax.
+   * Build a {@link Gson} instance configured with deserializers for all preset definitions using
+   * default template syntax.
    */
   public static Gson presetGson() {
     return presetGson(TemplateSyntax.DEFAULT);
   }
 
   /**
-   * Build a {@link Gson} instance configured with deserializers for all preset definitions
-   * using the specified template syntax.
+   * Build a {@link Gson} instance configured with deserializers for all preset definitions using
+   * the specified template syntax.
    */
   public static Gson presetGson(TemplateSyntax syntax) {
     TemplateSyntax effectiveSyntax = syntax != null ? syntax : TemplateSyntax.DEFAULT;
@@ -47,8 +59,7 @@ public final class PresetGson {
                     throw new IllegalArgumentException("Confirmation mode must be a string");
                   }
                   try {
-                    return ConfirmationMode.valueOf(
-                        json.getAsString().toUpperCase(Locale.ROOT));
+                    return ConfirmationMode.valueOf(json.getAsString().toUpperCase(Locale.ROOT));
                   } catch (IllegalArgumentException e) {
                     throw new IllegalArgumentException(
                         "Unknown confirmation mode: " + json.getAsString(), e);
@@ -57,8 +68,7 @@ public final class PresetGson {
         .registerTypeAdapter(
             ConfirmationMode.class,
             (JsonSerializer<ConfirmationMode>)
-                (src, typeOfSrc, context) ->
-                    new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
+                (src, typeOfSrc, context) -> new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
         .registerTypeAdapter(
             ItemSource.class,
             (JsonDeserializer<ItemSource>)
@@ -72,8 +82,7 @@ public final class PresetGson {
         .registerTypeAdapter(
             ItemSource.class,
             (JsonSerializer<ItemSource>)
-                (src, typeOfSrc, context) ->
-                    new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
+                (src, typeOfSrc, context) -> new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
         .registerTypeAdapter(
             ItemOutputFormat.class,
             (JsonDeserializer<ItemOutputFormat>)
@@ -87,10 +96,10 @@ public final class PresetGson {
         .registerTypeAdapter(
             ItemOutputFormat.class,
             (JsonSerializer<ItemOutputFormat>)
-                (src, typeOfSrc, context) ->
-                    new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
+                (src, typeOfSrc, context) -> new JsonPrimitive(src.name().toLowerCase(Locale.ROOT)))
         .registerTypeAdapter(SelfApprovalPolicy.class, new SelfApprovalPolicyDeserializer())
-        .registerTypeAdapter(TrustedPresetAction.class, new TrustedPresetActionDeserializer(effectiveSyntax))
+        .registerTypeAdapter(
+            TrustedPresetAction.class, new TrustedPresetActionDeserializer(effectiveSyntax))
         .registerTypeAdapter(
             ApprovalGateDefinition.class, new ApprovalGateDefinitionDeserializer(effectiveSyntax))
         .registerTypeAdapter(

@@ -15,8 +15,8 @@ import java.util.UUID;
 /**
  * Thread-safe registry managing exclusive player interaction claims and leases.
  *
- * <p>Enforces collision rejection across approval executions and prompt sessions,
- * and exact compare-and-release by owner (execution ID or prompt incarnation).</p>
+ * <p>Enforces collision rejection across approval executions and prompt sessions, and exact
+ * compare-and-release by owner (execution ID or prompt incarnation).
  */
 public final class PlayerInteractionLeaseRegistry {
 
@@ -67,18 +67,21 @@ public final class PlayerInteractionLeaseRegistry {
   }
 
   /**
-   * Attempts to acquire an exclusive prompt session claim on a player for the specified session incarnation.
+   * Attempts to acquire an exclusive prompt session claim on a player for the specified session
+   * incarnation.
    *
    * @param player the player UUID to claim
    * @param incarnation the prompt session incarnation
    * @return optional containing the claim if acquired, or empty if rejected due to collision
    */
-  public synchronized Optional<PlayerInteractionLease> acquirePrompt(UUID player, long incarnation) {
+  public synchronized Optional<PlayerInteractionLease> acquirePrompt(
+      UUID player, long incarnation) {
     return acquirePrompt(player, incarnation, null);
   }
 
   /**
-   * Attempts to acquire an exclusive prompt session claim on a player for the specified session incarnation with a TTL.
+   * Attempts to acquire an exclusive prompt session claim on a player for the specified session
+   * incarnation with a TTL.
    *
    * @param player the player UUID to claim
    * @param incarnation the prompt session incarnation
@@ -106,7 +109,8 @@ public final class PlayerInteractionLeaseRegistry {
     }
 
     Instant expiresAt = ttl != null ? now.plus(ttl) : null;
-    PlayerInteractionLease lease = PlayerInteractionLease.forPrompt(player, incarnation, now, expiresAt);
+    PlayerInteractionLease lease =
+        PlayerInteractionLease.forPrompt(player, incarnation, now, expiresAt);
     leases.put(player, lease);
     return Optional.of(lease);
   }
@@ -239,16 +243,12 @@ public final class PlayerInteractionLeaseRegistry {
     return expired.size();
   }
 
-  /**
-   * Clears all leases.
-   */
+  /** Clears all leases. */
   public synchronized void clear() {
     leases.clear();
   }
 
-  /**
-   * Returns current active count (after pruning expired).
-   */
+  /** Returns current active count (after pruning expired). */
   public synchronized int size() {
     cleanExpired();
     return leases.size();

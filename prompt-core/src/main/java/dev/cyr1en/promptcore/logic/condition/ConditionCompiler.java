@@ -70,10 +70,6 @@ public final class ConditionCompiler {
     return new CompiledCondition(source, root);
   }
 
-  // =========================================================================
-  // Lexer / Tokenizer
-  // =========================================================================
-
   private enum TokenType {
     LPAREN,
     RPAREN,
@@ -342,10 +338,6 @@ public final class ConditionCompiler {
   private static boolean isAlpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
   }
-
-  // =========================================================================
-  // Recursive Descent Parser
-  // =========================================================================
 
   private static final class Parser {
     private final String source;

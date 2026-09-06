@@ -7,8 +7,6 @@ import dev.cyr1en.promptcore.logic.transform.TemplateCompiler;
 import dev.cyr1en.promptcore.plan.ExecutionPlanDefinition;
 import dev.cyr1en.promptcore.plan.PreDispatchGateSpec;
 import dev.cyr1en.promptpaper.MockBukkitTest;
-import dev.cyr1en.promptpaper.command.ResponseCommand;
-import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
 import dev.cyr1en.promptpaper.execution.coordinator.ExecutionCoordinator;
 import dev.cyr1en.promptpaper.execution.dispatch.PaperImmediateActionDispatcher;
@@ -19,10 +17,8 @@ import dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionStage;
 import dev.cyr1en.promptpaper.execution.runtime.InputCompletion;
 import dev.cyr1en.promptpaper.preset.ApprovalGateDefinition;
-import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.SelfApprovalPolicy;
-import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.screen.confirmation.ConfirmationRateLimiter;
 import dev.cyr1en.promptpaper.util.PluginLogger;
@@ -31,7 +27,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -86,7 +81,8 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
     when(plugin.getEngine()).thenReturn(promptEngine);
 
     var screenManager =
-        new ScreenManager(plugin, promptEngine, plugin.getPromptFactory(), scheduler, null, null, null, null);
+        new ScreenManager(
+            plugin, promptEngine, plugin.getPromptFactory(), scheduler, null, null, null, null);
     when(plugin.getScreenManager()).thenReturn(screenManager);
 
     coordinator =
@@ -133,7 +129,8 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
         null);
   }
 
-  private ExecutionPlanInstance setupExecution(Player initiator, Player target, String gateId, ApprovalGateDefinition gate) {
+  private ExecutionPlanInstance setupExecution(
+      Player initiator, Player target, String gateId, ApprovalGateDefinition gate) {
     PresetSnapshot snapshot =
         new PresetSnapshot(Map.of(), Map.of(), Map.of(gateId, gate), Map.of(), 1L);
 
@@ -154,14 +151,16 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
             snapshot,
             DispatchContextSnapshot.player());
 
-    Optional<ExecutionPlanInstance> instanceOpt = executionCoordinator.coordinate(initiator, completion);
+    Optional<ExecutionPlanInstance> instanceOpt =
+        executionCoordinator.coordinate(initiator, completion);
     assertTrue(instanceOpt.isPresent());
     assertEquals(ExecutionStage.PRE_DISPATCH_GATES, instanceOpt.get().getStage());
     return instanceOpt.get();
   }
 
   @Test
-  @DisplayName("Audit: Normal approved outcome logs exactly once at INFO with initiator, target, sanitized gate, and outcome")
+  @DisplayName(
+      "Audit: Normal approved outcome logs exactly once at INFO with initiator, target, sanitized gate, and outcome")
   void testTerminalOutcomeAudit_Approved() {
     Player initiator = createPlayer("Initiator");
     Player target = createPlayer("Approver");
@@ -175,11 +174,13 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
 
     List<String> infoLogs =
         capturedInfoLogs.stream().filter(s -> s.contains("Approval gate")).toList();
-    assertEquals(1, infoLogs.size(), "Must log terminal decision exactly once at INFO: " + capturedInfoLogs);
+    assertEquals(
+        1, infoLogs.size(), "Must log terminal decision exactly once at INFO: " + capturedInfoLogs);
     String log = infoLogs.get(0);
     assertTrue(log.contains("test_gate"), "Must contain sanitized gate ID: " + log);
     assertTrue(log.contains("APPROVED"), "Must contain outcome APPROVED: " + log);
-    assertTrue(log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
+    assertTrue(
+        log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
     assertTrue(log.contains(target.getUniqueId().toString()), "Must contain target UUID: " + log);
   }
 
@@ -201,7 +202,8 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
     assertEquals(1, infoLogs.size(), "Must log terminal decision exactly once at INFO");
     String log = infoLogs.get(0);
     assertTrue(log.contains("DENIED"), "Must contain outcome DENIED: " + log);
-    assertTrue(log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
+    assertTrue(
+        log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
     assertTrue(log.contains(target.getUniqueId().toString()), "Must contain target UUID: " + log);
   }
 
@@ -223,7 +225,8 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
     assertEquals(1, infoLogs.size(), "Must log timeout terminal decision exactly once at INFO");
     String log = infoLogs.get(0);
     assertTrue(log.contains("TIMED_OUT"), "Must contain outcome TIMED_OUT: " + log);
-    assertTrue(log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
+    assertTrue(
+        log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
     assertTrue(log.contains(target.getUniqueId().toString()), "Must contain target UUID: " + log);
   }
 
@@ -243,8 +246,10 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
         capturedInfoLogs.stream().filter(s -> s.contains("Approval gate")).toList();
     assertEquals(1, infoLogs.size(), "Must log target quit exactly once at INFO");
     String log = infoLogs.get(0);
-    assertTrue(log.contains("TARGET_DISCONNECTED"), "Must contain outcome TARGET_DISCONNECTED: " + log);
-    assertTrue(log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
+    assertTrue(
+        log.contains("TARGET_DISCONNECTED"), "Must contain outcome TARGET_DISCONNECTED: " + log);
+    assertTrue(
+        log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
     assertTrue(log.contains(target.getUniqueId().toString()), "Must contain target UUID: " + log);
   }
 
@@ -264,8 +269,11 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
         capturedInfoLogs.stream().filter(s -> s.contains("Approval gate")).toList();
     assertEquals(1, infoLogs.size(), "Must log initiator quit exactly once at INFO");
     String log = infoLogs.get(0);
-    assertTrue(log.contains("INITIATOR_DISCONNECTED"), "Must contain outcome INITIATOR_DISCONNECTED: " + log);
-    assertTrue(log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
+    assertTrue(
+        log.contains("INITIATOR_DISCONNECTED"),
+        "Must contain outcome INITIATOR_DISCONNECTED: " + log);
+    assertTrue(
+        log.contains(initiator.getUniqueId().toString()), "Must contain initiator UUID: " + log);
     assertTrue(log.contains(target.getUniqueId().toString()), "Must contain target UUID: " + log);
   }
 
@@ -312,11 +320,13 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
 
     List<String> infoLogs =
         capturedInfoLogs.stream().filter(s -> s.contains("Approval gate")).toList();
-    assertEquals(1, infoLogs.size(), "Terminal decision log must be emitted exactly once: " + infoLogs);
+    assertEquals(
+        1, infoLogs.size(), "Terminal decision log must be emitted exactly once: " + infoLogs);
   }
 
   @Test
-  @DisplayName("Rejection Audit: Invalid decision logs safe reason, attempt count, truncated nonce and NO raw payload")
+  @DisplayName(
+      "Rejection Audit: Invalid decision logs safe reason, attempt count, truncated nonce and NO raw payload")
   void testRejectionAudit_InvalidDecision_NoRawPayload() {
     Player responder = createPlayer("BadResponder");
     String rawNonce = "a_superSecretNonce123456789";
@@ -324,11 +334,14 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
 
     coordinator.handleResponse(responder, rawNonce, maliciousPayload);
 
-    List<String> warnLogs = capturedWarnLogs.stream().filter(s -> s.contains("Approval response rejected")).toList();
+    List<String> warnLogs =
+        capturedWarnLogs.stream().filter(s -> s.contains("Approval response rejected")).toList();
     assertEquals(1, warnLogs.size(), "Must log rejection warning: " + capturedWarnLogs);
     String log = warnLogs.get(0);
     assertTrue(log.contains("invalid decision"), "Must contain safe reason: " + log);
-    assertTrue(log.contains(ApprovalCapabilityRegistry.truncateNonce(rawNonce)), "Must contain truncated nonce: " + log);
+    assertTrue(
+        log.contains(ApprovalCapabilityRegistry.truncateNonce(rawNonce)),
+        "Must contain truncated nonce: " + log);
     assertFalse(log.contains(rawNonce), "Must not contain raw nonce: " + log);
     assertFalse(log.contains("script"), "Must not contain raw decision string: " + log);
     assertFalse(log.contains("\u0000"), "Must not contain C0 controls: " + log);
@@ -336,7 +349,8 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Rejection Audit: Rate bounding suppresses repeated rejection logs within the window")
+  @DisplayName(
+      "Rejection Audit: Rate bounding suppresses repeated rejection logs within the window")
   void testRejectionAudit_RateBounding() {
     Player responder = createPlayer("SpamResponder");
     ConfirmationRateLimiter rateLimiter =
@@ -351,6 +365,7 @@ class ApprovalCoordinatorAuditTest extends MockBukkitTest {
 
     // 2nd rejection from same player in same window is suppressed by rate limiter shouldLog
     coordinator.handleResponse(responder, rawNonce, "invalid_dec2");
-    assertEquals(1, capturedWarnLogs.size(), "Subsequent rejection in same window must be rate-bounded");
+    assertEquals(
+        1, capturedWarnLogs.size(), "Subsequent rejection in same window must be rate-bounded");
   }
 }

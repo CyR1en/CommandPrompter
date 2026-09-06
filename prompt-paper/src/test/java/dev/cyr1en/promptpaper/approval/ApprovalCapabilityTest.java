@@ -26,7 +26,9 @@ class ApprovalCapabilityTest {
         () -> new ApprovalCapability("", execId, "gate1", initiator, 1, target, expires));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ApprovalCapability("invalid_no_prefix", execId, "gate1", initiator, 1, target, expires));
+        () ->
+            new ApprovalCapability(
+                "invalid_no_prefix", execId, "gate1", initiator, 1, target, expires));
     assertThrows(
         NullPointerException.class,
         () -> new ApprovalCapability("a_nonce123", null, "gate1", initiator, 1, target, expires));
@@ -35,7 +37,9 @@ class ApprovalCapabilityTest {
         () -> new ApprovalCapability("a_nonce123", execId, null, initiator, 1, target, expires));
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ApprovalCapability("a_nonce123", execId, "a".repeat(65), initiator, 1, target, expires));
+        () ->
+            new ApprovalCapability(
+                "a_nonce123", execId, "a".repeat(65), initiator, 1, target, expires));
     assertThrows(
         NullPointerException.class,
         () -> new ApprovalCapability("a_nonce123", execId, "gate1", null, 1, target, expires));

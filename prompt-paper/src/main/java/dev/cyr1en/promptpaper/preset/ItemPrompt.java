@@ -7,7 +7,8 @@ import dev.cyr1en.promptcore.TitleConfig;
 import java.util.Objects;
 
 /**
- * Item-selector prompt definition: displays an item selection interface (inventory, hand, armor, or catalog).
+ * Item-selector prompt definition: displays an item selection interface (inventory, hand, armor, or
+ * catalog).
  *
  * @param type the discriminator value, always {@code "item"}
  * @param id the unique identifier
@@ -34,8 +35,8 @@ public record ItemPrompt(
     implements PromptDefinition {
 
   /**
-   * Canonical constructor. Enforces {@code type == "item"}, non-null required fields,
-   * timeout bounds [1, 3600], and core-compatible defaults and source/output/category invariants.
+   * Canonical constructor. Enforces {@code type == "item"}, non-null required fields, timeout
+   * bounds [1, 3600], and core-compatible defaults and source/output/category invariants.
    */
   public ItemPrompt {
     Objects.requireNonNull(type, "type must not be null");
@@ -75,9 +76,7 @@ public record ItemPrompt(
     }
   }
 
-  /**
-   * Convenience constructor without timeout.
-   */
+  /** Convenience constructor without timeout. */
   public ItemPrompt(
       String type,
       String id,
@@ -91,9 +90,7 @@ public record ItemPrompt(
     this(type, id, promptText, source, output, category, sound, sanitize, titleDisplay, null);
   }
 
-  /**
-   * Convenience constructor without title-wrapper and timeout.
-   */
+  /** Convenience constructor without title-wrapper and timeout. */
   public ItemPrompt(
       String type,
       String id,

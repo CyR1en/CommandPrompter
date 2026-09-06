@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Immutable lease representing exclusive interaction ownership of a player.
  *
- * <p>Supports both approval gate execution leases and prompt session claims.</p>
+ * <p>Supports both approval gate execution leases and prompt session claims.
  */
 public record PlayerInteractionLease(
     UUID player,
@@ -38,14 +38,9 @@ public record PlayerInteractionLease(
     }
   }
 
-  /**
-   * Backwards compatible constructor for approval leases.
-   */
+  /** Backwards compatible constructor for approval leases. */
   public PlayerInteractionLease(
-      UUID player,
-      ExecutionId executionId,
-      Instant acquiredAt,
-      Instant expiresAt) {
+      UUID player, ExecutionId executionId, Instant acquiredAt, Instant expiresAt) {
     this(
         player,
         Objects.requireNonNull(executionId, "executionId must not be null"),

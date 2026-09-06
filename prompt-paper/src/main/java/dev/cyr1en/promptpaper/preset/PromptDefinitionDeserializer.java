@@ -26,10 +26,10 @@ import java.lang.reflect.Type;
  * <p>The deserializer also injects the schema-declared default of {@code true} for the
  * <b>sanitize</b> field when it is missing from the JSON.
  *
- * <p>For {@code "dialog"} prompts the deserializer additionally enforces the schema rule
- * that a {@code multi_action} dialog must have exactly one of {@code actions} or
- * {@code actions_source}; violations surface as an {@link IllegalArgumentException} (not a
- * {@link JsonParseException}) per the dialog refactor spec.
+ * <p>For {@code "dialog"} prompts the deserializer additionally enforces the schema rule that a
+ * {@code multi_action} dialog must have exactly one of {@code actions} or {@code actions_source};
+ * violations surface as an {@link IllegalArgumentException} (not a {@link JsonParseException}) per
+ * the dialog refactor spec.
  *
  * <p>Usage:
  *
@@ -72,8 +72,8 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
   }
 
   /**
-   * Deserialize a {@code "confirmation"} prompt after strictly validating the {@code mode}
-   * and {@code timeout} fields if present.
+   * Deserialize a {@code "confirmation"} prompt after strictly validating the {@code mode} and
+   * {@code timeout} fields if present.
    */
   private PromptDefinition deserializeConfirmation(
       JsonObject obj, JsonDeserializationContext context) {
@@ -84,33 +84,24 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
       }
       String modeStr = modeEl.getAsString();
       try {
-        dev.cyr1en.promptcore.ConfirmationMode.valueOf(
-            modeStr.toUpperCase(java.util.Locale.ROOT));
+        dev.cyr1en.promptcore.ConfirmationMode.valueOf(modeStr.toUpperCase(java.util.Locale.ROOT));
       } catch (IllegalArgumentException e) {
         throw new IllegalArgumentException("Unknown confirmation mode: " + modeStr, e);
       }
     }
     if (obj.has("timeout") && !obj.get("timeout").isJsonNull()) {
-      JsonElement timeoutEl = obj.get("timeout");
-      if (!timeoutEl.isJsonPrimitive() || !timeoutEl.getAsJsonPrimitive().isNumber()) {
-        throw new IllegalArgumentException("Confirmation timeout must be an integer");
-      }
-      try {
-        int timeoutVal = timeoutEl.getAsInt();
-        if (timeoutVal < 1 || timeoutVal > 3600) {
-          throw new IllegalArgumentException(
-              "Confirmation timeout out of range [1, 3600]: " + timeoutVal);
-        }
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("Confirmation timeout must be an integer", e);
+      int timeoutVal = PresetGson.readInteger(obj.get("timeout"), "Confirmation timeout");
+      if (timeoutVal < 1 || timeoutVal > 3600) {
+        throw new IllegalArgumentException(
+            "Confirmation timeout out of range [1, 3600]: " + timeoutVal);
       }
     }
     return context.deserialize(obj, ConfirmationPrompt.class);
   }
 
   /**
-   * Deserialize an {@code "item"} prompt after strictly validating the {@code source},
-   * {@code output}/{@code output_format}, {@code timeout}, and source/output/category compatibility.
+   * Deserialize an {@code "item"} prompt after strictly validating the {@code source}, {@code
+   * output}/{@code output_format}, {@code timeout}, and source/output/category compatibility.
    */
   private PromptDefinition deserializeItem(JsonObject obj, JsonDeserializationContext context) {
     dev.cyr1en.promptcore.ItemSource source = dev.cyr1en.promptcore.ItemSource.INVENTORY;
@@ -167,18 +158,10 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
     }
 
     if (obj.has("timeout") && !obj.get("timeout").isJsonNull()) {
-      JsonElement timeoutEl = obj.get("timeout");
-      if (!timeoutEl.isJsonPrimitive() || !timeoutEl.getAsJsonPrimitive().isNumber()) {
-        throw new IllegalArgumentException("Item prompt timeout must be an integer");
-      }
-      try {
-        int timeoutVal = timeoutEl.getAsInt();
-        if (timeoutVal < 1 || timeoutVal > 3600) {
-          throw new IllegalArgumentException(
-              "Item prompt timeout out of range [1, 3600]: " + timeoutVal);
-        }
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("Item prompt timeout must be an integer", e);
+      int timeoutVal = PresetGson.readInteger(obj.get("timeout"), "Item prompt timeout");
+      if (timeoutVal < 1 || timeoutVal > 3600) {
+        throw new IllegalArgumentException(
+            "Item prompt timeout out of range [1, 3600]: " + timeoutVal);
       }
     }
 
@@ -208,22 +191,18 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
   }
 
   /**
-   * Deserialize a {@code "dialog"} prompt after enforcing the {@code multi_action}
-   * schema rule.
+   * Deserialize a {@code "dialog"} prompt after enforcing the {@code multi_action} schema rule.
    *
-   * <p>Per the dialog refactor spec, a {@code multi_action} dialog requires exactly one of
-   * {@code actions} or {@code actions_source}; both or neither must throw an
-   * {@link IllegalArgumentException}. The check is performed against the raw JSON
-   * <em>before</em> delegating to Gson so the exception is not wrapped in a
-   * {@link JsonParseException}.
+   * <p>Per the dialog refactor spec, a {@code multi_action} dialog requires exactly one of {@code
+   * actions} or {@code actions_source}; both or neither must throw an {@link
+   * IllegalArgumentException}. The check is performed against the raw JSON <em>before</em>
+   * delegating to Gson so the exception is not wrapped in a {@link JsonParseException}.
    */
   private PromptDefinition deserializeDialog(JsonObject obj, JsonDeserializationContext context) {
     if (obj.has("dialog_type") && obj.get("dialog_type").isJsonObject()) {
       JsonObject dialogTypeObj = obj.getAsJsonObject("dialog_type");
       JsonElement typeEl = dialogTypeObj.get("type");
-      if (typeEl != null
-          && !typeEl.isJsonNull()
-          && "multi_action".equals(typeEl.getAsString())) {
+      if (typeEl != null && !typeEl.isJsonNull() && "multi_action".equals(typeEl.getAsString())) {
         boolean hasActions = hasNonNullMember(dialogTypeObj, "actions");
         boolean hasActionsSource = hasNonNullMember(dialogTypeObj, "actions_source");
         if (hasActions == hasActionsSource) {

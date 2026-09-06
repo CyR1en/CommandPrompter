@@ -6,8 +6,8 @@ import java.util.List;
 /**
  * Root model parsed from {@code presets.json}.
  *
- * <p>Wraps the top-level arrays from the JSON schema. Any list may be absent in the
- * source file (the canonical constructor coerces {@code null} to an empty list).
+ * <p>Wraps the top-level arrays from the JSON schema. Any list may be absent in the source file
+ * (the canonical constructor coerces {@code null} to an empty list).
  *
  * @param prompts the prompt definitions referenced by {@code <@id>} tags
  * @param postCommands the post-command definitions referenced by {@code <!@id>} tags
@@ -32,8 +32,8 @@ public record PresetConfig(
   }
 
   /**
-   * Canonical constructor. Coerces {@code null} lists to empty immutable lists so downstream
-   * code can iterate without null checks.
+   * Canonical constructor. Coerces {@code null} lists to empty immutable lists so downstream code
+   * can iterate without null checks.
    */
   public PresetConfig {
     prompts = prompts == null ? List.of() : List.copyOf(prompts);

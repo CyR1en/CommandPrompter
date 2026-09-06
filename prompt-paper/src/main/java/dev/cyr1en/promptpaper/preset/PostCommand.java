@@ -9,7 +9,7 @@ import java.util.Objects;
  *
  * <p>Post-commands are referenced from command strings via {@code <!@id>}. The {@code command}
  * template supports session-scoped placeholders ({@code {player}}, {@code {input}}, {@code
- * {input:N}}, plus PAPI {@code %...%}) which are substituted at execution time (Scope 5).
+ * {input:N}}, plus PAPI {@code %...%}) which are substituted at execution time.
  *
  * @param id the unique identifier referenced by {@code <!@id>} tags
  * @param command the raw command template (without the leading slash)
@@ -26,7 +26,6 @@ public record PostCommand(
 
   public static final int MAX_DELAY_TICKS = 72000;
 
-  /** Canonical constructor. */
   public PostCommand {
     Objects.requireNonNull(id, "id must not be null");
     Objects.requireNonNull(command, "command must not be null");

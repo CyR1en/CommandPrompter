@@ -36,7 +36,8 @@ class ResponseCommandTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Approval nonces (a_ prefix) route directly to ApprovalCoordinator and never local confirmation")
+  @DisplayName(
+      "Approval nonces (a_ prefix) route directly to ApprovalCoordinator and never local confirmation")
   void testApprovalNonceRouting() {
     Player player = createPlayer("Approver");
     String approvalNonce = "a_cryptoNonceToken12345";
@@ -50,21 +51,24 @@ class ResponseCommandTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Replay/unknown approval nonces route to ApprovalCoordinator and never fall back to local confirmation")
+  @DisplayName(
+      "Replay/unknown approval nonces route to ApprovalCoordinator and never fall back to local confirmation")
   void testUnknownApprovalNonceNeverFallsBack() {
     Player player = createPlayer("Approver");
     String unknownApprovalNonce = "a_unknownOrExpired";
 
     responseCommand.executeResponse(player, unknownApprovalNonce, "decline");
 
-    verify(mockApprovalCoordinator, times(1)).handleResponse(player, unknownApprovalNonce, "decline");
+    verify(mockApprovalCoordinator, times(1))
+        .handleResponse(player, unknownApprovalNonce, "decline");
     verify(mockEngine, never()).getSession(player);
     verify(mockNonceRegistry, never())
         .consume(anyString(), any(), anyLong(), anyLong(), anyInt(), anyString());
   }
 
   @Test
-  @DisplayName("Local confirmation nonces (no a_ prefix) route to PromptEngine / NonceResponseRegistry")
+  @DisplayName(
+      "Local confirmation nonces (no a_ prefix) route to PromptEngine / NonceResponseRegistry")
   void testLocalConfirmationNonceRouting() {
     Player player = createPlayer("Responder");
     String localNonce = "local_token_abc";
@@ -80,7 +84,8 @@ class ResponseCommandTest extends MockBukkitTest {
   void testRateLimiterAborts() {
     Player player = createPlayer("Spammer");
     ConfirmationRateLimiter limiter =
-        new ConfirmationRateLimiter(java.time.Clock.systemUTC(), 2, java.time.Duration.ofSeconds(10));
+        new ConfirmationRateLimiter(
+            java.time.Clock.systemUTC(), 2, java.time.Duration.ofSeconds(10));
     when(plugin.getRateLimiter()).thenReturn(limiter);
 
     // 2 allowed
@@ -93,7 +98,8 @@ class ResponseCommandTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Local confirmation rejection with no active session logs production warn with truncated nonce")
+  @DisplayName(
+      "Local confirmation rejection with no active session logs production warn with truncated nonce")
   void testLocalConfirmationNoSessionLogsWarn() {
     Player player = createPlayer("NoSessionPlayer");
     dev.cyr1en.promptpaper.util.PluginLogger mockLogger =
@@ -104,8 +110,7 @@ class ResponseCommandTest extends MockBukkitTest {
     String rawNonce = "longSecretNonceToken123456789";
     responseCommand.executeResponse(player, rawNonce, "confirm");
 
-    org.mockito.ArgumentCaptor<String> captor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
     verify(mockLogger, times(1)).warn(captor.capture());
     String logMsg = captor.getValue();
     assertTrue(logMsg.contains("no active session"), "Must contain safe reason: " + logMsg);
@@ -117,7 +122,8 @@ class ResponseCommandTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Local confirmation rejection on consume failure logs safe sanitized reason and bounds logs")
+  @DisplayName(
+      "Local confirmation rejection on consume failure logs safe sanitized reason and bounds logs")
   void testLocalConfirmationConsumeFailureLogsWarnBounded() {
     Player player = createPlayer("ConsumeFailPlayer");
     dev.cyr1en.promptpaper.util.PluginLogger mockLogger =
@@ -132,16 +138,16 @@ class ResponseCommandTest extends MockBukkitTest {
     when(mockEngine.getSession(player)).thenReturn(java.util.Optional.of(mockSession));
 
     when(mockNonceRegistry.consume(anyString(), any(), anyLong(), anyLong(), anyInt(), anyString()))
-        .thenReturn(dev.cyr1en.promptpaper.screen.confirmation.ConsumeResult.rejected(
-            dev.cyr1en.promptpaper.screen.confirmation.RejectionReason.EXPIRED));
+        .thenReturn(
+            dev.cyr1en.promptpaper.screen.confirmation.ConsumeResult.rejected(
+                dev.cyr1en.promptpaper.screen.confirmation.RejectionReason.EXPIRED));
 
     String rawNonce = "superSecretNonce9876543210";
     String maliciousDecision = "confirm\u0000\u001BevilPayload";
 
     responseCommand.executeResponse(player, rawNonce, maliciousDecision);
 
-    org.mockito.ArgumentCaptor<String> captor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
     verify(mockLogger, times(1)).warn(captor.capture());
     String logMsg = captor.getValue();
     assertTrue(logMsg.contains("EXPIRED"), "Must contain enum reason: " + logMsg);
@@ -154,11 +160,13 @@ class ResponseCommandTest extends MockBukkitTest {
   }
 
   @Test
-  @DisplayName("Rate-limit warning emits exactly once even when prior rejected responses logged on rejection channel")
+  @DisplayName(
+      "Rate-limit warning emits exactly once even when prior rejected responses logged on rejection channel")
   void testRateLimitWarningEmitsAfterPriorRejectionLogs() {
     Player player = createPlayer("BurstPlayer");
     ConfirmationRateLimiter limiter =
-        new ConfirmationRateLimiter(java.time.Clock.systemUTC(), 2, java.time.Duration.ofSeconds(10));
+        new ConfirmationRateLimiter(
+            java.time.Clock.systemUTC(), 2, java.time.Duration.ofSeconds(10));
     when(plugin.getRateLimiter()).thenReturn(limiter);
     when(mockEngine.getSession(player)).thenReturn(java.util.Optional.empty());
 
@@ -169,7 +177,8 @@ class ResponseCommandTest extends MockBukkitTest {
     // 1st request: permitted by limiter, rejected by no session -> logs rejection warning
     responseCommand.executeResponse(player, "nonce1", "confirm");
 
-    // 2nd request: permitted by limiter, rejected by no session -> rejection warning suppressed by channel
+    // 2nd request: permitted by limiter, rejected by no session -> rejection warning suppressed by
+    // channel
     responseCommand.executeResponse(player, "nonce2", "confirm");
 
     // 3rd request: denied by limiter -> rate limit warning emitted!
@@ -178,13 +187,14 @@ class ResponseCommandTest extends MockBukkitTest {
     // 4th request: denied by limiter -> rate limit warning suppressed
     responseCommand.executeResponse(player, "nonce4", "confirm");
 
-    org.mockito.ArgumentCaptor<String> captor =
-        org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
     verify(mockLogger, times(2)).warn(captor.capture());
 
     List<String> logs = captor.getAllValues();
     assertEquals(2, logs.size());
-    assertTrue(logs.get(0).contains("no active session"), "First log must be rejection: " + logs.get(0));
-    assertTrue(logs.get(1).contains("Rate limited"), "Second log must be rate limit: " + logs.get(1));
+    assertTrue(
+        logs.get(0).contains("no active session"), "First log must be rejection: " + logs.get(0));
+    assertTrue(
+        logs.get(1).contains("Rate limited"), "Second log must be rate limit: " + logs.get(1));
   }
 }

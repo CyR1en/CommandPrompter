@@ -41,37 +41,31 @@ class PresetSnapshotTest {
   @Test
   void deepImmutabilityAndOrderPreservation() {
     var prompt1 =
-        new ChatPrompt(
-            "chat",
-            "p1",
-            "Text 1",
-            new CancelBehavior(false, "", false, ""),
-            true);
+        new ChatPrompt("chat", "p1", "Text 1", new CancelBehavior(false, "", false, ""), true);
     var prompt2 =
-        new ChatPrompt(
-            "chat",
-            "p2",
-            "Text 2",
-            new CancelBehavior(false, "", false, ""),
-            true);
+        new ChatPrompt("chat", "p2", "Text 2", new CancelBehavior(false, "", false, ""), true);
 
     Map<String, PromptDefinition> mutablePrompts = new LinkedHashMap<>();
     mutablePrompts.put("p1", prompt1);
     mutablePrompts.put("p2", prompt2);
 
-    var post1 = new PostCommand("cmd1", "say hi", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
+    var post1 =
+        new PostCommand("cmd1", "say hi", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0);
     Map<String, PostCommand> mutablePosts = new LinkedHashMap<>();
     mutablePosts.put("cmd1", post1);
 
     var gate1 =
-        new ApprovalGateDefinition("gate1", TemplateCompiler.compile("admin"), TemplateCompiler.compile("msg"));
+        new ApprovalGateDefinition(
+            "gate1", TemplateCompiler.compile("admin"), TemplateCompiler.compile("msg"));
     Map<String, ApprovalGateDefinition> mutableGates = new LinkedHashMap<>();
     mutableGates.put("gate1", gate1);
 
     var cond1 =
         new ConditionalPostCommandDefinition(
             "cond1",
-            ConditionCompiler.compile("{0} == 1", dev.cyr1en.promptcore.logic.condition.ConditionCompileOptions.forPreset()),
+            ConditionCompiler.compile(
+                "{0} == 1",
+                dev.cyr1en.promptcore.logic.condition.ConditionCompileOptions.forPreset()),
             ExecutionPolicy.ON_COMPLETE,
             TrustedPresetAction.of("say true", ExecuteAs.CONSOLE, 0),
             null);
@@ -89,13 +83,19 @@ class PresetSnapshotTest {
 
     // Snapshot maps and keySets must be unmodifiable
     assertThrows(UnsupportedOperationException.class, () -> snapshot.prompts().put("x", prompt1));
-    assertThrows(UnsupportedOperationException.class, () -> snapshot.postCommands().put("x", post1));
-    assertThrows(UnsupportedOperationException.class, () -> snapshot.approvalGates().put("x", gate1));
-    assertThrows(UnsupportedOperationException.class, () -> snapshot.conditionalPostCommands().put("x", cond1));
+    assertThrows(
+        UnsupportedOperationException.class, () -> snapshot.postCommands().put("x", post1));
+    assertThrows(
+        UnsupportedOperationException.class, () -> snapshot.approvalGates().put("x", gate1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> snapshot.conditionalPostCommands().put("x", cond1));
     assertThrows(UnsupportedOperationException.class, () -> snapshot.getPromptIds().add("x"));
     assertThrows(UnsupportedOperationException.class, () -> snapshot.getPostCommandIds().add("x"));
     assertThrows(UnsupportedOperationException.class, () -> snapshot.getApprovalGateIds().add("x"));
-    assertThrows(UnsupportedOperationException.class, () -> snapshot.getConditionalPostCommandIds().add("x"));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> snapshot.getConditionalPostCommandIds().add("x"));
 
     // Lookups
     assertTrue(snapshot.getPrompt("p1").isPresent());

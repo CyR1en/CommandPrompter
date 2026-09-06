@@ -13,6 +13,7 @@ import java.util.UUID;
  * Scheduler-owned active instance of an executing command plan.
  *
  * <p>Enforces:
+ *
  * <ul>
  *   <li>Strict, legal stage transitions.
  *   <li>Atomic single primary execution claim.
@@ -152,8 +153,7 @@ public class ExecutionPlanInstance {
             "Cannot transition from terminal stage " + stage + " to " + target);
       }
       if (!stage.canTransitionTo(target)) {
-        throw new IllegalStateException(
-            "Illegal stage transition from " + stage + " to " + target);
+        throw new IllegalStateException("Illegal stage transition from " + stage + " to " + target);
       }
       stage = target;
       if (target.isTerminal() && !cleanedUp) {
@@ -301,9 +301,7 @@ public class ExecutionPlanInstance {
     return tryTransitionTo(ExecutionStage.CANCELLED);
   }
 
-  /**
-   * Internal terminal cleanup routine executed exactly once when entering any terminal stage.
-   */
+  /** Internal terminal cleanup routine executed exactly once when entering any terminal stage. */
   void runTerminalCleanup() {
     List<CancellableTask> tasksToCancel = null;
     List<Runnable> hooksToRun = null;

@@ -4,7 +4,7 @@ import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.PostCommandMeta;
 import dev.cyr1en.promptcore.logic.transform.CompiledTemplate;
 import dev.cyr1en.promptcore.logic.transform.TemplateCompiler;
-import java.util.ArrayList;
+import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
 import java.util.List;
 import java.util.Objects;
 
@@ -29,48 +29,38 @@ public final class ExecutionPlanAdapter {
   public static ExecutionPlanDefinition fromParsedCommand(ParsedCommand parsedCommand) {
     Objects.requireNonNull(parsedCommand, "parsedCommand must not be null");
     return fromParsedCommand(
-        parsedCommand,
-        parsedCommand.preDispatchGates(),
-        dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT);
+        parsedCommand, parsedCommand.preDispatchGates(), TemplateSyntax.DEFAULT);
   }
 
   public static ExecutionPlanDefinition fromParsedCommand(
-      ParsedCommand parsedCommand, dev.cyr1en.promptcore.logic.transform.TemplateSyntax syntax) {
+      ParsedCommand parsedCommand, TemplateSyntax syntax) {
     Objects.requireNonNull(parsedCommand, "parsedCommand must not be null");
     return fromParsedCommand(parsedCommand, parsedCommand.preDispatchGates(), syntax);
   }
 
   public static ExecutionPlanDefinition fromParsedCommand(
       ParsedCommand parsedCommand, List<PreDispatchGateSpec> gates) {
-    return fromParsedCommand(
-        parsedCommand, gates, dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT);
+    return fromParsedCommand(parsedCommand, gates, TemplateSyntax.DEFAULT);
   }
 
   public static ExecutionPlanDefinition fromParsedCommand(
-      ParsedCommand parsedCommand,
-      List<PreDispatchGateSpec> gates,
-      dev.cyr1en.promptcore.logic.transform.TemplateSyntax syntax) {
+      ParsedCommand parsedCommand, List<PreDispatchGateSpec> gates, TemplateSyntax syntax) {
     Objects.requireNonNull(parsedCommand, "parsedCommand must not be null");
     Objects.requireNonNull(gates, "gates must not be null");
     Objects.requireNonNull(syntax, "syntax must not be null");
 
-    CompiledTemplate primaryCompiled =
-        TemplateCompiler.compile(parsedCommand.templateCommand(), syntax);
-
-    List<PostActionSpec> postActions = new ArrayList<>();
-    for (PostCommandMeta pcm : parsedCommand.postCmds()) {
-      postActions.add(toPostActionSpec(pcm, syntax));
-    }
+    var primaryCompiled = TemplateCompiler.compile(parsedCommand.templateCommand(), syntax);
+    var postActions =
+        parsedCommand.postCmds().stream().map(pcm -> toPostActionSpec(pcm, syntax)).toList();
 
     return new ExecutionPlanDefinition(primaryCompiled, gates, postActions);
   }
 
   public static PostActionSpec toPostActionSpec(PostCommandMeta pcm) {
-    return toPostActionSpec(pcm, dev.cyr1en.promptcore.logic.transform.TemplateSyntax.DEFAULT);
+    return toPostActionSpec(pcm, TemplateSyntax.DEFAULT);
   }
 
-  public static PostActionSpec toPostActionSpec(
-      PostCommandMeta pcm, dev.cyr1en.promptcore.logic.transform.TemplateSyntax syntax) {
+  public static PostActionSpec toPostActionSpec(PostCommandMeta pcm, TemplateSyntax syntax) {
     Objects.requireNonNull(pcm, "pcm must not be null");
     Objects.requireNonNull(syntax, "syntax must not be null");
 
@@ -106,35 +96,17 @@ public final class ExecutionPlanAdapter {
    */
   public static PostCommandMeta toPostCommandMeta(PostActionSpec spec) {
     Objects.requireNonNull(spec, "spec must not be null");
+    return toPostCommandMeta(spec, 0);
+  }
 
-    int delayTicks = 0;
-    PostActionSpec unwrapped = spec;
-    if (spec instanceof PostActionSpec.Delayed delayed) {
-      delayTicks = delayed.delayTicks();
-      unwrapped = delayed.delegate();
-    }
-
-    if (unwrapped instanceof PostActionSpec.ImmediateCommand immediate) {
-      return new PostCommandMeta(
-          immediate.commandTemplate().source(),
-          immediate.answerIndices(),
-          delayTicks,
-          immediate.trigger().isOnCancel(),
-          immediate.target(),
-          false);
-    }
-
-    if (unwrapped instanceof PostActionSpec.PresetReference preset) {
-      return new PostCommandMeta(
-          preset.presetId(),
-          preset.answerIndices(),
-          delayTicks,
-          preset.trigger().isOnCancel(),
-          preset.target(),
-          true);
-    }
-
-    throw new IllegalArgumentException(
-        "Unknown PostActionSpec implementation: " + unwrapped.getClass().getName());
+  private static PostCommandMeta toPostCommandMeta(PostActionSpec spec, int delayTicks) {
+    return switch (spec) {
+      case PostActionSpec.ImmediateCommand(var template, var indices, var trigger, var target) ->
+          new PostCommandMeta(
+              template.source(), indices, delayTicks, trigger.isOnCancel(), target, false);
+      case PostActionSpec.PresetReference(var presetId, var indices, var trigger, var target) ->
+          new PostCommandMeta(presetId, indices, delayTicks, trigger.isOnCancel(), target, true);
+      case PostActionSpec.Delayed(var delegate, var ticks, _) -> toPostCommandMeta(delegate, ticks);
+    };
   }
 }

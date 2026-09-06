@@ -15,12 +15,13 @@ public record AnswerRefOperand(int index) implements ValueOperand {
   @Override
   public String resolve(ConditionBindings bindings) throws ConditionEvaluationException {
     Objects.requireNonNull(bindings, "bindings cannot be null");
-    var answerOpt = bindings.getAnswer(index);
-    if (answerOpt.isEmpty() || answerOpt.get() == null) {
-      throw new ConditionEvaluationException(
-          "Missing or unresolvable answer reference: {" + index + "}");
-    }
-    String answer = answerOpt.get();
+    var answer =
+        bindings
+            .getAnswer(index)
+            .orElseThrow(
+                () ->
+                    new ConditionEvaluationException(
+                        "Missing or unresolvable answer reference: {" + index + "}"));
     if (answer.length() > MAX_OPERAND_LENGTH) {
       throw new ConditionEvaluationException(
           "Resolved answer {"
@@ -36,11 +37,6 @@ public record AnswerRefOperand(int index) implements ValueOperand {
   @Override
   public void collectAnswerIndices(Set<Integer> indices) {
     indices.add(index);
-  }
-
-  @Override
-  public void collectPapiPlaceholders(Set<String> placeholders) {
-    // No PAPI placeholders
   }
 
   @Override
