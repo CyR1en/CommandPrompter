@@ -44,7 +44,9 @@ public final class AnvilInventoryImpl extends AnvilInventory {
   @NotNull
   @Override
   public org.bukkit.inventory.Inventory createInventory(@NotNull TextHolder title) {
-    Component nmsTitle = Component.literal(getPlainText(title));
+    Component nmsTitle =
+        io.papermc.paper.adventure.PaperAdventure.asVanillaNullToEmpty(
+            title == null ? null : title.getComponent());
     container = new NMSAnvilContainer(player, nmsTitle);
     container.setParent(this);
     return container.getBukkitView().getTopInventory();
@@ -152,17 +154,6 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     if (nameChangeCallback != null) {
       nameChangeCallback.accept(text);
     }
-  }
-
-  /**
-   * Strips a {@link TextHolder} to its plain-text representation, or returns {@code ""} if null.
-   */
-  static String getPlainText(@Nullable TextHolder holder) {
-    if (holder != null && holder.getComponent() != null) {
-      return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
-          .serialize(holder.getComponent());
-    }
-    return "";
   }
 
   /**

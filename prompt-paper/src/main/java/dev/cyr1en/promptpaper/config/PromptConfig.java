@@ -186,7 +186,11 @@ public record PromptConfig(
     @ConfigNode
         @NodeName("AnvilGUI.Prompt-Message")
         @NodeDefault("")
-        @NodeComment({"The message to be displayed on the Anvil GUI"})
+        @NodeComment({
+          "Initial anvil text for inline prompts; use '' for an empty field.",
+          "Legacy YAML alias: exactly BLANK also means empty (case-sensitive).",
+          "Other strings are unchanged; JSON preset prompt_text uses literal text."
+        })
         String promptMessage,
     @ConfigNode
         @NodeName("AnvilGUI.Enable-Cancel-Item")

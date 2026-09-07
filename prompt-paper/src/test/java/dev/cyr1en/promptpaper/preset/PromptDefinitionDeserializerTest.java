@@ -134,6 +134,16 @@ class PromptDefinitionDeserializerTest {
     assertFalse(anvil.sanitize());
     assertEquals("BARRIER", anvil.leftButton().buttonIcon());
     assertEquals("PAPER", anvil.rightButton().buttonIcon());
+    for (String text : List.of("", "BLANK")) {
+      var parsed =
+          (AnvilPrompt) gson.fromJson(json.replace("New Name", text), PromptDefinition.class);
+      assertEquals(text, parsed.promptText());
+    }
+    var object = gson.fromJson(json, JsonObject.class);
+    object.remove("prompt_text");
+    assertThrows(RuntimeException.class, () -> gson.fromJson(object, PromptDefinition.class));
+    object.add("prompt_text", com.google.gson.JsonNull.INSTANCE);
+    assertThrows(RuntimeException.class, () -> gson.fromJson(object, PromptDefinition.class));
   }
 
   @Test

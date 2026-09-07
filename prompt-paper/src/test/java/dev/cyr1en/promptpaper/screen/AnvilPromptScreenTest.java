@@ -51,6 +51,55 @@ class AnvilPromptScreenTest extends MockBukkitTest {
   }
 
   @Test
+  void initialTextAndTitlesAreIndependentOfSanitize() {
+    for (boolean sanitize : List.of(true, false)) {
+      for (boolean enableTitle : List.of(true, false)) {
+        when(promptConfig.enableTitle()).thenReturn(enableTitle);
+        when(promptConfig.customTitle()).thenReturn("&cConfig Title");
+        for (String text :
+            List.of("", "BLANK", "blank", "Blank", " BLANK", "BLANK ", " ", "&aText")) {
+          when(promptConfig.promptMessage()).thenReturn(text);
+          var inline = testScreen("inline-test", "Ignored", sanitize);
+          var inlineConfig = inline.buildConfig(promptConfig);
+          assertEquals("BLANK".equals(text) ? "" : text, inlineConfig.get("promptMessage"));
+          assertEquals(String.valueOf(enableTitle), inlineConfig.get("enableTitle"));
+          assertEquals("&cConfig Title", inlineConfig.get("customTitle"));
+
+          var presetConfig = testScreen("json-preset", text, sanitize).buildConfig(promptConfig);
+          assertEquals(text, presetConfig.get("promptMessage"));
+          assertEquals("true", presetConfig.get("enableTitle"));
+          assertEquals("&aPreset Title", presetConfig.get("customTitle"));
+        }
+      }
+    }
+  }
+
+  @Test
+  void emptyAnswerIsForwardedForBothSanitizeValues() {
+    for (boolean sanitize : List.of(true, false)) {
+      var screen = testScreen("json-preset", "", sanitize);
+      var result = new AtomicReference<ScreenResult>();
+      screen.onResult(result::set);
+      screen.open();
+      screen.handleResult(ScreenResult.answer(""));
+      assertNotNull(result.get());
+      assertEquals("", result.get().answer());
+      assertFalse(result.get().cancelled());
+    }
+  }
+
+  private AnvilPromptScreen testScreen(String id, String text, boolean sanitize) {
+    var button =
+        new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Not initial text", "PAPER", "", 0);
+    return new AnvilPromptScreen(
+        plugin,
+        createPlayer(),
+        new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+            "anvil", id, "&aPreset Title", text, button, button, sanitize),
+        emptyProviders);
+  }
+
+  @Test
   void openWithEmptyProvidersFallsBackToChat() {
     var player = createPlayer();
     var screen =
@@ -291,7 +340,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
   }
 
   @Test
-  void buildConfigPresetWithEmptyPromptTextFallsBackToLeftButtonText() {
+  void buildConfigPresetWithEmptyPromptTextDoesNotFallBackToLeftButtonText() {
     var player = createPlayer();
     var leftBtn = new dev.cyr1en.promptpaper.preset.AnvilButton(false, "Left Name", "PAPER", "", 0);
     var rightBtn =
@@ -304,7 +353,7 @@ class AnvilPromptScreenTest extends MockBukkitTest {
     var configMap = screen.buildConfig(promptConfig);
 
     assertEquals("false", configMap.get("enableFirstItem"));
-    assertEquals("Left Name", configMap.get("promptMessage"));
+    assertEquals("", configMap.get("promptMessage"));
     assertEquals("false", configMap.get("enableCancelItem"));
   }
 

@@ -111,7 +111,7 @@
         "type": { "const": "anvil" },
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
-        "prompt_text": { "type": "string", "minLength": 1 },
+        "prompt_text": { "type": "string" },
         "sanitize": { "type": "boolean", "default": true },
         "title_display": { "$ref": "#/$defs/titleDisplay" },
         "left_button": { "$ref": "#/$defs/anvilButton" },

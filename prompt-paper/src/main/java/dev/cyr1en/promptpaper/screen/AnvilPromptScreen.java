@@ -125,10 +125,8 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
     config.put(
         "promptMessage",
         isPreset
-            ? (anvilPrompt.promptText().isEmpty()
-                ? anvilPrompt.leftButton().buttonText()
-                : anvilPrompt.promptText())
-            : cfg.promptMessage());
+            ? anvilPrompt.promptText()
+            : ("BLANK".equals(cfg.promptMessage()) ? "" : cfg.promptMessage()));
     config.put("itemHoverText", isPreset ? anvilPrompt.leftButton().buttonHoverText() : "");
     config.put(
         "enableCancelItem",

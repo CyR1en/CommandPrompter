@@ -10,7 +10,8 @@ import java.util.Objects;
  * @param type the discriminator value, always {@code "anvil"}
  * @param id the unique identifier
  * @param title the anvil inventory title
- * @param promptText the default text pre-filled in the anvil text field
+ * @param promptText the required initial anvil text; empty means an empty field, with no fallback
+ *     to left-button text. JSON {@code "BLANK"} is literal, not the legacy YAML empty alias.
  * @param leftButton the item placed in the left slot
  * @param rightButton the item placed in the right slot
  * @param sanitize whether to strip color codes from the player's input

@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -181,9 +182,8 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
       var meta = firstItem.getItemMeta();
       if (meta != null) {
         String promptMsg = config.getOrDefault("promptMessage", "");
-        if (!promptMsg.isEmpty()) {
-          meta.displayName(ComponentUtil.mini("<!italic>" + promptMsg));
-        }
+        meta.displayName(
+            promptMsg.isEmpty() ? Component.empty() : ComponentUtil.mini("<!italic>" + promptMsg));
         String hoverText = config.getOrDefault("itemHoverText", "");
         if (!hoverText.isEmpty()) {
           meta.lore(List.of(ComponentUtil.mini("<!italic>" + hoverText)));

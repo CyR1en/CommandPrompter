@@ -61,6 +61,27 @@ class PresetSchemaTest {
   }
 
   @Test
+  void anvilPromptTextIsRequiredStringAllowingEmptyInBothCopies() throws Exception {
+    for (String content : List.of(readRootSchema(), readResourceSchema())) {
+      var defs = JsonParser.parseString(content).getAsJsonObject().getAsJsonObject("$defs");
+      var anvil = defs.getAsJsonObject("anvilPrompt");
+      var text = anvil.getAsJsonObject("properties").getAsJsonObject("prompt_text");
+      assertEquals("string", text.get("type").getAsString());
+      assertFalse(text.has("minLength"));
+      assertTrue(
+          anvil.getAsJsonArray("required")
+              .contains(new com.google.gson.JsonPrimitive("prompt_text")));
+      assertEquals(
+          1,
+          defs.getAsJsonObject("chatPrompt")
+              .getAsJsonObject("properties")
+              .getAsJsonObject("prompt_text")
+              .get("minLength")
+              .getAsInt());
+    }
+  }
+
+  @Test
   void noAccidentalBareRefOrDefsInSchema() throws Exception {
     String content = readResourceSchema();
     JsonElement root = JsonParser.parseString(content);

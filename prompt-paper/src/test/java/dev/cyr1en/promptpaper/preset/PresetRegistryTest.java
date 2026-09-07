@@ -100,6 +100,21 @@ class PresetRegistryTest extends MockBukkitTest {
 
   private static final String DEFAULT_RESOURCE_JSON = SAMPLE_JSON;
 
+  @Test
+  void anvilEmptyTextLoadsButMissingOrNullTextRejectsReload() throws IOException {
+    Files.writeString(promptsFile.toPath(), SAMPLE_JSON.replace("New name", ""));
+    var registry = newRegistry(null);
+    registry.reload();
+    assertEquals("", ((AnvilPrompt) registry.getPrompt("rename_item").orElseThrow()).promptText());
+    var original = registry.getSnapshot();
+    for (String replacement : List.of("", "\"prompt_text\": null,")) {
+      Files.writeString(
+          promptsFile.toPath(), SAMPLE_JSON.replace("\"prompt_text\": \"New name\",", replacement));
+      assertThrows(PresetRegistry.PresetLoadException.class, registry::reload);
+      assertSame(original, registry.getSnapshot());
+    }
+  }
+
   @TempDir File tempDir;
 
   private File promptsFile;
