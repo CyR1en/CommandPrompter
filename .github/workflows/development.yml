@@ -79,7 +79,7 @@ jobs:
           mkdir -p dist
           cp -- "${jars[0]}" "dist/$ASSET_NAME"
 
-      - name: Publish rolling development release
+      - name: Publish development release
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_PATH: ${{ steps.metadata.outputs.asset_path }}
@@ -89,14 +89,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if ! gh release view dev >/dev/null 2>&1; then
-            gh release create dev \
-              --target "$GITHUB_SHA" \
-              --prerelease \
-              --latest=false \
-              --title "Development Builds" \
-              --notes "Automated builds from the development branch."
-          fi
+          tag="dev-build-$BUILD_NUMBER"
 
           release_notes="$(printf \
             'CommandPrompter %s, development build #%s.\n\nCommit: %s/%s/commit/%s' \
@@ -106,38 +99,38 @@ jobs:
             "$GITHUB_REPOSITORY" \
             "$GITHUB_SHA")"
 
-          gh release edit dev \
-            --prerelease \
-            --latest=false \
-            --title "Development Build #$BUILD_NUMBER" \
-            --notes "$release_notes"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$ASSET_PATH" --clobber
+          else
+            gh release create "$tag" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --latest=false \
+              --title "Development Build #$BUILD_NUMBER" \
+              --notes "$release_notes" \
+              "$ASSET_PATH"
+          fi
 
-          gh release upload dev "$ASSET_PATH" --clobber
-
-      - name: Remove expired development artifacts
+      - name: Remove expired development releases
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
 
-          release_id="$(
-            gh api "repos/$GITHUB_REPOSITORY/releases/tags/dev" --jq '.id'
-          )"
           first_expired=$((DEV_BUILD_RETENTION + 1))
 
-          while IFS=$'\t' read -r _ asset_id; do
-            [[ -n "$asset_id" ]] || continue
-            gh api \
-              --method DELETE \
-              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            gh release delete "$tag" --cleanup-tag --yes
           done < <(
             gh api \
               --paginate \
-              "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
-              --jq '.[] | select(.name | startswith("CommandPrompter-") and contains("-build-") and endswith(".jar")) | [.created_at, .id] | @tsv' \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.tag_name | startswith("dev-build-")) | [.created_at, .tag_name] | @tsv' \
               | sort -r \
-              | tail -n "+$first_expired"
+              | tail -n "+$first_expired" \
+              | cut -f2
           )
 
       - name: Add build summary
@@ -151,5 +144,5 @@ jobs:
             echo
             echo "- Version: \`$PLUGIN_VERSION\`"
             echo "- Artifact: \`$ASSET_NAME\`"
-            echo "- Public release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/dev"
+            echo "- Public release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/dev-build-$BUILD_NUMBER"
           } >> "$GITHUB_STEP_SUMMARY"
