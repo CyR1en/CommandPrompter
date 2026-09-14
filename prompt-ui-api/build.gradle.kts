@@ -6,11 +6,13 @@ plugins {
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.opencollab.dev/main/")
 }
 
 dependencies {
     api(project(":prompt-core"))
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
+    compileOnly("org.geysermc.geyser:api:2.8.3-SNAPSHOT")
 
     testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")

@@ -27,4 +27,23 @@ class PluginDescriptorTest {
       assertTrue(descriptor.getBoolean("permissions.promptpaper.cancel.default"));
     }
   }
+
+  @Test
+  void bedrockDependenciesDeclaredWithJoinClasspath() throws IOException {
+    try (var descriptorStream = getClass().getResourceAsStream("/paper-plugin.yml")) {
+      assertNotNull(descriptorStream, "processed paper-plugin.yml should be on the test classpath");
+
+      var descriptor =
+          YamlConfiguration.loadConfiguration(
+              new InputStreamReader(descriptorStream, StandardCharsets.UTF_8));
+
+      assertEquals("BEFORE", descriptor.getString("dependencies.server.Geyser-Spigot.load"));
+      assertEquals(false, descriptor.getBoolean("dependencies.server.Geyser-Spigot.required"));
+      assertEquals(true, descriptor.getBoolean("dependencies.server.Geyser-Spigot.join-classpath"));
+
+      assertEquals("BEFORE", descriptor.getString("dependencies.server.floodgate.load"));
+      assertEquals(false, descriptor.getBoolean("dependencies.server.floodgate.required"));
+      assertEquals(true, descriptor.getBoolean("dependencies.server.floodgate.join-classpath"));
+    }
+  }
 }

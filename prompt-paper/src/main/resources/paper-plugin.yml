@@ -8,6 +8,8 @@ bootstrapper: dev.cyr1en.promptpaper.CommandPrompterBootstrap
 
 dependencies:
   server:
+    Geyser-Spigot:  { load: BEFORE, required: false, join-classpath: true }
+    floodgate:      { load: BEFORE, required: false, join-classpath: true }
     CarbonChat:     { load: AFTER, required: false }
     SuperVanish:    { load: AFTER, required: false }
     PremiumVanish:  { load: AFTER, required: false }

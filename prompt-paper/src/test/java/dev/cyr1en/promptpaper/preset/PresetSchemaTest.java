@@ -69,7 +69,8 @@ class PresetSchemaTest {
       assertEquals("string", text.get("type").getAsString());
       assertFalse(text.has("minLength"));
       assertTrue(
-          anvil.getAsJsonArray("required")
+          anvil
+              .getAsJsonArray("required")
               .contains(new com.google.gson.JsonPrimitive("prompt_text")));
       assertEquals(
           1,

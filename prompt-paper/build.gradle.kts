@@ -35,6 +35,7 @@ repositories {
     maven("https://repo.william278.net/releases")
     maven("https://maven.enginehub.org/repo/")
     maven("https://repo.codemc.io/repository/maven-public/")
+    maven("https://repo.opencollab.dev/main/")
 }
 
 dependencies {
@@ -43,6 +44,7 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     compileOnly("net.kyori:adventure-text-minimessage:4.26.1")
     compileOnly("net.kyori:adventure-text-serializer-legacy:4.26.1")
+    compileOnly("org.geysermc.geyser:api:2.8.3-SNAPSHOT")
     implementation("org.bstats:bstats-bukkit:3.0.2")
     implementation("org.openjdk.nashorn:nashorn-core:15.4")
 
@@ -59,6 +61,7 @@ dependencies {
 
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.0.0")
     testImplementation("org.mockito:mockito-core:5.14.0")
+    testImplementation("org.geysermc.geyser:api:2.8.3-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -2,12 +2,14 @@ package dev.cyr1en.promptui.v26_2;
 
 import dev.cyr1en.promptui.gui.AnvilInventory;
 import dev.cyr1en.promptui.gui.TextHolder;
+import dev.cyr1en.promptui.util.BedrockUtil;
 import java.util.Objects;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
+import net.minecraft.network.protocol.game.ClientboundSetExperiencePacket;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
@@ -34,6 +36,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
   private NMSAnvilContainer container;
   private Consumer<String> nameChangeCallback;
   private boolean opened;
+  private boolean experienceFaked;
 
   public AnvilInventoryImpl(@NotNull org.bukkit.entity.Player player) {
     this.player = Objects.requireNonNull(player, "player");
@@ -65,14 +68,28 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       closeExistingMenu(nmsPlayer);
       Component title = container.getTitle();
       int id = container.containerId;
-      nmsPlayer.connection.send(new ClientboundOpenScreenPacket(id, MenuType.ANVIL, title));
+      sendPacket(nmsPlayer, new ClientboundOpenScreenPacket(id, MenuType.ANVIL, title));
       nmsPlayer.containerMenu = container;
       nmsPlayer.initMenu(container);
       opened = true;
-    } catch (RuntimeException | Error failure) {
+      if (BedrockUtil.isBedrockPlayer(player)) {
+        sendPacket(nmsPlayer, new ClientboundSetExperiencePacket(0.0f, 0, 20));
+        experienceFaked = true;
+      }
+    } catch (Throwable failure) {
       opened = false;
       restoreInventoryMenu(nmsPlayer);
-      throw failure;
+      if (experienceFaked) {
+        experienceFaked = false;
+        restoreExperience(nmsPlayer);
+      }
+      if (failure instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (failure instanceof Error error) {
+        throw error;
+      }
+      throw new RuntimeException(failure);
     }
   }
 
@@ -81,16 +98,31 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     opened = false;
     if (container == null) return;
     var nmsPlayer = craftPlayer.getHandle();
-    if (nmsPlayer.containerMenu == container) {
-      nmsPlayer.connection.send(new ClientboundContainerClosePacket(container.containerId));
-      nmsPlayer.doCloseContainer();
-      restoreInventoryMenu(nmsPlayer);
+    boolean isCurrent = nmsPlayer.containerMenu == container;
+    try {
+      if (isCurrent) {
+        sendPacket(nmsPlayer, new ClientboundContainerClosePacket(container.containerId));
+        nmsPlayer.doCloseContainer();
+        restoreInventoryMenu(nmsPlayer);
+      }
+    } finally {
+      if (experienceFaked) {
+        experienceFaked = false;
+        if (isCurrent) {
+          restoreExperience(nmsPlayer);
+        }
+      }
     }
   }
 
   /** Returns whether this NMS container is currently installed for the player. */
   public boolean isOpened() {
     return opened;
+  }
+
+  /** Returns whether fake experience was sent for Bedrock edition workaround. */
+  public boolean isExperienceFaked() {
+    return experienceFaked;
   }
 
   /** Clears callbacks and parent links after the screen reaches a terminal state. */
@@ -101,6 +133,21 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     }
   }
 
+  /** Handles container removal by Minecraft (e.g. replaced by another menu or closed). */
+  void onContainerRemoved(NMSAnvilContainer removedContainer) {
+    if (this.container != removedContainer) {
+      return;
+    }
+    opened = false;
+    if (experienceFaked) {
+      experienceFaked = false;
+      var nmsPlayer = craftPlayer.getHandle();
+      if (nmsPlayer.containerMenu == container) {
+        restoreExperience(nmsPlayer);
+      }
+    }
+  }
+
   private void closeExistingMenu(net.minecraft.server.level.ServerPlayer nmsPlayer) {
     var active = nmsPlayer.containerMenu;
     if (active == null || active == nmsPlayer.inventoryMenu || active == container) {
@@ -108,7 +155,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     }
     // The client must receive the id of the menu it actually has open;
     // container id 0 is only the player's inventory menu.
-    nmsPlayer.connection.send(new ClientboundContainerClosePacket(active.containerId));
+    sendPacket(nmsPlayer, new ClientboundContainerClosePacket(active.containerId));
     nmsPlayer.doCloseContainer();
     restoreInventoryMenu(nmsPlayer);
   }
@@ -117,6 +164,26 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     if (nmsPlayer.containerMenu != nmsPlayer.inventoryMenu
         && nmsPlayer.containerMenu == container) {
       nmsPlayer.doCloseContainer();
+    }
+  }
+
+  private void restoreExperience(net.minecraft.server.level.ServerPlayer nmsPlayer) {
+    sendPacket(
+        nmsPlayer,
+        new ClientboundSetExperiencePacket(
+            nmsPlayer.experienceProgress, nmsPlayer.totalExperience, nmsPlayer.experienceLevel));
+  }
+
+  private static void sendPacket(
+      net.minecraft.server.level.ServerPlayer nmsPlayer,
+      net.minecraft.network.protocol.Packet<?> packet) {
+    if (nmsPlayer == null || nmsPlayer.connection == null) {
+      return;
+    }
+    try {
+      nmsPlayer.connection.send(packet);
+    } catch (Throwable ignored) {
+      // network/packet failures must not abort container closure or state reset
     }
   }
 
@@ -191,9 +258,13 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       broadcastChanges();
     }
 
-    /** No-op: prevents item drops when the container is closed server-side. */
+    /** Prevents item drops when the container is closed server-side and notifies parent. */
     @Override
-    public void removed(Player player) {}
+    public void removed(Player player) {
+      if (parent != null) {
+        parent.onContainerRemoved(this);
+      }
+    }
 
     /** No-op: prevents item drops when the container is cleared. */
     @Override

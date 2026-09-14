@@ -1,0 +1,128 @@
+package dev.cyr1en.promptpaper.screen;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.ScreenProvider;
+import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptui.util.BedrockUtil;
+import java.lang.reflect.Proxy;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.geysermc.floodgate.api.FloodgateApi;
+import org.geysermc.geyser.api.GeyserApi;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+
+class BedrockAnvilIntegrationTest extends MockBukkitTest {
+
+  @BeforeEach
+  @AfterEach
+  void resetBedrock() {
+    BedrockUtil.reset();
+    try {
+      org.geysermc.api.Geyser.set(null);
+    } catch (Throwable ignored) {
+    }
+    FloodgateApi.setInstance(null);
+  }
+
+  @Test
+  void bedrockPlayerDetectionInMockBukkitEnvironment() {
+    var player = createPlayer();
+    // In MockBukkit without Geyser, player is not detected as Bedrock
+    assertFalse(BedrockUtil.isBedrockPlayer(player));
+    assertFalse(BedrockUtil.isGeyserInstalled());
+
+    // When mocked as Bedrock
+    BedrockUtil.setBedrockChecker(uuid -> uuid.equals(player.getUniqueId()));
+    assertTrue(BedrockUtil.isBedrockPlayer(player));
+  }
+
+  @Test
+  void anvilScreenWorksForBedrockPlayer() {
+    var player = createPlayer();
+    BedrockUtil.setBedrockChecker(uuid -> uuid.equals(player.getUniqueId()));
+    assertTrue(BedrockUtil.isBedrockPlayer(player));
+
+    var mockProvider = mock(ScreenProvider.class);
+    var mockAnvil = mock(AnvilInputScreen.class);
+    when(mockProvider.createAnvil(any(CommandPrompter.class), any(), anyString()))
+        .thenReturn(mockAnvil);
+
+    var screen =
+        new AnvilPromptScreen(
+            plugin,
+            player,
+            new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+                "anvil",
+                "bedrock-test",
+                "Anvil Title",
+                "Prompt message",
+                new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0),
+                new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0),
+                true),
+            List.of(mockProvider));
+
+    screen.open();
+    assertTrue(screen.isOpen());
+    verify(mockAnvil).open();
+
+    var resultRef = new AtomicReference<ScreenResult>();
+    screen.onResult(resultRef::set);
+    screen.handleResult(ScreenResult.answer("bedrock_input"));
+
+    assertNotNull(resultRef.get());
+    assertEquals("bedrock_input", resultRef.get().answer());
+    assertFalse(resultRef.get().cancelled());
+  }
+
+  @Test
+  void simulatedGeyserDetection() {
+    var player = createPlayer();
+    var otherPlayer = createPlayer();
+
+    MockBukkit.createMockPlugin("Geyser-Spigot");
+
+    GeyserApi mockGeyser =
+        (GeyserApi)
+            Proxy.newProxyInstance(
+                GeyserApi.class.getClassLoader(),
+                new Class<?>[] {GeyserApi.class},
+                (proxy, method, args) -> {
+                  if ("isBedrockPlayer".equals(method.getName()) && args.length == 1) {
+                    return player.getUniqueId().equals(args[0]);
+                  }
+                  return null;
+                });
+    org.geysermc.api.Geyser.set(mockGeyser);
+
+    assertTrue(BedrockUtil.isGeyserInstalled());
+    assertTrue(BedrockUtil.isBedrockPlayer(player));
+    assertFalse(BedrockUtil.isBedrockPlayer(otherPlayer));
+  }
+
+  @Test
+  void simulatedFloodgateDetection() {
+    var player = createPlayer();
+    var otherPlayer = createPlayer();
+
+    MockBukkit.createMockPlugin("floodgate");
+
+    FloodgateApi floodgate = new FloodgateApi();
+    floodgate.setPlayerChecker(player.getUniqueId()::equals);
+    FloodgateApi.setInstance(floodgate);
+
+    assertTrue(BedrockUtil.isBedrockPlayer(player));
+    assertFalse(BedrockUtil.isBedrockPlayer(otherPlayer));
+  }
+}
