@@ -25,6 +25,7 @@ permissions:
     description: Master permission for CommandPrompter commands
     children:
       promptpaper.reload: true
+      promptpaper.migrate: true
       promptpaper.cancel: true
       promptpaper.version: true
       promptpaper.use: true
@@ -33,6 +34,9 @@ permissions:
       promptpaper.pcm.console: true
   promptpaper.reload:
     description: Allows using /commandprompter reload
+  promptpaper.migrate:
+    description: Allows migrating configuration files under plugins
+    default: op
   promptpaper.cancel:
     description: Allows cancelling your own active prompt
     default: true

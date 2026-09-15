@@ -19,8 +19,7 @@ class PromptRootCommandTest extends MockBukkitTest {
     var root = new PromptRootCommand(plugin);
     var node = root.build();
     assertNotNull(node);
-    // Top-level has one child literal per subcommand: reload, cancel, version.
-    assertEquals(3, node.getChildren().size());
+    assertEquals(4, node.getChildren().size());
   }
 
   @Test

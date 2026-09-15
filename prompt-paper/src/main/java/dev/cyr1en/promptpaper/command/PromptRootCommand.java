@@ -12,10 +12,10 @@ import java.util.List;
 import org.bukkit.command.CommandSender;
 
 /**
- * {@code /commandprompter} — composite root command. Owns three leaf subcommands ({@code reload},
- * {@code cancel}, {@code version}) and prints help text when invoked with no arguments. The root
- * itself has no permission gate; each subcommand applies its own permission inside its own {@link
- * #build()} method, so a non-admin can run individual subcommands they have permission for.
+ * {@code /commandprompter} — composite root command. Owns the administrative and session
+ * subcommands and prints help text when invoked with no arguments. The root itself has no
+ * permission gate; each subcommand applies its own permission inside its own {@link #build()}
+ * method, so a non-admin can run individual subcommands they have permission for.
  */
 public class PromptRootCommand extends PromptCommand implements Command<CommandSourceStack> {
 
@@ -24,7 +24,11 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
   public PromptRootCommand(CommandPrompter plugin) {
     super(plugin, "commandprompter", null, null, "Main CommandPrompter command", List.of("cmdp"));
     this.children =
-        List.of(new ReloadCommand(plugin), new CancelCommand(plugin), new VersionCommand(plugin));
+        List.of(
+            new ReloadCommand(plugin),
+            new CancelCommand(plugin),
+            new VersionCommand(plugin),
+            new MigrateCommand(plugin));
   }
 
   @Override
@@ -54,6 +58,13 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
                 <gold>/commandprompter cancel</gold> <gray>- Cancel your active prompt</gray>
                 <gold>/commandprompter reload</gold> <gray>- Reload configuration</gray>
                 <gold>/commandprompter version</gold> <gray>- Show plugin version</gray>""";
-    sender.sendMessage(ComponentUtil.mini(msg));
+    var message = ComponentUtil.mini(msg);
+    if (sender.hasPermission("promptpaper.migrate") || sender.hasPermission("promptpaper.admin")) {
+      message =
+          message
+              .appendNewline()
+              .append(plugin.getConfigLoader().getI18n().get("command.migrate.help"));
+    }
+    sender.sendMessage(message);
   }
 }

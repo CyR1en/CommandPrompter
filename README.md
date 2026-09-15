@@ -19,6 +19,71 @@ Features:
 * **Console delegate** - a robust way to prompt a player via console.
 * **Post command** - expands your command by incorporation post commands.
 
+## Migrating V2 prompts
+
+Use `/cmdp migrate` to convert prompts embedded in another plugin's configuration to V3 syntax:
+
+```text
+/cmdp migrate --dry-run DeluxeMenus/menus/shop.yml
+/cmdp migrate DeluxeMenus/menus/shop.yml
+```
+
+Paths are relative to the server's `plugins/` directory. Press TAB to complete folders and files,
+including nested paths. Paths containing spaces work with or without surrounding double quotes.
+The command and its file suggestions require `promptpaper.migrate` (operator by default), also
+included in `promptpaper.admin`.
+
+The dry run shows the number of changed prompts and up to 20 before/after examples. Migration
+creates an exact backup under
+`plugins/CommandPrompterPaper/migration-backups/<timestamp-id>/<original-relative-path>` before
+replacing the file. If nothing needs migration, no backup or file write occurs. Backups are never
+overwritten. Each migration prints a command to restore its backup:
+
+```text
+/cmdp migrate undo <timestamp-id>/DeluxeMenus/menus/shop.yml
+```
+
+For `undo`, paths are relative to `CommandPrompterPaper/migration-backups/`. TAB browses these
+backups; the same `promptpaper.migrate` permission applies. Undo restores the selected snapshot
+to its original file and first backs up the current contents, including any edits made since
+migration. It retains both backups and prints a command that can restore the saved current
+contents. Repeating an undo when the file already matches makes no changes or new backup.
+The destination file must still exist. Undo uses the same path restrictions, concurrency check,
+and atomic replacement as migration. Reload the owning plugin after restoring.
+
+Examples:
+
+| V2 | V3 |
+| --- | --- |
+| `<-a Enter a name>` | `<a:Enter a name>` |
+| `<-s Enter a name>` | `<s:Enter a name>` |
+| `<-p:w Select a player>` | `<p:w:Select a player>` |
+| `<-exa say p:0>` | `<! say {0}>` |
+| `<-exac:20\|c say Cancelled>` | `<!!:20 say Cancelled @console>` |
+
+Supported flags and sign `{br}` lines are preserved. Labels such as `Name:` use an empty V3
+filter (`<s::Name:>`) so that they remain display text, including in unquoted YAML values.
+The tool uses the active CommandPrompter prompt and template delimiters; set these to match the
+old configuration before migrating if your server uses custom delimiters.
+
+Migration operates on UTF-8 text without reserializing the host plugin's configuration. It also
+recognizes XML-escaped and JSON Unicode-escaped delimiters. It preserves surrounding comments,
+indentation, quoting, Unicode, and line endings. Binary, backup, hidden, and temporary files are
+excluded, and the file size limit is 8 MiB. Autocomplete returns up to 100 matches from the first
+4,096 entries in the selected directory.
+
+Ambiguous tags, unknown custom prompt types or filters, unsupported escaping, and failed V3
+validation are reported with line numbers; any such issue leaves the entire file unchanged.
+Plain chat prompts that still have the same syntax and existing V3 prompts are left intact.
+Unknown colon-prefixed tags require manual review because they could be old chat text or custom
+V3 prompt types. Migration does not translate plugin configuration schemas.
+
+Pause other writers to the selected file while migrating. The command checks for changes before
+replacement, rejects simultaneous migrations of the same file, and requires an atomic file
+replacement, but cannot coordinate saves made by other plugins. Reload the plugin that owns the
+configuration after migration. All results, including no-change and error messages, use the
+configured locale and can be customized through the existing `locales/` overrides.
+
 ## Building
 
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:
