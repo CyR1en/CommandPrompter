@@ -49,6 +49,26 @@ public final class PresetGson {
   public static Gson presetGson(TemplateSyntax syntax) {
     TemplateSyntax effectiveSyntax = syntax != null ? syntax : TemplateSyntax.DEFAULT;
     return new GsonBuilder()
+        .registerTypeAdapter(
+            DialogTypeConfig.class,
+            (JsonSerializer<DialogTypeConfig>)
+                (src, type, context) -> {
+                  var obj = new com.google.gson.JsonObject();
+                  obj.add("type", context.serialize(src.type()));
+                  if (src.columns() != null) obj.addProperty("columns", src.columns());
+                  if (src.maxButtons() != null) obj.addProperty("max_buttons", src.maxButtons());
+                  if (src.actionsSource() != null)
+                    obj.add("actions_source", context.serialize(src.actionsSource()));
+                  else if (src.type() == DialogType.MULTI_ACTION)
+                    obj.add("actions", context.serialize(src.actions()));
+                  if (src.exitAction() != null)
+                    obj.add("exit_action", context.serialize(src.exitAction()));
+                  if (src.confirmAction() != null)
+                    obj.add("confirm_action", context.serialize(src.confirmAction()));
+                  if (src.cancelAction() != null)
+                    obj.add("cancel_action", context.serialize(src.cancelAction()));
+                  return obj;
+                })
         .registerTypeAdapter(PromptDefinition.class, new PromptDefinitionDeserializer())
         .registerTypeAdapter(
             ConfirmationMode.class,

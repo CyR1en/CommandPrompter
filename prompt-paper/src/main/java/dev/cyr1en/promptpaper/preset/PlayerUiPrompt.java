@@ -30,8 +30,32 @@ public record PlayerUiPrompt(
     @SerializedName("previous_button") UIButton previousButton,
     @SerializedName("next_button") UIButton nextButton,
     boolean sanitize,
-    @SerializedName("title_display") TitleConfig titleDisplay)
+    @SerializedName("title_display") TitleConfig titleDisplay,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public PlayerUiPrompt(
+      String type,
+      String id,
+      String promptText,
+      String filter,
+      UIButton cancelButton,
+      UIButton previousButton,
+      UIButton nextButton,
+      boolean sanitize,
+      TitleConfig titleDisplay) {
+    this(
+        type,
+        id,
+        promptText,
+        filter,
+        cancelButton,
+        previousButton,
+        nextButton,
+        sanitize,
+        titleDisplay,
+        null);
+  }
 
   /** Canonical constructor. */
   public PlayerUiPrompt {

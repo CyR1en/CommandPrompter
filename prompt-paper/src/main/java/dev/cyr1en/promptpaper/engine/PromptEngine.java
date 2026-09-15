@@ -388,6 +388,7 @@ public class PromptEngine {
     // Fail-fast: any unresolved preset ID or validator alias aborts the command flow.
     var missingPrompts = findMissingPromptPresets(parsed, presetSnapshot);
     var missingPostCmds = findMissingPostCommandPresets(parsed, presetSnapshot);
+    parsed = applyPresetSanitize(parsed, presetSnapshot);
     var missingValidators = findMissingValidators(parsed);
     var missingGates = findMissingGatePresets(parsed, presetSnapshot);
     if (!missingPrompts.isEmpty()
@@ -445,7 +446,7 @@ public class PromptEngine {
       return recordLastResult(player, InterceptResult.RejectedActiveSession.INSTANCE);
     }
 
-    var effectiveParsed = applyPresetSanitize(parsed, presetSnapshot);
+    var effectiveParsed = parsed;
     var templateSyntax =
         plugin != null
                 && plugin.getConfigLoader() != null
@@ -531,7 +532,7 @@ public class PromptEngine {
   }
 
   /**
-   * Overlays each preset prompt's configured {@code sanitize} flag onto its parsed tag before a
+   * Overlays each preset prompt's sanitization and execution options onto its parsed tag before a
    * session starts. The parser defaults preset tags to {@code sanitize = true}, but the preset
    * definition is authoritative: a preset configured with {@code sanitize: false} must keep the
    * player's color codes intact. Commands without preset tags return the same parsed command object
@@ -566,7 +567,15 @@ public class PromptEngine {
                                   .map(PromptDefinition::sanitize)
                                   .orElse(tag.sanitize())
                               : tag.sanitize());
-                  return withSanitize(tag, sanitize);
+                  var definition =
+                      snapshot != null
+                          ? snapshot.getPrompt(tag.displayText()).orElse(null)
+                          : registry != null
+                              ? registry.getPrompt(tag.displayText()).orElse(null)
+                              : null;
+                  return definition != null && definition.behavior() != null
+                      ? definition.behavior().apply(tag, sanitize)
+                      : withSanitize(tag, sanitize);
                 })
             .toList();
     return withPromptTags(parsed, adjustedTags);

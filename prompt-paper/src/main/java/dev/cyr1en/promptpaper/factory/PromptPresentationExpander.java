@@ -147,7 +147,8 @@ final class PromptPresentationExpander {
         item.sound(),
         item.sanitize(),
         expandTitle(player, item.titleDisplay()),
-        item.timeout());
+        item.timeout(),
+        item.behavior());
   }
 
   private dev.cyr1en.promptpaper.preset.ConfirmationPrompt expandConfirmation(
@@ -164,7 +165,8 @@ final class PromptPresentationExpander {
         confirmation.sound(),
         confirmation.sanitize(),
         expandTitle(player, confirmation.titleDisplay()),
-        confirmation.timeout());
+        confirmation.timeout(),
+        confirmation.behavior());
   }
 
   /**
@@ -199,7 +201,8 @@ final class PromptPresentationExpander {
         expand(player, chat.promptText()),
         expandCancel(player, chat.cancel()),
         chat.sanitize(),
-        expandTitle(player, chat.titleDisplay()));
+        expandTitle(player, chat.titleDisplay()),
+        chat.behavior());
   }
 
   private CancelBehavior expandCancel(Player player, CancelBehavior cancel) {
@@ -220,7 +223,8 @@ final class PromptPresentationExpander {
         expandAnvilButton(player, anvil.leftButton()),
         expandAnvilButton(player, anvil.rightButton()),
         anvil.sanitize(),
-        expandTitle(player, anvil.titleDisplay()));
+        expandTitle(player, anvil.titleDisplay()),
+        anvil.behavior());
   }
 
   private AnvilButton expandAnvilButton(Player player, AnvilButton button) {
@@ -240,7 +244,8 @@ final class PromptPresentationExpander {
         expand(player, sign.promptText()),
         sign.defaultLines().stream().map(line -> expand(player, line)).toList(),
         sign.sanitize(),
-        expandTitle(player, sign.titleDisplay()));
+        expandTitle(player, sign.titleDisplay()),
+        sign.behavior());
   }
 
   private PlayerUiPrompt expandPlayerUi(Player player, PlayerUiPrompt pui) {
@@ -253,7 +258,8 @@ final class PromptPresentationExpander {
         expandUiButton(player, pui.previousButton()),
         expandUiButton(player, pui.nextButton()),
         pui.sanitize(),
-        expandTitle(player, pui.titleDisplay()));
+        expandTitle(player, pui.titleDisplay()),
+        pui.behavior());
   }
 
   private UIButton expandUiButton(Player player, UIButton button) {
@@ -275,7 +281,8 @@ final class PromptPresentationExpander {
         expandBase(player, dialog.base()),
         expandDialogType(player, dialog.dialogType()),
         dialog.sanitize(),
-        expandTitle(player, dialog.titleDisplay()));
+        expandTitle(player, dialog.titleDisplay()),
+        dialog.behavior());
   }
 
   private DialogBaseConfig expandBase(Player player, DialogBaseConfig base) {
@@ -312,7 +319,8 @@ final class PromptPresentationExpander {
         dt.actionsSource(),
         expandActionButton(player, dt.exitAction()),
         expandActionButton(player, dt.confirmAction()),
-        expandActionButton(player, dt.cancelAction()));
+        expandActionButton(player, dt.cancelAction()),
+        dt.maxButtons());
   }
 
   private ActionButtonConfig expandActionButton(Player player, ActionButtonConfig button) {

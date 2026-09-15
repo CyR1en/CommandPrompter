@@ -45,6 +45,41 @@ class PromptEnginePresetSanitizeRegressionTest extends MockBukkitTest {
   }
 
   @Test
+  void savedBehaviorIsAppliedBeforeValidatorChecksAndCapturedForTheSession() {
+    var behavior =
+        new dev.cyr1en.promptpaper.preset.PromptBehavior(
+            "whole", PromptTag.AnswerType.INTEGER, 25, Map.of("theme", "dark"), "{0} == 5");
+    var definition =
+        new ChatPrompt(
+            "chat",
+            "saved",
+            "Question",
+            new CancelBehavior(false, "", false, ""),
+            false,
+            null,
+            behavior);
+    var snapshot = new PresetSnapshot(Map.of("saved", definition), Map.of(), Map.of(), Map.of(), 1);
+    when(registry.getSnapshot()).thenReturn(snapshot);
+    when(registry.getPrompt("saved")).thenReturn(Optional.of(definition));
+    var player = createPlayer();
+    assertTrue(engine.interceptResult(player, "say <@saved>").isRejectedFailClosed());
+    when(promptConfig.hasValidator("whole")).thenReturn(true);
+    assertTrue(engine.intercept(player, "say <@saved>").isPresent());
+    var tag = engine.getSession(player).orElseThrow().parsedCommand().promptTags().getFirst();
+    assertTrue(tag.isPreset());
+    assertEquals("saved", tag.displayText());
+    assertEquals("whole", tag.validatorAlias());
+    assertEquals(PromptTag.AnswerType.INTEGER, tag.type());
+    assertEquals(25, tag.timeout());
+    assertEquals("dark", tag.flags().get("theme"));
+    assertEquals("{0} == 5", tag.breakIf().source());
+    assertFalse(tag.sanitize());
+    assertSame(
+        snapshot,
+        engine.getInceptionArtifacts(player.getUniqueId()).orElseThrow().presetSnapshot());
+  }
+
+  @Test
   @DisplayName("applyPresetSanitize preserves flags, breakIf, preDispatchGates, and templateSpans")
   void applyPresetSanitizePreservesAllTagAndCommandMetadata() {
     var breakCondition =

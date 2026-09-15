@@ -25,8 +25,21 @@ public record AnvilPrompt(
     @SerializedName("left_button") AnvilButton leftButton,
     @SerializedName("right_button") AnvilButton rightButton,
     boolean sanitize,
-    @SerializedName("title_display") TitleConfig titleDisplay)
+    @SerializedName("title_display") TitleConfig titleDisplay,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public AnvilPrompt(
+      String type,
+      String id,
+      String title,
+      String promptText,
+      AnvilButton leftButton,
+      AnvilButton rightButton,
+      boolean sanitize,
+      TitleConfig titleDisplay) {
+    this(type, id, title, promptText, leftButton, rightButton, sanitize, titleDisplay, null);
+  }
 
   /** Canonical constructor. */
   public AnvilPrompt {

@@ -717,6 +717,35 @@ class PromptFactoryTest extends MockBukkitTest {
    * resolved definition is expanded exactly once.
    */
   @Test
+  void activeSessionRendersCapturedPresetAfterRegistryRemoval() {
+    var engine = Mockito.mock(dev.cyr1en.promptpaper.engine.PromptEngine.class);
+    Mockito.when(plugin.getEngine()).thenReturn(engine);
+    var registry = Mockito.mock(PresetRegistry.class);
+    Mockito.when(plugin.getPresetRegistry()).thenReturn(registry);
+    var player = createPlayer();
+    var original =
+        new ChatPrompt(
+            "chat", "saved", "Original question", new CancelBehavior(false, "", false, ""), true);
+    var snapshot =
+        new dev.cyr1en.promptpaper.preset.PresetSnapshot(
+            Map.of("saved", original), Map.of(), Map.of(), Map.of());
+    Mockito.when(engine.getInceptionArtifacts(player.getUniqueId()))
+        .thenReturn(
+            Optional.of(
+                new dev.cyr1en.promptpaper.engine.SessionInceptionArtifacts(1, 1, null, snapshot)));
+    List<String> expanded = new ArrayList<>();
+    var tag =
+        new dev.cyr1en.promptcore.parser.CommandLineParser()
+            .parse("<@saved>")
+            .promptTags()
+            .getFirst();
+    assertInstanceOf(
+        ChatPromptScreen.class, factoryWithExpander(expanded).createFromTag(player, tag));
+    assertTrue(expanded.contains("Original question"));
+    Mockito.verifyNoInteractions(registry);
+  }
+
+  @Test
   void presetLookupUsesRawDisplayTextAndExpandsResolvedFieldsExactlyOnce() {
     var registry = Mockito.mock(PresetRegistry.class);
     Mockito.when(plugin.getPresetRegistry()).thenReturn(registry);

@@ -53,6 +53,11 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
       throw new JsonParseException("PromptDefinition is missing required 'type' field: " + obj);
     }
     String type = obj.get("type").getAsString();
+    validateBehavior(obj);
+    if (obj.has("dialog_type") && obj.get("dialog_type").isJsonObject()) {
+      var dt = obj.getAsJsonObject("dialog_type");
+      if (dt.has("max_buttons")) PresetGson.readInteger(dt.get("max_buttons"), "max_buttons");
+    }
 
     // Inject the schema default of true for sanitize if absent.
     if (!obj.has("sanitize")) {
@@ -69,6 +74,36 @@ public class PromptDefinitionDeserializer implements JsonDeserializer<PromptDefi
       case "item" -> deserializeItem(obj, context);
       default -> throw new JsonParseException("Unknown PromptDefinition type: " + type);
     };
+  }
+
+  private static void validateBehavior(JsonObject obj) {
+    if (!obj.has("behavior") || obj.get("behavior").isJsonNull()) return;
+    if (!obj.get("behavior").isJsonObject())
+      throw new IllegalArgumentException("behavior must be an object");
+    var behavior = obj.getAsJsonObject("behavior");
+    for (var key : java.util.List.of("validator", "answer_type", "break_if")) {
+      if (behavior.has(key)) {
+        var value = behavior.get(key);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+          throw new IllegalArgumentException("behavior." + key + " must be a string");
+        }
+      }
+    }
+    if (behavior.has("answer_type")) {
+      dev.cyr1en.promptcore.PromptTag.AnswerType.valueOf(behavior.get("answer_type").getAsString());
+    }
+    if (behavior.has("timeout"))
+      PresetGson.readInteger(behavior.get("timeout"), "behavior.timeout");
+    if (behavior.has("flags")) {
+      if (!behavior.get("flags").isJsonObject())
+        throw new IllegalArgumentException("behavior.flags must be an object");
+      for (var entry : behavior.getAsJsonObject("flags").entrySet()) {
+        var value = entry.getValue();
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+          throw new IllegalArgumentException("behavior.flags values must be strings");
+        }
+      }
+    }
   }
 
   /**

@@ -19,6 +19,35 @@ Features:
 * **Console delegate** - a robust way to prompt a player via console.
 * **Post command** - expands your command by incorporation post commands.
 
+## Managing prompt presets
+
+Create a structured JSON preset from a complete inline prompt:
+
+```text
+/cmdp preset add reason <Please enter a reason:>
+/cmdp preset add rename <a:Enter a new name -ds>
+/cmdp preset update reason <Why are you reporting this player?>
+/cmdp preset remove rename
+```
+
+Use the saved preset as `<@reason>` in a command. Add and update translate one inline prompt
+(including compound dialogs) into its corresponding JSON definition in
+`plugins/CommandPrompterPaper/presets.json`. Configured prompt delimiters and screen mappings apply.
+Placeholders remain unexpanded until the preset is displayed. Custom screen providers without
+an equivalent built-in JSON type cannot be saved through this command.
+
+Add requires an unused ID. Update replaces the complete definition of an existing prompt preset,
+including its type; remove deletes it. Other preset categories cannot be edited with this command.
+Changes take effect immediately and survive restarts. Active sessions retain their original definitions.
+Update and remove offer existing prompt IDs through TAB completion. Players and console can use the
+command with `promptpaper.preset` (operator by default), also included in `promptpaper.admin`.
+
+Execution options such as validators, answer type constraints, timeouts, and `-breakIf` are saved
+in the preset's optional `behavior` object. Dialog inputs retain their structured constraints,
+layout rows become the dialog title/body, and tab completion uses `dialog_type.actions_source`
+with its `max_buttons` threshold. Edit `presets.json` directly for further customization and
+run `/cmdp reload` to load those manual changes.
+
 ## Migrating V2 prompts
 
 Use `/cmdp migrate` to convert prompts embedded in another plugin's configuration to V3 syntax:

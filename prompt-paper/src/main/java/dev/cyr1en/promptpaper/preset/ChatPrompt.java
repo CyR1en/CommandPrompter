@@ -23,8 +23,19 @@ public record ChatPrompt(
     @SerializedName("prompt_text") String promptText,
     CancelBehavior cancel,
     boolean sanitize,
-    @SerializedName("title_display") TitleConfig titleDisplay)
+    @SerializedName("title_display") TitleConfig titleDisplay,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public ChatPrompt(
+      String type,
+      String id,
+      String promptText,
+      CancelBehavior cancel,
+      boolean sanitize,
+      TitleConfig titleDisplay) {
+    this(type, id, promptText, cancel, sanitize, titleDisplay, null);
+  }
 
   /** Canonical constructor. Enforces {@code type == "chat"} and non-null required fields. */
   public ChatPrompt {

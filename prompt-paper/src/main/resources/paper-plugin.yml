@@ -26,6 +26,7 @@ permissions:
     children:
       promptpaper.reload: true
       promptpaper.migrate: true
+      promptpaper.preset: true
       promptpaper.cancel: true
       promptpaper.version: true
       promptpaper.use: true
@@ -34,6 +35,9 @@ permissions:
       promptpaper.pcm.console: true
   promptpaper.reload:
     description: Allows using /commandprompter reload
+  promptpaper.preset:
+    description: Allows creating, updating, and removing prompt presets
+    default: op
   promptpaper.migrate:
     description: Allows migrating configuration files under plugins
     default: op

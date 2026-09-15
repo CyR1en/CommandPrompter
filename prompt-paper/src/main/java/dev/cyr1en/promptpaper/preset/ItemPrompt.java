@@ -31,8 +31,34 @@ public record ItemPrompt(
     String sound,
     boolean sanitize,
     @SerializedName("title_display") TitleConfig titleDisplay,
-    Integer timeout)
+    Integer timeout,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public ItemPrompt(
+      String type,
+      String id,
+      String promptText,
+      ItemSource source,
+      ItemOutputFormat output,
+      String category,
+      String sound,
+      boolean sanitize,
+      TitleConfig titleDisplay,
+      Integer timeout) {
+    this(
+        type,
+        id,
+        promptText,
+        source,
+        output,
+        category,
+        sound,
+        sanitize,
+        titleDisplay,
+        timeout,
+        null);
+  }
 
   /**
    * Canonical constructor. Enforces {@code type == "item"}, non-null required fields, timeout

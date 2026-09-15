@@ -28,7 +28,8 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
             new ReloadCommand(plugin),
             new CancelCommand(plugin),
             new VersionCommand(plugin),
-            new MigrateCommand(plugin));
+            new MigrateCommand(plugin),
+            new PresetCommand(plugin));
   }
 
   @Override
@@ -64,6 +65,12 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
           message
               .appendNewline()
               .append(plugin.getConfigLoader().getI18n().get("command.migrate.help"));
+    }
+    if (sender.hasPermission("promptpaper.preset") || sender.hasPermission("promptpaper.admin")) {
+      message =
+          message
+              .appendNewline()
+              .append(plugin.getConfigLoader().getI18n().get("command.preset.help"));
     }
     sender.sendMessage(message);
   }

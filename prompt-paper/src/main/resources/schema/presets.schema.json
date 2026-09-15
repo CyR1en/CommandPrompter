@@ -43,6 +43,39 @@
     }
   },
   "$defs": {
+    "promptBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Execution options applied when this preset is used.",
+      "properties": {
+        "validator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "answer_type": {
+          "enum": [
+            "NONE",
+            "INTEGER",
+            "STRING"
+          ]
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "break_if": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "titleDisplay": {
       "type": "object",
       "description": "Optional Adventure title wrapper used by every prompt record.",
@@ -95,6 +128,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "prompt_text", "cancel"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "chat" },
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
@@ -108,6 +142,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "title", "prompt_text", "left_button", "right_button"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "anvil" },
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
@@ -123,6 +158,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "prompt_text"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "player_ui" },
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
@@ -139,6 +175,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "prompt_text"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "sign" },
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
@@ -156,6 +193,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "prompt_text"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "confirmation" },
         "id": { "type": "string", "minLength": 1 },
         "mode": {
@@ -178,6 +216,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "prompt_text"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "item" },
         "id": { "type": "string", "minLength": 1 },
         "prompt_text": { "type": "string", "minLength": 1 },
@@ -336,6 +375,7 @@
       "type": "object",
       "required": ["type"],
       "properties": {
+        "max_buttons": { "type": "integer", "minimum": 1 },
         "type": { "type": "string", "enum": ["multi_action", "confirmation"] }
       },
       "allOf": [
@@ -376,6 +416,7 @@
       "additionalProperties": false,
       "required": ["type", "id", "title", "dialog_type"],
       "properties": {
+        "behavior": { "$ref": "#/$defs/promptBehavior" },
         "type": { "const": "dialog" },
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },

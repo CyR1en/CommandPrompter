@@ -33,8 +33,38 @@ public record ConfirmationPrompt(
     String sound,
     boolean sanitize,
     @SerializedName("title_display") TitleConfig titleDisplay,
-    Integer timeout)
+    Integer timeout,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public ConfirmationPrompt(
+      String type,
+      String id,
+      ConfirmationMode mode,
+      String title,
+      String promptText,
+      String confirmText,
+      String cancelText,
+      boolean valueMode,
+      String sound,
+      boolean sanitize,
+      TitleConfig titleDisplay,
+      Integer timeout) {
+    this(
+        type,
+        id,
+        mode,
+        title,
+        promptText,
+        confirmText,
+        cancelText,
+        valueMode,
+        sound,
+        sanitize,
+        titleDisplay,
+        timeout,
+        null);
+  }
 
   /**
    * Canonical constructor. Enforces {@code type == "confirmation"}, non-null required fields, and

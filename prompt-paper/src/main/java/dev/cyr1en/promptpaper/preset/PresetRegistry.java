@@ -125,7 +125,7 @@ public class PresetRegistry {
    *     snapshot is left untouched.
    */
   @SuppressWarnings("null")
-  public void reload() {
+  public synchronized void reload() {
     publishReload(prepareReload());
   }
 
@@ -139,7 +139,7 @@ public class PresetRegistry {
    * changing the active snapshot.
    */
   @SuppressWarnings("null")
-  public PresetSnapshot prepareReload(TemplateSyntax syntax) {
+  public synchronized PresetSnapshot prepareReload(TemplateSyntax syntax) {
     try {
       ensureFileExists();
       byte[] bytes;
@@ -156,71 +156,7 @@ public class PresetRegistry {
             null);
       }
 
-      String content = new String(bytes, StandardCharsets.UTF_8).trim();
-      if (content.isEmpty()) {
-        return new PresetSnapshot(
-            Map.of(), Map.of(), Map.of(), Map.of(), this.snapshot.generation() + 1);
-      }
-
-      var document = JsonParser.parseString(content);
-      if (document == null || document.isJsonNull()) {
-        return new PresetSnapshot(
-            Map.of(), Map.of(), Map.of(), Map.of(), this.snapshot.generation() + 1);
-      }
-
-      if (!document.isJsonObject()) {
-        throw malformed(
-            "document", "<root>", "root", new IllegalArgumentException("expected a JSON object"));
-      }
-
-      var root = document.getAsJsonObject();
-      Map<String, String> seenIds = new LinkedHashMap<>();
-      Gson gson = PresetGson.presetGson(syntax != null ? syntax : TemplateSyntax.DEFAULT);
-
-      var newPrompts =
-          loadDefinitions(
-              gson,
-              root,
-              "prompts",
-              "prompt",
-              PromptDefinition.class,
-              PromptDefinition::id,
-              seenIds);
-      var newPostCommands =
-          loadDefinitions(
-              gson,
-              root,
-              "post_commands",
-              "post-command",
-              PostCommand.class,
-              PostCommand::id,
-              seenIds);
-      var newApprovalGates =
-          loadDefinitions(
-              gson,
-              root,
-              "approval_gates",
-              "approval gate",
-              ApprovalGateDefinition.class,
-              ApprovalGateDefinition::id,
-              seenIds);
-      var newConditionalPostCommands =
-          loadDefinitions(
-              gson,
-              root,
-              "conditional_post_commands",
-              "conditional post-command",
-              ConditionalPostCommandDefinition.class,
-              ConditionalPostCommandDefinition::id,
-              seenIds);
-
-      long nextGeneration = this.snapshot.generation() + 1;
-      return new PresetSnapshot(
-          newPrompts,
-          newPostCommands,
-          newApprovalGates,
-          newConditionalPostCommands,
-          nextGeneration);
+      return parseDocument(bytes, syntax);
     } catch (PresetLoadException e) {
       throw e;
     } catch (IOException | JsonParseException | IllegalArgumentException | NullPointerException e) {
@@ -232,10 +168,164 @@ public class PresetRegistry {
     }
   }
 
+  private PresetSnapshot parseDocument(byte[] bytes, TemplateSyntax syntax) {
+    String content = new String(bytes, StandardCharsets.UTF_8).trim();
+    if (content.isEmpty()) {
+      return new PresetSnapshot(
+          Map.of(), Map.of(), Map.of(), Map.of(), this.snapshot.generation() + 1);
+    }
+
+    var document = JsonParser.parseString(content);
+    if (document == null || document.isJsonNull()) {
+      return new PresetSnapshot(
+          Map.of(), Map.of(), Map.of(), Map.of(), this.snapshot.generation() + 1);
+    }
+
+    if (!document.isJsonObject()) {
+      throw malformed(
+          "document", "<root>", "root", new IllegalArgumentException("expected a JSON object"));
+    }
+
+    var root = document.getAsJsonObject();
+    Map<String, String> seenIds = new LinkedHashMap<>();
+    Gson gson = PresetGson.presetGson(syntax != null ? syntax : TemplateSyntax.DEFAULT);
+
+    var newPrompts =
+        loadDefinitions(
+            gson, root, "prompts", "prompt", PromptDefinition.class, PromptDefinition::id, seenIds);
+    var newPostCommands =
+        loadDefinitions(
+            gson,
+            root,
+            "post_commands",
+            "post-command",
+            PostCommand.class,
+            PostCommand::id,
+            seenIds);
+    var newApprovalGates =
+        loadDefinitions(
+            gson,
+            root,
+            "approval_gates",
+            "approval gate",
+            ApprovalGateDefinition.class,
+            ApprovalGateDefinition::id,
+            seenIds);
+    var newConditionalPostCommands =
+        loadDefinitions(
+            gson,
+            root,
+            "conditional_post_commands",
+            "conditional post-command",
+            ConditionalPostCommandDefinition.class,
+            ConditionalPostCommandDefinition::id,
+            seenIds);
+
+    long nextGeneration = this.snapshot.generation() + 1;
+    return new PresetSnapshot(
+        newPrompts, newPostCommands, newApprovalGates, newConditionalPostCommands, nextGeneration);
+  }
+
   /** Atomically publishes a snapshot returned by {@link #prepareReload()}. */
-  public void publishReload(PresetSnapshot prepared) {
+  public synchronized void publishReload(PresetSnapshot prepared) {
     if (prepared == null) throw new IllegalArgumentException("prepared snapshot must not be null");
+    if (prepared.generation() != snapshot.generation() + 1) {
+      throw new IllegalStateException(
+          "Presets changed while reload was being prepared; retry reload");
+    }
     this.snapshot = prepared;
+  }
+
+  public enum Edit {
+    ADD,
+    UPDATE,
+    REMOVE
+  }
+
+  /** Serializes edits with reloads and publishes only after the validated file is replaced. */
+  public synchronized void editPrompt(Edit edit, String id, JsonObject definition) {
+    if (id == null || id.isBlank())
+      throw new IllegalArgumentException("Preset ID must not be blank");
+    if (edit != Edit.REMOVE && (definition == null || !id.equals(readId(definition)))) {
+      throw new IllegalArgumentException("Preset definition must have the requested ID");
+    }
+    java.nio.file.Path temporary = null;
+    try {
+      ensureFileExists();
+      byte[] original;
+      try (var in = Files.newInputStream(promptsFile.toPath())) {
+        original = in.readNBytes((int) MAX_FILE_SIZE_BYTES + 1);
+      }
+      if (original.length > MAX_FILE_SIZE_BYTES)
+        throw new IllegalArgumentException("Presets exceed 1 MiB");
+      var syntax = syntaxSupplier.get();
+      var current = parseDocument(original, syntax);
+      boolean exists = current.getPrompt(id).isPresent();
+      boolean otherKind =
+          current.getPostCommand(id).isPresent()
+              || current.getApprovalGate(id).isPresent()
+              || current.getConditionalPostCommand(id).isPresent();
+      if (otherKind)
+        throw new IllegalArgumentException("ID belongs to another preset category: " + id);
+      if (edit == Edit.ADD && exists)
+        throw new IllegalArgumentException("Prompt preset already exists: " + id);
+      if (edit != Edit.ADD && !exists)
+        throw new IllegalArgumentException("Prompt preset does not exist: " + id);
+      var text = new String(original, StandardCharsets.UTF_8).trim();
+      var document = text.isEmpty() ? new JsonObject() : JsonParser.parseString(text);
+      var root = document.isJsonNull() ? new JsonObject() : document.getAsJsonObject();
+      var prompts = readArray(root, "prompts");
+      if (prompts == null) {
+        prompts = new JsonArray();
+        root.add("prompts", prompts);
+      }
+      if (exists) {
+        for (int i = 0; i < prompts.size(); i++) {
+          if (id.equals(readId(prompts.get(i)))) {
+            if (edit == Edit.REMOVE) prompts.remove(i);
+            else prompts.set(i, definition.deepCopy());
+            break;
+          }
+        }
+      } else prompts.add(definition.deepCopy());
+      var bytes =
+          (new com.google.gson.GsonBuilder()
+                      .setPrettyPrinting()
+                      .disableHtmlEscaping()
+                      .create()
+                      .toJson(root)
+                  + "\n")
+              .getBytes(StandardCharsets.UTF_8);
+      if (bytes.length > MAX_FILE_SIZE_BYTES)
+        throw new IllegalArgumentException("Presets would exceed 1 MiB");
+      var prepared = parseDocument(bytes, syntax);
+      var target = promptsFile.toPath().toAbsolutePath();
+      temporary = Files.createTempFile(target.getParent(), ".presets-", ".json.tmp");
+      Files.write(temporary, bytes);
+      // Detect an external edit made while this operation was preparing the document.
+      byte[] latest;
+      try (var in = Files.newInputStream(target)) {
+        latest = in.readNBytes((int) MAX_FILE_SIZE_BYTES + 1);
+      }
+      if (!java.util.Arrays.equals(original, latest)) {
+        throw new IllegalStateException("presets.json changed during the edit; retry the command");
+      }
+      Files.move(
+          temporary,
+          target,
+          java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+          java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      publishReload(prepared);
+    } catch (IOException | JsonParseException e) {
+      throw new PresetLoadException("Unable to save presets: " + safeMessage(e), e);
+    } finally {
+      if (temporary != null) {
+        try {
+          Files.deleteIfExists(temporary);
+        } catch (IOException ignored) {
+        }
+      }
+    }
   }
 
   /** Returns the current immutable snapshot of all registered presets. */

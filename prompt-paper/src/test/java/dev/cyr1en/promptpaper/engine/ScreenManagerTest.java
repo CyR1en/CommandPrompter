@@ -480,6 +480,13 @@ class ScreenManagerTest extends MockBukkitTest {
         new dev.cyr1en.promptpaper.preset.DialogPrompt(
             "dialog", "my_tab_preset", "Choose", base, dt, true);
     when(registry.getPrompt("my_tab_preset")).thenReturn(java.util.Optional.of(dialog));
+    when(registry.getSnapshot())
+        .thenReturn(
+            new dev.cyr1en.promptpaper.preset.PresetSnapshot(
+                java.util.Map.of("my_tab_preset", dialog),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of()));
 
     var dummyScreen = org.mockito.Mockito.mock(dev.cyr1en.promptui.InputScreen.class);
     when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any()))

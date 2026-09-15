@@ -33,10 +33,24 @@ public record DialogTypeConfig(
     @SerializedName("actions_source") ActionsSource actionsSource,
     @SerializedName("exit_action") ActionButtonConfig exitAction,
     @SerializedName("confirm_action") ActionButtonConfig confirmAction,
-    @SerializedName("cancel_action") ActionButtonConfig cancelAction) {
+    @SerializedName("cancel_action") ActionButtonConfig cancelAction,
+    @SerializedName("max_buttons") Integer maxButtons) {
+
+  public DialogTypeConfig(
+      DialogType type,
+      Integer columns,
+      List<ActionButtonConfig> actions,
+      ActionsSource actionsSource,
+      ActionButtonConfig exitAction,
+      ActionButtonConfig confirmAction,
+      ActionButtonConfig cancelAction) {
+    this(type, columns, actions, actionsSource, exitAction, confirmAction, cancelAction, null);
+  }
 
   /** Canonical constructor. Coerces {@code null} {@link #actions()} to an empty list. */
   public DialogTypeConfig {
+    if (maxButtons != null && maxButtons < 1)
+      throw new IllegalArgumentException("max_buttons must be positive");
     Objects.requireNonNull(type, "type must not be null");
     actions = actions == null ? List.of() : List.copyOf(actions);
   }

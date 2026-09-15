@@ -156,65 +156,67 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
       if (plugin.getExecutionCoordinator() != null) plugin.getExecutionCoordinator().cancelAll();
       if (plugin.getEngine() != null) plugin.getEngine().discardAll();
       var loader = plugin.getConfigLoader();
-      var preparedConfig = loader.prepareReload();
-      var engine = plugin.getEngine();
-      var preparedParser = engine != null ? engine.prepareParser(preparedConfig.config()) : null;
-
       var registry = plugin.getPresetRegistry();
-      var preparedPresets =
-          registry != null
-              ? registry.prepareReload(preparedConfig.config().templateSyntax())
-              : null;
+      synchronized (registry != null ? registry : loader) {
+        var preparedConfig = loader.prepareReload();
+        var engine = plugin.getEngine();
+        var preparedParser = engine != null ? engine.prepareParser(preparedConfig.config()) : null;
 
-      var catalogRegistry = plugin.getItemCatalogRegistry();
-      var preparedCatalog = catalogRegistry != null ? catalogRegistry.prepareReload() : null;
+        var preparedPresets =
+            registry != null
+                ? registry.prepareReload(preparedConfig.config().templateSyntax())
+                : null;
 
-      // Nothing becomes visible until every file and parser has been validated.
-      loader.publishReload(
-          preparedConfig,
-          () -> {
-            if (registry != null) registry.publishReload(preparedPresets);
-            if (catalogRegistry != null) catalogRegistry.publishReload(preparedCatalog);
-            if (engine != null) engine.publishParser(preparedParser);
-          });
+        var catalogRegistry = plugin.getItemCatalogRegistry();
+        var preparedCatalog = catalogRegistry != null ? catalogRegistry.prepareReload() : null;
 
-      try {
-        plugin.getPluginLogger().reload(preparedConfig.config());
-      } catch (Throwable t) {
-        plugin
-            .getLogger()
-            .warning("Configuration published but logger refresh failed: " + t.getMessage());
+        // Nothing becomes visible until every file and parser has been validated.
+        loader.publishReload(
+            preparedConfig,
+            () -> {
+              if (registry != null) registry.publishReload(preparedPresets);
+              if (catalogRegistry != null) catalogRegistry.publishReload(preparedCatalog);
+              if (engine != null) engine.publishParser(preparedParser);
+            });
+
+        try {
+          plugin.getPluginLogger().reload(preparedConfig.config());
+        } catch (Throwable t) {
+          plugin
+              .getLogger()
+              .warning("Configuration published but logger refresh failed: " + t.getMessage());
+        }
+
+        if (registry != null) {
+          var presetMsg =
+              "Loaded presets: <green>"
+                  + registry.promptCount()
+                  + " prompts</green>, <gold>"
+                  + registry.postCommandCount()
+                  + " post commands</gold>";
+          plugin.getPluginLogger().info(presetMsg);
+          plugin
+              .getPluginLogger()
+              .debug("Loaded prompt IDs: " + String.join(", ", registry.getPromptIds()));
+          plugin
+              .getPluginLogger()
+              .debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
+        }
+        if (catalogRegistry != null) {
+          var catSnapshot = catalogRegistry.getSnapshot();
+          var catalogMsg =
+              "Loaded item catalogs: <green>"
+                  + catSnapshot.categoryCount()
+                  + " categories</green>, <gold>"
+                  + catSnapshot.totalEntryCount()
+                  + " items</gold>";
+          plugin.getPluginLogger().info(catalogMsg);
+          plugin
+              .getPluginLogger()
+              .debug("Loaded catalog categories: " + String.join(", ", catSnapshot.categories()));
+        }
+        sendResult(sender, feedbackLocation, "command.reload.success");
       }
-
-      if (registry != null) {
-        var presetMsg =
-            "Loaded presets: <green>"
-                + registry.promptCount()
-                + " prompts</green>, <gold>"
-                + registry.postCommandCount()
-                + " post commands</gold>";
-        plugin.getPluginLogger().info(presetMsg);
-        plugin
-            .getPluginLogger()
-            .debug("Loaded prompt IDs: " + String.join(", ", registry.getPromptIds()));
-        plugin
-            .getPluginLogger()
-            .debug("Loaded post-command IDs: " + String.join(", ", registry.getPostCommandIds()));
-      }
-      if (catalogRegistry != null) {
-        var catSnapshot = catalogRegistry.getSnapshot();
-        var catalogMsg =
-            "Loaded item catalogs: <green>"
-                + catSnapshot.categoryCount()
-                + " categories</green>, <gold>"
-                + catSnapshot.totalEntryCount()
-                + " items</gold>";
-        plugin.getPluginLogger().info(catalogMsg);
-        plugin
-            .getPluginLogger()
-            .debug("Loaded catalog categories: " + String.join(", ", catSnapshot.categories()));
-      }
-      sendResult(sender, feedbackLocation, "command.reload.success");
     } catch (Exception e) {
       sendResult(sender, feedbackLocation, "command.reload.failed", reloadError(e.getMessage()));
     } finally {

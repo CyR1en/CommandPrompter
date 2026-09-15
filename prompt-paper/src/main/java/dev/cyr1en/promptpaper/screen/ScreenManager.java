@@ -652,7 +652,10 @@ public class ScreenManager {
     if (tag.isPreset()) {
       var registry = plugin.getPresetRegistry();
       if (registry != null) {
-        var optDef = registry.getPrompt(tag.displayText());
+        var captured = engine.getInceptionArtifacts(player.getUniqueId());
+        var snapshot =
+            captured.isPresent() ? captured.get().presetSnapshot() : registry.getSnapshot();
+        var optDef = snapshot.getPrompt(tag.displayText());
         if (optDef.isPresent() && optDef.get() instanceof DialogPrompt dialogPrompt) {
           var dt = dialogPrompt.dialogType();
           if (dt != null && dt.actionsSource() == ActionsSource.TAB_COMPLETION) {

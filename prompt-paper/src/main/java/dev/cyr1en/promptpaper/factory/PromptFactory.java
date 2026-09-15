@@ -249,12 +249,17 @@ public class PromptFactory {
     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
     if (tag.isPreset()) {
       // Lookup uses the raw displayText — a PAPI-looking preset id must never be expanded.
+      var captured =
+          plugin.getEngine() != null
+              ? plugin.getEngine().getInceptionArtifacts(player.getUniqueId())
+              : null;
+      var definition =
+          captured != null && captured.isPresent()
+              ? captured.get().presetSnapshot().getPrompt(tag.displayText())
+              : plugin.getPresetRegistry().getPrompt(tag.displayText());
       var def =
-          plugin
-              .getPresetRegistry()
-              .getPrompt(tag.displayText())
-              .orElseThrow(
-                  () -> new IllegalStateException("Preset prompt not found: " + tag.displayText()));
+          definition.orElseThrow(
+              () -> new IllegalStateException("Preset prompt not found: " + tag.displayText()));
       return create(player, def, context);
     }
     var promptConfig = plugin.getConfigLoader().getPromptConfig();

@@ -1,16 +1,23 @@
 package dev.cyr1en.promptpaper.factory;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
 import dev.cyr1en.promptcore.ConfirmationGrammar;
 import dev.cyr1en.promptcore.ItemGrammar;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.TitleConfig;
 import dev.cyr1en.promptpaper.config.ScreenType;
+import dev.cyr1en.promptpaper.config.sub.DialogConfig;
+import dev.cyr1en.promptpaper.preset.ActionButtonConfig;
+import dev.cyr1en.promptpaper.preset.ActionsSource;
 import dev.cyr1en.promptpaper.preset.AnvilButton;
 import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
 import dev.cyr1en.promptpaper.preset.ChatPrompt;
 import dev.cyr1en.promptpaper.preset.ConfirmationPrompt;
 import dev.cyr1en.promptpaper.preset.DialogBaseConfig;
+import dev.cyr1en.promptpaper.preset.DialogBodyConfig;
+import dev.cyr1en.promptpaper.preset.DialogBodyType;
 import dev.cyr1en.promptpaper.preset.DialogPrompt;
 import dev.cyr1en.promptpaper.preset.DialogRow;
 import dev.cyr1en.promptpaper.preset.DialogType;
@@ -18,8 +25,10 @@ import dev.cyr1en.promptpaper.preset.DialogTypeConfig;
 import dev.cyr1en.promptpaper.preset.InputType;
 import dev.cyr1en.promptpaper.preset.ItemPrompt;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
+import dev.cyr1en.promptpaper.preset.PromptBehavior;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
+import dev.cyr1en.promptpaper.screen.dialog.DialogConstraints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +39,7 @@ import java.util.UUID;
  * fields absent from inline syntax receive valid defaults; screens resolve cosmetic settings from
  * YAML configuration.
  *
- * <p>Inline dialog rows retain input kinds. Their constraints are resolved from the original tag
- * and YAML configuration by the factory's inline-dialog path.
+ * <p>Dialog rows preserve their input constraints and layout in the JSON definition.
  */
 public final class InlineTagMapper {
 
@@ -81,14 +89,26 @@ public final class InlineTagMapper {
    */
   public static PromptDefinition toPromptDefinition(
       PromptTag tag, Map<String, ScreenType> mappings) {
+    return toPromptDefinition(
+        tag, mappings, nextInlineId(), DialogConfig.legacy("Dialog", "Confirm", "", "Cancel", ""));
+  }
+
+  /** Converts an inline prompt into a persistable definition with the requested ID. */
+  public static PromptDefinition toPromptDefinition(
+      PromptTag tag, Map<String, ScreenType> mappings, String id, DialogConfig dialogDefaults) {
     if (tag == null) throw new IllegalArgumentException("tag must not be null");
-    var id = nextInlineId();
+    if (tag.isPreset())
+      throw new IllegalArgumentException("Expected an inline prompt, not a preset reference");
+    var behavior = PromptBehavior.fromTag(tag);
     var text = tag.displayText() == null ? "" : tag.displayText();
     var sanitize = tag.sanitize();
     var title = resolveTitle(tag);
     var screenType = resolveScreenType(tag, mappings);
+    if (tag.isCompound()) {
+      for (var row : tag.subTags()) resolveScreenType(row, mappings);
+    }
     return switch (screenType) {
-      case CHAT -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title);
+      case CHAT -> new ChatPrompt("chat", id, text, defaultCancel(), sanitize, title, behavior);
       case ANVIL ->
           new AnvilPrompt(
               "anvil",
@@ -98,12 +118,13 @@ public final class InlineTagMapper {
               defaultAnvilButton(),
               defaultAnvilButton(),
               sanitize,
-              title);
-      case SIGN -> new SignPrompt("sign", id, text, List.of(), sanitize, title);
+              title,
+              behavior);
+      case SIGN -> new SignPrompt("sign", id, text, List.of(), sanitize, title, behavior);
       case PLAYER ->
           new PlayerUiPrompt(
-              "player_ui", id, text, tag.filter(), null, null, null, sanitize, title);
-      case DIALOG -> toDialogPrompt(tag, id, sanitize, title);
+              "player_ui", id, text, tag.filter(), null, null, null, sanitize, title, behavior);
+      case DIALOG -> toDialogPrompt(tag, id, sanitize, title, dialogDefaults);
       case CONFIRMATION -> toConfirmationPrompt(tag, id, sanitize, title);
       case ITEM -> toItemPrompt(tag, id, sanitize, title);
     };
@@ -151,41 +172,93 @@ public final class InlineTagMapper {
     return new AnvilButton(true, "", "PAPER", "", 0);
   }
 
-  /**
-   * Builds a {@link DialogPrompt} from a (possibly compound) dialog {@link PromptTag}.
-   *
-   * <p>For a single-row tag ({@code <d:text:Label>}) the dialog has one row whose {@code inputType}
-   * is parsed from the tag's {@code filter} segment. For a compound tag ({@code <d:choice[…] &&
-   * d:num[…] …>}) each sub-tag becomes one row. The tag's {@code filter} starting with {@code
-   * "tab"} switches the resulting dialog into {@link DialogType#MULTI_ACTION} mode; everything else
-   * falls back to a {@link DialogType#CONFIRMATION} layout per the spec's Rule 1 / Rule 2 mapping.
-   *
-   * <p>{@code constraints} are not preserved: the JSON schema stores them as a separate field that
-   * has no analog in a {@link PromptTag}.
-   */
+  /** Maps layout rows, input constraints, and tab completion to their JSON fields. */
   private static DialogPrompt toDialogPrompt(
-      PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
+      PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig, DialogConfig defaults) {
     var sourceRows = tag.isCompound() ? tag.subTags() : List.of(tag);
-    var rows = new ArrayList<DialogRow>(sourceRows.size());
+    var rows = new ArrayList<DialogRow>();
+    var body = new ArrayList<DialogBodyConfig>();
+    String dialogTitle = defaults.title();
+    boolean foundTitle = false;
+    Integer tabMaxButtons = null;
+    boolean tab = false;
     for (var sub : sourceRows) {
-      var inputType = parseInputType(sub.filter());
-      var label = sub.displayText() == null ? "" : sub.displayText();
-      rows.add(new DialogRow(label, inputType, null));
+      var c = DialogConstraints.from(sub.filter(), defaults);
+      var label = sub.displayText();
+      switch (c.kind()) {
+        case TITLE -> {
+          if (!foundTitle) dialogTitle = label;
+          foundTitle = true;
+        }
+        case BODY ->
+            body.add(
+                c.rawFilter().equalsIgnoreCase("item")
+                    ? new DialogBodyConfig(DialogBodyType.ITEM, null, label, 1)
+                    : new DialogBodyConfig(
+                        DialogBodyType.PLAIN_MESSAGE,
+                        label,
+                        null,
+                        1,
+                        c.width() == 0 ? null : c.width()));
+        case TEXT ->
+            rows.add(
+                new DialogRow(
+                    label,
+                    InputType.TEXT,
+                    List.of(),
+                    c.maxLength(),
+                    c.multilineMaxLines(),
+                    c.width()));
+        case NUMBER ->
+            rows.add(
+                new DialogRow(
+                    label,
+                    InputType.NUMBER,
+                    List.of(
+                        new JsonPrimitive(c.min()),
+                        new JsonPrimitive(c.max()),
+                        new JsonPrimitive(c.step()),
+                        new JsonPrimitive(c.initial()))));
+        case CHOICE ->
+            rows.add(
+                c.options().isEmpty()
+                    ? new DialogRow(label, InputType.TEXT, List.of())
+                    : new DialogRow(
+                        label,
+                        InputType.CHOICE,
+                        c.options().stream().<JsonElement>map(JsonPrimitive::new).toList()));
+        case TAB -> {
+          tab = true;
+          tabMaxButtons = c.maxButtons();
+        }
+      }
     }
-    var dialogTitle =
-        tag.displayText() == null || tag.displayText().isBlank() ? "Dialog" : tag.displayText();
-
-    var base = new DialogBaseConfig(List.of(), rows);
+    var confirm =
+        new ActionButtonConfig(defaults.confirm().label(), defaults.confirm().tooltip(), null);
+    var cancel =
+        new ActionButtonConfig(defaults.cancel().label(), defaults.cancel().tooltip(), null);
     var dialogType =
-        isTabFilter(tag)
-            ? new DialogTypeConfig(DialogType.MULTI_ACTION, 2, null, null, null, null, null)
-            : new DialogTypeConfig(DialogType.CONFIRMATION, null, null, null, null, null, null);
-    return new DialogPrompt("dialog", id, dialogTitle, base, dialogType, sanitize, titleConfig);
-  }
-
-  private static boolean isTabFilter(PromptTag tag) {
-    if (tag == null || tag.filter() == null) return false;
-    return tag.filter().toLowerCase().startsWith("tab");
+        tab
+            ? new DialogTypeConfig(
+                DialogType.MULTI_ACTION,
+                2,
+                null,
+                ActionsSource.TAB_COMPLETION,
+                cancel,
+                null,
+                null,
+                tabMaxButtons)
+            : new DialogTypeConfig(
+                DialogType.CONFIRMATION, null, null, null, null, confirm, cancel);
+    return new DialogPrompt(
+        "dialog",
+        id,
+        dialogTitle,
+        new DialogBaseConfig(body, rows),
+        dialogType,
+        sanitize,
+        titleConfig,
+        PromptBehavior.fromTag(tag));
   }
 
   private static ConfirmationPrompt toConfirmationPrompt(
@@ -203,7 +276,8 @@ public final class InlineTagMapper {
         syntax.soundKey(),
         sanitize,
         titleConfig,
-        tag.timeout());
+        tag.timeout(),
+        PromptBehavior.fromTag(tag));
   }
 
   private static ItemPrompt toItemPrompt(
@@ -219,14 +293,7 @@ public final class InlineTagMapper {
         syntax.soundKey(),
         sanitize,
         titleConfig,
-        tag.timeout());
-  }
-
-  private static InputType parseInputType(String filter) {
-    if (filter == null) return InputType.TEXT;
-    var f = filter.toLowerCase();
-    if (f.startsWith("num")) return InputType.NUMBER;
-    if (f.startsWith("choice")) return InputType.CHOICE;
-    return InputType.TEXT;
+        tag.timeout(),
+        PromptBehavior.fromTag(tag));
   }
 }

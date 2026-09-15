@@ -30,8 +30,20 @@ public record DialogPrompt(
     DialogBaseConfig base,
     @SerializedName("dialog_type") DialogTypeConfig dialogType,
     boolean sanitize,
-    @SerializedName("title_display") TitleConfig titleDisplay)
+    @SerializedName("title_display") TitleConfig titleDisplay,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public DialogPrompt(
+      String type,
+      String id,
+      String title,
+      DialogBaseConfig base,
+      DialogTypeConfig dialogType,
+      boolean sanitize,
+      TitleConfig titleDisplay) {
+    this(type, id, title, base, dialogType, sanitize, titleDisplay, null);
+  }
 
   /** Canonical constructor. */
   public DialogPrompt {

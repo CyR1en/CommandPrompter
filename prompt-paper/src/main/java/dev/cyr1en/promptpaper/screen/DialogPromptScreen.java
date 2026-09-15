@@ -196,7 +196,11 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
       // downstream preset methods read this snapshot.
       tabFlowState =
           TabFlowState.resolveOnce(
-              dialogPrompt.dialogType(), dialogConfig.tab().maxButtons(), this::tabCompletions);
+              dialogPrompt.dialogType(),
+              dialogPrompt.dialogType().maxButtons() != null
+                  ? dialogPrompt.dialogType().maxButtons()
+                  : dialogConfig.tab().maxButtons(),
+              this::tabCompletions);
       effectiveAnswerCount = computePresetAnswerCount();
       openFromDialogPrompt();
     } else if (kind == DialogInputKind.TAB && context != null && context.hasCompletions()) {

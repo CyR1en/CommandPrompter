@@ -25,6 +25,9 @@ public sealed interface PromptDefinition
   /** The discriminator value as it appears in the JSON {@code type} field. */
   String type();
 
+  /** Optional execution options shared by every structured preset type. */
+  PromptBehavior behavior();
+
   /** The unique identifier referenced by {@code <@id>} tags in command strings. */
   String id();
 

@@ -25,8 +25,19 @@ public record SignPrompt(
     @SerializedName("prompt_text") String promptText,
     @SerializedName("default_lines") List<String> defaultLines,
     boolean sanitize,
-    @SerializedName("title_display") TitleConfig titleDisplay)
+    @SerializedName("title_display") TitleConfig titleDisplay,
+    PromptBehavior behavior)
     implements PromptDefinition {
+  /** Constructor for definitions without additional execution options. */
+  public SignPrompt(
+      String type,
+      String id,
+      String promptText,
+      List<String> defaultLines,
+      boolean sanitize,
+      TitleConfig titleDisplay) {
+    this(type, id, promptText, defaultLines, sanitize, titleDisplay, null);
+  }
 
   /** Canonical constructor; coerces {@code null} {@code defaultLines} to an empty list. */
   public SignPrompt {
