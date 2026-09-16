@@ -230,6 +230,7 @@ public final class InlineTagMapper {
         case TAB -> {
           tab = true;
           tabMaxButtons = c.maxButtons();
+          if (!label.isBlank()) dialogTitle = label;
         }
       }
     }

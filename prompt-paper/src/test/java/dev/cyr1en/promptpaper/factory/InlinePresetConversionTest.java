@@ -75,6 +75,7 @@ class InlinePresetConversionTest {
   @Test
   void tabCompletionPersistsSourceAndThresholdWithoutConflictingActions() {
     var tab = assertInstanceOf(DialogPrompt.class, convert("<d:tab[12]:Choose>"));
+    assertEquals("Choose", tab.title());
     assertEquals(ActionsSource.TAB_COMPLETION, tab.dialogType().actionsSource());
     assertEquals(12, tab.dialogType().maxButtons());
     assertTrue(tab.base().inputs().isEmpty());
@@ -84,6 +85,12 @@ class InlinePresetConversionTest {
             .getAsJsonObject()
             .getAsJsonObject("dialog_type")
             .has("actions"));
+  }
+
+  @Test
+  void tabCompletionWithoutInstructionKeepsConfiguredTitle() {
+    var tab = assertInstanceOf(DialogPrompt.class, convert("<d:tab:>"));
+    assertEquals("Configured title", tab.title());
   }
 
   @Test

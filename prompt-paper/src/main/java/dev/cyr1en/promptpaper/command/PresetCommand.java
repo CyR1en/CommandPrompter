@@ -5,6 +5,8 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.factory.InlineTagMapper;
+import dev.cyr1en.promptpaper.preset.CancelBehavior;
+import dev.cyr1en.promptpaper.preset.ChatPrompt;
 import dev.cyr1en.promptpaper.preset.PresetGson;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -113,10 +115,18 @@ public final class PresetCommand extends PromptCommand {
               && !(definition instanceof dev.cyr1en.promptpaper.preset.DialogPrompt)) {
             throw new IllegalArgumentException("Compound presets must use a dialog prompt type");
           }
-          json =
-              PresetGson.presetGson(plugin.getConfigLoader().getConfig().templateSyntax())
-                  .toJsonTree(definition)
-                  .getAsJsonObject();
+          var gson = PresetGson.presetGson(plugin.getConfigLoader().getConfig().templateSyntax());
+          json = gson.toJsonTree(definition).getAsJsonObject();
+          if (definition instanceof ChatPrompt) {
+            json.add(
+                "cancel",
+                gson.toJsonTree(
+                    new CancelBehavior(
+                        config.sendCancelText(),
+                        config.textCancelMessage(),
+                        config.sendCancelText(),
+                        config.textCancelHoverMessage())));
+          }
         }
         registry.editPrompt(edit, id, json);
       }

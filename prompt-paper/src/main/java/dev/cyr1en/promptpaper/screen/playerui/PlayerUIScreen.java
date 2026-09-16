@@ -190,7 +190,8 @@ public class PlayerUIScreen implements InputScreen {
     var headCache = plugin.getHeadCache();
     var promptConfig = plugin.getConfigLoader().getPromptConfig();
 
-    if (tag.filter() == null || tag.filter().isBlank()) {
+    var filters = headCache.extractFilters(tag.filter());
+    if (filters.isEmpty()) {
       var heads =
           Bukkit.getOnlinePlayers().stream()
               .filter(p -> !headCache.isVanished(p))
@@ -206,33 +207,27 @@ public class PlayerUIScreen implements InputScreen {
       return result;
     }
 
-    var filters = headCache.extractFilters(tag.filter());
-    if (!filters.isEmpty()) {
-      plugin
-          .getPluginLogger()
-          .debug("PlayerUI applying " + filters.size() + " filters: " + tag.filter());
-      var filteredPlayers =
-          new ArrayList<Player>(
-              Bukkit.getOnlinePlayers().stream().filter(p -> !headCache.isVanished(p)).toList());
-      for (var filter : filters) {
-        filteredPlayers.retainAll(filter.filter(player));
-      }
-      var heads =
-          filteredPlayers.stream()
-              .map(headCache::getHeadFor)
-              .filter(java.util.Optional::isPresent)
-              .map(java.util.Optional::get)
-              .toList();
-      plugin.getPluginLogger().debug("PlayerUI filtered heads=" + heads.size());
-      var result = new ArrayList<>(heads);
-      if (promptConfig.sorted()) {
-        sortHeads(result);
-      }
-      return applyFirstFilterFormat(result, filters.get(0), promptConfig);
+    plugin
+        .getPluginLogger()
+        .debug("PlayerUI applying " + filters.size() + " filters: " + tag.filter());
+    var filteredPlayers =
+        new ArrayList<Player>(
+            Bukkit.getOnlinePlayers().stream().filter(p -> !headCache.isVanished(p)).toList());
+    for (var filter : filters) {
+      filteredPlayers.retainAll(filter.filter(player));
     }
-
-    plugin.getPluginLogger().debug("PlayerUI no matching filter, using all heads");
-    return promptConfig.sorted() ? headCache.getHeadsSorted() : headCache.getHeads();
+    var heads =
+        filteredPlayers.stream()
+            .map(headCache::getHeadFor)
+            .filter(java.util.Optional::isPresent)
+            .map(java.util.Optional::get)
+            .toList();
+    plugin.getPluginLogger().debug("PlayerUI filtered heads=" + heads.size());
+    var result = new ArrayList<>(heads);
+    if (promptConfig.sorted()) {
+      sortHeads(result);
+    }
+    return applyFirstFilterFormat(result, filters.get(0), promptConfig);
   }
 
   private static void sortHeads(List<ItemStack> heads) {

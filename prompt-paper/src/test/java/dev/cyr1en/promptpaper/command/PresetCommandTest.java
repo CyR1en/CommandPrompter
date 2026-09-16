@@ -8,7 +8,9 @@ import dev.cyr1en.promptcore.ParserConfig;
 import dev.cyr1en.promptcore.parser.CommandLineParser;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.factory.InlineTagMapper;
 import dev.cyr1en.promptpaper.preset.*;
+import dev.cyr1en.promptpaper.screen.ChatPromptScreen;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +29,8 @@ class PresetCommandTest extends MockBukkitTest {
 
   @BeforeEach
   void prepare() throws Exception {
+    when(promptConfig.textCancelMessage()).thenReturn(" [Cancel]");
+    when(promptConfig.textCancelHoverMessage()).thenReturn("Cancel this prompt");
     var file = directory.resolve("presets.json");
     Files.writeString(file, "{\"prompts\":[]}");
     registry = new PresetRegistry(file.toFile(), null);
@@ -61,6 +65,27 @@ class PresetCommandTest extends MockBukkitTest {
     assertEquals(1, run("remove rename"));
     registry.reload();
     assertTrue(registry.getPromptIds().isEmpty());
+  }
+
+  @Test
+  void savedChatPreservesConfiguredCancellationControls() throws Exception {
+    var player = createPlayer();
+    var tag = new CommandLineParser().parse("<What is your name?>").promptTags().getFirst();
+    for (var enabled : new boolean[] {true, false}) {
+      when(promptConfig.sendCancelText()).thenReturn(enabled);
+      var inline = assertInstanceOf(ChatPrompt.class, InlineTagMapper.toPromptDefinition(tag));
+      new ChatPromptScreen(plugin, player, inline).open();
+      var inlineMessage = player.nextComponentMessage();
+
+      var id = "chat" + enabled;
+      assertEquals(1, run("add " + id + " <What is your name?>"));
+      registry.reload();
+      var saved = assertInstanceOf(ChatPrompt.class, registry.getPrompt(id).orElseThrow());
+      assertEquals(
+          new CancelBehavior(enabled, " [Cancel]", enabled, "Cancel this prompt"), saved.cancel());
+      new ChatPromptScreen(plugin, player, saved).open();
+      assertEquals(inlineMessage, player.nextComponentMessage());
+    }
   }
 
   @Test

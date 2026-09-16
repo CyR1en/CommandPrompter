@@ -187,6 +187,25 @@ class PlayerUIScreenTest extends MockBukkitTest {
     assertTrue(names.contains("Beta"), "online player must be shown despite empty cache");
   }
 
+  @Test
+  void unknownFilterShowsAllOnlinePlayersWithEmptyOrBoundedCache() throws Exception {
+    when(promptConfig.cacheSize()).thenReturn(1);
+    var realCache = stubRealCacheWithBuiltins();
+    createPlayer("Alpha");
+    createPlayer("Beta");
+    var unknownFilterScreen = buildFilteredScreen("qqq");
+    assertEquals(0, realCache.size());
+
+    var names = skullNames(unknownFilterScreen);
+    assertEquals(3, names.size());
+    assertTrue(names.containsAll(List.of("TestPlayer", "Alpha", "Beta")));
+    assertEquals(1, realCache.size());
+
+    var cachedNames = skullNames(unknownFilterScreen);
+    assertEquals(3, cachedNames.size());
+    assertTrue(cachedNames.containsAll(List.of("TestPlayer", "Alpha", "Beta")));
+  }
+
   /**
    * Regression for #86: the empty-state item must use the configured {@code PlayerUI.Empty-Message}
    * on a BARRIER with no click action.
