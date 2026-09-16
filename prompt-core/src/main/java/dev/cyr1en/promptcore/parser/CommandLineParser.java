@@ -578,7 +578,7 @@ public class CommandLineParser {
               && !rest.startsWith("\"")
               && !rest.substring(0, secondColon).contains(" ")
               && !rest.substring(0, secondColon).contains("\"")
-              && !rest.substring(0, secondColon).contains("-")) {
+              && !hasUnbracketedHyphen(rest.substring(0, secondColon))) {
             filter = rest.substring(0, secondColon).trim();
             remainder = rest.substring(secondColon + 1);
           } else {
@@ -590,7 +590,7 @@ public class CommandLineParser {
 
     Condition breakIf = null;
     if (isBuiltInKey(key)) {
-      var breakIfResult = extractBreakIf(remainder);
+      var breakIfResult = extractBreakIf(remainder, config);
       remainder = breakIfResult.remainingContent();
       breakIf = breakIfResult.condition();
     }
@@ -645,6 +645,17 @@ public class CommandLineParser {
             timeout,
             flags,
             breakIf));
+  }
+
+  private static boolean hasUnbracketedHyphen(String content) {
+    int depth = 0;
+    for (int i = 0; i < content.length(); i++) {
+      char c = content.charAt(i);
+      if (c == '[') depth++;
+      else if (c == ']' && depth > 0) depth--;
+      else if (c == '-' && depth == 0) return true;
+    }
+    return false;
   }
 
   /**
@@ -832,7 +843,7 @@ public class CommandLineParser {
    */
   private void parseCompoundPromptTag(
       String rawContent, String fullTag, List<PromptTag> promptTags) {
-    var breakIfResult = extractBreakIf(rawContent);
+    var breakIfResult = extractBreakIf(rawContent, config);
     var contentWithoutBreakIf = breakIfResult.remainingContent();
     var breakIf = breakIfResult.condition();
 
@@ -1141,13 +1152,29 @@ public class CommandLineParser {
   }
 
   private String unescape(String input) {
+    return unescape(input, config, false);
+  }
+
+  private static String unescape(
+      String input, ParserConfig config, boolean preserveQuotedLiterals) {
     if (input == null || input.isEmpty()) return input;
     String escape = config.escape();
     String opening = config.opening();
     String closing = config.closing();
     var result = new StringBuilder(input.length());
     int i = 0;
+    boolean inQuotes = false;
     while (i < input.length()) {
+      if (preserveQuotedLiterals) {
+        if (input.charAt(i) == '"') inQuotes = !inQuotes;
+        if (inQuotes) {
+          if (input.charAt(i) == '\\' && i + 1 < input.length()) {
+            result.append(input.charAt(i++));
+          }
+          result.append(input.charAt(i++));
+          continue;
+        }
+      }
       if (input.startsWith(escape, i)) {
         int nextIdx = i + escape.length();
         if (input.startsWith(opening, nextIdx)) {
@@ -1203,6 +1230,10 @@ public class CommandLineParser {
    *     invalid syntax
    */
   public static BreakIfResult extractBreakIf(String content) {
+    return extractBreakIf(content, ParserConfig.ANGLE_BRACKETS);
+  }
+
+  private static BreakIfResult extractBreakIf(String content, ParserConfig config) {
     if (content == null || content.isEmpty()) {
       return new BreakIfResult(content == null ? "" : content, null);
     }
@@ -1272,7 +1303,9 @@ public class CommandLineParser {
 
     Condition condition;
     try {
-      condition = ConditionCompiler.compile(conditionSource, ConditionCompileOptions.forInline());
+      condition =
+          ConditionCompiler.compile(
+              unescape(conditionSource, config, true), ConditionCompileOptions.forInline());
     } catch (ConditionException e) {
       throw new IllegalArgumentException("Invalid -breakIf condition: " + e.getMessage(), e);
     }

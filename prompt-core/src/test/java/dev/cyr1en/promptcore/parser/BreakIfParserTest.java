@@ -2,6 +2,7 @@ package dev.cyr1en.promptcore.parser;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.cyr1en.promptcore.ParserConfig;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.logic.condition.ConditionBindings;
 import java.util.List;
@@ -108,6 +109,79 @@ class BreakIfParserTest {
 
     assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("-15")));
     assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("0")));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {">", ">="})
+  void parsesEscapedComparisonDelimiter(String operator) {
+    var tag =
+        parser
+            .parse("/test <a:Amount -breakIf:{0} \\" + operator + " 5 -timeout:30>")
+            .promptTags()
+            .getFirst();
+    assertEquals("Amount", tag.displayText());
+    assertEquals(30, tag.timeout());
+    assertEquals("{0} " + operator + " 5", tag.breakIf().source());
+    assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("6")));
+    assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("4")));
+    assertEquals(operator.equals(">="), tag.breakIf().evaluate(ConditionBindings.ofAnswers("5")));
+  }
+
+  @Test
+  void escapedComparisonPreservesQuotedConditionEscapes() {
+    var quoted = "\"path\\\\to\\\"file > limit\"";
+    var tag =
+        parser
+            .parse("/test <a:Value -breakIf:{0} equals " + quoted + " && {1} \\>= 5>")
+            .promptTags()
+            .getFirst();
+    assertEquals("{0} equals " + quoted + " && {1} >= 5", tag.breakIf().source());
+    assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("path\\to\"file > limit", "6")));
+    assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("pathto\"file > limit", "6")));
+  }
+
+  @Test
+  void parsesEscapedComparisonInCompoundDialog() {
+    var tag =
+        parser
+            .parse(
+                "/test <d:num[-10,10]:Amount -breakIf:({0} \\> 5 && {0} <= 10)"
+                    + " && d:text:Reason -timeout:30>")
+            .promptTags()
+            .getFirst();
+    assertEquals(2, tag.subTags().size());
+    assertEquals("num[-10,10]", tag.subTags().getFirst().filter());
+    assertEquals("Reason", tag.subTags().get(1).displayText());
+    assertEquals(30, tag.timeout());
+    assertEquals("({0} > 5 && {0} <= 10)", tag.breakIf().source());
+    assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("6")));
+    assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("11")));
+  }
+
+  @Test
+  void parsesEscapedAnswerReferencesWithBraceDelimiters() {
+    for (var escape : List.of("\\", "%%")) {
+      var customParser = new CommandLineParser(new ParserConfig("{", "}", escape));
+      var tag =
+          customParser
+              .parse("/test {a:Amount -breakIf:" + escape + "{0" + escape + "} >= 5}")
+              .promptTags()
+              .getFirst();
+      assertEquals("Amount", tag.displayText());
+      assertEquals("{0} >= 5", tag.breakIf().source());
+      assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("5")));
+      assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("4")));
+    }
+  }
+
+  @Test
+  void parsesEscapedMultiCharacterClosingDelimiter() {
+    var customParser = new CommandLineParser(new ParserConfig("[[", ">=", "%%"));
+    var tag = customParser.parse("/test [[a:Amount -breakIf:{0} %%>= 5>=").promptTags().getFirst();
+    assertEquals("Amount", tag.displayText());
+    assertEquals("{0} >= 5", tag.breakIf().source());
+    assertTrue(tag.breakIf().evaluate(ConditionBindings.ofAnswers("5")));
+    assertFalse(tag.breakIf().evaluate(ConditionBindings.ofAnswers("4")));
   }
 
   @Test

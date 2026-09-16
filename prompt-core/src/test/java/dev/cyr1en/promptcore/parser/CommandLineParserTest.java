@@ -414,6 +414,20 @@ class CommandLineParserTest {
   }
 
   @Test
+  void unifiedDialogForm_hyphensInsideConstraintsPreserveFilter() {
+    for (var filter : List.of("num[-10,10]", "num[-10,-1,1,-5]", "choice[one-time,recurring]")) {
+      var single = parser.parse("/test <d:" + filter + ":Value>").promptTags().getFirst();
+      assertEquals(filter, single.filter());
+      assertEquals("Value", single.displayText());
+
+      var compound =
+          parser.parse("/test <d:" + filter + ":Value && d:text:Reason>").promptTags().getFirst();
+      assertEquals(filter, compound.subTags().getFirst().filter());
+      assertEquals("Value", compound.subTags().getFirst().displayText());
+    }
+  }
+
+  @Test
   void unifiedDialogForm_caseInsensitive() {
     // Parser preserves case; normalization happens downstream.
     var result = parser.parse("/test <d:NUM[0,100]:Amount>");
