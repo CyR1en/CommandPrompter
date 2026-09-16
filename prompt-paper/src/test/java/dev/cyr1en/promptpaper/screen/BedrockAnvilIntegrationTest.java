@@ -87,6 +87,35 @@ class BedrockAnvilIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void bedrockAnvilUsesOneRenameableInputInsteadOfAnInvalidItemCombination() {
+    var player = createPlayer();
+    BedrockUtil.setBedrockChecker(player.getUniqueId()::equals);
+    when(promptConfig.anvilResultItem()).thenReturn("PAPER");
+    when(promptConfig.resultItemCustomModelData()).thenReturn(12);
+    var prompt =
+        new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+            "anvil",
+            "test_anvil_empty",
+            "Test Anvil Empty",
+            "",
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Cancel", "BARRIER", "", 0),
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Confirm", "PAPER", "", 0),
+            false);
+    var screen = new AnvilPromptScreen(plugin, player, prompt, List.of());
+
+    var settings = screen.buildConfig(promptConfig);
+
+    assertEquals("PAPER", settings.get("anvilItem"), "Bedrock must rename the submit item");
+    assertEquals("12", settings.get("itemCustomModelData"));
+    assertEquals("true", settings.get("enableFirstItem"));
+    assertEquals(
+        "false",
+        settings.get("enableCancelItem"),
+        "An unrelated material item prevents Bedrock from producing a clickable result");
+    assertEquals("", settings.get("promptMessage"));
+  }
+
+  @Test
   void simulatedGeyserDetection() {
     var player = createPlayer();
     var otherPlayer = createPlayer();

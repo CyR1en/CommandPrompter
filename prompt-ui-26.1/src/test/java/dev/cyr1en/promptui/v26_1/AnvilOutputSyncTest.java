@@ -62,6 +62,30 @@ class AnvilOutputSyncTest {
     assertEquals(0, menu.getCost());
   }
 
+  @Test
+  void bedrockResultMatchesRenamedInputAndHasAnAffordablePositiveCost() throws Exception {
+    var menu = createMenu();
+    Field bedrock = menu.getClass().getDeclaredField("bedrock");
+    bedrock.setAccessible(true);
+    bedrock.setBoolean(menu, true);
+    var input = new ItemStack(Items.PAPER);
+    input.set(DataComponents.CUSTOM_NAME, Component.empty());
+    menu.getSlot(0).set(input);
+    menu.getSlot(2).set(new ItemStack(Items.PAPER));
+    menu.itemName = "test";
+    var client = new RecordingClient();
+    menu.setSynchronizer(client);
+
+    menu.createResult();
+
+    var expected = input.copy();
+    expected.set(DataComponents.CUSTOM_NAME, Component.literal("test"));
+    assertTrue(ItemStack.matches(expected, menu.getSlot(2).getItem()));
+    assertTrue(ItemStack.matches(expected, client.slots.get(2)));
+    assertEquals(1, menu.getCost());
+    assertEquals(Component.empty(), input.get(DataComponents.CUSTOM_NAME));
+  }
+
   private static AnvilInventoryImpl.NMSAnvilContainer createMenu() throws Exception {
     Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
     unsafeField.setAccessible(true);

@@ -6,6 +6,7 @@ import dev.cyr1en.promptui.util.BedrockUtil;
 import java.util.Objects;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
@@ -18,7 +19,6 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * MC 26.2 NMS implementation of {@link AnvilInventory}.
@@ -187,19 +187,6 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     }
   }
 
-  /** Places an item in a specific anvil slot. */
-  public void setSlotItem(int slot, @Nullable org.bukkit.inventory.ItemStack bukkitItem) {
-    if (container == null) return;
-    var slotObj = container.getSlot(slot);
-    if (bukkitItem != null) {
-      slotObj.set(org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(bukkitItem));
-    } else {
-      slotObj.set(net.minecraft.world.item.ItemStack.EMPTY);
-    }
-    container.createResult();
-    container.broadcastChanges();
-  }
-
   /** {@inheritDoc} */
   @Override
   public void subscribeToNameInputChanges(@NotNull Consumer<String> callback) {
@@ -223,13 +210,11 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     }
   }
 
-  /**
-   * The NMS container. Mirrors the old {@code AnvilContainer} but with a callback to {@link
-   * AnvilInventoryImpl} for name changes.
-   */
+  /** An anvil menu that forwards rename changes and keeps the prompt result available. */
   static final class NMSAnvilContainer extends AnvilMenu {
 
     private AnvilInventoryImpl parent;
+    private final boolean bedrock;
 
     NMSAnvilContainer(org.bukkit.entity.Player bukkitPlayer, Component title) {
       super(
@@ -239,6 +224,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
               ((CraftPlayer) bukkitPlayer).getHandle().level(), BlockPos.ZERO));
       Objects.requireNonNull(title);
       this.checkReachable = false;
+      this.bedrock = BedrockUtil.isBedrockPlayer(bukkitPlayer);
       setTitle(title);
     }
 
@@ -246,15 +232,23 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       this.parent = parent;
     }
 
-    /** Copies the input item to the output slot with zero cost, bypassing normal anvil logic. */
+    /** Maintains a submit result, using a valid rename recipe for Bedrock client prediction. */
     @Override
     public void createResult() {
       Slot output = getSlot(OUTPUT_SLOT);
       Slot input = getSlot(INPUT_SLOT);
-      if (!output.hasItem() && input.hasItem()) {
+      if (bedrock) {
+        var result = input.getItem().copy();
+        if (!result.isEmpty() && itemName != null) {
+          result.set(DataComponents.CUSTOM_NAME, Component.literal(itemName));
+        }
+        output.set(result);
+      } else if (!output.hasItem() && input.hasItem()) {
         output.set(input.getItem().copy());
       }
-      this.cost.set(0);
+      // A rename costs one level on Bedrock. The screen supplies fake client XP while open;
+      // submission is intercepted and never consumes the player's real experience or items.
+      this.cost.set(bedrock ? 1 : 0);
       broadcastChanges();
       // Restore the client's result even when the server-side item has not changed.
       sendAllDataToRemote();

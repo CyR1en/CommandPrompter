@@ -7,6 +7,7 @@ import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptui.util.BedrockUtil;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,6 +162,18 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
     config.put(
         "cancelItemHoverText",
         isPreset ? anvilPrompt.rightButton().buttonHoverText() : cfg.cancelItemHoverText());
+
+    if (BedrockUtil.isBedrockPlayer(player)) {
+      // Bedrock predicts a real rename recipe. A cancel item in the material slot invalidates
+      // that recipe, and its output must be the same item as the input. Closing cancels instead.
+      config.put("enableFirstItem", "true");
+      config.put("enableCancelItem", "false");
+      config.put("anvilItem", config.get("anvilResultItem"));
+      config.put("itemHideTooltips", config.get("resultItemHideTooltips"));
+      config.put("itemCustomModelData", config.get("resultItemCustomModelData"));
+      config.put("itemAnvilEnchanted", config.get("resultItemAnvilEnchanted"));
+      config.put("itemHoverText", "");
+    }
 
     config.put("displayText", displayText);
     return config;
