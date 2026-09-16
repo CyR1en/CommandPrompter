@@ -256,6 +256,8 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       }
       this.cost.set(0);
       broadcastChanges();
+      // Restore the client's result even when the server-side item has not changed.
+      sendAllDataToRemote();
     }
 
     /** Prevents item drops when the container is closed server-side and notifies parent. */
