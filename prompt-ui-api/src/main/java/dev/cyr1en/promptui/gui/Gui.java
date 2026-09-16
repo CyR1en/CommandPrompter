@@ -1,6 +1,7 @@
 package dev.cyr1en.promptui.gui;
 
 import dev.cyr1en.promptui.inventory.HumanEntityCache;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -73,9 +74,16 @@ public abstract class Gui {
     // association and anvil inventories cannot rely on their holder.
     addInventory(inventory, this);
     boolean wasViewer = isViewer(humanEntity);
+    if (wasViewer && humanEntity.getOpenInventory().getTopInventory().equals(inventory)) {
+      return;
+    }
     boolean stored = false;
     try {
-      stored = humanEntityCache.storeAndClear(humanEntity);
+      stored = prepareOpen(humanEntity);
+      if (isViewer(humanEntity)
+          && inventory.equals(humanEntity.getOpenInventory().getTopInventory())) {
+        return;
+      }
       // Paper returns null when opening is cancelled or the inventory is
       // otherwise not viewable. Treat it like an exception so the
       // player's original inventory is never lost.
@@ -93,6 +101,30 @@ public abstract class Gui {
       removeInventoryIfUnused(this);
       throw failure;
     }
+  }
+
+  /** Restores preceding GUIs before caching inventory for Bukkit or packet-based opening. */
+  public synchronized boolean prepareOpen(@NotNull HumanEntity humanEntity) {
+    Set<Gui> closed = new HashSet<>();
+    var previousInventory = humanEntity.getOpenInventory().getTopInventory();
+    while (previousInventory != null) {
+      var previous = getGui(previousInventory);
+      if (previous == null || previous == this) break;
+      if (!closed.add(previous)) {
+        throw new IllegalStateException("Previous GUI reopened during inventory transition");
+      }
+      humanEntity.closeInventory();
+      previousInventory = humanEntity.getOpenInventory().getTopInventory();
+    }
+    // A close callback can open a GUI that the enclosing platform close then displaces.
+    for (Gui gui : getActiveGuis()) {
+      if (gui != this && gui.humanEntityCache.contains(humanEntity)) {
+        gui.humanEntityCache.restoreAndForget(humanEntity);
+        gui.removeViewer(humanEntity);
+        removeInventoryIfUnused(gui);
+      }
+    }
+    return humanEntityCache.storeAndClear(humanEntity);
   }
 
   /** Updates the GUI contents. Called before showing and when dirty. */

@@ -123,14 +123,22 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
       }
       // The NMS packet path does not emit Bukkit's normal open event, so
       // perform the same viewer/cache registration explicitly.
-      anvilGui.getHumanEntityCache().storeAndClear(player);
-      anvilGui.markViewer(player);
-      inventoryImpl.open();
+      var openingGui = anvilGui;
+      var openingInventory = inventoryImpl;
+      openingGui.prepareOpen(player);
+      synchronized (this) {
+        if (state != State.OPENING) {
+          cleanupScreen(openingGui, openingInventory, false);
+          return;
+        }
+      }
+      openingGui.markViewer(player);
+      openingInventory.open();
       synchronized (this) {
         if (state == State.OPENING) {
           state = State.OPEN;
         } else {
-          cleanupScreen(anvilGui, inventoryImpl, false);
+          cleanupScreen(openingGui, openingInventory, false);
           return;
         }
       }

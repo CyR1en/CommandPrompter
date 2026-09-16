@@ -2,6 +2,8 @@ package dev.cyr1en.promptpaper.screen;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -26,14 +28,119 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class GuiLifecycleTest extends MockBukkitTest {
+
+  private Gui firstGui;
+
+  @BeforeEach
+  void registerGuiListener() {
+    firstGui = testGui();
+    HandlerList.unregisterAll((Plugin) plugin);
+    new GuiListener(plugin);
+  }
 
   @AfterEach
   void clearGuiRegistry() {
     HandlerList.unregisterAll((Plugin) plugin);
     Gui.clearRegistry();
+  }
+
+  @Test
+  void switchingGuisPreservesPlayerInventory() {
+    var player = createPlayer("Viewer");
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+    var secondGui = testGui();
+
+    firstGui.show(player);
+    secondGui.show(player);
+
+    assertNull(player.getInventory().getItem(0));
+    assertFalse(firstGui.getHumanEntityCache().contains(player));
+    player.closeInventory();
+    assertEquals(diamonds, player.getInventory().getItem(0));
+    assertFalse(secondGui.getHumanEntityCache().contains(player));
+  }
+
+  @Test
+  void cancelledReplacementRestoresPlayerInventory() {
+    var player = spy(createPlayer("Viewer"));
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+    var secondGui = testGui();
+    doReturn(null).when(player).openInventory(secondGui.getInventory());
+
+    firstGui.show(player);
+    assertThrows(IllegalStateException.class, () -> secondGui.show(player));
+
+    assertEquals(diamonds, player.getInventory().getItem(0));
+    assertFalse(firstGui.getHumanEntityCache().contains(player));
+    assertFalse(secondGui.getHumanEntityCache().contains(player));
+    assertFalse(secondGui.hasViewers());
+  }
+
+  @Test
+  void showingTheSameGuiTwiceKeepsItsInventorySnapshot() {
+    var player = createPlayer("Viewer");
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+
+    firstGui.show(player);
+    firstGui.show(player);
+
+    assertNull(player.getInventory().getItem(0));
+    assertTrue(firstGui.getHumanEntityCache().contains(player));
+    player.closeInventory();
+    assertEquals(diamonds, player.getInventory().getItem(0));
+  }
+
+  @Test
+  void replacementRestoresAGuiOpenedByThePreviousCloseCallback() {
+    var player = createPlayer("Viewer");
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+    var secondGui = testGui();
+    var intermediateGui = testGui();
+    firstGui.setOnClose(event -> intermediateGui.show(player));
+
+    firstGui.show(player);
+    secondGui.show(player);
+
+    assertFalse(intermediateGui.getHumanEntityCache().contains(player));
+    player.closeInventory();
+    assertEquals(diamonds, player.getInventory().getItem(0));
+  }
+
+  @Test
+  void previousCloseCallbackCanOpenTheRequestedGui() {
+    var player = createPlayer("Viewer");
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+    var secondGui = testGui();
+    firstGui.setOnClose(event -> secondGui.show(player));
+
+    firstGui.show(player);
+    secondGui.show(player);
+
+    assertNull(player.getInventory().getItem(0));
+    assertTrue(secondGui.getHumanEntityCache().contains(player));
+    player.closeInventory();
+    assertEquals(diamonds, player.getInventory().getItem(0));
+  }
+
+  private Gui testGui() {
+    return new Gui(plugin, server.createInventory(null, 9)) {
+      @Override
+      public void update() {}
+
+      @Override
+      public boolean click(InventoryClickEvent event) {
+        return false;
+      }
+    };
   }
 
   @Test

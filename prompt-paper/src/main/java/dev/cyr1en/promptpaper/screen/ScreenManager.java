@@ -678,12 +678,18 @@ public class ScreenManager {
     return new DialogCompletionContext(player, partial);
   }
 
-  /** Routes a raw chat message to the active {@link ChatPromptScreen} for the player. */
+  /** Routes chat on the player's executor, retaining the screen that received the message. */
   public void handleChatInput(Player player, String input) {
     var chatScreen = getChatScreen(player);
     if (chatScreen == null) return;
-    cancelTimeout(player);
-    chatScreen.handleInput(input);
+    playerExecutorFactory
+        .apply(player)
+        .execute(
+            () -> {
+              if (getChatScreen(player) != chatScreen) return;
+              cancelTimeout(player);
+              chatScreen.handleInput(input);
+            });
   }
 
   /**

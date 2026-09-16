@@ -44,22 +44,7 @@ public class ChatPromptListener implements Listener {
     event.setCancelled(true);
     var message = event.message();
     plugin.getPluginLogger().debug("Chat input captured for " + player.getName());
-    try {
-      var task =
-          player
-              .getScheduler()
-              .run(
-                  plugin,
-                  scheduledTask -> {
-                    screenManager.handleChatInput(player, ComponentUtil.serialize(message));
-                  },
-                  null);
-      if (task == null) {
-        plugin.getPluginLogger().debug("Chat input task retired for " + player.getUniqueId());
-      }
-    } catch (Exception e) {
-      plugin.getPluginLogger().debug("Unable to schedule chat input: " + e.getMessage());
-    }
+    screenManager.handleChatInput(player, ComponentUtil.serialize(message));
   }
 
   /**

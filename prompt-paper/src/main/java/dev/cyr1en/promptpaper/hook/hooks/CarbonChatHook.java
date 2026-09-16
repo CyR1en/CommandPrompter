@@ -55,9 +55,7 @@ public class CarbonChatHook extends BaseHook implements ChatListenerHook {
                     getPlugin()
                         .getPluginLogger()
                         .debug("CarbonChat captured: player=" + player.getName() + " msg=" + msg);
-                    player
-                        .getScheduler()
-                        .run(getPlugin(), st -> screenManager.handleChatInput(player, msg), null);
+                    screenManager.handleChatInput(player, msg);
                   });
       if (registered == null) {
 
