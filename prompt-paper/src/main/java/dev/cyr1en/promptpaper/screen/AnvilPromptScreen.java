@@ -2,6 +2,7 @@ package dev.cyr1en.promptpaper.screen;
 
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
+import dev.cyr1en.promptpaper.hook.hooks.GeyserHook;
 import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.InputScreen;
@@ -118,17 +119,33 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
     var config = new HashMap<String, String>();
 
     boolean isPreset = !anvilPrompt.id().startsWith("inline-");
+    boolean patchedAnvil =
+        plugin.getHookContainer() != null
+            && plugin
+                .getHookContainer()
+                .getHook(GeyserHook.class)
+                .map(GeyserHook::isAnvilPatchEnabled)
+                .orElse(false);
+    config.put("geyserAnvilPatch", String.valueOf(patchedAnvil));
+    String initialText = cfg.promptMessage();
+    if ("BLANK".equals(initialText)) initialText = "";
+    else if (initialText == null || initialText.isEmpty()) initialText = anvilPrompt.promptText();
 
     config.put("enableTitle", isPreset ? "true" : String.valueOf(cfg.enableTitle()));
     config.put("customTitle", isPreset ? anvilPrompt.title() : cfg.customTitle());
     config.put(
         "enableFirstItem", isPreset ? String.valueOf(anvilPrompt.leftButton().show()) : "true");
+    config.put("promptMessage", isPreset ? anvilPrompt.promptText() : initialText);
     config.put(
-        "promptMessage",
+        "itemHoverText",
         isPreset
-            ? anvilPrompt.promptText()
-            : ("BLANK".equals(cfg.promptMessage()) ? "" : cfg.promptMessage()));
-    config.put("itemHoverText", isPreset ? anvilPrompt.leftButton().buttonHoverText() : "");
+            ? anvilPrompt.leftButton().buttonHoverText()
+            : java.util.Objects.requireNonNullElse(cfg.itemHoverText(), ""));
+    config.put(
+        "itemDamage",
+        String.valueOf(isPreset ? anvilPrompt.leftButton().damage() : cfg.itemDamage()));
+    config.put(
+        "cancelItemDamage", String.valueOf(isPreset ? anvilPrompt.rightButton().damage() : 0));
     config.put(
         "enableCancelItem",
         isPreset
@@ -158,12 +175,16 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
                 ? anvilPrompt.rightButton().customModelData()
                 : cfg.cancelItemCustomModelData()));
     config.put("cancelItemAnvilEnchanted", String.valueOf(cfg.cancelItemAnvilEnchanted()));
-    config.put("cancelItemMessage", isPreset ? anvilPrompt.rightButton().buttonText() : "");
+    config.put(
+        "cancelItemMessage",
+        isPreset
+            ? anvilPrompt.rightButton().buttonText()
+            : java.util.Objects.requireNonNullElse(cfg.cancelItemName(), ""));
     config.put(
         "cancelItemHoverText",
         isPreset ? anvilPrompt.rightButton().buttonHoverText() : cfg.cancelItemHoverText());
 
-    if (BedrockUtil.isBedrockPlayer(player)) {
+    if (!patchedAnvil && BedrockUtil.isBedrockPlayer(player)) {
       // Bedrock predicts a real rename recipe. A cancel item in the material slot invalidates
       // that recipe, and its output must be the same item as the input. Closing cancels instead.
       config.put("enableFirstItem", "true");
@@ -173,6 +194,7 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
       config.put("itemCustomModelData", config.get("resultItemCustomModelData"));
       config.put("itemAnvilEnchanted", config.get("resultItemAnvilEnchanted"));
       config.put("itemHoverText", "");
+      config.put("itemDamage", "0");
     }
 
     config.put("displayText", displayText);

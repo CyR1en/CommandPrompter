@@ -117,7 +117,7 @@ class PromptPresentationExpanderTest {
             "anvil_id",
             "anvil %a%",
             "prompt %b%",
-            new AnvilButton(true, "left %c%", "STONE", "left hover %d%", 7),
+            new AnvilButton(true, "left %c%", "STONE", "left hover %d%", 7, 1),
             new AnvilButton(true, "right %e%", "minecraft:DIAMOND", "right hover %f%", 9),
             false,
             new TitleConfig("main %g%", null, 50));
@@ -140,6 +140,8 @@ class PromptPresentationExpanderTest {
     assertEquals("minecraft:DIAMOND", out.rightButton().buttonIcon());
     assertEquals(true, out.leftButton().show());
     assertEquals(7, out.leftButton().customModelData());
+    assertEquals(1, out.leftButton().damage());
+    assertEquals(0, out.rightButton().damage());
     assertEquals(9, out.rightButton().customModelData());
     assertEquals(50, out.titleDisplay().ticks());
   }

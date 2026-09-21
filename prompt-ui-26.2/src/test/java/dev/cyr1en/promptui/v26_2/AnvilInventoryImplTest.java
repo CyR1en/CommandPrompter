@@ -247,6 +247,22 @@ class AnvilInventoryImplTest {
   }
 
   @Test
+  void openWithPatchedContainerDoesNotSendFakeExperience() throws Exception {
+    dev.cyr1en.promptui.util.BedrockUtil.setBedrockChecker(uuid -> true);
+    try {
+      container.setTitle(net.minecraft.network.chat.Component.literal("Test"));
+      anvilInventory.open();
+      assertTrue(anvilInventory.isOpened());
+      assertFalse(anvilInventory.isExperienceFaked());
+      assertTrue(
+          packetListener.sentPackets.stream()
+              .noneMatch(packet -> packet instanceof ClientboundSetExperiencePacket));
+    } finally {
+      dev.cyr1en.promptui.util.BedrockUtil.reset();
+    }
+  }
+
+  @Test
   void open_whenExceptionOccurs_safelyCleansUpAndDoesNotMaskFailure() throws Exception {
     serverPlayer.throwOnInitMenu = true;
     packetListener.shouldThrowOnSend = true; // Packet errors must not mask initMenu failure

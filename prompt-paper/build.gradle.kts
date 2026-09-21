@@ -26,6 +26,13 @@ configurations.all {
 }
 
 repositories {
+    // Compile against the exact official distribution used by the optional runtime patch.
+    ivy {
+        url = uri("https://download.geysermc.org/v2/projects/geyser/versions")
+        patternLayout { artifact("[revision]/builds/1245/downloads/spigot") }
+        metadataSources { artifact() }
+        content { includeModule("org.geysermc", "geyser-spigot-compat") }
+    }
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.cyr1en.dev/snapshots")
@@ -44,7 +51,6 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     compileOnly("net.kyori:adventure-text-minimessage:4.26.1")
     compileOnly("net.kyori:adventure-text-serializer-legacy:4.26.1")
-    compileOnly("org.geysermc.geyser:api:2.8.3-SNAPSHOT")
     implementation("org.bstats:bstats-bukkit:3.0.2")
     implementation("org.openjdk.nashorn:nashorn-core:15.4")
 
@@ -58,10 +64,13 @@ dependencies {
     compileOnly("net.william278.husktowns:husktowns-common:3.0.5")
     compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.1.0-SNAPSHOT")
     compileOnly("de.hexaoxi:carbonchat-api:3.0.0-beta.26")
+    compileOnly("org.geysermc:geyser-spigot-compat:2.11.3")
+    compileOnly("io.netty:netty-buffer:4.2.15.Final") // Supplied by Paper.
+    testImplementation("org.geysermc:geyser-spigot-compat:2.11.3")
+    testImplementation("io.netty:netty-handler:4.2.15.Final")
 
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.0.0")
     testImplementation("org.mockito:mockito-core:5.14.0")
-    testImplementation("org.geysermc.geyser:api:2.8.3-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -494,12 +503,18 @@ fun processMatches(
             .takeIf { it >= 0 }
             ?.let { arguments.getOrNull(it + 1) }
     val commandLine = info.commandLine().orElse("")
-    val jarMatches = jarArgument == expectedJar.path || commandLine.contains(expectedJar.path)
-    if (!jarMatches) return false
+    val commandAvailable = arguments.isNotEmpty() || commandLine.isNotEmpty()
+    if (commandAvailable) {
+        val jarMatches = jarArgument == expectedJar.path || commandLine.contains(expectedJar.path)
+        if (!jarMatches) return false
+    }
 
+    val actualStart = info.startInstant().map { it.toEpochMilli() }.orElse(0L)
+    // Windows may omit process arguments. Require a verifiable start time in that case;
+    // a stale PID file alone is never enough authority to stop a process.
+    if (!commandAvailable && (record.startMillis <= 0L || actualStart <= 0L)) return false
     if (record.startMillis > 0L) {
-        val actualStart = info.startInstant().map { it.toEpochMilli() }.orElse(0L)
-        if (actualStart == 0L || actualStart != record.startMillis) return false
+        if (actualStart > 0L && Math.abs(actualStart - record.startMillis) > 2000L) return false
     }
     return true
 }
@@ -670,6 +685,10 @@ tasks.register("copyPlugin") {
                 .archiveFile
                 .get()
                 .asFile
+        pluginsDir
+            .listFiles { f ->
+                f.isFile && f.name.startsWith("CommandPrompterPaper-") && f.name != shadowJarFile.name
+            }?.forEach { it.delete() }
         val dest = File(pluginsDir, shadowJarFile.name)
         if (dest.exists()) dest.delete()
         shadowJarFile.copyTo(dest, overwrite = true)
@@ -710,12 +729,20 @@ tasks.register("startServer") {
                     languageVersion = JavaLanguageVersion.of(25)
                 }.get()
                 .executablePath.asFile
+
+        // inheritIO() must not be used here: under the Gradle daemon the inherited stdout is a
+        // pipe nobody drains, so Paper's TerminalConsoleAppender blocks on write and stalls the
+        // whole log4j async appender — latest.log freezes and the main thread can wedge once the
+        // queue fills. Append console output to a file in the server root instead.
+        val consoleLog = File(serverRoot, "console.out.log")
         println("Starting $jar in $serverRoot with Java 25 launcher $javaLauncher …")
+        println("Server console output → $consoleLog")
 
         val process =
             ProcessBuilder(javaLauncher.absolutePath, "-jar", jar.absolutePath, "-nogui")
                 .directory(serverRoot)
-                .inheritIO()
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.appendTo(consoleLog))
                 .start()
         try {
             writeServerProcessRecord(serverRoot, process, jar)

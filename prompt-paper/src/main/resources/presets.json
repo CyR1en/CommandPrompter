@@ -20,16 +20,17 @@
       "sanitize": false,
       "left_button": {
         "show": true,
-        "button_text": "Cancel",
-        "button_icon": "BARRIER",
-        "button_hover_text": "Click to cancel",
-        "custom_model_data": 0
+        "button_text": "New Name",
+        "button_icon": "IRON_SWORD",
+        "button_hover_text": "Edit the name, then click the result to submit",
+        "custom_model_data": 0,
+        "damage": 1
       },
       "right_button": {
         "show": true,
-        "button_text": "Confirm",
-        "button_icon": "PAPER",
-        "button_hover_text": "Click to confirm",
+        "button_text": "<red>Cancel</red>",
+        "button_icon": "IRON_INGOT",
+        "button_hover_text": "<gray>Click to cancel</gray>",
         "custom_model_data": 0
       }
     },

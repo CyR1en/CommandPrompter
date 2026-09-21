@@ -107,7 +107,8 @@
         "button_text": { "type": "string", "minLength": 1 },
         "button_icon": { "type": "string", "minLength": 1 },
         "button_hover_text": { "type": "string", "minLength": 1 },
-        "custom_model_data": { "type": "integer", "minimum": 0 }
+        "custom_model_data": { "type": "integer", "minimum": 0 },
+        "damage": { "type": "integer", "minimum": 0, "default": 0 }
       }
     },
     "uiButton": {
@@ -146,7 +147,7 @@
         "type": { "const": "anvil" },
         "id": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
-        "prompt_text": { "type": "string" },
+        "prompt_text": { "type": "string", "description": "Initial rename text and input item name; overrides left_button.button_text." },
         "sanitize": { "type": "boolean", "default": true },
         "title_display": { "$ref": "#/$defs/titleDisplay" },
         "left_button": { "$ref": "#/$defs/anvilButton" },

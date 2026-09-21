@@ -37,8 +37,14 @@ public final class AnvilInventoryImpl extends AnvilInventory {
   private Consumer<String> nameChangeCallback;
   private boolean opened;
   private boolean experienceFaked;
+  private final boolean geyserAnvilPatch;
 
   public AnvilInventoryImpl(@NotNull org.bukkit.entity.Player player) {
+    this(player, false);
+  }
+
+  public AnvilInventoryImpl(@NotNull org.bukkit.entity.Player player, boolean geyserAnvilPatch) {
+    this.geyserAnvilPatch = geyserAnvilPatch;
     this.player = Objects.requireNonNull(player, "player");
     this.craftPlayer = (CraftPlayer) player;
   }
@@ -50,7 +56,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     Component nmsTitle =
         io.papermc.paper.adventure.PaperAdventure.asVanillaNullToEmpty(
             title == null ? null : title.getComponent());
-    container = new NMSAnvilContainer(player, nmsTitle);
+    container = new NMSAnvilContainer(player, nmsTitle, geyserAnvilPatch);
     container.setParent(this);
     return container.getBukkitView().getTopInventory();
   }
@@ -72,7 +78,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       nmsPlayer.containerMenu = container;
       nmsPlayer.initMenu(container);
       opened = true;
-      if (BedrockUtil.isBedrockPlayer(player)) {
+      if (container.bedrock) {
         sendPacket(nmsPlayer, new ClientboundSetExperiencePacket(0.0f, 0, 20));
         experienceFaked = true;
       }
@@ -217,6 +223,11 @@ public final class AnvilInventoryImpl extends AnvilInventory {
     private final boolean bedrock;
 
     NMSAnvilContainer(org.bukkit.entity.Player bukkitPlayer, Component title) {
+      this(bukkitPlayer, title, false);
+    }
+
+    NMSAnvilContainer(
+        org.bukkit.entity.Player bukkitPlayer, Component title, boolean geyserAnvilPatch) {
       super(
           ((CraftPlayer) bukkitPlayer).getHandle().nextContainerCounter(),
           ((CraftPlayer) bukkitPlayer).getHandle().getInventory(),
@@ -224,7 +235,7 @@ public final class AnvilInventoryImpl extends AnvilInventory {
               ((CraftPlayer) bukkitPlayer).getHandle().level(), BlockPos.ZERO));
       Objects.requireNonNull(title);
       this.checkReachable = false;
-      this.bedrock = BedrockUtil.isBedrockPlayer(bukkitPlayer);
+      this.bedrock = !geyserAnvilPatch && BedrockUtil.isBedrockPlayer(bukkitPlayer);
       setTitle(title);
     }
 

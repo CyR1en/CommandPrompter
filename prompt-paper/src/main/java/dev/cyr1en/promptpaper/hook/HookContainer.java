@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.hook;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.hook.annotations.TargetPlugin;
 import dev.cyr1en.promptpaper.hook.hooks.CarbonChatHook;
+import dev.cyr1en.promptpaper.hook.hooks.GeyserHook;
 import dev.cyr1en.promptpaper.hook.hooks.HuskTownsHook;
 import dev.cyr1en.promptpaper.hook.hooks.LuckPermsHook;
 import dev.cyr1en.promptpaper.hook.hooks.PapiHook;
@@ -39,7 +40,8 @@ public class HookContainer {
           TownyHook.class,
           LuckPermsHook.class,
           HuskTownsHook.class,
-          WorldGuardHook.class);
+          WorldGuardHook.class,
+          GeyserHook.class);
 
   private final CommandPrompter plugin;
   private final Map<Class<?>, PluginHook> hooks = new LinkedHashMap<>();

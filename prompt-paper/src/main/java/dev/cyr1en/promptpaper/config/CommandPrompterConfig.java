@@ -194,7 +194,17 @@ public record CommandPrompterConfig(
           "Bundled locales are loaded from the plugin JAR.",
           "Custom overrides go in plugins/CommandPrompterPaper/locales/"
         })
-        String locale)
+        String locale,
+    @ConfigNode
+        @NodeName("Geyser-Anvil-Patch")
+        @NodeDefault("false")
+        @NodeComment({
+          "Enable anvil translation fixes for the official Geyser-Spigot 2.11.3 build 1245.",
+          "Replaces Geyser's anvil translator in memory for all Bedrock anvils; no jar is modified.",
+          "Uses version-specific Geyser internals. Unsupported builds are left unchanged.",
+          "Requires a full server restart when changed; /commandprompter reload does not apply it."
+        })
+        boolean geyserAnvilPatch)
     implements AliasedSection {
 
   /** Validate snapshot constraints and syntax consistency when constructed. */

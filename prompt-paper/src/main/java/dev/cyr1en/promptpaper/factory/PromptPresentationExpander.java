@@ -234,7 +234,8 @@ final class PromptPresentationExpander {
         expand(player, button.buttonText()),
         button.buttonIcon(),
         expand(player, button.buttonHoverText()),
-        button.customModelData());
+        button.customModelData(),
+        button.damage());
   }
 
   private SignPrompt expandSign(Player player, SignPrompt sign) {

@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,6 +23,19 @@ import org.junit.jupiter.api.io.TempDir;
 class PaperConfigLoaderTest extends MockBukkitTest {
 
   @TempDir Path tempDir;
+
+  @Test
+  void geyserAnvilPatchRequiresExplicitOptIn() throws Exception {
+    when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+    var loader = new PaperConfigLoader(plugin);
+    assertFalse(loader.getConfig().geyserAnvilPatch());
+    var file = tempDir.resolve("config.yml");
+    Files.writeString(
+        file,
+        Files.readString(file).replace("Geyser-Anvil-Patch: false", "Geyser-Anvil-Patch: true"));
+    loader.reload();
+    assertTrue(loader.getConfig().geyserAnvilPatch());
+  }
 
   @Test
   void preparedConfigurationIsInvisibleUntilPublished() {

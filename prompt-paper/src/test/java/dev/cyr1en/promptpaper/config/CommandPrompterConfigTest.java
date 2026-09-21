@@ -45,7 +45,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of("bukkit.command.gamemode"),
-            "en_US");
+            "en_US",
+            false);
 
     var perms = cfg.getPermissionAttachment("GAMEMODE");
     assertArrayEquals(
@@ -83,7 +84,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     var keys = cfg.getPermissionKeys();
     assertEquals(2, keys.length);
@@ -122,7 +124,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     var keys = cfg.getPermissionKeys();
     assertArrayEquals(new String[0], keys);
@@ -158,7 +161,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     var keys = cfg.getPermissionKeys();
     assertArrayEquals(new String[0], keys);
@@ -192,7 +196,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     assertEquals("<", cfg.parserConfig().opening());
     assertEquals(">", cfg.parserConfig().closing());
@@ -232,7 +237,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     assertEquals("[", cfg.parserConfig().opening());
     assertEquals("]", cfg.parserConfig().closing());
@@ -268,7 +274,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
 
     assertEquals("(", cfg.parserConfig().opening());
     assertEquals(")", cfg.parserConfig().closing());
@@ -308,7 +315,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Prefix overlap: Prompt Open "{" and Template Open "{{"
     assertThrows(
@@ -338,7 +346,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Whitespace in delimiter
     assertThrows(
@@ -368,7 +377,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Quote in delimiter
     assertThrows(
@@ -398,7 +408,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Control char in delimiter
     assertThrows(
@@ -428,7 +439,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Empty delimiter
     assertThrows(
@@ -458,7 +470,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
   }
 
   @Test
@@ -491,7 +504,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
     assertEquals(1, cfg1.maxAnswerLength());
 
     var cfg256 =
@@ -519,7 +533,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
     assertEquals(256, cfg256.maxAnswerLength());
 
     var cfg1024 =
@@ -547,7 +562,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
             true,
             1,
             List.of(),
-            "en_US");
+            "en_US",
+            false);
     assertEquals(1024, cfg1024.maxAnswerLength());
 
     // Invalid: 0 and negative
@@ -578,7 +594,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     assertThrows(
         IllegalArgumentException.class,
@@ -607,7 +624,8 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
 
     // Invalid: > 1024
     assertThrows(
@@ -637,6 +655,7 @@ class CommandPrompterConfigTest extends MockBukkitTest {
                 true,
                 1,
                 List.of(),
-                "en_US"));
+                "en_US",
+                false));
   }
 }

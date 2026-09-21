@@ -187,7 +187,7 @@ public record PromptConfig(
         @NodeName("AnvilGUI.Prompt-Message")
         @NodeDefault("")
         @NodeComment({
-          "Initial anvil text for inline prompts; use '' for an empty field.",
+          "Initial rename text and input item name; empty uses the inline prompt text.",
           "Legacy YAML alias: exactly BLANK also means empty (case-sensitive).",
           "Other strings are unchanged; JSON preset prompt_text uses literal text."
         })
@@ -198,6 +198,15 @@ public record PromptConfig(
         @NodeComment({"Show a cancel item on the right slot input slot."})
         boolean enableCancelItem,
     @ConfigNode @NodeName("AnvilGUI.Item.Material") @NodeDefault("Paper") String anvilItem,
+    @ConfigNode
+        @NodeName("AnvilGUI.Item.Damage")
+        @NodeDefault("0")
+        @IntegerConstraint(min = 0, max = Integer.MAX_VALUE)
+        @NodeComment({
+          "Durability damage; use 1 with IRON_SWORD and an IRON_INGOT cancel item for Bedrock"
+        })
+        int itemDamage,
+    @ConfigNode @NodeName("AnvilGUI.Item.HoverText") @NodeDefault("") String itemHoverText,
     @ConfigNode
         @NodeName("AnvilGUI.Item.HideTooltips")
         @NodeDefault("false")
@@ -226,6 +235,8 @@ public record PromptConfig(
         boolean resultItemAnvilEnchanted,
     @ConfigNode @NodeName("AnvilGUI.CancelItem.Material") @NodeDefault("Barrier")
         String anvilCancelItem,
+    @ConfigNode @NodeName("AnvilGUI.CancelItem.Text") @NodeDefault("&cCancel")
+        String cancelItemName,
     @ConfigNode
         @NodeName("AnvilGUI.CancelItem.HideTooltips")
         @NodeDefault("false")
@@ -618,6 +629,8 @@ public record PromptConfig(
         promptMessage,
         enableCancelItem,
         anvilItem,
+        itemDamage,
+        itemHoverText,
         itemHideTooltips,
         itemCustomModelData,
         itemAnvilEnchanted,
@@ -626,6 +639,7 @@ public record PromptConfig(
         resultItemCustomModelData,
         resultItemAnvilEnchanted,
         anvilCancelItem,
+        cancelItemName,
         cancelItemHideTooltips,
         cancelItemCustomModelData,
         cancelItemAnvilEnchanted,

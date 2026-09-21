@@ -156,6 +156,7 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
       if (plugin.getExecutionCoordinator() != null) plugin.getExecutionCoordinator().cancelAll();
       if (plugin.getEngine() != null) plugin.getEngine().discardAll();
       var loader = plugin.getConfigLoader();
+      var previousConfig = loader.getConfig();
       var registry = plugin.getPresetRegistry();
       synchronized (registry != null ? registry : loader) {
         var preparedConfig = loader.prepareReload();
@@ -181,6 +182,12 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
 
         try {
           plugin.getPluginLogger().reload(preparedConfig.config());
+          if (previousConfig != null
+              && previousConfig.geyserAnvilPatch() != preparedConfig.config().geyserAnvilPatch()) {
+            plugin
+                .getPluginLogger()
+                .info("Geyser-Anvil-Patch changed; restart the server to apply it.");
+          }
         } catch (Throwable t) {
           plugin
               .getLogger()

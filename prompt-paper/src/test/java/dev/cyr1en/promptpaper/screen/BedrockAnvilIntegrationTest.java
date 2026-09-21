@@ -116,6 +116,47 @@ class BedrockAnvilIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void installedPatchPreservesConfiguredItemsAndFailedInstallationKeepsFallback() {
+    var player = createPlayer();
+    BedrockUtil.setBedrockChecker(player.getUniqueId()::equals);
+    var hooks = mock(dev.cyr1en.promptpaper.hook.HookContainer.class);
+    var hook = mock(dev.cyr1en.promptpaper.hook.hooks.GeyserHook.class);
+    when(plugin.getHookContainer()).thenReturn(hooks);
+    when(hooks.getHook(dev.cyr1en.promptpaper.hook.hooks.GeyserHook.class))
+        .thenReturn(java.util.Optional.of(hook));
+    when(hook.isAnvilPatchEnabled()).thenReturn(true);
+    when(promptConfig.anvilResultItem()).thenReturn("PAPER");
+    var prompt =
+        new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+            "anvil",
+            "patched",
+            "Title",
+            "test",
+            new dev.cyr1en.promptpaper.preset.AnvilButton(
+                true, "Input", "IRON_SWORD", "Input lore", 0, 1),
+            new dev.cyr1en.promptpaper.preset.AnvilButton(
+                true, "Cancel", "IRON_INGOT", "Cancel lore", 0),
+            false);
+    var screen = new AnvilPromptScreen(plugin, player, prompt, List.of());
+
+    var settings = screen.buildConfig(promptConfig);
+    assertEquals("true", settings.get("geyserAnvilPatch"));
+    assertEquals("IRON_SWORD", settings.get("anvilItem"));
+    assertEquals("1", settings.get("itemDamage"));
+    assertEquals("Input lore", settings.get("itemHoverText"));
+    assertEquals("true", settings.get("enableCancelItem"));
+    assertEquals("IRON_INGOT", settings.get("anvilCancelItem"));
+    assertEquals("Cancel", settings.get("cancelItemMessage"));
+
+    when(hook.isAnvilPatchEnabled()).thenReturn(false);
+    settings = screen.buildConfig(promptConfig);
+    assertEquals("false", settings.get("geyserAnvilPatch"));
+    assertEquals("PAPER", settings.get("anvilItem"));
+    assertEquals("0", settings.get("itemDamage"));
+    assertEquals("false", settings.get("enableCancelItem"));
+  }
+
+  @Test
   void simulatedGeyserDetection() {
     var player = createPlayer();
     var otherPlayer = createPlayer();

@@ -9,18 +9,30 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.gson.Gson;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.preset.AnvilButton;
+import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.AnvilItemUtil;
+import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class AnvilPromptScreenTest extends MockBukkitTest {
+
+  @org.junit.jupiter.api.io.TempDir java.nio.file.Path configDir;
 
   private List<ScreenProvider> emptyProviders;
 
@@ -61,7 +73,9 @@ class AnvilPromptScreenTest extends MockBukkitTest {
           when(promptConfig.promptMessage()).thenReturn(text);
           var inline = testScreen("inline-test", "Ignored", sanitize);
           var inlineConfig = inline.buildConfig(promptConfig);
-          assertEquals("BLANK".equals(text) ? "" : text, inlineConfig.get("promptMessage"));
+          assertEquals(
+              "BLANK".equals(text) ? "" : text.isEmpty() ? "Ignored" : text,
+              inlineConfig.get("promptMessage"));
           assertEquals(String.valueOf(enableTitle), inlineConfig.get("enableTitle"));
           assertEquals("&cConfig Title", inlineConfig.get("customTitle"));
 
@@ -144,6 +158,116 @@ class AnvilPromptScreenTest extends MockBukkitTest {
 
     assertTrue(screen.isOpen());
     verify(mockAnvil).open();
+  }
+
+  @Test
+  void presetPreservesNamesLoreAndDamageThroughItemCreation() {
+    var provider = mock(ScreenProvider.class);
+    var anvil = mock(AnvilInputScreen.class);
+    when(provider.createAnvil(any(), any(), anyString())).thenReturn(anvil);
+    var preset =
+        new AnvilPrompt(
+            "anvil",
+            "rename",
+            "Rename",
+            "New Name",
+            new AnvilButton(true, "Old label", "IRON_SWORD", "<gray>Edit</gray>{br}Submit", 7, 1),
+            new AnvilButton(true, "<red>Cancel</red>", "IRON_INGOT", "&cCancel\\nNow", 9),
+            false);
+    new AnvilPromptScreen(plugin, createPlayer(), preset, List.of(provider)).open();
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+    verify(anvil).configure(captor.capture());
+    var config = captor.getValue();
+    assertEquals("New Name", config.get("promptMessage"));
+    assertEquals("7", config.get("itemCustomModelData"));
+    assertEquals("9", config.get("cancelItemCustomModelData"));
+    assertEquals("true", config.get("enableCancelItem"));
+
+    var input = new ItemStack(Material.valueOf(config.get("anvilItem")));
+    AnvilItemUtil.apply(
+        input,
+        config.get("promptMessage"),
+        config.get("itemHoverText"),
+        Integer.parseInt(config.get("itemDamage")));
+    assertEquals(ComponentUtil.mini("<!italic>New Name"), input.getItemMeta().displayName());
+    assertEquals(
+        List.of(
+            ComponentUtil.mini("<!italic><gray>Edit</gray>"),
+            ComponentUtil.mini("<!italic>Submit")),
+        input.getItemMeta().lore());
+    assertEquals(1, ((Damageable) input.getItemMeta()).getDamage());
+
+    var cancel = new ItemStack(Material.valueOf(config.get("anvilCancelItem")));
+    AnvilItemUtil.apply(
+        cancel,
+        config.get("cancelItemMessage"),
+        config.get("cancelItemHoverText"),
+        Integer.parseInt(config.get("cancelItemDamage")));
+    assertEquals(
+        ComponentUtil.mini("<!italic><red>Cancel</red>"), cancel.getItemMeta().displayName());
+    assertEquals(
+        List.of(ComponentUtil.mini("<!italic>&cCancel"), ComponentUtil.mini("<!italic>Now")),
+        cancel.getItemMeta().lore());
+    assertThrows(IllegalArgumentException.class, () -> AnvilItemUtil.apply(cancel, "", "", 1));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new AnvilButton(true, "Input", "IRON_SWORD", "", 0, -1));
+    var legacy =
+        new Gson()
+            .fromJson(
+                """
+            {"show":true,"button_text":"Input","button_icon":"PAPER",
+             "button_hover_text":"Lore","custom_model_data":0}
+            """,
+                AnvilButton.class);
+    assertEquals(0, legacy.damage());
+  }
+
+  @Test
+  void inlinePromptLoadsMetadataFromYamlAndUsesPromptTextUnlessOverridden() throws Exception {
+    var yaml =
+        """
+            AnvilGUI:
+              Prompt-Message: '%s'
+              Enable-Cancel-Item: true
+              Item:
+                Material: IRON_SWORD
+                Damage: 1
+                HoverText: Edit the name
+              CancelItem:
+                Material: IRON_INGOT
+                Text: '&cCancel'
+                HoverText: Click to cancel
+            """;
+    var loader = new dev.cyr1en.promptcore.config.RecordConfigLoader(configDir.toFile());
+    var inline =
+        (AnvilPrompt)
+            dev.cyr1en.promptpaper.factory.InlineTagMapper.toPromptDefinition(
+                new dev.cyr1en.promptcore.PromptTag("<a: test>", "a", "", "test"));
+    for (String configuredText : List.of("", "Configured name")) {
+      java.nio.file.Files.writeString(
+          configDir.resolve("prompt-config.yml"), yaml.formatted(configuredText));
+      var cfg = loader.getConfig(dev.cyr1en.promptpaper.config.PromptConfig.class);
+      when(configLoader.getPromptConfig()).thenReturn(cfg);
+      var provider = mock(ScreenProvider.class);
+      var anvil = mock(AnvilInputScreen.class);
+      when(provider.createAnvil(any(), any(), anyString())).thenReturn(anvil);
+      new AnvilPromptScreen(plugin, createPlayer(), inline, List.of(provider)).open();
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
+      verify(anvil).configure(captor.capture());
+      var config = captor.getValue();
+      assertEquals(configuredText.isEmpty() ? "test" : configuredText, config.get("promptMessage"));
+      assertEquals("IRON_SWORD", config.get("anvilItem"));
+      assertEquals("1", config.get("itemDamage"));
+      assertEquals("Edit the name", config.get("itemHoverText"));
+      assertEquals("true", config.get("enableCancelItem"));
+      assertEquals("IRON_INGOT", config.get("anvilCancelItem"));
+      assertEquals("&cCancel", config.get("cancelItemMessage"));
+      assertEquals("Click to cancel", config.get("cancelItemHoverText"));
+    }
   }
 
   @Test

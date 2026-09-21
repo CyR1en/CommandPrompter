@@ -49,6 +49,8 @@ class PromptConfigTest extends MockBukkitTest {
         "",
         false,
         "Paper",
+        0,
+        "",
         false,
         0,
         false,
@@ -57,6 +59,7 @@ class PromptConfigTest extends MockBukkitTest {
         0,
         false,
         "Barrier",
+        "&cCancel",
         false,
         0,
         false,
@@ -145,6 +148,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -153,6 +158,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -255,6 +261,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -263,6 +271,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -373,6 +382,8 @@ class PromptConfigTest extends MockBukkitTest {
                 "",
                 false,
                 "Paper",
+                0,
+                "",
                 false,
                 0,
                 false,
@@ -381,6 +392,7 @@ class PromptConfigTest extends MockBukkitTest {
                 0,
                 false,
                 "Barrier",
+                "&cCancel",
                 false,
                 0,
                 false,
@@ -503,6 +515,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -511,6 +525,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -631,6 +646,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -639,6 +656,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -740,6 +758,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -748,6 +768,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -842,6 +863,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -850,6 +873,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -943,6 +967,8 @@ class PromptConfigTest extends MockBukkitTest {
             "",
             false,
             "Paper",
+            0,
+            "",
             false,
             0,
             false,
@@ -951,6 +977,7 @@ class PromptConfigTest extends MockBukkitTest {
             0,
             false,
             "Barrier",
+            "&cCancel",
             false,
             0,
             false,
@@ -1014,19 +1041,20 @@ class PromptConfigTest extends MockBukkitTest {
     var cfg0 =
         new CommandPrompterConfig(
             rawConfig, "[P] ", 0, "cancel", 256, true, false, true, true, true, "<.*?>", "<", ">",
-            "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US");
+            "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US", false);
     assertEquals(0, cfg0.promptTimeout());
 
     var cfg1 =
         new CommandPrompterConfig(
             rawConfig, "[P] ", 1, "cancel", 256, true, false, true, true, true, "<.*?>", "<", ">",
-            "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US");
+            "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US", false);
     assertEquals(1, cfg1.promptTimeout());
 
     var cfg3600 =
         new CommandPrompterConfig(
             rawConfig, "[P] ", 3600, "cancel", 256, true, false, true, true, true, "<.*?>", "<",
-            ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US");
+            ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US",
+            false);
     assertEquals(3600, cfg3600.promptTimeout());
 
     // Negative and > 3600 throw IllegalArgumentException
@@ -1035,13 +1063,15 @@ class PromptConfigTest extends MockBukkitTest {
         () ->
             new CommandPrompterConfig(
                 rawConfig, "[P] ", -1, "cancel", 256, true, false, true, true, true, "<.*?>", "<",
-                ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US"));
+                ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US",
+                false));
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
             new CommandPrompterConfig(
                 rawConfig, "[P] ", 3601, "cancel", 256, true, false, true, true, true, "<.*?>", "<",
-                ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US"));
+                ">", "{", "}", ":", "\\", true, List.of(), List.of(), true, 0, List.of(), "en_US",
+                false));
   }
 }

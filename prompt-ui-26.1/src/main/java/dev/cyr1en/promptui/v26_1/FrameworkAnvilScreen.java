@@ -1,17 +1,15 @@
 package dev.cyr1en.promptui.v26_1;
 
 import dev.cyr1en.promptui.AnvilInputScreen;
-import dev.cyr1en.promptui.ComponentUtil;
+import dev.cyr1en.promptui.AnvilItemUtil;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.AnvilGui;
 import dev.cyr1en.promptui.gui.Gui;
 import dev.cyr1en.promptui.gui.GuiItem;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -95,7 +93,9 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
       openTask = null;
     }
     try {
-      inventoryImpl = new AnvilInventoryImpl(player);
+      inventoryImpl =
+          new AnvilInventoryImpl(
+              player, Boolean.parseBoolean(config.getOrDefault("geyserAnvilPatch", "false")));
       anvilGui = new AnvilGui(plugin, inventoryImpl);
 
       configureTitle();
@@ -187,17 +187,11 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
               config.getOrDefault("itemCustomModelData", "0"),
               config.getOrDefault("itemAnvilEnchanted", "false"));
 
-      var meta = firstItem.getItemMeta();
-      if (meta != null) {
-        String promptMsg = config.getOrDefault("promptMessage", "");
-        meta.displayName(
-            promptMsg.isEmpty() ? Component.empty() : ComponentUtil.mini("<!italic>" + promptMsg));
-        String hoverText = config.getOrDefault("itemHoverText", "");
-        if (!hoverText.isEmpty()) {
-          meta.lore(List.of(ComponentUtil.mini("<!italic>" + hoverText)));
-        }
-        firstItem.setItemMeta(meta);
-      }
+      AnvilItemUtil.apply(
+          firstItem,
+          config.get("promptMessage"),
+          config.get("itemHoverText"),
+          Integer.parseInt(config.getOrDefault("itemDamage", "0")));
 
       GuiItem firstGuiItem = new GuiItem(firstItem);
       anvilGui.getFirstItemComponent().addItem(firstGuiItem, 0, 0);
@@ -224,18 +218,11 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
               config.getOrDefault("cancelItemCustomModelData", "0"),
               config.getOrDefault("cancelItemAnvilEnchanted", "false"));
 
-      var meta = cancelItem.getItemMeta();
-      if (meta != null) {
-        String cancelMsg = config.getOrDefault("cancelItemMessage", "");
-        if (!cancelMsg.isEmpty()) {
-          meta.displayName(ComponentUtil.mini("<!italic>" + cancelMsg));
-        }
-        String hoverText = config.getOrDefault("cancelItemHoverText", "");
-        if (!hoverText.isEmpty()) {
-          meta.lore(List.of(ComponentUtil.mini("<!italic>" + hoverText)));
-        }
-        cancelItem.setItemMeta(meta);
-      }
+      AnvilItemUtil.apply(
+          cancelItem,
+          config.get("cancelItemMessage"),
+          config.get("cancelItemHoverText"),
+          Integer.parseInt(config.getOrDefault("cancelItemDamage", "0")));
 
       GuiItem cancelGuiItem =
           new GuiItem(

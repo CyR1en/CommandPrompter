@@ -10,23 +10,35 @@ import java.util.Objects;
  * later (in the paper module) with a fallback to {@code PAPER} on invalid input.
  *
  * @param show whether the button slot is rendered at all
- * @param buttonText the display name of the item
+ * @param buttonText the display name; the input slot uses the prompt's initial text instead
  * @param buttonIcon the Bukkit {@code Material} name (case-insensitive, may include the {@code
  *     minecraft:} prefix)
  * @param buttonHoverText the lore line(s) shown on hover
  * @param customModelData the integer custom-model-data tag applied to the item stack
+ * @param damage durability damage, zero by default; used for native anvil repair pairs
  */
 public record AnvilButton(
     boolean show,
     @SerializedName("button_text") String buttonText,
     @SerializedName("button_icon") String buttonIcon,
     @SerializedName("button_hover_text") String buttonHoverText,
-    @SerializedName("custom_model_data") int customModelData) {
+    @SerializedName("custom_model_data") int customModelData,
+    int damage) {
+
+  public AnvilButton(
+      boolean show,
+      String buttonText,
+      String buttonIcon,
+      String buttonHoverText,
+      int customModelData) {
+    this(show, buttonText, buttonIcon, buttonHoverText, customModelData, 0);
+  }
 
   /** Canonical constructor with null-checks; Gson supplies defaults for absent fields. */
   public AnvilButton {
     Objects.requireNonNull(buttonText, "button_text must not be null");
     Objects.requireNonNull(buttonIcon, "button_icon must not be null");
     Objects.requireNonNull(buttonHoverText, "button_hover_text must not be null");
+    if (damage < 0) throw new IllegalArgumentException("damage must not be negative");
   }
 }
