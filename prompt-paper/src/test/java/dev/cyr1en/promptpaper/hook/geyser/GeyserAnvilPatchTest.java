@@ -37,8 +37,8 @@ import dev.cyr1en.promptpaper.util.PluginLogger;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.nbt.NbtMap;
@@ -66,6 +66,8 @@ import org.geysermc.mcprotocollib.protocol.data.game.inventory.ContainerType;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponentTypes;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.inventory.ServerboundRenameItemPacket;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.invocation.InvocationOnMock;
 
 class GeyserAnvilPatchTest {
@@ -283,17 +285,45 @@ class GeyserAnvilPatchTest {
     }
   }
 
-  @Test
-  void rejectsUnsupportedBuilds() {
-    var properties = new Properties();
-    assertThrows(
-        IllegalStateException.class, () -> GeyserAnvilPatch.requireSupportedBuild(properties));
-    properties.setProperty("git.build.number", "1245");
-    properties.setProperty("git.commit.id", "2808f7d21358a13019727fdf8737a5f978b23af4");
-    assertDoesNotThrow(() -> GeyserAnvilPatch.requireSupportedBuild(properties));
-    properties.setProperty("git.build.number", "1246");
-    assertThrows(
-        IllegalStateException.class, () -> GeyserAnvilPatch.requireSupportedBuild(properties));
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void hookCanLoadWithoutOptionalGeyserClasses(boolean optedIn) throws Exception {
+    var isolated =
+        new ClassLoader(getClass().getClassLoader()) {
+          @Override
+          protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if (name.startsWith("org.geysermc.")) throw new ClassNotFoundException(name);
+            if (!name.equals(GeyserHook.class.getName())
+                && !name.startsWith("dev.cyr1en.promptpaper.hook.geyser.")) {
+              return super.loadClass(name, resolve);
+            }
+            var loaded = findLoadedClass(name);
+            if (loaded != null) return loaded;
+            try (var stream = getResourceAsStream(name.replace('.', '/') + ".class")) {
+              if (stream == null) throw new ClassNotFoundException(name);
+              byte[] bytes = stream.readAllBytes();
+              var type = defineClass(name, bytes, 0, bytes.length);
+              if (resolve) resolveClass(type);
+              return type;
+            } catch (java.io.IOException failure) {
+              throw new ClassNotFoundException(name, failure);
+            }
+          }
+        };
+    var plugin = mock(CommandPrompter.class);
+    var loader = mock(PaperConfigLoader.class);
+    var config = mock(CommandPrompterConfig.class);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getLogger()).thenReturn(mock(Logger.class));
+    when(loader.getConfig()).thenReturn(config);
+    when(config.geyserAnvilPatch()).thenReturn(optedIn);
+    var type = isolated.loadClass(GeyserHook.class.getName());
+    var hook = type.getConstructor(CommandPrompter.class).newInstance(plugin);
+    type.getMethod("onEnable").invoke(hook);
+    assertEquals(false, type.getMethod("isAnvilPatchEnabled").invoke(hook));
+    type.getMethod("onServerLoaded", ServerLoadEvent.class)
+        .invoke(hook, mock(ServerLoadEvent.class));
+    type.getMethod("onDisable").invoke(hook);
   }
 
   @Test
@@ -304,11 +334,39 @@ class GeyserAnvilPatchTest {
     when(plugin.getConfigLoader()).thenReturn(loader);
     when(loader.getConfig()).thenReturn(config);
     var hook = new GeyserHook(plugin);
-    try (var patch = mockStatic(GeyserAnvilPatch.class)) {
+    try (var patch = mockStatic(GeyserAnvilPatch.class);
+        var registration = mockStatic(BedrockAnvilItems.class)) {
       hook.onEnable();
       hook.onServerLoaded(mock(ServerLoadEvent.class));
       hook.onDisable();
       patch.verifyNoInteractions();
+      registration.verifyNoInteractions();
+    }
+  }
+
+  @Test
+  void incompatibleTranslatorApiKeepsFallbackAndReleasesSubscriptions() {
+    var plugin = mock(CommandPrompter.class);
+    var loader = mock(PaperConfigLoader.class);
+    var config = mock(CommandPrompterConfig.class);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getLogger()).thenReturn(mock(Logger.class));
+    when(loader.getConfig()).thenReturn(config);
+    when(config.geyserAnvilPatch()).thenReturn(true);
+    var items = mock(BedrockAnvilItems.class);
+    when(items.isReady()).thenReturn(true);
+    var hook = new GeyserHook(plugin);
+    try (var registration = mockStatic(BedrockAnvilItems.class);
+        var patch = mockStatic(GeyserAnvilPatch.class)) {
+      registration.when(() -> BedrockAnvilItems.subscribe(plugin)).thenReturn(items);
+      patch.when(GeyserAnvilPatch::install).thenThrow(new NoSuchMethodError("Changed Geyser API"));
+      hook.onEnable();
+      assertDoesNotThrow(() -> hook.onServerLoaded(mock(ServerLoadEvent.class)));
+      assertFalse(hook.isAnvilPatchEnabled());
+      patch.verify(GeyserAnvilPatch::install);
+      hook.onDisable();
+      hook.onDisable();
+      verify(items).close();
     }
   }
 
@@ -323,17 +381,73 @@ class GeyserAnvilPatchTest {
     when(config.geyserAnvilPatch()).thenReturn(true);
     var hook = new GeyserHook(plugin);
     var restore = mock(Runnable.class);
+    var items = mock(BedrockAnvilItems.class);
+    when(items.isReady()).thenReturn(true);
     var event = mock(ServerLoadEvent.class);
-    try (var patch = mockStatic(GeyserAnvilPatch.class)) {
+    try (var patch = mockStatic(GeyserAnvilPatch.class);
+        var registration = mockStatic(BedrockAnvilItems.class)) {
+      registration.when(() -> BedrockAnvilItems.subscribe(plugin)).thenReturn(items);
       patch.when(GeyserAnvilPatch::install).thenReturn(restore);
       hook.onEnable();
+      registration.verify(() -> BedrockAnvilItems.subscribe(plugin));
       patch.verifyNoInteractions();
       hook.onServerLoaded(event);
       hook.onServerLoaded(event);
+      verify(items, times(1)).completeRegistration();
       patch.verify(GeyserAnvilPatch::install, times(1));
       hook.onDisable();
       hook.onDisable();
       verify(restore, times(1)).run();
+      verify(items, times(1)).close();
+    }
+  }
+
+  @Test
+  void missingCustomDefinitionsKeepsSafeFallback() {
+    var plugin = mock(CommandPrompter.class);
+    var loader = mock(PaperConfigLoader.class);
+    var config = mock(CommandPrompterConfig.class);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+    when(loader.getConfig()).thenReturn(config);
+    when(config.geyserAnvilPatch()).thenReturn(true);
+    var items = mock(BedrockAnvilItems.class);
+    var hook = new GeyserHook(plugin);
+    try (var registration = mockStatic(BedrockAnvilItems.class);
+        var patch = mockStatic(GeyserAnvilPatch.class)) {
+      registration.when(() -> BedrockAnvilItems.subscribe(plugin)).thenReturn(items);
+      hook.onEnable();
+      hook.onServerLoaded(mock(ServerLoadEvent.class));
+      assertFalse(hook.isAnvilPatchEnabled());
+      patch.verifyNoInteractions();
+      hook.onDisable();
+      verify(items).close();
+    }
+  }
+
+  @Test
+  void failedDefinitionCompletionDoesNotInstallTranslator() {
+    var plugin = mock(CommandPrompter.class);
+    var loader = mock(PaperConfigLoader.class);
+    var config = mock(CommandPrompterConfig.class);
+    when(plugin.getConfigLoader()).thenReturn(loader);
+    when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
+    when(loader.getConfig()).thenReturn(config);
+    when(config.geyserAnvilPatch()).thenReturn(true);
+    var items = mock(BedrockAnvilItems.class);
+    doThrow(new IllegalStateException("Missing generated repair definition"))
+        .when(items)
+        .completeRegistration();
+    var hook = new GeyserHook(plugin);
+    try (var registration = mockStatic(BedrockAnvilItems.class);
+        var patch = mockStatic(GeyserAnvilPatch.class)) {
+      registration.when(() -> BedrockAnvilItems.subscribe(plugin)).thenReturn(items);
+      hook.onEnable();
+      hook.onServerLoaded(mock(ServerLoadEvent.class));
+      assertFalse(hook.isAnvilPatchEnabled());
+      patch.verifyNoInteractions();
+      hook.onDisable();
+      verify(items).close();
     }
   }
 

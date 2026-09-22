@@ -50,6 +50,13 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         candidate = nms;
         if (nms instanceof AnvilInputScreen anvilScreen) {
           anvilScreen.configure(config);
+          if (BedrockUtil.isBedrockPlayer(player) && plugin.getHookContainer() != null) {
+            plugin
+                .getHookContainer()
+                .getHook(GeyserHook.class)
+                .filter(GeyserHook::isAnvilPatchEnabled)
+                .ifPresent(hook -> anvilScreen.setItemPresentation(hook.itemPresentation()));
+          }
           anvilScreen.onResult(this::handleResult);
           this.wrapped = anvilScreen;
           this.open = true;
@@ -119,6 +126,7 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
     var config = new HashMap<String, String>();
 
     boolean isPreset = !anvilPrompt.id().startsWith("inline-");
+    boolean bedrockPlayer = BedrockUtil.isBedrockPlayer(player);
     boolean patchedAnvil =
         plugin.getHookContainer() != null
             && plugin
@@ -184,10 +192,13 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         "cancelItemHoverText",
         isPreset ? anvilPrompt.rightButton().buttonHoverText() : cfg.cancelItemHoverText());
 
-    if (!patchedAnvil && BedrockUtil.isBedrockPlayer(player)) {
+    if (bedrockPlayer) {
+      // A native Bedrock anvil needs an input to expose its text field and result operation.
+      config.put("enableFirstItem", "true");
+    }
+    if (bedrockPlayer && !patchedAnvil) {
       // Bedrock predicts a real rename recipe. A cancel item in the material slot invalidates
       // that recipe, and its output must be the same item as the input. Closing cancels instead.
-      config.put("enableFirstItem", "true");
       config.put("enableCancelItem", "false");
       config.put("anvilItem", config.get("anvilResultItem"));
       config.put("itemHideTooltips", config.get("resultItemHideTooltips"));

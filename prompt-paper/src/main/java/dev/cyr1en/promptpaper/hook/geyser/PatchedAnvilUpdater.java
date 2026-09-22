@@ -144,6 +144,10 @@ public final class PatchedAnvilUpdater extends InventoryUpdater {
     GeyserItemStack material = anvilContainer.getMaterial();
 
     if (!material.isEmpty()) {
+      if (BedrockAnvilItems.isPromptInput(input)) {
+        // A GUI cancel button never needs to stack. Keep cost updates off the editable input.
+        return 1;
+      }
       if (!input.isEmpty() && isRepairing(input, material, session)) {
         // Changing the repair cost on the material item makes it non-stackable
         return 0;
@@ -313,14 +317,14 @@ public final class PatchedAnvilUpdater extends InventoryUpdater {
    */
   private int calcRepairLevelCost(GeyserItemStack input, GeyserItemStack material) {
     int newDamage = getDamage(input);
-    int unitRepair = Math.min(newDamage, input.asItem().defaultMaxDamage() / 4);
+    int unitRepair = Math.min(newDamage, input.getMaxDamage() / 4);
     if (unitRepair <= 0) {
       // No damage to repair
       return -1;
     }
     for (int i = 0; i < material.getAmount(); i++) {
       newDamage -= unitRepair;
-      unitRepair = Math.min(newDamage, input.asItem().defaultMaxDamage() / 4);
+      unitRepair = Math.min(newDamage, input.getMaxDamage() / 4);
       if (unitRepair <= 0) {
         return i + 1;
       }
@@ -337,8 +341,7 @@ public final class PatchedAnvilUpdater extends InventoryUpdater {
    */
   private int calcMergeRepairCost(GeyserItemStack input, GeyserItemStack material) {
     // If the material item is damaged 112% or more, then the input item will not be repaired
-    if (getDamage(input) > 0
-        && getDamage(material) < (material.asItem().defaultMaxDamage() * 112 / 100)) {
+    if (getDamage(input) > 0 && getDamage(material) < (material.getMaxDamage() * 112 / 100)) {
       return 2;
     }
     return 0;

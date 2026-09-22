@@ -26,7 +26,7 @@ configurations.all {
 }
 
 repositories {
-    // Compile against the exact official distribution used by the optional runtime patch.
+    // Reproducible compile/test baseline; the opt-in runtime patch has no version restriction.
     ivy {
         url = uri("https://download.geysermc.org/v2/projects/geyser/versions")
         patternLayout { artifact("[revision]/builds/1245/downloads/spigot") }

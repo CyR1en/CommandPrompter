@@ -20,4 +20,12 @@ public interface AnvilInputScreen extends InputScreen {
    * @param config a map of configuration key → string value
    */
   default void configure(Map<String, String> config) {}
+
+  /**
+   * Sets the client presentation before opening; configured items remain logical buttons. Providers
+   * that cannot apply it must allow the caller to try another provider or fallback.
+   */
+  default void setItemPresentation(AnvilItemPresentation presentation) {
+    throw new UnsupportedOperationException("This provider cannot adapt anvil item presentation");
+  }
 }

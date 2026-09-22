@@ -199,9 +199,12 @@ public record CommandPrompterConfig(
         @NodeName("Geyser-Anvil-Patch")
         @NodeDefault("false")
         @NodeComment({
-          "Enable anvil translation fixes for the official Geyser-Spigot 2.11.3 build 1245.",
+          "Opt in to experimental Bedrock anvil fixes and arbitrary input/cancel materials.",
           "Replaces Geyser's anvil translator in memory for all Bedrock anvils; no jar is modified.",
-          "Uses version-specific Geyser internals. Unsupported builds are left unchanged.",
+          "Attempts the patch on any Geyser-Spigot version; compatibility is not guaranteed.",
+          "If setup fails, logs the error and keeps the standard Bedrock fallback.",
+          "Requires Geyser custom content. Vanilla texture aliases are supplied as a small Bedrock resource pack when needed.",
+          "New input/cancel materials in presets or configuration also require a full restart.",
           "Requires a full server restart when changed; /commandprompter reload does not apply it."
         })
         boolean geyserAnvilPatch)

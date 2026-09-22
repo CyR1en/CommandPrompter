@@ -1,6 +1,8 @@
 package dev.cyr1en.promptui.v26_2;
 
 import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.AnvilItemPresentation;
+import dev.cyr1en.promptui.AnvilItemPresentation.Slot;
 import dev.cyr1en.promptui.AnvilItemUtil;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.AnvilGui;
@@ -9,6 +11,7 @@ import dev.cyr1en.promptui.gui.GuiItem;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -25,6 +28,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
   private final Player player;
   private final String displayText;
   private Map<String, String> config = new HashMap<>();
+  private AnvilItemPresentation itemPresentation = AnvilItemPresentation.IDENTITY;
   private AnvilGui anvilGui;
   private AnvilInventoryImpl inventoryImpl;
   private Consumer<ScreenResult> callback;
@@ -49,6 +53,11 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
   @Override
   public void configure(Map<String, String> config) {
     this.config = new HashMap<>(config);
+  }
+
+  @Override
+  public void setItemPresentation(AnvilItemPresentation presentation) {
+    this.itemPresentation = Objects.requireNonNull(presentation);
   }
 
   /**
@@ -188,7 +197,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
           config.get("itemHoverText"),
           Integer.parseInt(config.getOrDefault("itemDamage", "0")));
 
-      GuiItem firstGuiItem = new GuiItem(firstItem);
+      GuiItem firstGuiItem = new GuiItem(itemPresentation.present(Slot.INPUT, firstItem));
       anvilGui.getFirstItemComponent().addItem(firstGuiItem, 0, 0);
     }
 
@@ -203,7 +212,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             config.getOrDefault("resultItemCustomModelData", "0"),
             config.getOrDefault("resultItemAnvilEnchanted", "false"));
 
-    GuiItem resultGuiItem = new GuiItem(resultItem);
+    GuiItem resultGuiItem = new GuiItem(itemPresentation.present(Slot.RESULT, resultItem));
     anvilGui.getResultComponent().addItem(resultGuiItem, 0, 0);
 
     boolean enableCancel = Boolean.parseBoolean(config.getOrDefault("enableCancelItem", "false"));
@@ -223,7 +232,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
 
       GuiItem cancelGuiItem =
           new GuiItem(
-              cancelItem,
+              itemPresentation.present(Slot.CANCEL, cancelItem),
               event -> {
                 if (!isOpen()) return;
                 plugin

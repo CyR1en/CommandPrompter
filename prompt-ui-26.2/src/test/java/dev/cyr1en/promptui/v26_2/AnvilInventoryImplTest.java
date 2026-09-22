@@ -247,16 +247,66 @@ class AnvilInventoryImplTest {
   }
 
   @Test
-  void openWithPatchedContainerDoesNotSendFakeExperience() throws Exception {
+  void patchedBedrockPromptSuppliesClientXpAndRestoresCurrentRealXp() throws Exception {
+    serverPlayer.setUUID(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"));
+    anvilInventory = new AnvilInventoryImpl(craftPlayer, true);
+    containerField.set(anvilInventory, container);
+    parentField.set(container, anvilInventory);
     dev.cyr1en.promptui.util.BedrockUtil.setBedrockChecker(uuid -> true);
     try {
       container.setTitle(net.minecraft.network.chat.Component.literal("Test"));
       anvilInventory.open();
       assertTrue(anvilInventory.isOpened());
+      assertTrue(
+          anvilInventory.isExperienceFaked(), "Patched prompts must be usable at zero real XP");
+      var displayed =
+          packetListener.sentPackets.stream()
+              .filter(ClientboundSetExperiencePacket.class::isInstance)
+              .map(ClientboundSetExperiencePacket.class::cast)
+              .findFirst()
+              .orElseThrow();
+      assertEquals(20, displayed.getExperienceLevel());
+      assertEquals(0, serverPlayer.experienceLevel);
+      assertEquals(0, serverPlayer.totalExperience);
+      assertEquals(0.0f, serverPlayer.experienceProgress);
+
+      // Experience earned while the prompt is open must not be rolled back on close.
+      serverPlayer.experienceLevel = 7;
+      serverPlayer.totalExperience = 91;
+      serverPlayer.experienceProgress = 0.375f;
+      packetListener.sentPackets.clear();
+      anvilInventory.close();
+      assertFalse(anvilInventory.isExperienceFaked());
+      var restored =
+          packetListener.sentPackets.stream()
+              .filter(ClientboundSetExperiencePacket.class::isInstance)
+              .map(ClientboundSetExperiencePacket.class::cast)
+              .findFirst()
+              .orElseThrow();
+      assertEquals(7, restored.getExperienceLevel());
+      assertEquals(91, restored.getTotalExperience());
+      assertEquals(0.375f, restored.getExperienceProgress());
+      assertEquals(7, serverPlayer.experienceLevel);
+      assertEquals(91, serverPlayer.totalExperience);
+    } finally {
+      dev.cyr1en.promptui.util.BedrockUtil.reset();
+    }
+  }
+
+  @Test
+  void patchedJavaPromptDoesNotSendClientXp() throws Exception {
+    serverPlayer.setUUID(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"));
+    anvilInventory = new AnvilInventoryImpl(craftPlayer, true);
+    containerField.set(anvilInventory, container);
+    parentField.set(container, anvilInventory);
+    dev.cyr1en.promptui.util.BedrockUtil.setBedrockChecker(uuid -> false);
+    try {
+      container.setTitle(net.minecraft.network.chat.Component.literal("Test"));
+      anvilInventory.open();
       assertFalse(anvilInventory.isExperienceFaked());
       assertTrue(
           packetListener.sentPackets.stream()
-              .noneMatch(packet -> packet instanceof ClientboundSetExperiencePacket));
+              .noneMatch(ClientboundSetExperiencePacket.class::isInstance));
     } finally {
       dev.cyr1en.promptui.util.BedrockUtil.reset();
     }

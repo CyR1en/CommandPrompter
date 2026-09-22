@@ -78,7 +78,9 @@ public final class AnvilInventoryImpl extends AnvilInventory {
       nmsPlayer.containerMenu = container;
       nmsPlayer.initMenu(container);
       opened = true;
-      if (container.bedrock) {
+      // Bedrock's local anvil can still require a level when Geyser advertises a free output.
+      // This changes only the client display; close restores the player's current real XP.
+      if (BedrockUtil.isBedrockPlayer(player)) {
         sendPacket(nmsPlayer, new ClientboundSetExperiencePacket(0.0f, 0, 20));
         experienceFaked = true;
       }

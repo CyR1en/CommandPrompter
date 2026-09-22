@@ -157,6 +157,41 @@ class BedrockAnvilIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void suppliesTransportPresentationOnlyToBedrockScreens() {
+    var bedrock = createPlayer();
+    var javaPlayer = createPlayer();
+    BedrockUtil.setBedrockChecker(bedrock.getUniqueId()::equals);
+    var hooks = mock(dev.cyr1en.promptpaper.hook.HookContainer.class);
+    var hook = mock(dev.cyr1en.promptpaper.hook.hooks.GeyserHook.class);
+    when(plugin.getHookContainer()).thenReturn(hooks);
+    when(hooks.getHook(dev.cyr1en.promptpaper.hook.hooks.GeyserHook.class))
+        .thenReturn(java.util.Optional.of(hook));
+    when(hook.isAnvilPatchEnabled()).thenReturn(true);
+    var presentation = dev.cyr1en.promptui.AnvilItemPresentation.IDENTITY;
+    when(hook.itemPresentation()).thenReturn(presentation);
+    var provider = mock(ScreenProvider.class);
+    var bedrockScreen = mock(AnvilInputScreen.class);
+    var javaScreen = mock(AnvilInputScreen.class);
+    when(provider.createAnvil(plugin, bedrock, "Prompt")).thenReturn(bedrockScreen);
+    when(provider.createAnvil(plugin, javaPlayer, "Prompt")).thenReturn(javaScreen);
+    var prompt =
+        new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+            "anvil",
+            "transport",
+            "Title",
+            "Prompt",
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0),
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Cancel", "BARRIER", "", 0),
+            false);
+    new AnvilPromptScreen(plugin, bedrock, prompt, List.of(provider)).open();
+    new AnvilPromptScreen(plugin, javaPlayer, prompt, List.of(provider)).open();
+    verify(bedrockScreen).setItemPresentation(presentation);
+    verify(javaScreen, org.mockito.Mockito.never()).setItemPresentation(any());
+    verify(bedrockScreen).open();
+    verify(javaScreen).open();
+  }
+
+  @Test
   void simulatedGeyserDetection() {
     var player = createPlayer();
     var otherPlayer = createPlayer();
