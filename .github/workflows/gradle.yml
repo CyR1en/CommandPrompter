@@ -95,4 +95,5 @@ jobs:
           game-versions: |
             26.1
             26.2
+            26.3
           files: prompt-paper/build/libs/CommandPrompterPaper-${{ steps.verify-release.outputs.version }}.jar

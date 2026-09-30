@@ -2,6 +2,7 @@ package dev.cyr1en.promptui.v26_1;
 
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.SignInputScreen;
+import dev.cyr1en.promptui.util.ClientBlockRestoration;
 import io.netty.channel.ChannelPipeline;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.util.HashMap;
@@ -10,10 +11,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Material;
@@ -43,9 +41,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
   private Consumer<Throwable> openFailure;
   private ScheduledTask openTask;
   private ScheduledTask finishTask;
-  private BlockState originalBlockState;
-  private Packet<?> originalBlockEntityPacket;
-  private boolean fakeStateSent;
+  private ClientBlockRestoration blockRestoration;
   private State state = State.NEW;
 
   private enum State {
@@ -121,13 +117,6 @@ public class SignScreenImpl implements SignInputScreen, Listener {
       var nmsPlayer = ((CraftPlayer) player).getHandle();
       pos = resolveSignPosition();
 
-      // Capture the real client-visible state before sending anything
-      // fake. The entity packet is retained so an existing sign/block
-      // entity can be restored, rather than blindly replacing it with AIR.
-      originalBlockState = nmsPlayer.level().getBlockState(pos);
-      BlockEntity originalEntity = nmsPlayer.level().getBlockEntity(pos);
-      originalBlockEntityPacket = originalEntity == null ? null : originalEntity.getUpdatePacket();
-
       var signState = resolveSignState();
       var signEntity = new SignBlockEntity(pos, signState);
       var text = signEntity.getText(true);
@@ -139,8 +128,8 @@ public class SignScreenImpl implements SignInputScreen, Listener {
 
       var signLocation =
           new org.bukkit.Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
+      blockRestoration = new ClientBlockRestoration(plugin, player, signLocation);
       player.sendBlockChange(signLocation, resolveSignMaterial().createBlockData());
-      fakeStateSent = true;
       signEntity.setLevel(nmsPlayer.level());
       try {
         nmsPlayer.connection.send(signEntity.getUpdatePacket());
@@ -359,28 +348,12 @@ public class SignScreenImpl implements SignInputScreen, Listener {
   }
 
   private void restoreClientState() {
-    BlockPos restorePos;
-    BlockState restoreState;
-    Packet<?> entityPacket;
+    ClientBlockRestoration restoration;
     synchronized (lifecycleLock) {
-      if (!fakeStateSent || pos == null) return;
-      fakeStateSent = false;
-      restorePos = pos;
-      restoreState = originalBlockState;
-      entityPacket = originalBlockEntityPacket;
+      restoration = blockRestoration;
+      blockRestoration = null;
     }
-    try {
-      var nmsPlayer = ((CraftPlayer) player).getHandle();
-      if (restoreState == null) {
-        restoreState = nmsPlayer.level().getBlockState(restorePos);
-      }
-      nmsPlayer.connection.send(new ClientboundBlockUpdatePacket(restorePos, restoreState));
-      if (entityPacket != null) {
-        nmsPlayer.connection.send(entityPacket);
-      }
-    } catch (Throwable failure) {
-      plugin.getSLF4JLogger().debug("Sign block restoration failed: {}", failure.getMessage());
-    }
+    if (restoration != null) restoration.restore();
   }
 
   private static void cancel(ScheduledTask task) {

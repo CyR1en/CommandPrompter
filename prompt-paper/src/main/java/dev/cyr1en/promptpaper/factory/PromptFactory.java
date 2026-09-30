@@ -46,7 +46,7 @@ import org.bukkit.entity.Player;
  */
 public class PromptFactory {
 
-  private static final List<String> SUPPORTED_TARGETS = List.of("26.1", "26.2");
+  private static final List<String> SUPPORTED_TARGETS = List.of("26.1", "26.2", "26.3");
 
   private final CommandPrompter plugin;
   private final List<ScreenProvider> providers;

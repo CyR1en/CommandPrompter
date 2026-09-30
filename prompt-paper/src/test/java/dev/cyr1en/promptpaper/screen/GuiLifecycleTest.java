@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -20,11 +22,15 @@ import dev.cyr1en.promptui.gui.Slot;
 import dev.cyr1en.promptui.pane.Mask;
 import dev.cyr1en.promptui.pane.OutlinePane;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.Material;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
@@ -63,6 +69,71 @@ class GuiLifecycleTest extends MockBukkitTest {
     player.closeInventory();
     assertEquals(diamonds, player.getInventory().getItem(0));
     assertFalse(secondGui.getHumanEntityCache().contains(player));
+  }
+
+  @Test
+  void packetOpeningPreservesCursorItemsReturnedByAnOrdinaryMenu() {
+    assertCloseReturnsAreCached(true);
+  }
+
+  @Test
+  void packetOpeningPreservesItemsReturnedByThePlayersCraftingInventory() {
+    assertCloseReturnsAreCached(false);
+  }
+
+  @Test
+  void ordinaryMenuThatRemainsOpenAbortsBeforeCachingPlayerInventory() {
+    var player = spy(createPlayer("Viewer"));
+    player.openInventory(server.createInventory(null, 9));
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    player.getInventory().setItem(0, diamonds);
+    doNothing().when(player).closeInventory();
+
+    assertThrows(IllegalStateException.class, () -> firstGui.prepareOpen(player));
+
+    assertEquals(diamonds, player.getInventory().getItem(0));
+    assertFalse(firstGui.getHumanEntityCache().contains(player));
+  }
+
+  private void assertCloseReturnsAreCached(boolean openChest) {
+    var player = spy(createPlayer("Viewer"));
+    if (openChest) {
+      player.openInventory(server.createInventory(null, 9));
+    } else {
+      var view = mock(InventoryView.class);
+      var crafting = mock(CraftingInventory.class);
+      when(crafting.getType()).thenReturn(InventoryType.CRAFTING);
+      when(view.getTopInventory()).thenReturn(crafting);
+      doReturn(view).when(player).getOpenInventory();
+    }
+    var previousInventory = player.getOpenInventory().getTopInventory();
+    var diamonds = new ItemStack(Material.DIAMOND, 5);
+    var returned = new ItemStack(Material.EMERALD, 2);
+    player.getInventory().setItem(0, diamonds);
+    var pendingReturn = new AtomicReference<>(returned);
+    // Model vanilla's cursor/crafting return, which MockBukkit does not implement on close.
+    doAnswer(
+            invocation -> {
+              boolean previous =
+                  Objects.equals(player.getOpenInventory().getTopInventory(), previousInventory);
+              if (openChest) invocation.callRealMethod();
+              if (previous) {
+                var item = pendingReturn.getAndSet(null);
+                if (item != null) player.getInventory().addItem(item);
+              }
+              return null;
+            })
+        .when(player)
+        .closeInventory();
+
+    firstGui.prepareOpen(player);
+    // Packet-based providers close any remaining menu when installing their NMS container.
+    player.closeInventory();
+    firstGui.getHumanEntityCache().restoreAndForget(player);
+
+    assertEquals(diamonds, player.getInventory().getItem(0));
+    assertEquals(returned, player.getInventory().getItem(1));
+    assertFalse(firstGui.getHumanEntityCache().contains(player));
   }
 
   @Test

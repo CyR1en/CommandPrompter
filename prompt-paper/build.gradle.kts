@@ -96,7 +96,7 @@ tasks.shadowJar {
     archiveVersion.set(project.version.toString())
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
 
-    dependsOn(":prompt-ui-26.1:jar", ":prompt-ui-26.2:jar")
+    dependsOn(":prompt-ui-26.1:jar", ":prompt-ui-26.2:jar", ":prompt-ui-26.3:jar")
     val screenProviderService = "META-INF/services/dev.cyr1en.promptui.ScreenProvider"
     // Include version-specific bytecode without adding NMS implementations to the compile classpath.
     val nms26_1 = project(":prompt-ui-26.1").tasks.named("jar", Jar::class)
@@ -106,6 +106,11 @@ tasks.shadowJar {
 
     val nms26_2 = project(":prompt-ui-26.2").tasks.named("jar", Jar::class)
     from(nms26_2.map { zipTree(it.archiveFile) }) {
+        exclude(screenProviderService)
+    }
+
+    val nms26_3 = project(":prompt-ui-26.3").tasks.named("jar", Jar::class)
+    from(nms26_3.map { zipTree(it.archiveFile) }) {
         exclude(screenProviderService)
     }
 

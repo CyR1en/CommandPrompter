@@ -1,4 +1,4 @@
-package dev.cyr1en.promptui.v26_2;
+package dev.cyr1en.promptui.v26_3;
 
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.SignInputScreen;
@@ -13,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.state.BlockState;
 import org.bukkit.Material;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
@@ -114,12 +115,11 @@ public class SignScreenImpl implements SignInputScreen, Listener {
 
       var signState = resolveSignState();
       var signEntity = new SignBlockEntity(pos, signState);
-      var text = signEntity.getText(true);
+      var text = signEntity.getText(SignTextSlot.FRONT).asMutable();
       for (int i = 0; i < Math.min(defaultLines.length, 4); i++) {
-        text =
-            text.setMessage(i, Component.literal(defaultLines[i] != null ? defaultLines[i] : ""));
+        text.setLine(i, Component.literal(defaultLines[i] != null ? defaultLines[i] : ""));
       }
-      signEntity.setText(text, true);
+      signEntity.setText(text.asImmutable(), SignTextSlot.FRONT);
 
       var signLocation =
           new org.bukkit.Location(player.getWorld(), pos.getX(), pos.getY(), pos.getZ());
@@ -153,7 +153,7 @@ public class SignScreenImpl implements SignInputScreen, Listener {
         }
         state = State.OPEN;
       }
-      nmsPlayer.connection.send(new ClientboundOpenSignEditorPacket(pos, true));
+      nmsPlayer.connection.send(new ClientboundOpenSignEditorPacket(pos, SignTextSlot.FRONT));
       plugin
           .getSLF4JLogger()
           .debug(

@@ -10,6 +10,7 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -103,18 +104,27 @@ public abstract class Gui {
     }
   }
 
-  /** Restores preceding GUIs before caching inventory for Bukkit or packet-based opening. */
+  /** Closes preceding menus before caching inventory, including items returned on close. */
   public synchronized boolean prepareOpen(@NotNull HumanEntity humanEntity) {
     Set<Gui> closed = new HashSet<>();
+    Set<Inventory> closedInventories = new HashSet<>();
     var previousInventory = humanEntity.getOpenInventory().getTopInventory();
     while (previousInventory != null) {
       var previous = getGui(previousInventory);
-      if (previous == null || previous == this) break;
-      if (!closed.add(previous)) {
+      if (previous == this) break;
+      if (!closedInventories.add(previousInventory)
+          || (previous != null && !closed.add(previous))) {
         throw new IllegalStateException("Previous GUI reopened during inventory transition");
       }
       humanEntity.closeInventory();
-      previousInventory = humanEntity.getOpenInventory().getTopInventory();
+      var nextInventory = humanEntity.getOpenInventory().getTopInventory();
+      // Closing the player's own crafting inventory keeps the same view after returning its
+      // cursor and crafting items. Other inventories must finish their close before we cache.
+      if (previous == null
+          && previousInventory.equals(nextInventory)
+          && (previousInventory.getType() == InventoryType.CRAFTING
+              || previousInventory.getType() == InventoryType.CREATIVE)) break;
+      previousInventory = nextInventory;
     }
     // A close callback can open a GUI that the enclosing platform close then displaces.
     for (Gui gui : getActiveGuis()) {
