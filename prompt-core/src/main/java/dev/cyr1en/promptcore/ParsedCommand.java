@@ -189,9 +189,9 @@ public record ParsedCommand(
    *
    * <p>For each consumed prompt (in order of appearance in {@code submittedCounts}): a count of
    * zero removes the raw prompt tag without consuming an answer; a positive count consumes that
-   * many flat answers and joins them (ignoring empty values) in place of the tag. Assembly stops at
-   * the first prompt without a recorded count, truncating the remainder of the command — this is
-   * how the current, still-unanswered prompt is excluded from the parseable input.
+   * many flat answers and joins them verbatim in place of the tag. Assembly stops at the first
+   * prompt without a recorded count, truncating the remainder of the command — this is how the
+   * current, still-unanswered prompt is excluded from the parseable input.
    *
    * <p>This keeps later prompts, {@code {input:N}} placeholders, and post-command indexes aligned
    * to real answers when a preceding dialog preset submitted zero or multiple answers.
@@ -256,7 +256,7 @@ public record ParsedCommand(
         }
         var parts = new ArrayList<String>(count);
         for (int i = 0; i < count; i++) {
-          parts.add(formatCommandToken(answers.get(answerIndex++)));
+          parts.add(Objects.requireNonNullElse(answers.get(answerIndex++), ""));
         }
         command.append(String.join(" ", parts));
       }
@@ -312,7 +312,7 @@ public record ParsedCommand(
         }
         var parts = new ArrayList<String>(count);
         for (int i = 0; i < count; i++) {
-          parts.add(formatCommandToken(answers.get(answerIndex++)));
+          parts.add(Objects.requireNonNullElse(answers.get(answerIndex++), ""));
         }
         command.append(String.join(" ", parts));
       }
@@ -330,8 +330,7 @@ public record ParsedCommand(
    * Infers the per-prompt submitted-answer counts from the tag shapes, reproducing the legacy
    * two-argument assembly: single tags consume one answer each and stop when answers run out;
    * compound tags consume up to {@code subTags().size()} answers (fewer when the flat answer list
-   * is exhausted, which the empty-value join makes equivalent to the historical fill-with-empty
-   * behavior).
+   * is exhausted).
    */
   private static List<Integer> inferSubmittedCounts(ParsedCommand parsed, List<String> answers) {
     var counts = new ArrayList<Integer>();
@@ -351,8 +350,8 @@ public record ParsedCommand(
   }
 
   /**
-   * Formats a player answer as a single double-quoted command token with quotes and backslashes
-   * escaped.
+   * Explicitly formats a value as a single double-quoted command token with quotes and backslashes
+   * escaped. Prompt answer assembly does not apply this formatting.
    *
    * @param answer the answer string to format
    * @return the formatted token wrapped in double quotes, or empty string if answer is null

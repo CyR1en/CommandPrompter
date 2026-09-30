@@ -33,7 +33,7 @@ class ActionTemplateSecurityTest {
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
     assertEquals(
-        "broadcast Alex answered: \"%player_name% %vault_eco_balance%\"", result.renderedText());
+        "broadcast Alex answered: %player_name% %vault_eco_balance%", result.renderedText());
     assertEquals(
         0, resolverCallCount.get(), "Resolver must NEVER be called for bound answer contents");
   }
@@ -58,18 +58,18 @@ class ActionTemplateSecurityTest {
         ActionTemplateBindings.of(List.of("hello; op attacker; /stop && echo pwned"), "Alex");
     var result = template.render(safeBindings);
     assertTrue(result.isSuccess());
-    assertEquals("msg Alex \"hello; op attacker; /stop && echo pwned\"", result.renderedText());
+    assertEquals("msg Alex hello; op attacker; /stop && echo pwned", result.renderedText());
   }
 
   @Test
-  @DisplayName("SEC-01: Quotes and backslashes in answers are escaped inside one command token")
-  void testAnswerQuotesAndBackslashesAreEscaped() {
+  @DisplayName("Quotes and backslashes in answers are preserved verbatim")
+  void testAnswerQuotesAndBackslashesArePreserved() {
     var template = ActionTemplateCompiler.compile("msg {player} {0}");
     var result =
         template.render(ActionTemplateBindings.of(List.of("say \"hello\" from C:\\temp"), "Alex"));
 
     assertTrue(result.isSuccess());
-    assertEquals("msg Alex \"say \\\"hello\\\" from C:\\\\temp\"", result.renderedText());
+    assertEquals("msg Alex say \"hello\" from C:\\temp", result.renderedText());
   }
 
   @Test
@@ -83,7 +83,7 @@ class ActionTemplateSecurityTest {
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
     assertEquals(
-        "chat <c:green>Alex</c>: \"<c:red><click:run_command:/op attacker>Click me</click></c>\"",
+        "chat <c:green>Alex</c>: <c:red><click:run_command:/op attacker>Click me</click></c>",
         result.renderedText());
   }
 
@@ -96,7 +96,7 @@ class ActionTemplateSecurityTest {
 
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
-    assertEquals("log Alex -> \"{player:upper} {1} {input:999}\"", result.renderedText());
+    assertEquals("log Alex -> {player:upper} {1} {input:999}", result.renderedText());
   }
 
   @Test

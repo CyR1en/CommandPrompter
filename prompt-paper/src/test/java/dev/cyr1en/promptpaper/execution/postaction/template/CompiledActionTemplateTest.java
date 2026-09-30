@@ -23,8 +23,29 @@ class CompiledActionTemplateTest {
 
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
-    assertEquals(
-        "tell Alex \"first\" \"first\" \"second\" \"first\" \"second\"", result.renderedText());
+    assertEquals("tell Alex first first second first second", result.renderedText());
+  }
+
+  @Test
+  @DisplayName("Preserves explicit quotes around numeric and legacy answer references")
+  void testExplicitAnswerQuotes() {
+    var template = ActionTemplateCompiler.compile("tell {player} \"{0}\" \"{input:2}\"");
+    var bindings = ActionTemplateBindings.of(List.of("hello world", "another answer"), "Alex");
+
+    var result = template.render(bindings);
+
+    assertTrue(result.isSuccess());
+    assertEquals("tell Alex \"hello world\" \"another answer\"", result.renderedText());
+  }
+
+  @Test
+  @DisplayName("Inserts multiword answers without adding quotes")
+  void testMultiwordAnswer() {
+    var template = ActionTemplateCompiler.compile("tell {player} {0}");
+    var result = template.render(ActionTemplateBindings.of(List.of("hello world"), "Alex"));
+
+    assertTrue(result.isSuccess());
+    assertEquals("tell Alex hello world", result.renderedText());
   }
 
   @Test
@@ -39,8 +60,7 @@ class CompiledActionTemplateTest {
 
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
-    assertEquals(
-        "echo ALEX \"upper_to_lower\" \"Steve\" \"spaced\" \"Colored\"", result.renderedText());
+    assertEquals("echo ALEX upper_to_lower Steve spaced Colored", result.renderedText());
   }
 
   @Test
@@ -53,7 +73,7 @@ class CompiledActionTemplateTest {
 
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
-    assertEquals("give Alex \"emerald\" \"gold\"", result.renderedText());
+    assertEquals("give Alex emerald gold", result.renderedText());
   }
 
   @Test
@@ -75,7 +95,7 @@ class CompiledActionTemplateTest {
 
     var result = template.render(bindings, MathMode.LEGACY);
     assertTrue(result.isSuccess());
-    assertEquals("points \"120.00\" \"0\"", result.renderedText());
+    assertEquals("points 120.00 0", result.renderedText());
     assertTrue(result.notices().contains(TransformNotice.DIVISION_BY_ZERO_SUBSTITUTED));
   }
 
@@ -243,7 +263,7 @@ class CompiledActionTemplateTest {
 
       var result = template.render(bindings);
       assertTrue(result.isSuccess());
-      assertEquals("msg IDENTITY \"title_info\" \"15.50\"", result.renderedText());
+      assertEquals("msg IDENTITY title_info 15.50", result.renderedText());
     } finally {
       Locale.setDefault(original);
     }

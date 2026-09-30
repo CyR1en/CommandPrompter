@@ -623,14 +623,14 @@ class ConfirmationFlowIntegrationTest extends MockBukkitTest {
 
     var confirmSubmitted = engine.submitAnswers(player, List.of("true"), 1);
     assertTrue(confirmSubmitted.isPresent());
-    assertEquals("/pvp set \"true\"", confirmSubmitted.get().assembledCommand());
+    assertEquals("/pvp set true", confirmSubmitted.get().assembledCommand());
     assertEquals(List.of("true"), confirmSubmitted.get().answers());
 
     // Value mode decline
     screenManager.startSession(player, "/pvp set <c:Enable PvP? -value>");
     var declineSubmitted = engine.submitAnswers(player, List.of("false"), 1);
     assertTrue(declineSubmitted.isPresent());
-    assertEquals("/pvp set \"false\"", declineSubmitted.get().assembledCommand());
+    assertEquals("/pvp set false", declineSubmitted.get().assembledCommand());
     assertEquals(List.of("false"), declineSubmitted.get().answers());
   }
 

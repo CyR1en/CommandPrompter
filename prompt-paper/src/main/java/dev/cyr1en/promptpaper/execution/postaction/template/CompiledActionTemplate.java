@@ -153,12 +153,7 @@ public record CompiledActionTemplate(
 
         String transformedValue = transformResult.value();
         if (transformedValue != null) {
-          // Numeric keys are player answers. Keep each substitution as one command token;
-          // player/config metadata such as {player} remains ordinary template data.
-          sb.append(
-              isAnswerKey(key)
-                  ? ParsedCommand.formatCommandToken(transformedValue)
-                  : transformedValue);
+          sb.append(transformedValue);
           if (sb.length() > maxOutputLength) {
             return ActionTemplateResult.failure(
                 ActionTemplateErrorCode.OUTPUT_TOO_LONG,
@@ -226,13 +221,5 @@ public record CompiledActionTemplate(
     }
 
     return ActionTemplateResult.success(sb.toString(), Collections.unmodifiableList(notices));
-  }
-
-  static boolean isAnswerKey(String key) {
-    if (key == null || key.isEmpty()) return false;
-    for (int i = 0; i < key.length(); i++) {
-      if (!Character.isDigit(key.charAt(i))) return false;
-    }
-    return true;
   }
 }

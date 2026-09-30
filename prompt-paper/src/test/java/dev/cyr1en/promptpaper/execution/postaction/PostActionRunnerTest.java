@@ -692,7 +692,7 @@ class PostActionRunnerTest extends MockBukkitTest {
       assertTrue(resultRef.get().isSuccess());
       assertEquals(1, dispatcher.dispatchedRequests.size());
       assertEquals(
-          "say Answer was: \"<!kill @a> ; /op hacker ; %vault_eco_balance%\"",
+          "say Answer was: <!kill @a> ; /op hacker ; %vault_eco_balance%",
           dispatcher.dispatchedRequests.get(0).command());
     }
 

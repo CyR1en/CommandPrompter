@@ -724,7 +724,7 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
     var instanceOpt = customCoordinator.coordinate(player, completion, sessionResult);
     assertTrue(instanceOpt.isPresent());
 
-    assertTrue(dispatchedCommands.contains("msg LegacyUser your answer was \"apple\""));
+    assertTrue(dispatchedCommands.contains("msg LegacyUser your answer was apple"));
   }
 
   @Test

@@ -90,7 +90,7 @@ class DialogResultRoutingTest extends MockBukkitTest {
     // The dropped preset leaves the gap between the two tags ("/cmd <@d0> <next>"),
     // matching the existing empty-slot double-space precedent.
     assertEquals(
-        "/cmd  \"c\"",
+        "/cmd  c",
         completed.assembledCommand(),
         "preset removed, next prompt answer occupies index 0");
     assertEquals(List.of("c"), completed.answers());
@@ -110,7 +110,7 @@ class DialogResultRoutingTest extends MockBukkitTest {
     assertEquals(List.of("a"), session.answers());
 
     SessionResult completed = engine.submit(player, "c").orElseThrow();
-    assertEquals("/cmd \"a\" \"c\"", completed.assembledCommand());
+    assertEquals("/cmd a c", completed.assembledCommand());
     assertEquals(List.of("a", "c"), completed.answers());
   }
 
@@ -134,7 +134,7 @@ class DialogResultRoutingTest extends MockBukkitTest {
 
     SessionResult completed = engine.submit(player, "c").orElseThrow();
     assertEquals(
-        "/cmd \"a\" \"b\" \"c\"",
+        "/cmd a b c",
         completed.assembledCommand(),
         "two preset answers join, then the next prompt answer follows at the next index");
     assertEquals(List.of("a", "b", "c"), completed.answers());
@@ -156,7 +156,7 @@ class DialogResultRoutingTest extends MockBukkitTest {
     invokeHandleResult(player, ScreenResult.answer(AnswerEncoding.encode(List.of("a", "b", "c"))));
 
     SessionResult completed = engine.submit(player, "d").orElseThrow();
-    assertEquals("/cmd \"a\" \"b\" \"c\" \"d\"", completed.assembledCommand());
+    assertEquals("/cmd a b c d", completed.assembledCommand());
     assertEquals(List.of("a", "b", "c", "d"), completed.answers());
     assertEquals(
         "log {0} {1} {2} {3}",

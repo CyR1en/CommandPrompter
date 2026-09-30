@@ -132,7 +132,7 @@ class PromptSessionTest {
     var parsed = parser.parse("/kick <a:Why?>");
     var session = PromptSession.start("user1", parsed).submitAnswer("griefing");
     var result = session.finish();
-    assertEquals("/kick \"griefing\"", result.assembledCommand());
+    assertEquals("/kick griefing", result.assembledCommand());
   }
 
   @Test
@@ -140,7 +140,20 @@ class PromptSessionTest {
     var parsed = parser.parse("/cmd <a:first> <a:second>");
     var session = PromptSession.start("user1", parsed).submitAnswer("a1").submitAnswer("a2");
     var result = session.finish();
-    assertEquals("/cmd \"a1\" \"a2\"", result.assembledCommand());
+    assertEquals("/cmd a1 a2", result.assembledCommand());
+  }
+
+  @Test
+  void finish_preservesExplicitTemplateQuotesAndAnswerCharacters() {
+    var parsed = parser.parse("/cmd \"<a:first -ds>\" <a:second -ds>");
+    var completed =
+        PromptSession.start("user1", parsed)
+            .submitAnswer("hello world")
+            .submitAnswer("he said \"hello\" in C:\\temp");
+
+    assertEquals(
+        "/cmd \"hello world\" he said \"hello\" in C:\\temp",
+        completed.finish().assembledCommand());
   }
 
   @Test
@@ -148,7 +161,7 @@ class PromptSessionTest {
     var parsed = parser.parse("/ban <a:Why?> <! tempban {0} 7d>");
     var session = PromptSession.start("user1", parsed).submitAnswer("griefing");
     var result = session.finish();
-    assertEquals("/ban \"griefing\"", result.assembledCommand());
+    assertEquals("/ban griefing", result.assembledCommand());
     assertEquals(1, result.onCompleteCmds().size());
     assertEquals("tempban {0} 7d", result.onCompleteCmds().get(0).command());
     assertArrayEquals(new int[] {0}, result.onCompleteCmds().get(0).answerIndices());
@@ -163,7 +176,7 @@ class PromptSessionTest {
     var completed = session.submitAnswers(List.of("Steve", "7"));
 
     assertEquals(List.of("griefing", "Steve", "7"), completed.answers());
-    assertEquals("/ban \"griefing\" \"Steve\" \"7\"", completed.finish().assembledCommand());
+    assertEquals("/ban griefing Steve 7", completed.finish().assembledCommand());
     assertEquals("audit {0} {1} {2}", completed.finish().onCompleteCmds().get(0).command());
     assertArrayEquals(
         new int[] {0, 1, 2}, completed.finish().onCompleteCmds().get(0).answerIndices());
@@ -197,7 +210,7 @@ class PromptSessionTest {
     var parsed = parser.parse("/ask <a:Why? \\>>");
     var completed = PromptSession.start("user1", parsed).submitAnswer("because");
 
-    assertEquals("/ask \"because\"", completed.finish().assembledCommand());
+    assertEquals("/ask because", completed.finish().assembledCommand());
   }
 
   @Test
@@ -218,7 +231,7 @@ class PromptSessionTest {
     var parsed = parser.parse("/kick <>");
     var session = PromptSession.start("user1", parsed).submitAnswer("Steve");
     var result = session.finish();
-    assertEquals("/kick \"Steve\"", result.assembledCommand());
+    assertEquals("/kick Steve", result.assembledCommand());
     assertFalse(result.hasPostCommands());
   }
 
@@ -371,7 +384,7 @@ class PromptSessionTest {
     var completed = afterPreset.submitAnswer("c");
     assertEquals(List.of("c"), completed.answers());
     assertEquals(List.of(0, 1), completed.submittedAnswerCounts());
-    assertEquals("/cmd \"c\"", completed.finish().assembledCommand());
+    assertEquals("/cmd c", completed.finish().assembledCommand());
   }
 
   /** A zero-answer preset must not shift {0} / post-command answer indexes. */
@@ -379,7 +392,7 @@ class PromptSessionTest {
   void zeroAnswerPresetDoesNotShiftPcmIndexes() {
     var parsed = parser.parse("/cmd <@my_id><a:next> <!audit {0}>");
     var completed = PromptSession.start("u", parsed).submitAnswers(List.of(), 0).submitAnswer("c");
-    assertEquals("/cmd \"c\"", completed.finish().assembledCommand());
+    assertEquals("/cmd c", completed.finish().assembledCommand());
     assertEquals(List.of("c"), completed.answers());
     assertEquals("audit {0}", completed.finish().onCompleteCmds().get(0).command());
     assertArrayEquals(new int[] {0}, completed.finish().onCompleteCmds().get(0).answerIndices());
@@ -397,7 +410,7 @@ class PromptSessionTest {
 
     assertEquals(List.of("a", "b", "c"), completed.answers());
     assertEquals(List.of(2, 1), completed.submittedAnswerCounts());
-    assertEquals("/cmd \"a\" \"b\" \"c\"", completed.finish().assembledCommand());
+    assertEquals("/cmd a b c", completed.finish().assembledCommand());
     assertEquals("audit {0} {1} {2}", completed.finish().onCompleteCmds().get(0).command());
     assertArrayEquals(
         new int[] {0, 1, 2}, completed.finish().onCompleteCmds().get(0).answerIndices());
@@ -410,7 +423,7 @@ class PromptSessionTest {
     var completed =
         PromptSession.start("u", parsed).submitAnswers(List.of("a", "b", "c"), 3).submitAnswer("d");
     assertEquals(List.of("a", "b", "c", "d"), completed.answers());
-    assertEquals("/cmd \"a\" \"b\" \"c\" \"d\"", completed.finish().assembledCommand());
+    assertEquals("/cmd a b c d", completed.finish().assembledCommand());
     assertEquals("log {0} {1} {2} {3}", completed.finish().onCompleteCmds().get(0).command());
     assertArrayEquals(
         new int[] {0, 1, 2, 3}, completed.finish().onCompleteCmds().get(0).answerIndices());
@@ -499,7 +512,7 @@ class PromptSessionTest {
     assertEquals("/cmd ", afterPreset.buildPartialCommand());
 
     var afterTwo = PromptSession.start("u", parsed).submitAnswers(List.of("a", "b"), 2);
-    assertEquals("/cmd \"a\" \"b\" ", afterTwo.buildPartialCommand());
+    assertEquals("/cmd a b ", afterTwo.buildPartialCommand());
   }
 
   // ====================================================================
@@ -603,7 +616,7 @@ class PromptSessionTest {
     var session = PromptSession.start("u1", parsed).submitAnswer("{player}");
     var result = session.finish();
 
-    assertEquals("/give \"{player}\"", result.assembledCommand());
+    assertEquals("/give {player}", result.assembledCommand());
     assertEquals(List.of("{player}"), result.answers());
     assertEquals(1, result.onCompleteCmds().size());
     assertEquals("give {0} diamond 1", result.onCompleteCmds().get(0).command());
@@ -617,7 +630,7 @@ class PromptSessionTest {
     var session = PromptSession.start("u1", parsed).submitAnswer("{1:upper}");
     var result = session.finish();
 
-    assertEquals("/cmd \"{1:upper}\"", result.assembledCommand());
+    assertEquals("/cmd {1:upper}", result.assembledCommand());
     assertEquals(List.of("{1:upper}"), result.answers());
     assertEquals(1, result.onCompleteCmds().size());
     assertEquals("audit {0}", result.onCompleteCmds().get(0).command());
@@ -632,7 +645,7 @@ class PromptSessionTest {
     var session = PromptSession.start("u1", parsed).submitAnswer("%player_name%");
     var result = session.finish();
 
-    assertEquals("/eco \"%player_name%\"", result.assembledCommand());
+    assertEquals("/eco %player_name%", result.assembledCommand());
     assertEquals(List.of("%player_name%"), result.answers());
     assertEquals(1, result.onCompleteCmds().size());
     var pcm = result.onCompleteCmds().get(0);
@@ -648,7 +661,7 @@ class PromptSessionTest {
     var session = PromptSession.start("u1", parsed).submitAnswer("Hello\u0000\u0007\u001BWorld");
     var result = session.finish();
 
-    assertEquals("/say \"HelloWorld\"", result.assembledCommand());
+    assertEquals("/say HelloWorld", result.assembledCommand());
     assertEquals(List.of("HelloWorld"), result.answers());
     assertEquals(1, result.onCompleteCmds().size());
     assertEquals("log {0}", result.onCompleteCmds().get(0).command());
@@ -663,7 +676,7 @@ class PromptSessionTest {
         PromptSession.start("u1", parsed).submitAnswer("<a:injected>; /op hacker; <d:test>");
     var result = session.finish();
 
-    assertEquals("/execute \"<a:injected>; /op hacker; <d:test>\"", result.assembledCommand());
+    assertEquals("/execute <a:injected>; /op hacker; <d:test>", result.assembledCommand());
     assertEquals(List.of("<a:injected>; /op hacker; <d:test>"), result.answers());
     assertEquals(1, result.onCompleteCmds().size());
     assertEquals("log {0}; echo complete", result.onCompleteCmds().get(0).command());
@@ -679,7 +692,7 @@ class PromptSessionTest {
 
     var completedSession = PromptSession.start("u1", parsed).submitAnswer("Steve");
     var completeResult = completedSession.finish();
-    assertEquals("/action \"Steve\"", completeResult.assembledCommand());
+    assertEquals("/action Steve", completeResult.assembledCommand());
     assertEquals(List.of("Steve"), completeResult.answers());
     assertEquals(2, completeResult.onCompleteCmds().size());
     assertTrue(completeResult.onCancelCmds().isEmpty());

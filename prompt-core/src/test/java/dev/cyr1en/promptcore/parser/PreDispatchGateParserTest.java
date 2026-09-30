@@ -83,7 +83,7 @@ class PreDispatchGateParserTest {
     assertEquals(7, result.templateSpans().size());
 
     var partial = ParsedCommand.buildPartialCommand(result, List.of("ans1", "ans2"));
-    assertEquals("/cmd \"ans1\" \"ans2\" ", partial);
+    assertEquals("/cmd ans1 ans2 ", partial);
   }
 
   @Test

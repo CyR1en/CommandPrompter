@@ -83,7 +83,7 @@ public final class ActionTemplateCompiler {
         trustLevel == ActionTrustLevel.TRUSTED_PRESET
             || trustLevel == ActionTrustLevel.CONSOLE_DELEGATED;
     List<ActionTemplateSegment> segments = new ArrayList<>();
-    for (TemplateSegment segment : stripLegacyAnswerQuotes(coreTemplate.segments())) {
+    for (TemplateSegment segment : coreTemplate.segments()) {
       switch (segment) {
         case ReferenceSegment reference ->
             segments.add(new ActionTemplateSegment.Reference(reference));
@@ -118,24 +118,6 @@ public final class ActionTemplateCompiler {
     }
 
     return new CompiledActionTemplate(source, trustLevel, segments);
-  }
-
-  private static List<TemplateSegment> stripLegacyAnswerQuotes(List<TemplateSegment> source) {
-    var segments = new ArrayList<>(source);
-    for (int i = 1; i + 1 < segments.size(); i++) {
-      if (!(segments.get(i) instanceof ReferenceSegment reference)
-          || !CompiledActionTemplate.isAnswerKey(reference.key())
-          || !(segments.get(i - 1) instanceof LiteralSegment before)
-          || !(segments.get(i + 1) instanceof LiteralSegment after)
-          || !before.text().endsWith("\"")
-          || !after.text().startsWith("\"")) {
-        continue;
-      }
-      segments.set(
-          i - 1, new LiteralSegment(before.text().substring(0, before.text().length() - 1)));
-      segments.set(i + 1, new LiteralSegment(after.text().substring(1)));
-    }
-    return segments;
   }
 
   private static void appendLiteralWithPapi(

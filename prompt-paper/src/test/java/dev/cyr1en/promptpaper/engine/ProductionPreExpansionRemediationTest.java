@@ -138,8 +138,8 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("primary:testprimary \"{player}\"", dispatchedCommands.get(0));
-    assertEquals("logoutput Answer was \"{player}\"", dispatchedCommands.get(1));
+    assertEquals("primary:testprimary {player}", dispatchedCommands.get(0));
+    assertEquals("logoutput Answer was {player}", dispatchedCommands.get(1));
   }
 
   @Test
@@ -161,9 +161,9 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("primary:testprimary \"{1:upper}\" \"apple\"", dispatchedCommands.get(0));
+    assertEquals("primary:testprimary {1:upper} apple", dispatchedCommands.get(0));
     // {0} must literally be "{1:upper}", not transformed to "APPLE"
-    assertEquals("logoutput Res: \"{1:upper}\" and \"apple\"", dispatchedCommands.get(1));
+    assertEquals("logoutput Res: {1:upper} and apple", dispatchedCommands.get(1));
   }
 
   @Test
@@ -179,7 +179,7 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("logoutput Token: \"%player_name%\"", dispatchedCommands.get(1));
+    assertEquals("logoutput Token: %player_name%", dispatchedCommands.get(1));
     // Untrusted inline post command must NOT query PAPI resolver for %player_name%
     assertFalse(
         papiQueriedTokens.contains("player_name"),
@@ -215,7 +215,7 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("logoutput Stat: \"100\" Answer: \"%player_name%\"", dispatchedCommands.get(1));
+    assertEquals("logoutput Stat: \"100\" Answer: %player_name%", dispatchedCommands.get(1));
 
     assertTrue(papiQueriedTokens.contains("trusted_stat"), "Trusted preset PAPI must be resolved");
     assertFalse(
@@ -236,8 +236,8 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("primary:testprimary \"helloworld\"", dispatchedCommands.get(0));
-    assertEquals("logoutput Value=\"helloworld\"", dispatchedCommands.get(1));
+    assertEquals("primary:testprimary helloworld", dispatchedCommands.get(0));
+    assertEquals("logoutput Value=helloworld", dispatchedCommands.get(1));
   }
 
   @Test
@@ -252,7 +252,7 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("logoutput Payload: \"<c:x>; op \\\" ' `\"", dispatchedCommands.get(1));
+    assertEquals("logoutput Payload: \"<c:x>; op \" ' `\"", dispatchedCommands.get(1));
   }
 
   @Test
@@ -274,6 +274,6 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(1, dispatchedCommands.size());
-    assertEquals("logoutput Cancelled after \"{player}\"", dispatchedCommands.get(0));
+    assertEquals("logoutput Cancelled after {player}", dispatchedCommands.get(0));
   }
 }

@@ -59,7 +59,7 @@ class CustomSyntaxEndToEndTest extends MockBukkitTest {
             List.of("Alice"), player.getName(), PapiReferenceResolver.empty());
     var renderSimple = compiledSimple.render(bindings, MathMode.LEGACY);
     assertTrue(renderSimple.isSuccess());
-    assertEquals("say \"Alice\"", renderSimple.renderedText());
+    assertEquals("say Alice", renderSimple.renderedText());
 
     // 4. Test transformer with custom transform separator |
     var compiledUpper =
@@ -67,8 +67,7 @@ class CustomSyntaxEndToEndTest extends MockBukkitTest {
             "msg [[player|upper]] [[0|upper]]", customSyntax, ActionTrustLevel.UNTRUSTED_INLINE);
     var renderUpper = compiledUpper.render(bindings, MathMode.LEGACY);
     assertTrue(renderUpper.isSuccess());
-    assertEquals(
-        "msg " + player.getName().toUpperCase() + " \"ALICE\"", renderUpper.renderedText());
+    assertEquals("msg " + player.getName().toUpperCase() + " ALICE", renderUpper.renderedText());
   }
 
   @Test

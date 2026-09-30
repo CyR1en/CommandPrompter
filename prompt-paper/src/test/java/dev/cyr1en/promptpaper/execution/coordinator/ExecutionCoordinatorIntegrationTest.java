@@ -603,7 +603,7 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     coordinator.coordinate(player, completion, sessionOpt.get());
     performTicks(5);
 
-    assertTrue(executionLog.contains("finalcmd \"myanswer\""));
+    assertTrue(executionLog.contains("finalcmd myanswer"));
     assertTrue(executionLog.contains("poststep"));
     assertFalse(registry.hasActiveExecution(player.getUniqueId()));
   }

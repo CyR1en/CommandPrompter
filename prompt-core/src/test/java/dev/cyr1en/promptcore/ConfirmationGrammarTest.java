@@ -427,13 +427,13 @@ class ConfirmationGrammarTest {
     var sessionAccept = PromptSession.start("user1", parsed).submitAnswer("true");
     assertTrue(sessionAccept.isComplete());
     assertEquals(List.of("true"), sessionAccept.answers());
-    assertEquals("/togglepvp \"true\"", sessionAccept.finish().assembledCommand());
+    assertEquals("/togglepvp true", sessionAccept.finish().assembledCommand());
 
     // Decline in value mode submits "false"
     var sessionDecline = PromptSession.start("user1", parsed).submitAnswer("false");
     assertTrue(sessionDecline.isComplete());
     assertEquals(List.of("false"), sessionDecline.answers());
-    assertEquals("/togglepvp \"false\"", sessionDecline.finish().assembledCommand());
+    assertEquals("/togglepvp false", sessionDecline.finish().assembledCommand());
   }
 
   @Test
@@ -453,12 +453,12 @@ class ConfirmationGrammarTest {
     var sessionTrue = PromptSession.start("user1", parsed).submitAnswer("true");
     var resultTrue = sessionTrue.finish();
     assertEquals("true", resultTrue.answers().get(0));
-    assertEquals("/zone set \"true\"", resultTrue.assembledCommand());
+    assertEquals("/zone set true", resultTrue.assembledCommand());
 
     var sessionFalse = PromptSession.start("user1", parsed).submitAnswer("false");
     var resultFalse = sessionFalse.finish();
     assertEquals("false", resultFalse.answers().get(0));
-    assertEquals("/zone set \"false\"", resultFalse.assembledCommand());
+    assertEquals("/zone set false", resultFalse.assembledCommand());
   }
 
   // ====================================================================
