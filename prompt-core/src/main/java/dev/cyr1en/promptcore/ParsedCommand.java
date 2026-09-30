@@ -349,30 +349,6 @@ public record ParsedCommand(
     return counts;
   }
 
-  /**
-   * Explicitly formats a value as a single double-quoted command token with quotes and backslashes
-   * escaped. Prompt answer assembly does not apply this formatting.
-   *
-   * @param answer the answer string to format
-   * @return the formatted token wrapped in double quotes, or empty string if answer is null
-   */
-  public static String formatCommandToken(String answer) {
-    if (answer == null) {
-      return "";
-    }
-    var sb = new StringBuilder(answer.length() + 2);
-    sb.append('"');
-    for (int i = 0; i < answer.length(); i++) {
-      char c = answer.charAt(i);
-      if (c == '\\' || c == '"') {
-        sb.append('\\');
-      }
-      sb.append(c);
-    }
-    sb.append('"');
-    return sb.toString();
-  }
-
   private static String unescape(String input, ParserConfig config) {
     if (input == null || input.isEmpty()) return input;
     String escape = config.escape();

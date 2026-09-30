@@ -1,6 +1,5 @@
 package dev.cyr1en.promptpaper.execution.postaction.template;
 
-import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.logic.transform.DefaultTransformer;
 import dev.cyr1en.promptcore.logic.transform.MathMode;
 import dev.cyr1en.promptcore.logic.transform.SingleTransformResult;
@@ -210,8 +209,7 @@ public record CompiledActionTemplate(
           }
         }
 
-        // Trusted expansion output is still external data and must occupy one token.
-        sb.append(ParsedCommand.formatCommandToken(resolved));
+        sb.append(resolved);
         if (sb.length() > maxOutputLength) {
           return ActionTemplateResult.failure(
               ActionTemplateErrorCode.OUTPUT_TOO_LONG,

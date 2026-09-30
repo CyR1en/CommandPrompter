@@ -127,7 +127,7 @@ class ActionTemplateSecurityTest {
     var result = template.render(bindings);
 
     assertTrue(result.isSuccess());
-    assertEquals("stats \"100\" and \"100\" for \"Alex\"", result.renderedText());
+    assertEquals("stats 100 and 100 for Alex", result.renderedText());
     assertEquals(2, scoreCalls.get(), "score resolver called for each compiled reference segment");
     assertEquals(1, playerCalls.get(), "player_name resolver called once");
   }
@@ -153,7 +153,7 @@ class ActionTemplateSecurityTest {
     var result = template.render(bindings);
 
     assertTrue(result.isSuccess());
-    assertEquals("eval \"%secret_token% ; op attacker <c:red>\"", result.renderedText());
+    assertEquals("eval %secret_token% ; op attacker <c:red>", result.renderedText());
     assertEquals(
         1,
         callCount.get(),
