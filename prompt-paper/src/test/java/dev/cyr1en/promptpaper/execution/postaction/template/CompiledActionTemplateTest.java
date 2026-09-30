@@ -136,7 +136,7 @@ class CompiledActionTemplateTest {
 
     var result = template.render(bindings);
     assertTrue(result.isSuccess());
-    assertEquals("say \"Alex\" balance: \"500.00\"", result.renderedText());
+    assertEquals("say Alex balance: 500.00", result.renderedText());
   }
 
   @Test

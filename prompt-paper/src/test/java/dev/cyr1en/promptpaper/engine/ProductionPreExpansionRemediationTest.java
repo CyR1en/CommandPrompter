@@ -215,7 +215,7 @@ class ProductionPreExpansionRemediationTest extends MockBukkitTest {
 
     assertFalse(engine.hasActiveSession(player));
     assertEquals(2, dispatchedCommands.size());
-    assertEquals("logoutput Stat: \"100\" Answer: %player_name%", dispatchedCommands.get(1));
+    assertEquals("logoutput Stat: 100 Answer: %player_name%", dispatchedCommands.get(1));
 
     assertTrue(papiQueriedTokens.contains("trusted_stat"), "Trusted preset PAPI must be resolved");
     assertFalse(

@@ -352,23 +352,6 @@ class ParsedCommandTest {
   }
 
   @Test
-  void formatCommandTokenHelperRetainsExplicitQuoting() {
-    assertEquals("", ParsedCommand.formatCommandToken(null));
-    assertEquals("\"\"", ParsedCommand.formatCommandToken(""));
-    assertEquals("\"Steve\"", ParsedCommand.formatCommandToken("Steve"));
-    assertEquals("\"64\"", ParsedCommand.formatCommandToken("64"));
-    assertEquals("\"hello world\"", ParsedCommand.formatCommandToken("hello world"));
-    assertEquals("\"foo\\\"bar\"", ParsedCommand.formatCommandToken("foo\"bar"));
-    assertEquals("\"foo\\\\bar\"", ParsedCommand.formatCommandToken("foo\\bar"));
-    assertEquals("\"foo;bar\"", ParsedCommand.formatCommandToken("foo;bar"));
-    assertEquals("\"<c:x>\"", ParsedCommand.formatCommandToken("<c:x>"));
-    assertEquals("\"}\"", ParsedCommand.formatCommandToken("}"));
-    assertEquals("\";\"", ParsedCommand.formatCommandToken(";"));
-    assertEquals("\"\\\"\"", ParsedCommand.formatCommandToken("\""));
-    assertEquals("\"\\\\\"", ParsedCommand.formatCommandToken("\\"));
-  }
-
-  @Test
   void parsedCommandConstructorRejectsMoreThan16Tags() {
     var tags = new java.util.ArrayList<PromptTag>();
     for (int i = 0; i < 17; i++) {

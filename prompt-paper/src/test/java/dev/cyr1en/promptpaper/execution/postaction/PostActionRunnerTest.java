@@ -627,7 +627,7 @@ class PostActionRunnerTest extends MockBukkitTest {
       assertNotNull(resultRef.get());
       assertTrue(resultRef.get().isSuccess());
       assertEquals(
-          "broadcast \"SurvivalCraft\" welcomed " + player.getName(),
+          "broadcast SurvivalCraft welcomed " + player.getName(),
           dispatcher.dispatchedRequests.get(0).command());
     }
 

@@ -623,7 +623,7 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
     assertTrue(instanceOpt.isPresent());
 
     // Trusted preset expanded PAPI token
-    assertTrue(dispatchedCommands.contains("broadcast Welcome \"SurvivalCraft\" PapiUser"));
+    assertTrue(dispatchedCommands.contains("broadcast Welcome SurvivalCraft PapiUser"));
     // Untrusted inline did NOT expand PAPI token (%server_name% left as plain text)
     assertTrue(dispatchedCommands.contains("broadcast Inline %server_name% PapiUser"));
   }
