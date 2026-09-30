@@ -29,6 +29,7 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
             new CancelCommand(plugin),
             new VersionCommand(plugin),
             new MigrateCommand(plugin),
+            new PatchCommand(plugin),
             new PresetCommand(plugin));
   }
 
@@ -60,6 +61,12 @@ public class PromptRootCommand extends PromptCommand implements Command<CommandS
                 <gold>/commandprompter reload</gold> <gray>- Reload configuration</gray>
                 <gold>/commandprompter version</gold> <gray>- Show plugin version</gray>""";
     var message = ComponentUtil.mini(msg);
+    if (sender.hasPermission("promptpaper.patch") || sender.hasPermission("promptpaper.admin")) {
+      message =
+          message
+              .appendNewline()
+              .append(plugin.getConfigLoader().getI18n().get("command.patch.help"));
+    }
     if (sender.hasPermission("promptpaper.migrate") || sender.hasPermission("promptpaper.admin")) {
       message =
           message

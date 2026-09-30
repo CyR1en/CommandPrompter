@@ -20,6 +20,7 @@ import dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry;
 import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.PluginHook;
+import dev.cyr1en.promptpaper.hook.geyser.GeyserStandaloneSupport;
 import dev.cyr1en.promptpaper.hook.hooks.ChatListenerHook;
 import dev.cyr1en.promptpaper.i18n.PaperI18n;
 import dev.cyr1en.promptpaper.item.catalog.ItemCatalogRegistry;
@@ -65,6 +66,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
   private ScreenManager screenManager;
   private HeadCache headCache;
   private HookContainer hookContainer;
+  private GeyserStandaloneSupport geyserStandaloneSupport;
   private PresetRegistry presetRegistry;
   private ItemCatalogRegistry itemCatalogRegistry;
   private PromptFactory promptFactory;
@@ -97,6 +99,8 @@ public class CommandPrompter extends JavaPlugin implements Listener {
       initItemCatalogs();
       initCustomScreenRegistryAndResolver();
       initCoreSubsystems();
+      geyserStandaloneSupport = new GeyserStandaloneSupport(this);
+      geyserStandaloneSupport.enable();
       initListeners();
       initHooks();
       initCommands();
@@ -263,6 +267,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
 
   private void cleanupEnableFailure() {
     activeLifecycle = false;
+    if (geyserStandaloneSupport != null) geyserStandaloneSupport.close();
     if (customScreenRegistry != null) {
       customScreenRegistry.freeze();
     }
@@ -393,6 +398,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
     if (screens != null) {
       screens.teardownBuiltInScreens();
     }
+    if (geyserStandaloneSupport != null) geyserStandaloneSupport.close();
 
     if (logger != null) {
       logger.info("CommandPrompterPaper disabled.");
@@ -462,6 +468,10 @@ public class CommandPrompter extends JavaPlugin implements Listener {
 
   public HookContainer getHookContainer() {
     return hookContainer;
+  }
+
+  public GeyserStandaloneSupport getGeyserStandaloneSupport() {
+    return geyserStandaloneSupport;
   }
 
   public PresetRegistry getPresetRegistry() {

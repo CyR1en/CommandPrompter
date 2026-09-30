@@ -1,6 +1,8 @@
 package dev.cyr1en.promptui.util;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -17,8 +19,15 @@ import org.jetbrains.annotations.Nullable;
 public final class BedrockUtil {
 
   private static volatile Predicate<UUID> bedrockChecker;
+  private static final Set<UUID> proxyPlayers = ConcurrentHashMap.newKeySet();
 
   private BedrockUtil() {}
+
+  /** Tracks connections announced by a patched proxy paired with this backend. */
+  public static void setProxyBedrockPlayer(UUID player, boolean bedrock) {
+    if (bedrock) proxyPlayers.add(player);
+    else proxyPlayers.remove(player);
+  }
 
   /**
    * Sets a custom predicate for determining Bedrock player status, useful for unit tests.
@@ -61,6 +70,7 @@ public final class BedrockUtil {
     if (checker != null) {
       return checker.test(uuid);
     }
+    if (proxyPlayers.contains(uuid)) return true;
     if (isGeyserInstalled() && GeyserDelegate.isBedrockPlayer(uuid)) {
       return true;
     }

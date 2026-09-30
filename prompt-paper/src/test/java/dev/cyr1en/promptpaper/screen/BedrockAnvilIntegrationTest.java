@@ -192,6 +192,44 @@ class BedrockAnvilIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void standaloneCapabilityConfiguresAnvilWithoutALocalGeyserPlugin() {
+    var player = createPlayer();
+    var support = mock(dev.cyr1en.promptpaper.hook.geyser.GeyserStandaloneSupport.class);
+    when(plugin.getGeyserStandaloneSupport()).thenReturn(support);
+    var presentation = dev.cyr1en.promptui.AnvilItemPresentation.IDENTITY;
+    when(support.itemPresentation(player.getUniqueId()))
+        .thenReturn(java.util.Optional.of(presentation));
+    var provider = mock(ScreenProvider.class);
+    var anvil = mock(AnvilInputScreen.class);
+    when(provider.createAnvil(plugin, player, "Prompt")).thenReturn(anvil);
+    var prompt =
+        new dev.cyr1en.promptpaper.preset.AnvilPrompt(
+            "anvil",
+            "standalone",
+            "Title",
+            "Prompt",
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "", "PAPER", "", 0),
+            new dev.cyr1en.promptpaper.preset.AnvilButton(true, "Cancel", "BARRIER", "", 0),
+            false);
+    BedrockUtil.setProxyBedrockPlayer(player.getUniqueId(), true);
+    try {
+      assertFalse(BedrockUtil.isGeyserInstalled());
+      var screen = new AnvilPromptScreen(plugin, player, prompt, List.of(provider));
+      var settings = screen.buildConfig(promptConfig);
+      assertEquals("true", settings.get("geyserAnvilPatch"));
+      assertEquals("true", settings.get("enableCancelItem"));
+      assertEquals("BARRIER", settings.get("anvilCancelItem"));
+      screen.open();
+      verify(anvil).setItemPresentation(presentation);
+      verify(anvil).open();
+      when(support.itemPresentation(player.getUniqueId())).thenReturn(java.util.Optional.empty());
+      assertEquals("false", screen.buildConfig(promptConfig).get("enableCancelItem"));
+    } finally {
+      BedrockUtil.setProxyBedrockPlayer(player.getUniqueId(), false);
+    }
+  }
+
+  @Test
   void simulatedGeyserDetection() {
     var player = createPlayer();
     var otherPlayer = createPlayer();

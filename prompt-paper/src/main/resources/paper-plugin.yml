@@ -26,6 +26,7 @@ permissions:
     children:
       promptpaper.reload: true
       promptpaper.migrate: true
+      promptpaper.patch: true
       promptpaper.preset: true
       promptpaper.cancel: true
       promptpaper.version: true
@@ -40,6 +41,9 @@ permissions:
     default: op
   promptpaper.migrate:
     description: Allows migrating configuration files under plugins
+    default: op
+  promptpaper.patch:
+    description: Allows patching Geyser-Standalone JARs in CommandPrompter's compat directory
     default: op
   promptpaper.cancel:
     description: Allows cancelling your own active prompt

@@ -4,6 +4,7 @@ import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.hooks.GeyserHook;
 import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.AnvilItemPresentation;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
@@ -12,6 +13,7 @@ import dev.cyr1en.promptui.util.BedrockUtil;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.bukkit.entity.Player;
 
 /**
@@ -50,7 +52,14 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
         candidate = nms;
         if (nms instanceof AnvilInputScreen anvilScreen) {
           anvilScreen.configure(config);
-          if (BedrockUtil.isBedrockPlayer(player) && plugin.getHookContainer() != null) {
+          var standalone = plugin.getGeyserStandaloneSupport();
+          var remotePresentation =
+              standalone == null
+                  ? Optional.<AnvilItemPresentation>empty()
+                  : standalone.itemPresentation(player.getUniqueId());
+          if (remotePresentation.isPresent()) {
+            anvilScreen.setItemPresentation(remotePresentation.get());
+          } else if (BedrockUtil.isBedrockPlayer(player) && plugin.getHookContainer() != null) {
             plugin
                 .getHookContainer()
                 .getHook(GeyserHook.class)
@@ -134,6 +143,9 @@ public class AnvilPromptScreen extends AbstractWrapperPromptScreen {
                 .getHook(GeyserHook.class)
                 .map(GeyserHook::isAnvilPatchEnabled)
                 .orElse(false);
+    var standalone = plugin.getGeyserStandaloneSupport();
+    patchedAnvil |=
+        standalone != null && standalone.itemPresentation(player.getUniqueId()).isPresent();
     config.put("geyserAnvilPatch", String.valueOf(patchedAnvil));
     String initialText = cfg.promptMessage();
     if ("BLANK".equals(initialText)) initialText = "";

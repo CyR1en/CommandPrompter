@@ -19,7 +19,8 @@ class PromptRootCommandTest extends MockBukkitTest {
     var root = new PromptRootCommand(plugin);
     var node = root.build();
     assertNotNull(node);
-    assertEquals(5, node.getChildren().size());
+    assertEquals(6, node.getChildren().size());
+    assertNotNull(node.getChild("patch"));
     assertNotNull(node.getChild("preset"));
   }
 

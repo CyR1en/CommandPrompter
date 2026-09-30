@@ -18,12 +18,13 @@ final class BedrockAnvilCarrier {
     ItemStack carrier = item.withType(slot == Slot.INPUT ? Material.PAPER : Material.STICK);
     carrier.setAmount(1);
     carrier.setData(
-        DataComponentTypes.ITEM_MODEL, Key.key(BedrockAnvilItems.model(slot, item.getType())));
+        DataComponentTypes.ITEM_MODEL,
+        Key.key(AnvilPatchProtocol.model(slot == Slot.INPUT, item.getType().getKey().getKey())));
     carrier.setData(DataComponentTypes.MAX_STACK_SIZE, 1);
     carrier.setData(DataComponentTypes.REPAIR_COST, 0);
     carrier.unsetData(DataComponentTypes.UNBREAKABLE);
     if (slot == Slot.INPUT) {
-      carrier.setData(DataComponentTypes.MAX_DAMAGE, BedrockAnvilItems.MAX_DAMAGE);
+      carrier.setData(DataComponentTypes.MAX_DAMAGE, AnvilPatchProtocol.MAX_DAMAGE);
       carrier.setData(DataComponentTypes.DAMAGE, 1);
       carrier.setData(
           DataComponentTypes.REPAIRABLE,

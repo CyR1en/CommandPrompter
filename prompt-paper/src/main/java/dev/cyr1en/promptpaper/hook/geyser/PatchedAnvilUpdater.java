@@ -144,7 +144,7 @@ public final class PatchedAnvilUpdater extends InventoryUpdater {
     GeyserItemStack material = anvilContainer.getMaterial();
 
     if (!material.isEmpty()) {
-      if (BedrockAnvilItems.isPromptInput(input)) {
+      if (GeyserAnvilDefinitions.isPromptInput(input)) {
         // A GUI cancel button never needs to stack. Keep cost updates off the editable input.
         return 1;
       }

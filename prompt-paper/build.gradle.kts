@@ -33,6 +33,12 @@ repositories {
         metadataSources { artifact() }
         content { includeModule("org.geysermc", "geyser-spigot-compat") }
     }
+    ivy {
+        url = uri("https://download.geysermc.org/v2/projects/geyser/versions")
+        patternLayout { artifact("[revision]/builds/1245/downloads/standalone") }
+        metadataSources { artifact() }
+        content { includeModule("org.geysermc", "geyser-standalone-compat") }
+    }
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.cyr1en.dev/snapshots")
@@ -75,6 +81,60 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Compile the same translator against standalone's unshaded dependencies. The payload is a
+// nested resource, so its classes never enter Paper's plugin classpath.
+val geyserCompatVersion = "2.11.3" // Baseline for payload compilation and the patcher's version gate.
+val standalone = sourceSets.create("standalone")
+val standaloneFixture = configurations.create("standaloneFixture") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+val standaloneSources = tasks.register<Sync>("generateStandaloneSources") {
+    from("src/main/java") {
+        include("dev/cyr1en/promptpaper/hook/geyser/AnvilPatchProtocol.java")
+        include("dev/cyr1en/promptpaper/hook/geyser/GeyserAnvilDefinitions.java")
+        include("dev/cyr1en/promptpaper/hook/geyser/GeyserAnvilPatch.java")
+        include("dev/cyr1en/promptpaper/hook/geyser/PatchedAnvil*.java")
+        filter { line: String -> line.replace("org.geysermc.geyser.platform.spigot.shaded.", "") }
+    }
+    into(layout.buildDirectory.dir("generated/sources/standalone"))
+}
+standalone.java.srcDir(standaloneSources)
+dependencies {
+    add(standalone.compileOnlyConfigurationName, "org.geysermc:geyser-standalone-compat:$geyserCompatVersion")
+    add(standaloneFixture.name, "org.geysermc:geyser-standalone-compat:$geyserCompatVersion")
+}
+tasks.named<JavaCompile>(standalone.compileJavaTaskName) {
+    options.release.set(21)
+}
+val standalonePayload = tasks.register<Jar>("standalonePayload") {
+    from(standalone.output)
+    archiveFileName.set("geyser-standalone-patch.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("compat"))
+    // StandaloneJarPatcher reads this stamp to refuse patching untested Geyser versions.
+    manifest { attributes("Geyser-Version" to geyserCompatVersion) }
+}
+tasks.processResources {
+    from(standalonePayload) { into("compat") }
+}
+
+// Standalone tests run without Spigot/Paper, whose shaded dependencies differ from the proxy's.
+val standaloneTest = sourceSets.create("standaloneTest")
+dependencies {
+    add(standaloneTest.implementationConfigurationName, standalone.output)
+    add(standaloneTest.implementationConfigurationName, "org.geysermc:geyser-standalone-compat:$geyserCompatVersion")
+    add(standaloneTest.implementationConfigurationName, "org.mockito:mockito-core:5.14.0")
+    add(standaloneTest.implementationConfigurationName, "org.junit.jupiter:junit-jupiter:5.11.4")
+    add(standaloneTest.runtimeOnlyConfigurationName, "org.junit.platform:junit-platform-launcher")
+}
+val standaloneTests = tasks.register<Test>("standaloneTest") {
+    testClassesDirs = standaloneTest.output.classesDirs
+    classpath = standaloneTest.runtimeClasspath
+    useJUnitPlatform()
+    jvmArgs("-Dnet.bytebuddy.experimental=true")
+}
+tasks.check { dependsOn(standaloneTests) }
+
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("-Xlint:deprecation")
 }
@@ -88,6 +148,8 @@ tasks.processResources {
 
 tasks.named<Test>("test") {
     jvmArgs("-Dnet.bytebuddy.experimental=true")
+    inputs.files(standaloneFixture)
+    doFirst { systemProperty("geyserStandaloneJar", standaloneFixture.singleFile.absolutePath) }
 }
 
 tasks.shadowJar {

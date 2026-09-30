@@ -1,15 +1,19 @@
 package dev.cyr1en.promptpaper.hook.geyser;
 
 import com.google.gson.Gson;
+import dev.cyr1en.promptpaper.CommandPrompter;
+import dev.cyr1en.promptpaper.preset.AnvilPrompt;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
@@ -22,6 +26,37 @@ record BedrockAnvilAppearance(Kind kind, String value) {
     ICON,
     TEXTURE,
     BLOCK
+  }
+
+  static Map<Material, BedrockAnvilAppearance> selected(CommandPrompter plugin) throws IOException {
+    var config = plugin.getConfigLoader().getPromptConfig();
+    var materials = EnumSet.of(Material.PAPER);
+    addMaterial(materials, config.anvilItem());
+    addMaterial(materials, config.anvilCancelItem());
+    for (var prompt : plugin.getPresetRegistry().snapshot().prompts().values()) {
+      if (prompt instanceof AnvilPrompt anvil) {
+        addMaterial(materials, anvil.leftButton().buttonIcon());
+        addMaterial(materials, anvil.rightButton().buttonIcon());
+      }
+    }
+    var catalog = load();
+    var selected = new EnumMap<Material, BedrockAnvilAppearance>(Material.class);
+    for (Material material : materials) {
+      var appearance = catalog.get(material);
+      if (appearance == null) throw new IOException("No Bedrock anvil appearance for " + material);
+      selected.put(material, appearance);
+    }
+    return Map.copyOf(selected);
+  }
+
+  private static void addMaterial(Set<Material> materials, String name) {
+    Material material = Material.matchMaterial(name);
+    if (material != null && (material.isAir() || !material.isItem())) return;
+    materials.add(material == null ? Material.PAPER : material);
+  }
+
+  String serialized() {
+    return kind.name().toLowerCase(Locale.ROOT) + ":" + value;
   }
 
   static Map<Material, BedrockAnvilAppearance> load() throws IOException {

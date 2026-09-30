@@ -200,11 +200,12 @@ public record CommandPrompterConfig(
         @NodeDefault("false")
         @NodeComment({
           "Opt in to experimental Bedrock anvil fixes and arbitrary input/cancel materials.",
-          "Replaces Geyser's anvil translator in memory for all Bedrock anvils; no jar is modified.",
-          "Attempts the patch on any Geyser-Spigot version; compatibility is not guaranteed.",
+          "Replaces Geyser's anvil translator for all Bedrock anvils. Geyser-Spigot is patched in memory.",
+          "Attempts the patch on any Geyser version; compatibility is not guaranteed.",
+          "For Geyser-Standalone, put its JAR in compat/ and run /cmdp patch <jar>. Start the generated JAR on the proxy.",
           "If setup fails, logs the error and keeps the standard Bedrock fallback.",
           "Requires Geyser custom content. Vanilla texture aliases are supplied as a small Bedrock resource pack when needed.",
-          "New input/cancel materials in presets or configuration also require a full restart.",
+          "New input/cancel materials require a full restart and, for Standalone, rebuilding the patched JAR.",
           "Requires a full server restart when changed; /commandprompter reload does not apply it."
         })
         boolean geyserAnvilPatch)
