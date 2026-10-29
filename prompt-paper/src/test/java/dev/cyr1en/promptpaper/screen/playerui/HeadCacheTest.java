@@ -3,20 +3,26 @@ package dev.cyr1en.promptpaper.screen.playerui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -27,8 +33,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 /**
  * Regression tests for the PlayerUI head-cache empty-entry bug.
@@ -462,6 +470,141 @@ class HeadCacheTest extends MockBukkitTest {
 
     String getParam() {
       return param;
+    }
+  }
+
+  @Test
+  void getHeadForUsesLivePlayerProfileTextures() {
+    var player = offlinePlayer("Skinned");
+    giveTextures(player, "c2tpbg==");
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    var profile = ((SkullMeta) head.get().getItemMeta()).getPlayerProfile();
+    assertNotNull(profile, "a textured player must get their own profile on the skull");
+    assertEquals(player.getUniqueId(), profile.getId());
+    assertEquals("c2tpbg==", texturesOf(profile), "the skull must carry the live skin textures");
+  }
+
+  @Test
+  void getHeadForOfflineUuidWithoutTexturesUsesPlainHead() {
+    var player = offlinePlayer("NoSkin");
+    assertEquals(3, player.getUniqueId().version(), "fixture must use an offline-mode UUID");
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    assertNull(
+        ((SkullMeta) head.get().getItemMeta()).getPlayerProfile(),
+        "an untextured offline-mode skull must not get a profile the server would look up");
+  }
+
+  @Test
+  void getHeadForMojangUuidWithoutTexturesKeepsOwningPlayer() {
+    var player = new PlayerMock(server, "OnlineMode", UUID.randomUUID());
+    server.addPlayer(player);
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    var profile = ((SkullMeta) head.get().getItemMeta()).getPlayerProfile();
+    assertNotNull(profile, "version 4 UUIDs keep the owning-player fallback");
+    assertEquals(player.getUniqueId(), profile.getId());
+  }
+
+  @Test
+  void getHeadForReusesCachedHead() {
+    var player = offlinePlayer("Reused");
+    giveTextures(player, "c2tpbg==");
+
+    var first = headCache.getHeadFor(player).orElseThrow();
+    var second = headCache.getHeadFor(player).orElseThrow();
+
+    assertSame(first, second, "an already cached head must not be rebuilt");
+  }
+
+  @Test
+  void getHeadForRebuildsUntexturedHeadOnceTexturesArrive() {
+    var player = offlinePlayer("LateSkin");
+    var plain = headCache.getHeadFor(player).orElseThrow();
+    assertSame(plain, headCache.getHeadFor(player).orElseThrow());
+
+    giveTextures(player, "bGF0ZQ==");
+    var skinned = headCache.getHeadFor(player).orElseThrow();
+
+    assertNotSame(plain, skinned, "the plain head must be replaced once the skin is applied");
+    assertEquals("bGF0ZQ==", texturesOf(((SkullMeta) skinned.getItemMeta()).getPlayerProfile()));
+    assertSame(skinned, headCache.getHeadFor(player).orElseThrow());
+  }
+
+  @Test
+  void getHeadForDoesNotCacheOfflinePlayer() {
+    var player = createPlayer("Gone");
+    player.disconnect();
+
+    assertTrue(headCache.getHeadFor(player).isEmpty());
+    assertFalse(
+        readCacheMap().containsKey(player.getUniqueId()),
+        "an offline player must not leave an entry that no quit event would remove");
+  }
+
+  @Test
+  void onPlayerQuitDropsUntexturedMarker() {
+    var player = offlinePlayer("QuitPlain");
+    headCache.onPlayerJoin(new PlayerJoinEvent(player, (Component) null));
+    assertTrue(readUntextured().contains(player.getUniqueId()));
+
+    headCache.onPlayerQuit(
+        new PlayerQuitEvent(player, (Component) null, PlayerQuitEvent.QuitReason.DISCONNECTED));
+
+    assertTrue(readUntextured().isEmpty(), "quit must drop every per-player entry");
+  }
+
+  @Test
+  void evictionDropsUntexturedMarker() {
+    when(promptCfg.cacheSize()).thenReturn(1);
+    headCache = new HeadCache(plugin, scheduler);
+    var first = offlinePlayer("EvictedPlain");
+    var second = offlinePlayer("KeptPlain");
+
+    headCache.getHeadFor(first);
+    headCache.getHeadFor(second);
+
+    assertFalse(readUntextured().contains(first.getUniqueId()));
+    assertTrue(readUntextured().contains(second.getUniqueId()));
+  }
+
+  /** Online player with an offline-mode (version 3) UUID, as on an offline-mode server. */
+  private PlayerMock offlinePlayer(String name) {
+    var uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+    var player = new PlayerMock(server, name, uuid);
+    server.addPlayer(player);
+    return player;
+  }
+
+  private static void giveTextures(PlayerMock player, String value) {
+    var profile = player.getPlayerProfile();
+    profile.setProperty(new ProfileProperty("textures", value));
+    player.setPlayerProfile(profile);
+  }
+
+  private static String texturesOf(PlayerProfile profile) {
+    return profile.getProperties().stream()
+        .filter(p -> p.getName().equals("textures"))
+        .map(ProfileProperty::getValue)
+        .findFirst()
+        .orElse(null);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Set<UUID> readUntextured() {
+    try {
+      Field field = HeadCache.class.getDeclaredField("untextured");
+      field.setAccessible(true);
+      return (Set<UUID>) field.get(headCache);
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException("Failed to read untextured set", e);
     }
   }
 
