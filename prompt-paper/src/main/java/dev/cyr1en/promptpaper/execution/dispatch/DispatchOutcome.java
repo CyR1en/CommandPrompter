@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable result of a command dispatch invocation. */
-public record DispatchOutcome(boolean isSuccess, DispatchError error) {
+public record DispatchOutcome(boolean isSuccess, DispatchError error, String rewrittenCommand) {
   public DispatchOutcome {
     if (!isSuccess && error == null) {
       error = DispatchError.of(DispatchErrorKind.DISPATCH_RETURNED_FALSE, "dispatch failed");
@@ -12,12 +12,21 @@ public record DispatchOutcome(boolean isSuccess, DispatchError error) {
   }
 
   public static DispatchOutcome success() {
-    return new DispatchOutcome(true, null);
+    return new DispatchOutcome(true, null, null);
+  }
+
+  /** Success for a command that a listener replaced; carries the command that actually ran. */
+  public static DispatchOutcome success(String rewrittenCommand) {
+    return new DispatchOutcome(true, null, rewrittenCommand);
+  }
+
+  public static DispatchOutcome cancelledByListener() {
+    return failure(DispatchErrorKind.CANCELLED_BY_LISTENER, "cancelled by a command listener");
   }
 
   public static DispatchOutcome failure(DispatchError error) {
     Objects.requireNonNull(error, "error must not be null for failure outcome");
-    return new DispatchOutcome(false, error);
+    return new DispatchOutcome(false, error, null);
   }
 
   public static DispatchOutcome failure(DispatchErrorKind kind, String detail) {
@@ -30,6 +39,10 @@ public record DispatchOutcome(boolean isSuccess, DispatchError error) {
 
   public boolean isFailure() {
     return !isSuccess;
+  }
+
+  public boolean isCancelledByListener() {
+    return error != null && error.kind() == DispatchErrorKind.CANCELLED_BY_LISTENER;
   }
 
   public Optional<DispatchError> optionalError() {

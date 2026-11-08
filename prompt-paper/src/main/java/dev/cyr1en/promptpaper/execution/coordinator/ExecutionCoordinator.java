@@ -1138,7 +1138,8 @@ public class ExecutionCoordinator {
         return;
       }
 
-      sendCompletedCommand(player, command);
+      sendCompletedCommand(
+          player, outcome.rewrittenCommand() != null ? outcome.rewrittenCommand() : command);
 
       runPostActions(
           player,
@@ -1159,12 +1160,20 @@ public class ExecutionCoordinator {
                 error != null && error.detail() != null ? error.detail() : "post-action failed");
           });
     } else {
-      String detail =
-          outcome != null && outcome.error() != null ? outcome.error().detail() : "dispatch failed";
-      reportCommandFailure(player, executionId, initiatorUuid, detail);
+      // A listener cancelling the command is not an error, so the player gets no error message.
+      boolean cancelledByListener = outcome != null && outcome.isCancelledByListener();
+      ExecutionStage terminalStage =
+          cancelledByListener ? ExecutionStage.CANCELLED : ExecutionStage.ERROR;
+      if (!cancelledByListener) {
+        String detail =
+            outcome != null && outcome.error() != null
+                ? outcome.error().detail()
+                : "dispatch failed";
+        reportCommandFailure(player, executionId, initiatorUuid, detail);
+      }
 
       if (!instance.tryTransitionTo(ExecutionStage.POST_ACTIONS)) {
-        instance.tryTransitionTo(ExecutionStage.ERROR);
+        instance.tryTransitionTo(terminalStage);
         registry.removeIfExact(initiatorUuid, executionId);
         return;
       }
@@ -1175,11 +1184,11 @@ public class ExecutionCoordinator {
           initiatorExecutor,
           ExecutionPolicy.ON_CANCEL,
           () -> {
-            instance.tryTransitionTo(ExecutionStage.ERROR);
+            instance.tryTransitionTo(terminalStage);
             registry.removeIfExact(initiatorUuid, executionId);
           },
           error -> {
-            instance.tryTransitionTo(ExecutionStage.ERROR);
+            instance.tryTransitionTo(terminalStage);
             registry.removeIfExact(initiatorUuid, executionId);
           });
     }
