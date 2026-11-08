@@ -15,5 +15,7 @@ public enum DispatchErrorKind {
   /** Bukkit dispatch threw an unhandled exception. */
   EXCEPTION_THROWN,
   /** Target or initiator player entity scheduler was retired or unavailable. */
-  SCHEDULER_RETIRED
+  SCHEDULER_RETIRED,
+  /** A command event listener cancelled the finished command, so it never ran. */
+  CANCELLED_BY_LISTENER
 }

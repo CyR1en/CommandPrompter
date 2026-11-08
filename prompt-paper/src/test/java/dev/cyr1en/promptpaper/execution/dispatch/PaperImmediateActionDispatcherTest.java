@@ -9,6 +9,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,6 +72,32 @@ class PaperImmediateActionDispatcherTest extends MockBukkitTest {
     assertEquals(1, count.get());
     assertNotNull(outcomeRef.get());
     assertTrue(outcomeRef.get().isSuccess());
+  }
+
+  @Test
+  @DisplayName("PLAYER action: fires no command event because the player did not type it")
+  void playerActionFiresNoCommandEvent() {
+    var player = createPlayer("PlayerActionNoEvent");
+    registerMockCommand("actnoevent", true);
+    var eventCount = new AtomicInteger(0);
+    Listener listener =
+        new Listener() {
+          @EventHandler
+          public void on(PlayerCommandPreprocessEvent e) {
+            eventCount.incrementAndGet();
+          }
+        };
+    server.getPluginManager().registerEvents(listener, plugin);
+
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    try {
+      dispatcher.dispatch(ImmediateActionRequest.player(player, "/actnoevent"), outcomeRef::set);
+    } finally {
+      HandlerList.unregisterAll(listener);
+    }
+
+    assertTrue(outcomeRef.get().isSuccess());
+    assertEquals(0, eventCount.get());
   }
 
   @Test

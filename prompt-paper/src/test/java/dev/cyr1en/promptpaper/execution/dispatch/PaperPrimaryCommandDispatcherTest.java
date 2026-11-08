@@ -5,12 +5,19 @@ import static org.mockito.Mockito.*;
 
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.custom.PlayerExecutor;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,9 +27,17 @@ class PaperPrimaryCommandDispatcherTest extends MockBukkitTest {
 
   private PaperPrimaryCommandDispatcher dispatcher;
 
+  /** Handler lists are static and outlive MockBukkit, so each test must remove its listeners. */
+  private final List<Listener> listeners = new ArrayList<>();
+
   @BeforeEach
   void setupDispatcher() {
     dispatcher = new PaperPrimaryCommandDispatcher(plugin, scheduler);
+  }
+
+  @AfterEach
+  void unregisterListeners() {
+    listeners.forEach(HandlerList::unregisterAll);
   }
 
   private void registerMockCommand(String name, boolean succeed) {
@@ -63,24 +78,46 @@ class PaperPrimaryCommandDispatcherTest extends MockBukkitTest {
     return cmd;
   }
 
+  private void registerPermissionRecordingCommand(
+      String name, String permission, List<Boolean> results) {
+    Command cmd =
+        new Command(name) {
+          @Override
+          public boolean execute(
+              @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+            results.add(sender.hasPermission(permission));
+            return true;
+          }
+        };
+    server.getCommandMap().register(name, cmd);
+  }
+
+  private void onCommandEvent(Consumer<PlayerCommandPreprocessEvent> handler) {
+    Listener listener =
+        new Listener() {
+          @EventHandler
+          public void on(PlayerCommandPreprocessEvent e) {
+            handler.accept(e);
+          }
+        };
+    listeners.add(listener);
+    server.getPluginManager().registerEvents(listener, plugin);
+  }
+
   @Test
   @DisplayName("PLAYER mode: fires PlayerCommandPreprocessEvent with the finished command")
   void firesPreprocessEventBeforeDispatch() {
     var player = createPlayer("EventPlayer");
-    var calls = new java.util.ArrayList<String>();
+    var calls = new ArrayList<String>();
     recordingCommand("eventcmd", calls);
-    var seen = new java.util.ArrayList<String>();
-    server
-        .getPluginManager()
-        .registerEvents(
-            new org.bukkit.event.Listener() {
-              @org.bukkit.event.EventHandler
-              public void on(org.bukkit.event.player.PlayerCommandPreprocessEvent e) {
-                seen.add(e.getMessage());
-                assertTrue(CommandEventBridge.isFiring());
-              }
-            },
-            plugin);
+    var seen = new ArrayList<String>();
+    var fired = new AtomicReference<PlayerCommandPreprocessEvent>();
+    onCommandEvent(
+        e -> {
+          seen.add(e.getMessage());
+          fired.set(e);
+          assertTrue(CommandEventBridge.isBridgeEvent(e));
+        });
 
     var outcomeRef = new AtomicReference<DispatchOutcome>();
     dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/eventcmd a b"), outcomeRef::set);
@@ -88,30 +125,24 @@ class PaperPrimaryCommandDispatcherTest extends MockBukkitTest {
     assertEquals(List.of("/eventcmd a b"), seen);
     assertEquals(List.of("eventcmd a b"), calls);
     assertTrue(outcomeRef.get().isSuccess());
-    assertFalse(CommandEventBridge.isFiring());
+    assertFalse(CommandEventBridge.isBridgeEvent(fired.get()));
   }
 
   @Test
   @DisplayName("PLAYER mode: a listener can rewrite or cancel the finished command")
   void preprocessListenerCanRewriteOrCancel() {
     var player = createPlayer("RewritePlayer");
-    var calls = new java.util.ArrayList<String>();
+    var calls = new ArrayList<String>();
     recordingCommand("rewritten", calls);
     recordingCommand("blockedcmd", calls);
-    server
-        .getPluginManager()
-        .registerEvents(
-            new org.bukkit.event.Listener() {
-              @org.bukkit.event.EventHandler
-              public void on(org.bukkit.event.player.PlayerCommandPreprocessEvent e) {
-                if (e.getMessage().startsWith("/original")) {
-                  e.setMessage("/rewritten x");
-                } else if (e.getMessage().startsWith("/blockedcmd")) {
-                  e.setCancelled(true);
-                }
-              }
-            },
-            plugin);
+    onCommandEvent(
+        e -> {
+          if (e.getMessage().startsWith("/original")) {
+            e.setMessage("/rewritten x");
+          } else if (e.getMessage().startsWith("/blockedcmd")) {
+            e.setCancelled(true);
+          }
+        });
 
     var first = new AtomicReference<DispatchOutcome>();
     dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/original y"), first::set);
@@ -120,7 +151,102 @@ class PaperPrimaryCommandDispatcherTest extends MockBukkitTest {
 
     assertEquals(List.of("rewritten x"), calls);
     assertTrue(first.get().isSuccess());
-    assertTrue(second.get().isSuccess(), "a cancelled command is handled, like a typed one");
+    assertEquals("rewritten x", first.get().rewrittenCommand());
+    assertTrue(second.get().isFailure(), "a cancelled command never ran, so it is not a success");
+    assertTrue(second.get().isCancelledByListener());
+  }
+
+  @Test
+  @DisplayName("PLAYER mode: an unchanged command reports no rewrite")
+  void unchangedCommandReportsNoRewrite() {
+    var player = createPlayer("NoRewritePlayer");
+    registerMockCommand("plaincmd", true);
+
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/plaincmd a"), outcomeRef::set);
+
+    assertTrue(outcomeRef.get().isSuccess());
+    assertNull(outcomeRef.get().rewrittenCommand());
+  }
+
+  @Test
+  @DisplayName("ATTACHMENT mode: listeners see real permissions, the command runs elevated")
+  void attachmentEventFiresBeforePermissionGrant() {
+    var player = createPlayer("AttachEventPlayer");
+    var permKey = "test.event.perm";
+    var permDuringEvent = new AtomicReference<Boolean>();
+    var permDuringCommand = new ArrayList<Boolean>();
+    registerPermissionRecordingCommand("attachevent", permKey, permDuringCommand);
+    onCommandEvent(e -> permDuringEvent.set(e.getPlayer().hasPermission(permKey)));
+
+    var context = PermissionAttachmentContext.of("KEY", List.of(permKey));
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(
+        PrimaryDispatchRequest.attachment(player, "/attachevent", context), outcomeRef::set);
+
+    assertEquals(Boolean.FALSE, permDuringEvent.get());
+    assertEquals(List.of(true), permDuringCommand);
+    assertTrue(outcomeRef.get().isSuccess());
+    assertFalse(player.hasPermission(permKey));
+  }
+
+  @Test
+  @DisplayName("ATTACHMENT mode: a rewritten command runs without the temporary permissions")
+  void attachmentRewrittenCommandIsNotElevated() {
+    var player = createPlayer("AttachRewritePlayer");
+    var permKey = "test.rewrite.perm";
+    var permDuringCommand = new ArrayList<Boolean>();
+    registerPermissionRecordingCommand("attachother", permKey, permDuringCommand);
+    registerMockCommand("attachoriginal", true);
+    onCommandEvent(e -> e.setMessage("/attachother"));
+
+    var context = PermissionAttachmentContext.of("KEY", List.of(permKey));
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(
+        PrimaryDispatchRequest.attachment(player, "/attachoriginal", context), outcomeRef::set);
+
+    assertEquals(List.of(false), permDuringCommand);
+    assertTrue(outcomeRef.get().isSuccess());
+    assertEquals("attachother", outcomeRef.get().rewrittenCommand());
+  }
+
+  @Test
+  @DisplayName("ATTACHMENT mode: a cancelled command never runs")
+  void attachmentCancelledCommandNeverRuns() {
+    var player = createPlayer("AttachCancelPlayer");
+    var calls = new ArrayList<String>();
+    recordingCommand("attachblocked", calls);
+    onCommandEvent(e -> e.setCancelled(true));
+
+    var context = PermissionAttachmentContext.of("KEY", List.of("test.cancel.perm"));
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(
+        PrimaryDispatchRequest.attachment(player, "/attachblocked", context), outcomeRef::set);
+
+    assertTrue(calls.isEmpty());
+    assertTrue(outcomeRef.get().isCancelledByListener());
+  }
+
+  @Test
+  @DisplayName("Bridge: only its own event is skipped, and nested fires restore the outer event")
+  void bridgeTracksOnlyItsOwnEvent() {
+    var player = createPlayer("NestedPlayer");
+    var unrelatedSkipped = new AtomicReference<Boolean>();
+    var outerStillTracked = new AtomicReference<Boolean>();
+    onCommandEvent(
+        e -> {
+          if (e.getMessage().equals("/outer")) {
+            unrelatedSkipped.set(
+                CommandEventBridge.isBridgeEvent(new PlayerCommandPreprocessEvent(player, "/x")));
+            CommandEventBridge.fire(player, "inner");
+            outerStillTracked.set(CommandEventBridge.isBridgeEvent(e));
+          }
+        });
+
+    CommandEventBridge.fire(player, "outer");
+
+    assertEquals(Boolean.FALSE, unrelatedSkipped.get());
+    assertEquals(Boolean.TRUE, outerStillTracked.get());
   }
 
   @Test

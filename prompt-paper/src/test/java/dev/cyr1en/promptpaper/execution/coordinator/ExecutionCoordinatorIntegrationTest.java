@@ -30,6 +30,7 @@ import dev.cyr1en.promptpaper.execution.dispatch.PrimaryCommandDispatcher;
 import dev.cyr1en.promptpaper.execution.dispatch.PrimaryDispatchCallback;
 import dev.cyr1en.promptpaper.execution.postaction.PostActionScheduler;
 import dev.cyr1en.promptpaper.execution.runtime.DispatchContextSnapshot;
+import dev.cyr1en.promptpaper.execution.runtime.ExecutionPlanInstance;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionRegistry;
 import dev.cyr1en.promptpaper.execution.runtime.ExecutionStage;
 import dev.cyr1en.promptpaper.execution.runtime.InputCompletion;
@@ -50,6 +51,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 @DisplayName("Execution Coordinator and Runtime Integration Tests (Phase 5.3)")
 class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
@@ -1955,5 +1957,95 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertNull(
         deserialized.clickEvent(),
         "Deserialized component must not have click event from injected markup");
+  }
+
+  private ExecutionPlanInstance coordinateWithOutcome(
+      PlayerMock player, List<String> log, DispatchOutcome outcome) {
+    registerMockCommand("successpcm", true, log);
+    registerMockCommand("cancelpcm", true, log);
+
+    var capturedCallback = new AtomicReference<PrimaryDispatchCallback>();
+    PrimaryCommandDispatcher controllableDispatcher =
+        (request, callback) -> capturedCallback.set(callback);
+    var customCoordinator =
+        new ExecutionCoordinator(
+            plugin,
+            engine,
+            registry,
+            controllableDispatcher,
+            immediateActionDispatcher,
+            p -> (task, retired) -> task.run());
+
+    var successPcm =
+        new PostCommandMeta("successpcm", new int[0], 0, false, DispatchTarget.PASSTHROUGH, false);
+    var cancelPcm =
+        new PostCommandMeta("cancelpcm", new int[0], 0, true, DispatchTarget.PASSTHROUGH, false);
+    var sessionResult =
+        new SessionResult("original y", List.of(), List.of(successPcm), List.of(cancelPcm));
+    var parsed =
+        new ParsedCommand(
+            "original y", List.of(), List.of(successPcm, cancelPcm), ParserConfig.ANGLE_BRACKETS);
+    var completion =
+        InputCompletion.of(
+            player.getUniqueId(),
+            1L,
+            1L,
+            sessionResult,
+            ExecutionPlanAdapter.fromParsedCommand(parsed),
+            PresetSnapshot.empty(),
+            DispatchContextSnapshot.player());
+
+    var instance = customCoordinator.coordinate(player, completion, sessionResult).orElseThrow();
+    capturedCallback.get().onComplete(outcome);
+    return instance;
+  }
+
+  @Test
+  @DisplayName("Listener-cancelled primary: runs ON_CANCEL actions with no error message")
+  void listenerCancelledPrimaryRunsCancelActionsSilently() {
+    var player = createPlayer("TestListenerCancel");
+    var log = new ArrayList<String>();
+
+    var instance = coordinateWithOutcome(player, log, DispatchOutcome.cancelledByListener());
+
+    assertEquals(ExecutionStage.CANCELLED, instance.getStage());
+    assertEquals(List.of("cancelpcm"), log);
+    org.mockito.Mockito.verify(i18n, org.mockito.Mockito.never())
+        .get(
+            org.mockito.ArgumentMatchers.eq("prompt.error.command_failed"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(Placeholder[].class));
+    assertFalse(registry.hasActiveExecution(player.getUniqueId()));
+  }
+
+  @Test
+  @DisplayName("Failed primary: still reports the error message")
+  void failedPrimaryStillReportsError() {
+    var player = createPlayer("TestFailureReported");
+    var log = new ArrayList<String>();
+
+    var instance =
+        coordinateWithOutcome(
+            player,
+            log,
+            DispatchOutcome.failure(DispatchErrorKind.DISPATCH_RETURNED_FALSE, "nope"));
+
+    assertEquals(ExecutionStage.ERROR, instance.getStage());
+    org.mockito.Mockito.verify(i18n)
+        .get(
+            org.mockito.ArgumentMatchers.eq("prompt.error.command_failed"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(Placeholder[].class));
+  }
+
+  @Test
+  @DisplayName("Rewritten primary: the completed message shows the command that ran")
+  void rewrittenPrimaryShowsCommandThatRan() {
+    var player = createPlayer("TestRewriteMessage");
+    org.mockito.Mockito.when(config.showCompleted()).thenReturn(true);
+
+    coordinateWithOutcome(player, new ArrayList<>(), DispatchOutcome.success("rewritten x"));
+
+    assertEquals("rewritten x", player.nextMessage());
   }
 }

@@ -4,6 +4,7 @@ import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionAttachment;
@@ -79,24 +80,44 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
       PlayerExecutor initiator, Player player, String command, PrimaryDispatchCallback callback) {
     initiator.execute(
         () -> {
+          DispatchOutcome outcome;
           try {
-            String finalCommand = CommandEventBridge.fire(player, command);
-            boolean ok = finalCommand == null || Bukkit.dispatchCommand(player, finalCommand);
-            if (ok) {
-              callback.onComplete(DispatchOutcome.success());
-            } else {
-              callback.onComplete(
-                  DispatchOutcome.failure(
-                      DispatchErrorKind.DISPATCH_RETURNED_FALSE, "dispatch returned false"));
-            }
+            outcome = fireAndDispatch(player, command, () -> runAsPlayer(player, command));
           } catch (Throwable t) {
-            callback.onComplete(DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, t));
+            outcome = DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, t);
           }
+          callback.onComplete(outcome);
         },
         () ->
             callback.onComplete(
                 DispatchOutcome.failure(
                     DispatchErrorKind.SCHEDULER_RETIRED, "player scheduler retired")));
+  }
+
+  /**
+   * Fires the command event, then runs the command. An unchanged command goes to {@code
+   * runUnchanged}; a command a listener replaced always runs as the plain player, because any
+   * temporary permissions were granted for the original command only.
+   */
+  private DispatchOutcome fireAndDispatch(
+      Player player, String command, Supplier<DispatchOutcome> runUnchanged) {
+    String finalCommand = CommandEventBridge.fire(player, command);
+    if (finalCommand == null) {
+      return DispatchOutcome.cancelledByListener();
+    }
+    if (finalCommand.equals(command)) {
+      return runUnchanged.get();
+    }
+    DispatchOutcome outcome = runAsPlayer(player, finalCommand);
+    return outcome.isSuccess() ? DispatchOutcome.success(finalCommand) : outcome;
+  }
+
+  private DispatchOutcome runAsPlayer(Player player, String command) {
+    if (Bukkit.dispatchCommand(player, command)) {
+      return DispatchOutcome.success();
+    }
+    return DispatchOutcome.failure(
+        DispatchErrorKind.DISPATCH_RETURNED_FALSE, "dispatch returned false");
   }
 
   private void dispatchConsole(String command, PrimaryDispatchCallback callback) {
@@ -147,63 +168,51 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
 
     initiator.execute(
         () -> {
-          PermissionAttachment attachment;
-          try {
-            attachment = player.addAttachment(plugin);
-          } catch (Throwable t) {
-            callback.onComplete(
-                DispatchOutcome.failure(DispatchErrorKind.ATTACHMENT_CREATION_FAILED, t));
-            return;
-          }
-
-          if (attachment == null) {
-            callback.onComplete(
-                DispatchOutcome.failure(
-                    DispatchErrorKind.ATTACHMENT_CREATION_FAILED,
-                    "unable to create permission attachment"));
-            return;
-          }
-
-          final PermissionAttachment finalAttachment = attachment;
-          AtomicBoolean removed = new AtomicBoolean(false);
-          Runnable removeTask =
-              () -> {
-                if (removed.compareAndSet(false, true)) {
-                  try {
-                    player.removeAttachment(finalAttachment);
-                  } catch (Throwable ignored) {
-                  }
-                }
-              };
-
           DispatchOutcome outcome;
           try {
-            for (String perm : context.permissionSnapshot()) {
-              attachment.setPermission(perm, true);
-            }
-            attachment.getPermissible().recalculatePermissions();
-
-            String finalCommand = CommandEventBridge.fire(player, command);
-            boolean ok = finalCommand == null || Bukkit.dispatchCommand(player, finalCommand);
-            if (ok) {
-              outcome = DispatchOutcome.success();
-            } else {
-              outcome =
-                  DispatchOutcome.failure(
-                      DispatchErrorKind.DISPATCH_RETURNED_FALSE, "dispatch returned false");
-            }
+            // The event fires before the grant so listeners see the player's real permissions.
+            outcome =
+                fireAndDispatch(player, command, () -> runWithAttachment(player, command, context));
           } catch (Throwable t) {
             outcome = DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, t);
           }
-
-          // The attachment exists only for the synchronous dispatch call. Completion is
-          // never published while elevated permissions remain attached.
-          removeTask.run();
           callback.onComplete(outcome);
         },
         () ->
             callback.onComplete(
                 DispatchOutcome.failure(
                     DispatchErrorKind.SCHEDULER_RETIRED, "player scheduler retired")));
+  }
+
+  private DispatchOutcome runWithAttachment(
+      Player player, String command, PermissionAttachmentContext context) {
+    PermissionAttachment attachment;
+    try {
+      attachment = player.addAttachment(plugin);
+    } catch (Throwable t) {
+      return DispatchOutcome.failure(DispatchErrorKind.ATTACHMENT_CREATION_FAILED, t);
+    }
+
+    if (attachment == null) {
+      return DispatchOutcome.failure(
+          DispatchErrorKind.ATTACHMENT_CREATION_FAILED, "unable to create permission attachment");
+    }
+
+    // The attachment exists only for the synchronous dispatch call. Completion is
+    // never published while elevated permissions remain attached.
+    try {
+      for (String perm : context.permissionSnapshot()) {
+        attachment.setPermission(perm, true);
+      }
+      attachment.getPermissible().recalculatePermissions();
+      return runAsPlayer(player, command);
+    } catch (Throwable t) {
+      return DispatchOutcome.failure(DispatchErrorKind.EXCEPTION_THROWN, t);
+    } finally {
+      try {
+        player.removeAttachment(attachment);
+      } catch (Throwable ignored) {
+      }
+    }
   }
 }

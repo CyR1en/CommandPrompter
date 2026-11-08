@@ -11,13 +11,16 @@ import org.bukkit.event.player.PlayerCommandPreprocessEvent;
  */
 public final class CommandEventBridge {
 
-  private static final ThreadLocal<Boolean> FIRING = ThreadLocal.withInitial(() -> false);
+  private static final ThreadLocal<PlayerCommandPreprocessEvent> CURRENT = new ThreadLocal<>();
 
   private CommandEventBridge() {}
 
-  /** True while the bridge fires its own event, so the prompt listener can skip it. */
-  public static boolean isFiring() {
-    return FIRING.get();
+  /**
+   * True only for the event the bridge is firing, so the prompt listener can skip it. Any other
+   * command event raised by a listener during that call is still treated normally.
+   */
+  public static boolean isBridgeEvent(PlayerCommandPreprocessEvent event) {
+    return event != null && CURRENT.get() == event;
   }
 
   /**
@@ -26,11 +29,16 @@ public final class CommandEventBridge {
    */
   public static String fire(Player player, String command) {
     PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(player, "/" + command);
-    FIRING.set(true);
+    PlayerCommandPreprocessEvent previous = CURRENT.get();
+    CURRENT.set(event);
     try {
       Bukkit.getPluginManager().callEvent(event);
     } finally {
-      FIRING.set(false);
+      if (previous == null) {
+        CURRENT.remove();
+      } else {
+        CURRENT.set(previous);
+      }
     }
     if (event.isCancelled()) {
       return null;

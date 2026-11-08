@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.listener;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.engine.InterceptResult;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
+import dev.cyr1en.promptpaper.execution.dispatch.CommandEventBridge;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import java.util.Locale;
 import org.bukkit.event.EventHandler;
@@ -52,7 +53,7 @@ public class PlayerCommandListener implements Listener {
       plugin.getPluginLogger().debug("Command already cancelled, skipping");
       return;
     }
-    if (dev.cyr1en.promptpaper.execution.dispatch.CommandEventBridge.isFiring()) {
+    if (CommandEventBridge.isBridgeEvent(event)) {
       // Finished prompt command, re-fired for other plugins. Never prompt it again.
       return;
     }
