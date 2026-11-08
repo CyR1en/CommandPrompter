@@ -49,6 +49,80 @@ class PaperPrimaryCommandDispatcherTest extends MockBukkitTest {
     server.getCommandMap().register(name, cmd);
   }
 
+  private Command recordingCommand(String name, List<String> calls) {
+    Command cmd =
+        new Command(name) {
+          @Override
+          public boolean execute(
+              @NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+            calls.add(commandLabel + " " + String.join(" ", args));
+            return true;
+          }
+        };
+    server.getCommandMap().register(name, cmd);
+    return cmd;
+  }
+
+  @Test
+  @DisplayName("PLAYER mode: fires PlayerCommandPreprocessEvent with the finished command")
+  void firesPreprocessEventBeforeDispatch() {
+    var player = createPlayer("EventPlayer");
+    var calls = new java.util.ArrayList<String>();
+    recordingCommand("eventcmd", calls);
+    var seen = new java.util.ArrayList<String>();
+    server
+        .getPluginManager()
+        .registerEvents(
+            new org.bukkit.event.Listener() {
+              @org.bukkit.event.EventHandler
+              public void on(org.bukkit.event.player.PlayerCommandPreprocessEvent e) {
+                seen.add(e.getMessage());
+                assertTrue(CommandEventBridge.isFiring());
+              }
+            },
+            plugin);
+
+    var outcomeRef = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/eventcmd a b"), outcomeRef::set);
+
+    assertEquals(List.of("/eventcmd a b"), seen);
+    assertEquals(List.of("eventcmd a b"), calls);
+    assertTrue(outcomeRef.get().isSuccess());
+    assertFalse(CommandEventBridge.isFiring());
+  }
+
+  @Test
+  @DisplayName("PLAYER mode: a listener can rewrite or cancel the finished command")
+  void preprocessListenerCanRewriteOrCancel() {
+    var player = createPlayer("RewritePlayer");
+    var calls = new java.util.ArrayList<String>();
+    recordingCommand("rewritten", calls);
+    recordingCommand("blockedcmd", calls);
+    server
+        .getPluginManager()
+        .registerEvents(
+            new org.bukkit.event.Listener() {
+              @org.bukkit.event.EventHandler
+              public void on(org.bukkit.event.player.PlayerCommandPreprocessEvent e) {
+                if (e.getMessage().startsWith("/original")) {
+                  e.setMessage("/rewritten x");
+                } else if (e.getMessage().startsWith("/blockedcmd")) {
+                  e.setCancelled(true);
+                }
+              }
+            },
+            plugin);
+
+    var first = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/original y"), first::set);
+    var second = new AtomicReference<DispatchOutcome>();
+    dispatcher.dispatch(PrimaryDispatchRequest.player(player, "/blockedcmd"), second::set);
+
+    assertEquals(List.of("rewritten x"), calls);
+    assertTrue(first.get().isSuccess());
+    assertTrue(second.get().isSuccess(), "a cancelled command is handled, like a typed one");
+  }
+
   @Test
   @DisplayName("PLAYER mode: executes command as player and invokes callback once with success")
   void dispatchesPlayerCommandSuccessfully() {

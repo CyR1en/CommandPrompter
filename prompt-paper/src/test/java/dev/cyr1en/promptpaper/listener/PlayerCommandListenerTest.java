@@ -62,6 +62,21 @@ class PlayerCommandListenerTest extends MockBukkitTest {
   }
 
   @Test
+  void refiredFinishedCommandIsNeverPromptedAgain() {
+    when(engine.commandHasTagForm(anyString())).thenReturn(true);
+    server.getPluginManager().registerEvents(listener, super.plugin);
+    var player = createPlayer();
+
+    var result =
+        dev.cyr1en.promptpaper.execution.dispatch.CommandEventBridge.fire(
+            player, "warn Steve reason <with brackets>");
+
+    assertEquals("warn Steve reason <with brackets>", result);
+    org.mockito.Mockito.verify(screenManager, org.mockito.Mockito.never())
+        .startSession(any(), anyString());
+  }
+
+  @Test
   void commandPrompterCommandIsNotIntercepted() {
     var player = createPlayer();
     var event = new PlayerCommandPreprocessEvent(player, "/commandprompter reload");

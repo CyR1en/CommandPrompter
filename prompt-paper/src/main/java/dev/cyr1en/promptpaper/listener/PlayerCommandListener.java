@@ -52,6 +52,10 @@ public class PlayerCommandListener implements Listener {
       plugin.getPluginLogger().debug("Command already cancelled, skipping");
       return;
     }
+    if (dev.cyr1en.promptpaper.execution.dispatch.CommandEventBridge.isFiring()) {
+      // Finished prompt command, re-fired for other plugins. Never prompt it again.
+      return;
+    }
     var player = event.getPlayer();
     var message = event.getMessage();
     var commandName =

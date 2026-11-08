@@ -80,7 +80,8 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
     initiator.execute(
         () -> {
           try {
-            boolean ok = Bukkit.dispatchCommand(player, command);
+            String finalCommand = CommandEventBridge.fire(player, command);
+            boolean ok = finalCommand == null || Bukkit.dispatchCommand(player, finalCommand);
             if (ok) {
               callback.onComplete(DispatchOutcome.success());
             } else {
@@ -182,7 +183,8 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
             }
             attachment.getPermissible().recalculatePermissions();
 
-            boolean ok = Bukkit.dispatchCommand(player, command);
+            String finalCommand = CommandEventBridge.fire(player, command);
+            boolean ok = finalCommand == null || Bukkit.dispatchCommand(player, finalCommand);
             if (ok) {
               outcome = DispatchOutcome.success();
             } else {
