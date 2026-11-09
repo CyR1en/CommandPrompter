@@ -419,7 +419,6 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
           try {
             if (player.getOpenInventory().getTopInventory().equals(gui.getInventory())) {
               player.closeInventory();
-              player.updateInventory();
             }
           } catch (RuntimeException ignored) {
             // Retired/disconnected players may reject inventory
