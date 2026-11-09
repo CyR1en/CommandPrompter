@@ -119,7 +119,8 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
             plugin
                 .getSLF4JLogger()
                 .debug("FrameworkAnvilScreen result: player={}", player.getName());
-            complete(ScreenResult.answer(answer), true);
+            event.setCancelled(true);
+            completeAfterClick(ScreenResult.answer(answer));
           });
 
       anvilGui.createInventory();
@@ -238,7 +239,8 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
                 plugin
                     .getSLF4JLogger()
                     .debug("FrameworkAnvilScreen cancel: player={}", player.getName());
-                complete(ScreenResult.manualCancel(), true);
+                event.setCancelled(true);
+                completeAfterClick(ScreenResult.manualCancel());
               });
       anvilGui.getSecondItemComponent().addItem(cancelGuiItem, 0, 0);
     }
@@ -290,6 +292,24 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
     }
     cancel(task);
     scheduleCleanup(gui, impl, true);
+  }
+
+  /**
+   * Finishes a click-triggered result on the next tick. Closing the anvil inside the click event
+   * left the client holding its predicted cursor item (a copy of the input), which creative-mode
+   * players could then keep. Waiting one tick lets the server resync the cancelled click first.
+   */
+  private void completeAfterClick(ScreenResult result) {
+    try {
+      ScheduledTask task =
+          player.getScheduler().run(plugin, ignored -> complete(result, true), null);
+      if (task != null) {
+        return;
+      }
+    } catch (Throwable ignored) {
+      // Fall through and finish now.
+    }
+    complete(result, true);
   }
 
   private void complete(ScreenResult result, boolean closePlayer) {
