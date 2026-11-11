@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.testutil;
 
 import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
+import java.util.UUID;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
@@ -11,6 +12,10 @@ public class TestPlayerMock extends PlayerMock {
 
   public TestPlayerMock(ServerMock server, String name) {
     super(server, name);
+  }
+
+  public TestPlayerMock(ServerMock server, String name, UUID uuid) {
+    super(server, name, uuid);
   }
 
   @Override

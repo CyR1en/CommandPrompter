@@ -17,15 +17,18 @@ import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
+import dev.cyr1en.promptpaper.testutil.TestPlayerMock;
 import dev.cyr1en.promptui.AnvilInputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
 import dev.cyr1en.promptui.gui.GuiItem;
 import dev.cyr1en.promptui.pane.StaticPane;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -40,6 +43,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.ArgumentCaptor;
 
 class PlayerUIScreenTest extends MockBukkitTest {
@@ -474,6 +478,45 @@ class PlayerUIScreenTest extends MockBukkitTest {
         skullNames.contains("TestPlayer"), "Zed-only custom filter must drop the prompting player");
     assertFalse(skullNames.contains("Other"), "Zed-only custom filter must drop Other");
     assertEquals(1, skullNames.size(), "exactly one head must survive the intersection");
+  }
+
+  /**
+   * Regression: a plain head (offline-mode UUID, no skin) has no owning player, but clicking it
+   * must still answer the prompt with that player's name.
+   */
+  @Test
+  void clickingPlainHeadSelectsItsPlayer() {
+    var realCache = stubRealCacheWithBuiltins();
+    var plain = offlinePlayer("PlainClick");
+    var head = realCache.getHeadFor(plain).orElseThrow();
+    assertNull(((SkullMeta) head.getItemMeta()).getOwningPlayer(), "fixture must be a plain head");
+
+    screen.selectHead(head.clone());
+
+    assertNotNull(resultRef.get(), "clicking a plain head must answer the prompt");
+    assertEquals("PlainClick", resultRef.get().answer());
+  }
+
+  /** Regression: filter formats must apply to plain heads too. */
+  @Test
+  void filterFormatAppliesToPlainHeads() throws Exception {
+    stubRealCacheWithBuiltins();
+    var plain = offlinePlayer("PlainNearby");
+    teleportRelative(plain, 5, 0);
+
+    var colors = skullDisplayColors(buildFilteredScreen("r10s"));
+
+    assertEquals(1, colors.size(), "the plain head must be listed");
+    assertEquals(NamedTextColor.RED, colors.get(0), "the radial format must apply to a plain head");
+  }
+
+  /** Online player with an offline-mode (version 3) UUID and no skin. */
+  private PlayerMock offlinePlayer(String name) {
+    var uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+    var offline = new TestPlayerMock(server, name, uuid);
+    server.addPlayer(offline);
+    offline.teleport(player.getLocation());
+    return offline;
   }
 
   /**

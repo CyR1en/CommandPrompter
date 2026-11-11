@@ -3,17 +3,24 @@ package dev.cyr1en.promptpaper.screen.playerui;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import java.lang.reflect.Field;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,8 +34,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 /**
  * Regression tests for the PlayerUI head-cache empty-entry bug.
@@ -68,36 +77,10 @@ class HeadCacheTest extends MockBukkitTest {
   }
 
   @Test
-  void sizeIgnoresEmptyOptionalEntries() {
-    // Simulate the regression: cache holds only Optional.empty() because
-    // getHeadFor was called before the player joined.
-    UUID uuid = UUID.randomUUID();
-    injectEmptyEntry(uuid);
-
-    assertEquals(
-        0,
-        headCache.size(),
-        "size() must ignore Optional.empty() entries so the staleness check fires");
-    assertTrue(headCache.getHeads().isEmpty());
-  }
-
-  @Test
-  void sizeCountsNonEmptyEntries() {
-    var player = createPlayer("CachedOne");
-    injectEntry(player.getUniqueId(), Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
+  void sizeCountsCachedHeads() {
+    headCache.getHeadFor(createPlayer("CachedOne"));
 
     assertEquals(1, headCache.size());
-    assertEquals(1, headCache.getHeads().size());
-  }
-
-  @Test
-  void sizeCountsMixedEntries() {
-    var player = createPlayer("CachedMixed");
-    UUID emptyUuid = UUID.randomUUID();
-    injectEntry(player.getUniqueId(), Optional.of(new ItemStack(org.bukkit.Material.PLAYER_HEAD)));
-    injectEmptyEntry(emptyUuid);
-
-    assertEquals(1, headCache.size(), "size() should only count the populated entry");
     assertEquals(1, headCache.getHeads().size());
   }
 
@@ -465,6 +448,166 @@ class HeadCacheTest extends MockBukkitTest {
     }
   }
 
+  @Test
+  void getHeadForUsesLivePlayerProfileTextures() {
+    var player = offlinePlayer("Skinned");
+    giveTextures(player, "c2tpbg==");
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    var profile = ((SkullMeta) head.get().getItemMeta()).getPlayerProfile();
+    assertNotNull(profile, "a textured player must get their own profile on the skull");
+    assertEquals(player.getUniqueId(), profile.getId());
+    assertEquals("c2tpbg==", texturesOf(profile), "the skull must carry the live skin textures");
+  }
+
+  @Test
+  void getHeadForOfflineUuidWithoutTexturesUsesPlainHead() {
+    var player = offlinePlayer("NoSkin");
+    assertEquals(3, player.getUniqueId().version(), "fixture must use an offline-mode UUID");
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    assertNull(
+        ((SkullMeta) head.get().getItemMeta()).getPlayerProfile(),
+        "an untextured offline-mode skull must not get a profile the server would look up");
+  }
+
+  @Test
+  void getHeadForMojangUuidWithoutTexturesKeepsOwningPlayer() {
+    var player = new PlayerMock(server, "OnlineMode", UUID.randomUUID());
+    server.addPlayer(player);
+
+    Optional<ItemStack> head = headCache.getHeadFor(player);
+
+    assertTrue(head.isPresent());
+    var profile = ((SkullMeta) head.get().getItemMeta()).getPlayerProfile();
+    assertNotNull(profile, "version 4 UUIDs keep the owning-player fallback");
+    assertEquals(player.getUniqueId(), profile.getId());
+  }
+
+  @Test
+  void getHeadForReusesCachedHead() {
+    var player = offlinePlayer("Reused");
+    giveTextures(player, "c2tpbg==");
+
+    var first = headCache.getHeadFor(player).orElseThrow();
+    var second = headCache.getHeadFor(player).orElseThrow();
+
+    assertSame(first, second, "an already cached head must not be rebuilt");
+  }
+
+  @Test
+  void getHeadForRebuildsUntexturedHeadOnceTexturesArrive() {
+    var player = offlinePlayer("LateSkin");
+    var plain = headCache.getHeadFor(player).orElseThrow();
+    assertSame(plain, headCache.getHeadFor(player).orElseThrow());
+
+    giveTextures(player, "bGF0ZQ==");
+    var skinned = headCache.getHeadFor(player).orElseThrow();
+
+    assertNotSame(plain, skinned, "the plain head must be replaced once the skin is applied");
+    assertEquals("bGF0ZQ==", texturesOf(((SkullMeta) skinned.getItemMeta()).getPlayerProfile()));
+    assertSame(skinned, headCache.getHeadFor(player).orElseThrow());
+  }
+
+  @Test
+  void getHeadForDoesNotCacheOfflinePlayer() {
+    var player = createPlayer("Gone");
+    player.disconnect();
+
+    assertTrue(headCache.getHeadFor(player).isEmpty());
+    assertFalse(
+        readCacheMap().containsKey(player.getUniqueId()),
+        "an offline player must not leave an entry that no quit event would remove");
+  }
+
+  @Test
+  void plainHeadOfOfflineUuidKeepsOwnerName() {
+    var player = offlinePlayer("PlainOwner");
+
+    var head = headCache.getHeadFor(player).orElseThrow();
+
+    assertNull(((SkullMeta) head.getItemMeta()).getOwningPlayer(), "fixture must be a plain head");
+    assertEquals(
+        "PlainOwner",
+        headCache.getOwnerName(head),
+        "a plain head must still identify its player for selection");
+  }
+
+  @Test
+  void texturesPropertyWithoutSkinOrCapeCountsAsUntextured() {
+    var player = offlinePlayer("EmptyTextures");
+    var profile = player.getPlayerProfile();
+    profile.setProperty(new ProfileProperty("textures", "e30="));
+    player.setPlayerProfile(profile);
+
+    var head = headCache.getHeadFor(player).orElseThrow();
+
+    assertNull(
+        ((SkullMeta) head.getItemMeta()).getPlayerProfile(),
+        "a profile with no skin and no cape is looked up by the server, so it must not be used");
+  }
+
+  @Test
+  void getHeadForRebuildsHeadWhenSkinChanges() {
+    var player = offlinePlayer("NewSkin");
+    giveTextures(player, "b2xk");
+    var oldHead = headCache.getHeadFor(player).orElseThrow();
+
+    giveTextures(player, "bmV3");
+    var newHead = headCache.getHeadFor(player).orElseThrow();
+
+    assertNotSame(oldHead, newHead, "a skin change mid-session must rebuild the head");
+    assertEquals("bmV3", texturesOf(((SkullMeta) newHead.getItemMeta()).getPlayerProfile()));
+    assertEquals(1, headCache.size());
+  }
+
+  @Test
+  void getHeadForDoesNotCacheFailedBuild() {
+    var player = offlinePlayer("Broken");
+    when(promptCfg.skullNameFormat()).thenThrow(new IllegalStateException("boom"));
+
+    try {
+      headCache.getHeadFor(player);
+    } catch (IllegalStateException expected) {
+      // the build failed; nothing may be left behind
+    }
+
+    assertFalse(readCacheMap().containsKey(player.getUniqueId()));
+  }
+
+  /** Online player with an offline-mode (version 3) UUID, as on an offline-mode server. */
+  private PlayerMock offlinePlayer(String name) {
+    var uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+    var player = new PlayerMock(server, name, uuid);
+    server.addPlayer(player);
+    return player;
+  }
+
+  /** Gives the player a skin, as a real decoded {@code textures} property would. */
+  private static void giveTextures(PlayerMock player, String value) {
+    var profile = player.getPlayerProfile();
+    var textures = profile.getTextures();
+    try {
+      textures.setSkin(URI.create("https://textures.minecraft.net/texture/" + value).toURL());
+    } catch (MalformedURLException e) {
+      throw new IllegalStateException(e);
+    }
+    profile.setTextures(textures);
+    player.setPlayerProfile(profile);
+  }
+
+  /** Returns the skin id given by {@link #giveTextures}, or null if the profile has no skin. */
+  private static String texturesOf(PlayerProfile profile) {
+    var skin = profile.getTextures().getSkin();
+    if (skin == null) return null;
+    var path = skin.getPath();
+    return path.substring(path.lastIndexOf('/') + 1);
+  }
+
   /**
    * Installs a mocked vanish hook on the plugin's hook container that reports the given players as
    * vanished.
@@ -489,31 +632,14 @@ class HeadCacheTest extends MockBukkitTest {
     return null;
   }
 
-  @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
-  private void injectEmptyEntry(UUID uuid) {
-    injectEntry(uuid, Optional.empty());
-  }
-
   @SuppressWarnings("unchecked")
-  private Map<UUID, Optional<ItemStack>> readCacheMap() {
+  private Map<UUID, ?> readCacheMap() {
     try {
       Field field = HeadCache.class.getDeclaredField("cache");
       field.setAccessible(true);
-      return (Map<UUID, Optional<ItemStack>>) field.get(headCache);
+      return (Map<UUID, ?>) field.get(headCache);
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException("Failed to read cache map", e);
-    }
-  }
-
-  @SuppressWarnings({"unchecked", "PMD.AvoidAccessibilityAlteration"})
-  private void injectEntry(UUID uuid, Optional<ItemStack> value) {
-    try {
-      Field field = HeadCache.class.getDeclaredField("cache");
-      field.setAccessible(true);
-      Map<UUID, Optional<ItemStack>> map = (Map<UUID, Optional<ItemStack>>) field.get(headCache);
-      map.put(uuid, value);
-    } catch (ReflectiveOperationException e) {
-      throw new RuntimeException("Failed to inject cache entry", e);
     }
   }
 }
