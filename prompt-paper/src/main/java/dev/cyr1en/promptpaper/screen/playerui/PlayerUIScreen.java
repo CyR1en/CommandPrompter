@@ -30,7 +30,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 
 /**
  * Prompt screen that displays online players as clickable heads in a paginated chest GUI, with
@@ -124,24 +123,7 @@ public class PlayerUIScreen implements InputScreen {
           ItemStack head = currentHeads.get(j).clone();
           int x = (j - i) % 9;
           int y = (j - i) / 9;
-          page.addItem(
-              new GuiItem(
-                  head,
-                  event -> {
-                    var meta = head.getItemMeta();
-                    if (meta instanceof SkullMeta skullMeta
-                        && skullMeta.getOwningPlayer() != null) {
-                      var name = skullMeta.getOwningPlayer().getName();
-                      if (name != null) {
-                        close();
-                        if (callback != null) {
-                          callback.accept(ScreenResult.answer(name));
-                        }
-                      }
-                    }
-                  }),
-              x,
-              y);
+          page.addItem(new GuiItem(head, event -> selectHead(head)), x, y);
         }
         headPane.addPane(page);
       }
@@ -242,6 +224,14 @@ public class PlayerUIScreen implements InputScreen {
             String.CASE_INSENSITIVE_ORDER));
   }
 
+  /** Answers the prompt with the player the clicked head belongs to, if it belongs to one. */
+  void selectHead(ItemStack head) {
+    var name = plugin.getHeadCache().getOwnerName(head);
+    if (name == null) return;
+    close();
+    if (callback != null) callback.accept(ScreenResult.answer(name));
+  }
+
   /**
    * Applies the display format of the first (leftmost) combined filter to the given heads,
    * returning cloned items so the shared head cache is never mutated. When the filter has no
@@ -254,16 +244,15 @@ public class PlayerUIScreen implements InputScreen {
       List<ItemStack> heads, CacheFilter firstFilter, PromptConfig config) {
     var format = firstFilter.getFormat(config);
     if (format == null || format.isBlank() || "%s".equals(format)) return heads;
+    var headCache = plugin.getHeadCache();
     var formatted = new ArrayList<ItemStack>(heads.size());
     for (ItemStack head : heads) {
       var clone = head.clone();
+      var name = headCache.getOwnerName(clone);
       var meta = clone.getItemMeta();
-      if (meta instanceof SkullMeta skull
-          && skull.getOwningPlayer() != null
-          && skull.getOwningPlayer().getName() != null) {
-        skull.displayName(
-            ComponentUtil.mini("<!italic>" + format.formatted(skull.getOwningPlayer().getName())));
-        clone.setItemMeta(skull);
+      if (name != null && meta != null) {
+        meta.displayName(ComponentUtil.mini("<!italic>" + format.formatted(name)));
+        clone.setItemMeta(meta);
       }
       formatted.add(clone);
     }

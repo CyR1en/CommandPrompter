@@ -1,7 +1,6 @@
 package dev.cyr1en.promptpaper.screen.playerui;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
-import com.destroystokyo.paper.profile.ProfileProperty;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
@@ -13,15 +12,15 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -29,6 +28,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 /**
  * Maintains a bounded LRU cache of player-head {@link ItemStack}s used by {@link PlayerUIScreen}
@@ -45,24 +45,29 @@ public class HeadCache implements Listener {
   private final CommandPrompter plugin;
   private final Scheduler scheduler;
   private final int maxCacheSize;
-  private final Map<UUID, Optional<ItemStack>> cache;
-  // UUIDs whose cached head was built without skin textures; always a subset of the cache keys.
-  private final Set<UUID> untextured = ConcurrentHashMap.newKeySet();
+  private final NamespacedKey ownerKey;
+  // Compound operations hold the map's own lock (synchronized (cache)).
+  private final Map<UUID, CachedHead> cache;
   private final List<CacheFilter> filters;
+
+  /**
+   * A built head plus the textures key it was built from ({@code null} for a head built without
+   * textures). Both live in one value, so there is no second structure to keep in sync.
+   */
+  private record CachedHead(ItemStack item, String textures) {}
 
   public HeadCache(CommandPrompter plugin, Scheduler scheduler) {
     this.plugin = plugin;
     this.scheduler = scheduler;
     this.maxCacheSize = plugin.getConfigLoader().getPromptConfig().cacheSize();
+    this.ownerKey = new NamespacedKey(plugin, "head_owner");
     this.cache =
         Collections.synchronizedMap(
-            new LinkedHashMap<UUID, Optional<ItemStack>>(16, 0.75f, true) {
+            new LinkedHashMap<UUID, CachedHead>(16, 0.75f, true) {
               @Override
-              protected boolean removeEldestEntry(Map.Entry<UUID, Optional<ItemStack>> eldest) {
+              protected boolean removeEldestEntry(Map.Entry<UUID, CachedHead> eldest) {
                 int max = maxCacheSize;
-                boolean evict = max > 0 && size() > max;
-                if (evict) untextured.remove(eldest.getKey());
-                return evict;
+                return max > 0 && size() > max;
               }
             });
     this.filters = new ArrayList<>();
@@ -160,36 +165,57 @@ public class HeadCache implements Listener {
   public Optional<ItemStack> getHeadFor(Player player) {
     if (isVanished(player)) return Optional.empty();
     var uuid = player.getUniqueId();
-    // A head cached before the skin was applied (e.g. by a skin plugin shortly after join) is
-    // rebuilt once the live profile carries textures. Every other cached head is reused as-is.
-    if (untextured.contains(uuid) && hasTextures(player.getPlayerProfile())) invalidate(player);
-    var head = cache.computeIfAbsent(uuid, ignored -> createHead(player));
-    // Not cached: the player is not online, so there is nothing to show and no entry to clean up.
-    return head != null ? head : Optional.empty();
+    var liveTextures = texturesOf(player.getPlayerProfile());
+    synchronized (cache) {
+      // A head built from other textures (none yet, or a skin changed mid-session, e.g. by a skin
+      // plugin after join) is rebuilt. Every other cached head is reused as-is.
+      var cached = cache.get(uuid);
+      if (cached != null && !Objects.equals(cached.textures(), liveTextures)) cache.remove(uuid);
+      var head = cache.computeIfAbsent(uuid, ignored -> createHead(player, liveTextures));
+      // Not cached: the player is not online, so there is nothing to show and no entry to clean up.
+      return head != null ? Optional.of(head.item()) : Optional.empty();
+    }
   }
 
   /**
-   * Builds the head for an online player, or returns null (not cached) if the player is offline.
-   *
-   * <p>The skull is given the player's own live {@link PlayerProfile}, which already carries the
-   * {@code textures} property (from Mojang in online mode, or from a skin plugin in offline mode),
-   * so no profile lookup is needed. A skull profile without textures makes the server call {@link
-   * PlayerProfile#update()}, a Mojang profile request that can never succeed for offline-mode
-   * (version 3) UUIDs. Such players get a plain head instead; only version 4 (Mojang) UUIDs keep
-   * the old lookup-based {@link SkullMeta#setOwningPlayer} fallback.
+   * Returns the name of the player a head from this cache belongs to, or null if the item is not
+   * such a head. The name is stored on the item itself, so heads without an owning profile can
+   * still be identified.
    */
-  private Optional<ItemStack> createHead(Player player) {
+  public String getOwnerName(ItemStack head) {
+    if (head == null) return null;
+    var meta = head.getItemMeta();
+    if (meta == null) return null;
+    var name = meta.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
+    if (name != null) return name;
+    if (meta instanceof SkullMeta skull && skull.getOwningPlayer() != null) {
+      return skull.getOwningPlayer().getName();
+    }
+    return null;
+  }
+
+  /**
+   * Builds the head for an online player, or returns null (nothing is cached) if the player is
+   * offline.
+   *
+   * <p>A skull whose profile has no skin and no cape makes the server call {@link
+   * PlayerProfile#update()}, an uncached Mojang profile request that can never succeed for
+   * non-Mojang UUIDs (such as offline-mode version 3 UUIDs). So a textured player gets their live
+   * profile, an untextured player with a non-version-4 UUID gets a plain head, and only untextured
+   * version 4 (Mojang) UUIDs keep the lookup-based {@link SkullMeta#setOwningPlayer} fallback. The
+   * player name is written to the item's persistent data so plain heads stay selectable.
+   */
+  private CachedHead createHead(Player player, String textures) {
     if (!Bukkit.getOnlinePlayers().contains(player)) return null;
     var skull = new ItemStack(Material.PLAYER_HEAD);
     var meta = (SkullMeta) Bukkit.getItemFactory().getItemMeta(Material.PLAYER_HEAD);
     if (meta != null) {
-      var profile = player.getPlayerProfile();
-      if (hasTextures(profile)) {
-        meta.setPlayerProfile(profile);
-      } else {
-        untextured.add(player.getUniqueId());
-        if (player.getUniqueId().version() == 4) meta.setOwningPlayer(player);
+      if (textures != null) {
+        meta.setPlayerProfile(player.getPlayerProfile());
+      } else if (player.getUniqueId().version() == 4) {
+        meta.setOwningPlayer(player);
       }
+      meta.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, player.getName());
       var promptConfig = plugin.getConfigLoader().getPromptConfig();
       var format = promptConfig.skullNameFormat();
       var cmData = promptConfig.skullCustomModelData();
@@ -199,15 +225,18 @@ public class HeadCache implements Listener {
       }
       skull.setItemMeta(meta);
     }
-    return Optional.of(skull);
+    return new CachedHead(skull, textures);
   }
 
-  private static boolean hasTextures(PlayerProfile profile) {
-    if (profile == null) return false;
-    for (ProfileProperty property : profile.getProperties()) {
-      if ("textures".equals(property.getName()) && !property.getValue().isEmpty()) return true;
-    }
-    return false;
+  /**
+   * Returns the profile's skin and cape URLs as one key, or null if it has neither (the same check
+   * the server makes before looking a skull profile up).
+   */
+  private static String texturesOf(PlayerProfile profile) {
+    if (profile == null) return null;
+    var textures = profile.getTextures();
+    if (textures.isEmpty()) return null;
+    return textures.getSkin() + "|" + textures.getCape();
   }
 
   @SuppressWarnings("deprecation")
@@ -223,7 +252,6 @@ public class HeadCache implements Listener {
 
   public void invalidate(Player player) {
     cache.remove(player.getUniqueId());
-    untextured.remove(player.getUniqueId());
   }
 
   /**
@@ -231,14 +259,17 @@ public class HeadCache implements Listener {
    * cached.
    */
   public List<ItemStack> getHeads() {
-    return cache.entrySet().stream()
-        .filter(entry -> entry.getValue().isPresent())
+    List<Map.Entry<UUID, CachedHead>> entries;
+    synchronized (cache) {
+      entries = cache.entrySet().stream().map(e -> Map.entry(e.getKey(), e.getValue())).toList();
+    }
+    return entries.stream()
         .filter(
             entry -> {
               var cachedPlayer = Bukkit.getPlayer(entry.getKey());
               return cachedPlayer != null && !isVanished(cachedPlayer);
             })
-        .map(entry -> entry.getValue().get())
+        .map(entry -> entry.getValue().item())
         .toList();
   }
 
@@ -258,8 +289,7 @@ public class HeadCache implements Listener {
   }
 
   public int size() {
-    // Count only populated entries so empty/unloaded heads are detected as stale.
-    return (int) cache.values().stream().filter(Optional::isPresent).count();
+    return cache.size();
   }
 
   /**
@@ -268,7 +298,6 @@ public class HeadCache implements Listener {
    */
   public void buildCache(Runnable callback) {
     cache.clear();
-    untextured.clear();
     var players = new ArrayList<Player>(Bukkit.getOnlinePlayers());
     players.removeIf(this::isVanished);
     processBatch(players, 0, callback, new AtomicBoolean());
@@ -328,7 +357,6 @@ public class HeadCache implements Listener {
 
   public void reBuildCache() {
     cache.clear();
-    untextured.clear();
   }
 
   @EventHandler
