@@ -169,7 +169,7 @@ public final class PostActionResolver {
           template,
           def.executeAs(),
           def.delayTicks(),
-          ActionProvenance.trustedPreset(def.id(), def.executeAs() == ExecuteAs.CONSOLE),
+          presetProvenance(def.id(), completion),
           def.id());
     }
 
@@ -263,7 +263,13 @@ public final class PostActionResolver {
         template,
         branch.executeAs(),
         branch.delayTicks(),
-        ActionProvenance.trustedPreset(def.id(), branch.executeAs() == ExecuteAs.CONSOLE),
+        presetProvenance(def.id(), completion),
         def.id());
+  }
+
+  /** Console delegation comes only from the session (e.g. {@code /consoledelegate}). */
+  private static ActionProvenance presetProvenance(String presetId, InputCompletion completion) {
+    return ActionProvenance.trustedPreset(
+        presetId, completion.dispatchContext().isConsoleDelegated());
   }
 }

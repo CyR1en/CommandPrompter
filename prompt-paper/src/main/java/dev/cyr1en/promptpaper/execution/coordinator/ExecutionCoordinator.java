@@ -720,7 +720,7 @@ public class ExecutionCoordinator {
     ExecuteAs executeAs = onDenyAction.executeAs();
     String sourceId = "approval-gate:" + (gateId != null ? gateId : "unknown");
     ActionProvenance provenance =
-        ActionProvenance.trustedPreset(sourceId, executeAs == ExecuteAs.CONSOLE);
+        ActionProvenance.trustedPreset(sourceId, completion.dispatchContext().isConsoleDelegated());
 
     ImmediateActionRequest req =
         new ImmediateActionRequest(

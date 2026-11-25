@@ -142,9 +142,9 @@ class PostActionResolverTest {
       assertEquals(ActionTrustLevel.TRUSTED_PRESET, resolved.template().trustLevel());
       assertNotNull(resolved.provenance());
       assertEquals(ActionTrustLevel.TRUSTED_PRESET, resolved.provenance().trustLevel());
-      assertTrue(
+      assertFalse(
           resolved.provenance().consoleDelegated(),
-          "CONSOLE executeAs in trusted preset must set consoleDelegated = true");
+          "CONSOLE executeAs in a preset must not grant console delegation");
       assertEquals("reward_cmd", resolved.provenance().sourceId());
 
       // On cancel run -> skipped because preset policy is ON_COMPLETE
@@ -259,8 +259,52 @@ class PostActionResolverTest {
       assertEquals("cond1", resolved.sourceId());
       assertNotNull(resolved.provenance());
       assertEquals(ActionTrustLevel.TRUSTED_PRESET, resolved.provenance().trustLevel());
-      assertTrue(resolved.provenance().consoleDelegated());
+      assertFalse(resolved.provenance().consoleDelegated());
       assertEquals("cond1", resolved.provenance().sourceId());
+    }
+
+    @Test
+    @DisplayName("Console-delegated session marks preset provenance consoleDelegated = true")
+    void consoleDelegatedSessionSetsConsoleDelegated() {
+      var postCmd =
+          new PostCommand(
+              "reward_cmd",
+              "give {player} diamond",
+              ExecutionPolicy.ON_COMPLETE,
+              ExecuteAs.CONSOLE,
+              0);
+      var cond =
+          ConditionCompiler.compile("{0} equals \"yes\"", ConditionCompileOptions.forPreset());
+      var def =
+          new ConditionalPostCommandDefinition(
+              "cond1",
+              cond,
+              ExecutionPolicy.ON_COMPLETE,
+              TrustedPresetAction.of("say accepted {player}", ExecuteAs.CONSOLE, 0),
+              null);
+      var snapshot =
+          new PresetSnapshot(
+              Map.of(), Map.of("reward_cmd", postCmd), Map.of(), Map.of("cond1", def), 1L);
+      var completion =
+          new InputCompletion(
+              initiator,
+              1L,
+              0L,
+              List.of("yes"),
+              "primary",
+              null,
+              snapshot,
+              DispatchContextSnapshot.console());
+
+      for (String id : List.of("reward_cmd", "cond1")) {
+        var pcm = new PostCommandMeta(id, new int[] {}, 0, false, DispatchTarget.PLAYER, true);
+        var resolved =
+            PostActionResolver.resolve(
+                pcm, ExecutionPolicy.ON_COMPLETE, completion, PapiReferenceResolver.empty());
+        assertNotNull(resolved);
+        assertEquals(ActionTrustLevel.TRUSTED_PRESET, resolved.provenance().trustLevel());
+        assertTrue(resolved.provenance().consoleDelegated(), id);
+      }
     }
 
     @Test

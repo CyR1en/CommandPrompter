@@ -202,6 +202,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   @DisplayName("FLOW-04: Approval decline aborts primary command and dispatches on_deny action")
   void flow04_declineAbortsPrimaryAndDispatchesOnDeny() {
     Player initiator = createPlayer("Alice");
+    initiator.addAttachment(plugin, "promptpaper.pcm.console", true);
     Player approver = createPlayer("Bob");
 
     ApprovalGateDefinition gate =
@@ -566,6 +567,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   @DisplayName("Multi-Gate: Sequential multiple gates - denial at second gate aborts primary")
   void flow08_sequentialMultipleGatesDenyAtSecond() {
     Player initiator = createPlayer("Alice");
+    initiator.addAttachment(plugin, "promptpaper.pcm.console", true);
     Player admin1 = createPlayer("Bob");
     Player admin2 = createPlayer("Charlie");
 
@@ -638,6 +640,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   @DisplayName("FLOW-12: Capability timeout invalidates state and dispatches on_deny")
   void flow12_timeoutInvalidatesAndRunsOnDeny() {
     Player initiator = createPlayer("Alice");
+    initiator.addAttachment(plugin, "promptpaper.pcm.console", true);
     Player approver = createPlayer("Bob");
 
     ApprovalGateDefinition gate =
@@ -696,6 +699,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   @DisplayName("FLOW-13: Target disconnect reports TARGET_DISCONNECTED and executes on_deny")
   void flow13_targetDisconnectExecutesOnDeny() {
     Player initiator = createPlayer("Alice");
+    initiator.addAttachment(plugin, "promptpaper.pcm.console", true);
     Player approver = createPlayer("Bob");
 
     ApprovalGateDefinition gate =

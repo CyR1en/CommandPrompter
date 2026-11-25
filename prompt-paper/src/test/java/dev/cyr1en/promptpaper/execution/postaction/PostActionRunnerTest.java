@@ -723,18 +723,26 @@ class PostActionRunnerTest extends MockBukkitTest {
           dispatcher.dispatchedRequests.get(0).command());
     }
 
-    @Test
-    @DisplayName(
-        "Trusted preset console action preserves TRUSTED_PRESET provenance with console delegation for non-op player")
-    void trustedPresetConsoleActionAuthorizedForNonOpPlayer() {
-      var nonOpPlayer = createPlayer("NonOpPostActionPlayer");
-      assertFalse(nonOpPlayer.isOp());
-      var nonOpExecutor = PlayerExecutor.forPlayer(plugin, nonOpPlayer, p -> true);
-
+    private PostActionResult runConsolePreset(
+        Player target, DispatchContextSnapshot context, AtomicInteger consoleRuns) {
+      server
+          .getCommandMap()
+          .register(
+              "pcmconsolegate",
+              new org.bukkit.command.Command("pcmconsolegate") {
+                @Override
+                public boolean execute(
+                    org.bukkit.command.CommandSender sender, String label, String[] args) {
+                  if (sender instanceof org.bukkit.command.ConsoleCommandSender) {
+                    consoleRuns.incrementAndGet();
+                  }
+                  return true;
+                }
+              });
       var postCmd =
           new PostCommand(
               "admin_reward",
-              "give {player} diamond",
+              "pcmconsolegate {player}",
               ExecutionPolicy.ON_COMPLETE,
               ExecuteAs.CONSOLE,
               0);
@@ -742,45 +750,75 @@ class PostActionRunnerTest extends MockBukkitTest {
           new PresetSnapshot(Map.of(), Map.of("admin_reward", postCmd), Map.of(), Map.of(), 1L);
       var pcm =
           new PostCommandMeta("admin_reward", new int[] {}, 0, false, DispatchTarget.PLAYER, true);
-
       var completion =
           new InputCompletion(
-              nonOpPlayer.getUniqueId(),
+              target.getUniqueId(),
               1L,
               0L,
               List.of(),
               "say primary",
               null,
               snapshot,
-              DispatchContextSnapshot.player(),
+              context,
               List.of(pcm));
       var instance =
           new ExecutionPlanInstance(ExecutionId.create(), completion, ExecutionStage.POST_ACTIONS);
-      var dispatcher = new RecordingDispatcher();
       var resultRef = new AtomicReference<PostActionResult>();
 
       PostActionRunner.execute(
-          nonOpPlayer,
-          nonOpExecutor,
+          target,
+          PlayerExecutor.forPlayer(plugin, target, p -> true),
           instance,
           ExecutionPolicy.ON_COMPLETE,
-          dispatcher,
+          new dev.cyr1en.promptpaper.execution.dispatch.PaperImmediateActionDispatcher(
+              plugin, scheduler),
           testScheduler,
           PapiReferenceResolver.empty(),
           resultRef::set);
 
       assertNotNull(resultRef.get());
-      assertTrue(resultRef.get().isSuccess());
-      assertEquals(1, dispatcher.dispatchedRequests.size());
-      var req = dispatcher.dispatchedRequests.get(0);
-      assertEquals("give " + nonOpPlayer.getName() + " diamond", req.command());
-      assertEquals(ExecuteAs.CONSOLE, req.executeAs());
-      assertNotNull(req.provenance());
-      assertEquals(
-          dev.cyr1en.promptpaper.execution.dispatch.ActionTrustLevel.TRUSTED_PRESET,
-          req.provenance().trustLevel());
-      assertTrue(req.provenance().consoleDelegated());
-      assertTrue(req.provenance().isConsoleAuthorized(nonOpPlayer));
+      return resultRef.get();
+    }
+
+    @Test
+    @DisplayName("Console preset post-command is rejected for a non-op player without permission")
+    void trustedPresetConsoleActionRejectedForNonOpPlayer() {
+      var nonOpPlayer = createPlayer("NonOpPostActionPlayer");
+      assertFalse(nonOpPlayer.isOp());
+      assertFalse(nonOpPlayer.hasPermission("promptpaper.pcm.console"));
+      var consoleRuns = new AtomicInteger();
+
+      var result = runConsolePreset(nonOpPlayer, DispatchContextSnapshot.player(), consoleRuns);
+
+      assertFalse(result.isSuccess());
+      assertEquals(DispatchErrorKind.UNAUTHORIZED_CONSOLE, result.error().kind());
+      assertEquals(0, consoleRuns.get());
+    }
+
+    @Test
+    @DisplayName("Console preset post-command runs for a player holding promptpaper.pcm.console")
+    void trustedPresetConsoleActionRunsForPermittedPlayer() {
+      var permitted = createPlayer("PermittedPostActionPlayer");
+      permitted.addAttachment(plugin, "promptpaper.pcm.console", true);
+      var consoleRuns = new AtomicInteger();
+
+      var result = runConsolePreset(permitted, DispatchContextSnapshot.player(), consoleRuns);
+
+      assertTrue(result.isSuccess());
+      assertEquals(1, consoleRuns.get());
+    }
+
+    @Test
+    @DisplayName("Console preset post-command still runs in a /consoledelegate session")
+    void trustedPresetConsoleActionRunsForConsoleDelegatedSession() {
+      var nonOpPlayer = createPlayer("DelegatedPostActionPlayer");
+      assertFalse(nonOpPlayer.isOp());
+      var consoleRuns = new AtomicInteger();
+
+      var result = runConsolePreset(nonOpPlayer, DispatchContextSnapshot.console(), consoleRuns);
+
+      assertTrue(result.isSuccess());
+      assertEquals(1, consoleRuns.get());
     }
 
     @Test
