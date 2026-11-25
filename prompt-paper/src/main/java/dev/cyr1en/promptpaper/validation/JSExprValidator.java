@@ -32,7 +32,7 @@ public class JSExprValidator implements InputValidator, CompoundableValidator {
   private final String bindingPrefix =
       "__cp_" + UUID.randomUUID().toString().replace("-", "") + "_";
   private final String inputBinding = bindingPrefix + "input";
-  private final Pattern bindingName = Pattern.compile(bindingPrefix + "(?:input|p\\d+)");
+  private final Pattern bindingName = Pattern.compile(bindingPrefix + "(?:input|p\\d+_)");
   private final String alias;
   private final String expression;
   private final String messageOnFail;
@@ -112,7 +112,7 @@ public class JSExprValidator implements InputValidator, CompoundableValidator {
         var token = expr.substring(i, end + 1);
         var value = papi.setPlaceholder(player, token);
         if (value != null && !value.equals(token)) {
-          var binding = bindingPrefix + "p" + values.size();
+          var binding = bindingPrefix + "p" + values.size() + "_";
           values.put(binding, value);
           out.append(binding);
           i = end + 1;

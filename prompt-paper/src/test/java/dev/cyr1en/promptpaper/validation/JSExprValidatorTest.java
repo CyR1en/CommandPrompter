@@ -174,6 +174,9 @@ class JSExprValidatorTest extends MockBukkitTest {
             "num", "%prompt_input% % 2 == 1 && %player_level% + 1 === 8", "fail", player, plugin);
     assertTrue(validator.validate("3"));
     assertFalse(validator.validate("4"));
+    assertTrue(
+        new JSExprValidator("digits", "'%player_level%5' === '75'", "fail", player, plugin)
+            .validate("x"));
   }
 
   @Test
