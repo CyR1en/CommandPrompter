@@ -75,6 +75,12 @@ public record PromptTag(
     Map<String, String> flags,
     Condition breakIf) {
 
+  /**
+   * Flag name ({@code -allowargs}) stored in {@link #flags()} when a prompt may be answered with
+   * several command arguments or a leading {@code @} in a delegated (console-run) session.
+   */
+  public static final String ALLOW_ARGS_FLAG = "allowargs";
+
   /** Describes an optional type constraint on the answer value. */
   public enum AnswerType {
     /** No type constraint — accept any string. */
@@ -292,6 +298,11 @@ public record PromptTag(
    */
   public boolean isPreset() {
     return preset;
+  }
+
+  /** Whether this tag opts in to multi-argument answers in delegated sessions. */
+  public boolean allowsArgs() {
+    return flags.containsKey(ALLOW_ARGS_FLAG);
   }
 
   /** Whether this tag has an attached breakIf condition. */
