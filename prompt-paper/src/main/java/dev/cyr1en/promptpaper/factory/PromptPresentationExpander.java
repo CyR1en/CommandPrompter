@@ -55,7 +55,8 @@ import org.bukkit.entity.Player;
  * <p>Only preset-sourced definitions ({@link #expand}) are sent to the expansion delegate. Inline
  * tags are written on the command line by the player, so {@link #expandInline} and {@link
  * #expandInlineDialog} leave their text unexpanded (length-bounded only) unless the player holds
- * {@value #INLINE_PLACEHOLDER_PERMISSION}.
+ * {@value #INLINE_PLACEHOLDER_PERMISSION} or the caller marks the tag as written by the console
+ * ({@code /consoledelegate}).
  *
  * <h2>Never expanded</h2>
  *
@@ -202,11 +203,19 @@ final class PromptPresentationExpander {
    * passed through unexpanded unless the player holds {@value #INLINE_PLACEHOLDER_PERMISSION}.
    */
   PromptDefinition expandInline(Player player, PromptDefinition raw) {
-    return forInline(player).expand(player, raw);
+    return expandInline(player, raw, false);
   }
 
-  private PromptPresentationExpander forInline(Player player) {
-    if (literal == null) return this;
+  /**
+   * @param trustedOrigin {@code true} when the inline tag was written by the console ({@code
+   *     /consoledelegate}), not typed by a player; such text is expanded.
+   */
+  PromptDefinition expandInline(Player player, PromptDefinition raw, boolean trustedOrigin) {
+    return forInline(player, trustedOrigin).expand(player, raw);
+  }
+
+  private PromptPresentationExpander forInline(Player player, boolean trustedOrigin) {
+    if (literal == null || trustedOrigin) return this;
     return player != null && player.hasPermission(INLINE_PLACEHOLDER_PERMISSION) ? this : literal;
   }
 
@@ -220,8 +229,13 @@ final class PromptPresentationExpander {
    * {@value #INLINE_PLACEHOLDER_PERMISSION}.
    */
   PromptTag expandInlineDialog(Player player, PromptTag raw) {
+    return expandInlineDialog(player, raw, false);
+  }
+
+  /** As {@link #expandInlineDialog(Player, PromptTag)}; see {@link #expandInline} for the flag. */
+  PromptTag expandInlineDialog(Player player, PromptTag raw, boolean trustedOrigin) {
     Objects.requireNonNull(raw, "raw");
-    return forInline(player).expandTag(player, raw);
+    return forInline(player, trustedOrigin).expandTag(player, raw);
   }
 
   private PromptTag expandTag(Player player, PromptTag raw) {

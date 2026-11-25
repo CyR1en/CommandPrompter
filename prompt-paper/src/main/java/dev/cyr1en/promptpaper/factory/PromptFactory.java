@@ -203,11 +203,12 @@ public class PromptFactory {
    * so it goes through {@link PromptPresentationExpander#expandInline} instead of the preset path.
    */
   private InputScreen createInline(
-      Player player, PromptDefinition def, DialogCompletionContext context) {
+      Player player, PromptDefinition def, DialogCompletionContext context, boolean trustedOrigin) {
     plugin
         .getPluginLogger()
         .debug("PromptFactory.createInline: player=" + player.getName() + " type=" + def.type());
-    return createExpanded(player, presentationExpander.expandInline(player, def), context);
+    return createExpanded(
+        player, presentationExpander.expandInline(player, def, trustedOrigin), context);
   }
 
   /**
@@ -258,9 +259,22 @@ public class PromptFactory {
    * </ul>
    *
    * <p>Inline text is typed by the player, so placeholders in it are only resolved for players
-   * holding {@code promptpaper.inline.placeholders}; preset text is always resolved.
+   * holding {@code promptpaper.inline.placeholders} or for a trusted origin (see the four-argument
+   * overload); preset text is always resolved.
    */
   public InputScreen createFromTag(Player player, PromptTag tag, DialogCompletionContext context) {
+    return createFromTag(player, tag, context, false);
+  }
+
+  /**
+   * As {@link #createFromTag(Player, PromptTag, DialogCompletionContext)}.
+   *
+   * @param trustedOrigin {@code true} when the command line holding the tag was written by the
+   *     console ({@code /consoledelegate}) rather than typed by a player; placeholders in its
+   *     inline text are then resolved.
+   */
+  public InputScreen createFromTag(
+      Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {
     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
     if (tag.isPreset()) {
       // Lookup uses the raw displayText — a PAPI-looking preset id must never be expanded.
@@ -293,12 +307,12 @@ public class PromptFactory {
     if (isDialog) {
       // Expand the presentation-only copy of the tag, then build the dialog screen directly so
       // the expanded fields are materialized exactly once.
-      var expandedTag = presentationExpander.expandInlineDialog(player, tag);
+      var expandedTag = presentationExpander.expandInlineDialog(player, tag, trustedOrigin);
       var dialogScreen = new DialogPromptScreen(plugin, player, expandedTag, promptConfig, context);
       return wrapWithTagTitle(player, expandedTag, dialogScreen);
     }
     var def = InlineTagMapper.toPromptDefinition(tag, mappings);
-    return createInline(player, def, context);
+    return createInline(player, def, context, trustedOrigin);
   }
 
   private ChatPromptScreen createChat(Player player, ChatPrompt chat) {

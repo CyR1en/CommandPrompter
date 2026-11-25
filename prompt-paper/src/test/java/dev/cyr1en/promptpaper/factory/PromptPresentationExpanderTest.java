@@ -327,6 +327,30 @@ class PromptPresentationExpanderTest {
   }
 
   @Test
+  void consoleAuthoredInlineTagIsExpandedWithoutRecipientPermission() {
+    var recording = new PromptPresentationExpander((p, value) -> "[" + value + "]");
+    var tag =
+        new PromptTag(
+            "<a:%player_name%>",
+            "a",
+            null,
+            "%player_name%",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            List.of(),
+            false,
+            null);
+
+    var inline =
+        (AnvilPrompt) recording.expandInline(player, InlineTagMapper.toPromptDefinition(tag), true);
+    var inlineDialog = recording.expandInlineDialog(player, tag, true);
+
+    assertEquals("[%player_name%]", inline.promptText());
+    assertEquals("[%player_name%]", inlineDialog.displayText());
+  }
+
+  @Test
   void inlineTagNeverReachesDelegateButPresetDefinitionStillDoes() {
     var calls = new ArrayList<String>();
     var recording =

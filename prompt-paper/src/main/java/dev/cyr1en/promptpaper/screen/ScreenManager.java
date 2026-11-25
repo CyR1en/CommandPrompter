@@ -52,6 +52,30 @@ public class ScreenManager {
   @FunctionalInterface
   public interface ScreenCreator {
     InputScreen create(Player player, PromptTag tag, DialogCompletionContext context);
+
+    /**
+     * @param trustedOrigin whether the command line was written by the console ({@code
+     *     /consoledelegate}) instead of typed by a player
+     */
+    default InputScreen create(
+        Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {
+      return create(player, tag, context);
+    }
+  }
+
+  private static ScreenCreator factoryCreator(PromptFactory factory) {
+    return new ScreenCreator() {
+      @Override
+      public InputScreen create(Player player, PromptTag tag, DialogCompletionContext context) {
+        return factory.createFromTag(player, tag, context);
+      }
+
+      @Override
+      public InputScreen create(
+          Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {
+        return factory.createFromTag(player, tag, context, trustedOrigin);
+      }
+    };
   }
 
   public enum DispatchMode {
@@ -84,7 +108,8 @@ public class ScreenManager {
 
   public ScreenManager(
       CommandPrompter plugin, PromptEngine engine, PromptFactory factory, Scheduler scheduler) {
-    this(plugin, engine, factory, scheduler, factory != null ? factory::createFromTag : null, null);
+    this(
+        plugin, engine, factory, scheduler, factory != null ? factoryCreator(factory) : null, null);
   }
 
   public ScreenManager(
@@ -139,7 +164,7 @@ public class ScreenManager {
     this.factory = factory;
     this.scheduler = scheduler;
     this.screenCreator =
-        screenCreator != null ? screenCreator : (factory != null ? factory::createFromTag : null);
+        screenCreator != null ? screenCreator : (factory != null ? factoryCreator(factory) : null);
     this.playerExecutorFactory =
         playerExecutorFactory != null
             ? playerExecutorFactory
@@ -525,10 +550,12 @@ public class ScreenManager {
         }
       } else {
         var context = buildCompletionContext(player, tag);
+        // A /consoledelegate command line was written by the console, not typed by this player.
+        var trustedOrigin = dispatchModes.get(uuid) == DispatchMode.CONSOLE;
         screen =
             screenCreator != null
-                ? screenCreator.create(player, tag, context)
-                : factory.createFromTag(player, tag, context);
+                ? screenCreator.create(player, tag, context, trustedOrigin)
+                : factory.createFromTag(player, tag, context, trustedOrigin);
       }
 
       if (screen == null) {
