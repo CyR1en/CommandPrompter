@@ -103,6 +103,80 @@ class JSExprValidatorTest extends MockBukkitTest {
   }
 
   @Test
+  void placeholderValueCannotBreakOutOfStringLiteral() {
+    var marker = "commandprompter.validation.papi.injection";
+    var payload =
+        "x' || Java.type('java.lang.System').setProperty('" + marker + "', 'executed') || '";
+    var player = createPlayer();
+    var hooks = mock(HookContainer.class);
+    var papi = mock(PapiHook.class);
+    when(plugin.getHookContainer()).thenReturn(hooks);
+    when(hooks.getHook(PapiHook.class)).thenReturn(Optional.of(papi));
+    when(papi.setPlaceholder(eq(player), anyString()))
+        .thenAnswer(
+            invocation -> {
+              String token = invocation.getArgument(1);
+              return token.equals("%player_displayname%") ? payload : token;
+            });
+    try {
+      System.clearProperty(marker);
+      var quoted =
+          new JSExprValidator(
+              "quoted", "'%player_displayname%' != '%prompt_input%'", "fail", player, plugin);
+      var bare =
+          new JSExprValidator(
+              "bare", "%player_displayname% != '%prompt_input%'", "fail", player, plugin);
+      assertAll(
+          () -> assertTrue(quoted.validate("other")),
+          () -> assertFalse(quoted.validate(payload)),
+          () -> assertTrue(bare.validate("other")),
+          () -> assertFalse(bare.validate(payload)),
+          () -> assertNull(System.getProperty(marker)));
+    } finally {
+      System.clearProperty(marker);
+    }
+  }
+
+  @Test
+  void scriptsCannotLoadJavaClasses() {
+    var marker = "commandprompter.validation.classfilter";
+    try {
+      System.clearProperty(marker);
+      var validator =
+          new JSExprValidator(
+              "filter",
+              "Java.type('java.lang.System').setProperty('" + marker + "', 'x') == null",
+              "fail",
+              null,
+              plugin);
+      assertAll(
+          () -> assertFalse(validator.validate("x")), () -> assertNull(System.getProperty(marker)));
+    } finally {
+      System.clearProperty(marker);
+    }
+  }
+
+  @Test
+  void numericPlaceholderAndModuloStillWork() {
+    var player = createPlayer();
+    var hooks = mock(HookContainer.class);
+    var papi = mock(PapiHook.class);
+    when(plugin.getHookContainer()).thenReturn(hooks);
+    when(hooks.getHook(PapiHook.class)).thenReturn(Optional.of(papi));
+    when(papi.setPlaceholder(eq(player), anyString()))
+        .thenAnswer(
+            invocation -> {
+              String token = invocation.getArgument(1);
+              return token.equals("%player_level%") ? "7" : token;
+            });
+    var validator =
+        new JSExprValidator(
+            "num", "%prompt_input% % 2 == 1 && %player_level% + 1 === 8", "fail", player, plugin);
+    assertTrue(validator.validate("3"));
+    assertFalse(validator.validate("4"));
+  }
+
+  @Test
   void nonBooleanExpressionFails() {
     var v = new JSExprValidator("test", "'just a string'", "fail", null, plugin);
     assertFalse(v.validate("x"));
