@@ -265,4 +265,31 @@ class CustomFlagsParserTest {
     assertTrue(tag11.flags().isEmpty());
     assertEquals(30, tag11.timeout());
   }
+
+  @Test
+  @DisplayName("Built-in tags accept -allowargs and keep it out of the display text")
+  void parsesAllowArgsOnBuiltInTag() {
+    var tag = parser.parse("/cmd <Message -allowargs -iv:msg>").promptTags().get(0);
+    assertEquals("Message", tag.displayText());
+    assertEquals("msg", tag.validatorAlias());
+    assertTrue(tag.allowsArgs());
+
+    var plain = parser.parse("/cmd <Message>").promptTags().get(0);
+    assertFalse(plain.allowsArgs());
+    assertTrue(plain.flags().isEmpty());
+  }
+
+  @Test
+  @DisplayName("Compound and custom tags accept -allowargs")
+  void parsesAllowArgsOnCompoundAndCustomTags() {
+    var compound =
+        parser.parse("/cmd <d:text:First && d:text:Second -allowargs>").promptTags().get(0);
+    assertTrue(compound.isCompound());
+    assertEquals(2, compound.subTags().size());
+    assertTrue(compound.allowsArgs());
+
+    var custom = parser.parse("/give <ecoitem:Pick weapon -allowargs>").promptTags().get(0);
+    assertEquals("Pick weapon", custom.displayText());
+    assertTrue(custom.allowsArgs());
+  }
 }
