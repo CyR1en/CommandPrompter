@@ -199,6 +199,18 @@ public class PromptFactory {
   }
 
   /**
+   * Builds the screen for a definition mapped from an inline tag. Inline text is player-authored,
+   * so it goes through {@link PromptPresentationExpander#expandInline} instead of the preset path.
+   */
+  private InputScreen createInline(
+      Player player, PromptDefinition def, DialogCompletionContext context) {
+    plugin
+        .getPluginLogger()
+        .debug("PromptFactory.createInline: player=" + player.getName() + " type=" + def.type());
+    return createExpanded(player, presentationExpander.expandInline(player, def), context);
+  }
+
+  /**
    * Builds the screen from an already-expanded definition. Never expands again — the public {@link
    * #create(Player, PromptDefinition, DialogCompletionContext)} is the only entry point allowed to
    * materialize placeholders.
@@ -238,12 +250,15 @@ public class PromptFactory {
    *   <li><b>Presets</b> look up the registry with the <b>raw</b> {@code displayText} (the id is a
    *       semantic key, never expanded) and delegate to {@link #create}, which expands the resolved
    *       definition once.
-   *   <li><b>Inline dialogs / compound tags</b> expand a presentation-only copy of the tag via
+   *   <li><b>Inline dialogs / compound tags</b> materialize a presentation-only copy of the tag via
    *       {@link PromptPresentationExpander#expandInlineDialog} and build the dialog screen
    *       directly from that copy.
-   *   <li><b>Other inline tags</b> map the raw tag and delegate to {@link #create}, which expands
-   *       once.
+   *   <li><b>Other inline tags</b> map the raw tag and materialize it once via {@link
+   *       PromptPresentationExpander#expandInline}.
    * </ul>
+   *
+   * <p>Inline text is typed by the player, so placeholders in it are only resolved for players
+   * holding {@code promptpaper.inline.placeholders}; preset text is always resolved.
    */
   public InputScreen createFromTag(Player player, PromptTag tag, DialogCompletionContext context) {
     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
@@ -283,7 +298,7 @@ public class PromptFactory {
       return wrapWithTagTitle(player, expandedTag, dialogScreen);
     }
     var def = InlineTagMapper.toPromptDefinition(tag, mappings);
-    return create(player, def, context);
+    return createInline(player, def, context);
   }
 
   private ChatPromptScreen createChat(Player player, ChatPrompt chat) {

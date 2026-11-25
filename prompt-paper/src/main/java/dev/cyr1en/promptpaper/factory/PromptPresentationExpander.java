@@ -50,6 +50,13 @@ import org.bukkit.entity.Player;
  *       {@code title.main} / {@code title.sub}.
  * </ul>
  *
+ * <h2>Origin</h2>
+ *
+ * <p>Only preset-sourced definitions ({@link #expand}) are sent to the expansion delegate. Inline
+ * tags are written on the command line by the player, so {@link #expandInline} and {@link
+ * #expandInlineDialog} leave their text unexpanded (length-bounded only) unless the player holds
+ * {@value #INLINE_PLACEHOLDER_PERMISSION}.
+ *
  * <h2>Never expanded</h2>
  *
  * <p>Preset ids, tag keys, {@code rawTag}, filters, validator aliases, answer types, {@code
@@ -65,6 +72,9 @@ final class PromptPresentationExpander {
 
   static final int MAX_DISPLAY_LENGTH = 1024;
 
+  /** Opt-in permission that lets a player's own inline prompt text reach the expansion delegate. */
+  static final String INLINE_PLACEHOLDER_PERMISSION = "promptpaper.inline.placeholders";
+
   @FunctionalInterface
   interface TruncationListener {
     void onTruncate(Player player, int originalLength, int maxLength);
@@ -72,6 +82,9 @@ final class PromptPresentationExpander {
 
   private final BiFunction<Player, String, String> expander;
   private final TruncationListener truncationListener;
+  // Same length bounding, but text never reaches the expansion delegate. Null on the literal
+  // instance itself.
+  private final PromptPresentationExpander literal;
 
   /**
    * @param expander the per-field expansion function (e.g. a PAPI hook). Injected so tests can use
@@ -88,8 +101,19 @@ final class PromptPresentationExpander {
    */
   PromptPresentationExpander(
       BiFunction<Player, String, String> expander, TruncationListener truncationListener) {
+    this(expander, truncationListener, true);
+  }
+
+  private PromptPresentationExpander(
+      BiFunction<Player, String, String> expander,
+      TruncationListener truncationListener,
+      boolean withLiteral) {
     this.expander = Objects.requireNonNull(expander, "expander");
     this.truncationListener = Objects.requireNonNull(truncationListener, "truncationListener");
+    this.literal =
+        withLiteral
+            ? new PromptPresentationExpander((player, text) -> text, truncationListener, false)
+            : null;
   }
 
   /**
@@ -121,7 +145,11 @@ final class PromptPresentationExpander {
         });
   }
 
-  /** Expands every player-visible presentation field of the definition; semantic fields are raw. */
+  /**
+   * Expands every player-visible presentation field of a <b>preset-sourced</b> definition; semantic
+   * fields are raw. Never pass a definition mapped from an inline tag here — use {@link
+   * #expandInline}.
+   */
   PromptDefinition expand(Player player, PromptDefinition raw) {
     Objects.requireNonNull(raw, "raw");
     return switch (raw) {
@@ -170,14 +198,34 @@ final class PromptPresentationExpander {
   }
 
   /**
+   * Materializes a definition mapped from an inline tag. Its text is player-authored, so it is
+   * passed through unexpanded unless the player holds {@value #INLINE_PLACEHOLDER_PERMISSION}.
+   */
+  PromptDefinition expandInline(Player player, PromptDefinition raw) {
+    return forInline(player).expand(player, raw);
+  }
+
+  private PromptPresentationExpander forInline(Player player) {
+    if (literal == null) return this;
+    return player != null && player.hasPermission(INLINE_PLACEHOLDER_PERMISSION) ? this : literal;
+  }
+
+  /**
    * Expands the presentation-only copy of an inline (compound) dialog tag: every sub-tag's {@code
    * displayText} (recursively) plus the {@code -t} title config. All parser/semantic components
    * ({@code rawTag}, {@code key}, {@code filter}, {@code validatorAlias}, {@code type}, {@code
    * sanitize}, {@code preset}) are copied through unchanged.
+   *
+   * <p>The text is player-authored: it only reaches the expansion delegate when the player holds
+   * {@value #INLINE_PLACEHOLDER_PERMISSION}.
    */
   PromptTag expandInlineDialog(Player player, PromptTag raw) {
     Objects.requireNonNull(raw, "raw");
-    var subTags = raw.subTags().stream().map(sub -> expandInlineDialog(player, sub)).toList();
+    return forInline(player).expandTag(player, raw);
+  }
+
+  private PromptTag expandTag(Player player, PromptTag raw) {
+    var subTags = raw.subTags().stream().map(sub -> expandTag(player, sub)).toList();
     return new PromptTag(
         raw.rawTag(),
         raw.key(),
