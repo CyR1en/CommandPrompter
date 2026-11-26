@@ -147,6 +147,13 @@ class DelegateCommandsIntegrationTest extends MockBukkitTest {
     assertRejected(ScreenManager.DispatchMode.CONSOLE, null, "1\u00A0extra");
   }
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(
+      strings = {"&a@a", "$@a", "(@a)", "{@a}", "[@a]", "<@a>", "&&a@a", "1&a &b2"})
+  void consoleDelegateRejectsSelectorRevealedBySanitization(String answer) {
+    assertRejected(ScreenManager.DispatchMode.CONSOLE, null, answer);
+  }
+
   @Test
   void playerDelegateRejectsSelectorAndExtraArgument() {
     assertRejected(ScreenManager.DispatchMode.ATTACHMENT, "test-key", "1 @a");
