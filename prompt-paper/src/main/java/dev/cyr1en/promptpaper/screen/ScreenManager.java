@@ -2,9 +2,9 @@ package dev.cyr1en.promptpaper.screen;
 
 import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptcore.PromptTag;
-import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptcore.logic.condition.ConditionBindings;
+import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.custom.ActiveScreenHandle;
 import dev.cyr1en.promptpaper.custom.CustomScreenAdapter;
