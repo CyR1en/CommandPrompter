@@ -28,6 +28,10 @@ import org.bukkit.entity.Player;
  *
  * <p>Restricted to console senders with {@code promptpaper.playerdelegate}. The {@code
  * permissionKey} argument is tab-completed from the configured permission keys.
+ *
+ * <p>Answers in the delegated session must be a single argument (no whitespace, no leading
+ * {@code @}) unless the prompt carries the {@code -allowargs} flag; prompts in delegated commands
+ * should always use an input validator.
  */
 public class PlayerDelegateCommand extends PromptCommand implements Command<CommandSourceStack> {
 

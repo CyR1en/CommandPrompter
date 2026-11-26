@@ -19,6 +19,23 @@ Features:
 * **Console delegate** - a robust way to prompt a player via console.
 * **Post command** - expands your command by incorporation post commands.
 
+## Delegated (console-run) prompts
+
+Commands started with `/consoledelegate` or `/playerdelegate` run with console or temporarily
+granted permissions, but the answers are typed by the prompted player. To keep a player from adding
+arguments or entity selectors to such a command, answers in delegated sessions must be a single
+argument by default: an answer that contains whitespace or starts with `@` is rejected and the
+prompt is shown again.
+
+* Add the `-allowargs` flag to a prompt (for a JSON preset,
+  `"behavior": {"flags": {"allowargs": "true"}}`) only when it really needs multi-word answers, e.g.
+  `/cd %target_player% say <Message -allowargs -iv:msg>`.
+* Always pair console-run prompts with an input validator (`-iv:<alias>`) or the `-int` answer type
+  so the answer is limited to what the command expects. This is required for any prompt that uses
+  `-allowargs`.
+
+Prompts started by the player (non-delegated) are not affected.
+
 ## Building
 
 CommandPrompter uses Gradle as a project manager. You can build CommandPrompter for yourself by following the instructions below:

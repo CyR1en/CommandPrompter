@@ -4,6 +4,7 @@ import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptcore.logic.condition.ConditionBindings;
+import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.custom.ActiveScreenHandle;
 import dev.cyr1en.promptpaper.custom.CustomScreenAdapter;
@@ -1400,6 +1401,13 @@ public class ScreenManager {
               "validation.answer_too_long", player, Placeholder.of("max", String.valueOf(maxLen))));
       return false;
     }
+    if (isUnsafeDelegatedAnswer(player, answer, tag)) {
+      plugin
+          .getPluginLogger()
+          .debug("Delegated answer rejected (whitespace or selector) for " + player.getName());
+      player.sendMessage(i18n.get("validation.delegated_single_argument", player));
+      return false;
+    }
     switch (tag.type()) {
       case INTEGER -> {
         try {
@@ -1444,6 +1452,28 @@ public class ScreenManager {
       }
     }
     return true;
+  }
+
+  /**
+   * In sessions started by {@code /consoledelegate} or {@code /playerdelegate} the answer is
+   * dispatched with console or temporarily elevated permissions, so by default it must stay one
+   * literal argument: no whitespace (extra arguments) and no leading {@code @} (entity selectors).
+   */
+  private boolean isUnsafeDelegatedAnswer(Player player, String answer, PromptTag tag) {
+    if (!dispatchModes.containsKey(player.getUniqueId())) return false;
+    if (tag.allowsArgs()) return false;
+    // PromptSession sanitizes the answer after validation, which can expose a selector that was
+    // hidden behind stripped characters (e.g. "&a@a" or "$@a" become "@a").
+    return isMultiArgumentOrSelector(answer)
+        || isMultiArgumentOrSelector(PromptSession.sanitize(answer));
+  }
+
+  private static boolean isMultiArgumentOrSelector(String answer) {
+    return answer.startsWith("@") || answer.chars().anyMatch(ScreenManager::isArgumentSeparator);
+  }
+
+  private static boolean isArgumentSeparator(int ch) {
+    return Character.isWhitespace(ch) || Character.isSpaceChar(ch);
   }
 
   public boolean hasActiveScreen(Player player) {

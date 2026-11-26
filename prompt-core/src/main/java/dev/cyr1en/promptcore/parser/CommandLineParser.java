@@ -51,6 +51,8 @@ public class CommandLineParser {
   private static final Pattern DS_FLAG = Pattern.compile("(?<!\\S)-ds(?!\\S)");
   private static final Pattern INT_FLAG = Pattern.compile("(?<!\\S)-int(?!\\S)");
   private static final Pattern STR_FLAG = Pattern.compile("(?<!\\S)-str(?!\\S)");
+  private static final Pattern ALLOW_ARGS_FLAG =
+      Pattern.compile("(?<!\\S)-" + PromptTag.ALLOW_ARGS_FLAG + "(?!\\S)");
   private static final Pattern TITLE_FLAG =
       Pattern.compile("(?<!\\S)-t(?:\\b|(?=:))(?::(?:[^\"\\s]+|\"[^\"]*\")*)?");
   private static final Pattern TIMEOUT_FLAG = Pattern.compile("(?<!\\S)-timeout(?:\\S*)");
@@ -598,6 +600,12 @@ public class CommandLineParser {
     var newRemainder = stripFlags(DS_FLAG, remainder, false);
     var sanitize = remainder.length() == newRemainder.length();
     remainder = newRemainder;
+    var allowArgs = false;
+    if (isBuiltInKey(key)) {
+      var withoutAllowArgs = stripFlags(ALLOW_ARGS_FLAG, remainder, false);
+      allowArgs = remainder.length() != withoutAllowArgs.length();
+      remainder = withoutAllowArgs;
+    }
     var timeout = extractTimeout(remainder);
     if (timeout != null) {
       remainder = stripFlags(TIMEOUT_FLAG, remainder, true);
@@ -613,7 +621,7 @@ public class CommandLineParser {
     // Log a one-shot migration hint if using the deprecated trailing-kind form.
     if (filter == null) warnIfTrailingKind(rawContent);
 
-    Map<String, String> flags = Map.of();
+    Map<String, String> flags = allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "true") : Map.of();
     if (!isBuiltInKey(key)) {
       var flagResult = extractTrailingCustomFlags(remainder);
       remainder = flagResult.remainingContent();
@@ -849,6 +857,9 @@ public class CommandLineParser {
 
     var contentWithoutDs = stripFlags(DS_FLAG, contentWithoutBreakIf, false);
     var sanitize = contentWithoutBreakIf.length() == contentWithoutDs.length();
+    var withoutAllowArgs = stripFlags(ALLOW_ARGS_FLAG, contentWithoutDs, false);
+    var allowArgs = contentWithoutDs.length() != withoutAllowArgs.length();
+    contentWithoutDs = withoutAllowArgs;
     var timeout = extractTimeout(contentWithoutDs);
     if (timeout != null) {
       contentWithoutDs = stripFlags(TIMEOUT_FLAG, contentWithoutDs, true);
@@ -914,7 +925,7 @@ public class CommandLineParser {
             false,
             title,
             timeout,
-            Map.of(),
+            allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "true") : Map.of(),
             breakIf));
   }
 
