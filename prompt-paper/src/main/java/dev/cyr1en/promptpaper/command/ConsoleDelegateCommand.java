@@ -26,6 +26,10 @@ import org.bukkit.entity.Player;
  * <p>Restricted to console senders with {@code promptpaper.consoledelegate}. The target is parsed
  * via {@link ArgumentTypes#player()} which gives us a {@link PlayerSelectorArgumentResolver} that
  * supports {@code @a} / {@code @p} selectors in addition to plain names.
+ *
+ * <p>Answers in the delegated session must be a single argument (no whitespace, no leading
+ * {@code @}) unless the prompt carries the {@code -allowargs} flag; prompts in delegated commands
+ * should always use an input validator.
  */
 public class ConsoleDelegateCommand extends PromptCommand implements Command<CommandSourceStack> {
 
