@@ -1194,10 +1194,30 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
         reqConsole.provenance().trustLevel(),
         "Must use TRUSTED_PRESET, never CONSOLE_DELEGATED trust level");
     assertNotEquals(ActionTrustLevel.CONSOLE_DELEGATED, reqConsole.provenance().trustLevel());
-    assertTrue(
+    assertFalse(
         reqConsole.provenance().consoleDelegated(),
-        "consoleDelegated flag must be true for CONSOLE");
+        "CONSOLE executeAs must not grant console delegation in a player session");
+    assertFalse(reqConsole.provenance().isConsoleAuthorized(player));
     assertEquals("approval-gate:trade_gate_42", reqConsole.provenance().sourceId());
+
+    var completionDelegated =
+        InputCompletion.of(
+            player.getUniqueId(),
+            3L,
+            1L,
+            new SessionResult("maincmd", List.of(), List.of(), List.of()),
+            planDefConsole,
+            PresetSnapshot.empty(),
+            DispatchContextSnapshot.console());
+    capturedRequest.set(null);
+    assertTrue(customCoordinator.coordinate(player, completionDelegated).isPresent());
+    var reqDelegated = capturedRequest.get();
+    assertNotNull(reqDelegated);
+    assertEquals(ActionTrustLevel.TRUSTED_PRESET, reqDelegated.provenance().trustLevel());
+    assertTrue(
+        reqDelegated.provenance().consoleDelegated(),
+        "consoleDelegated flag must be true for a /consoledelegate session");
+    assertTrue(reqDelegated.provenance().isConsoleAuthorized(player));
 
     // 2. Player on-deny action
     PreDispatchGateHandler playerGateHandler =
@@ -1250,8 +1270,8 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
 
   @Test
   @DisplayName(
-      "Finding 9: Trusted console denial authorization allows non-op player console execution")
-  void trustedConsoleDenialAuthorizationForNonOpPlayer() {
+      "Finding 9: Console on-deny action is rejected for a non-op initiator without permission")
+  void consoleDenialActionRejectedForNonOpPlayer() {
     var player = createPlayer("NonOpPlayer");
     player.setOp(false);
     assertFalse(player.isOp());
@@ -1299,10 +1319,65 @@ class ExecutionCoordinatorIntegrationTest extends MockBukkitTest {
     assertTrue(instance.isCleanedUp());
     assertFalse(registry.hasActiveExecution(player.getUniqueId()));
 
-    // Console audit log command executed successfully even though player is non-op
-    assertTrue(
+    assertFalse(
         executionLog.contains("auditlog denied NonOpPlayer"),
-        "Trusted preset console on-deny action must authorize console dispatch for non-op player");
+        "Console on-deny action must not run for a non-op initiator without permission");
+  }
+
+  @Test
+  @DisplayName(
+      "Finding 9: Console on-deny action runs for a non-op initiator in a /consoledelegate session")
+  void consoleDenialActionRunsForConsoleDelegatedSession() {
+    var player = createPlayer("NonOpDelegated");
+    player.setOp(false);
+    assertFalse(player.isOp());
+
+    var executionLog = new ArrayList<String>();
+    registerMockCommand("auditlog", true, executionLog);
+
+    PreDispatchGateHandler gateHandler =
+        (p, instance, spec, gateIndex, callback) -> {
+          var onDeny = TrustedPresetAction.of("auditlog denied {player}", ExecuteAs.CONSOLE);
+          callback.onResult(PreDispatchGateResult.denied(onDeny));
+        };
+
+    var customCoordinator =
+        new ExecutionCoordinator(
+            plugin,
+            engine,
+            registry,
+            (req, cb) -> cb.onComplete(DispatchOutcome.success()),
+            immediateActionDispatcher, // Real PaperImmediateActionDispatcher
+            gateHandler,
+            p -> (task, retired) -> task.run());
+
+    var planDef =
+        new ExecutionPlanDefinition(
+            TemplateCompiler.compile("maincmd"),
+            List.of(new PreDispatchGateSpec.Approval("audit_gate")),
+            List.of());
+
+    var completion =
+        InputCompletion.of(
+            player.getUniqueId(),
+            1L,
+            1L,
+            new SessionResult("maincmd", List.of(), List.of(), List.of()),
+            planDef,
+            PresetSnapshot.empty(),
+            DispatchContextSnapshot.console());
+
+    var instanceOpt = customCoordinator.coordinate(player, completion);
+    assertTrue(instanceOpt.isPresent());
+    var instance = instanceOpt.get();
+
+    assertEquals(ExecutionStage.CANCELLED, instance.getStage());
+    assertTrue(instance.isCleanedUp());
+    assertFalse(registry.hasActiveExecution(player.getUniqueId()));
+
+    assertTrue(
+        executionLog.contains("auditlog denied NonOpDelegated"),
+        "Console on-deny action must run when the session is console-delegated");
   }
 
   @Test
