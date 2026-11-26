@@ -52,6 +52,9 @@ permissions:
     description: Allows using /commandprompter version
   promptpaper.use:
     description: Allows using prompt features
+  promptpaper.inline.placeholders:
+    description: Resolves PlaceholderAPI placeholders in inline prompt text typed by the player
+    default: false
   promptpaper.consoledelegate:
     description: Allows using /consoledelegate
   promptpaper.playerdelegate:

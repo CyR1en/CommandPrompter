@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.gson.JsonPrimitive;
 import dev.cyr1en.promptcore.PromptTag;
@@ -27,6 +28,7 @@ import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.PromptDefinition;
 import dev.cyr1en.promptpaper.preset.SignPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -319,8 +321,123 @@ class PromptPresentationExpanderTest {
   // Inline (compound) dialog tags
   // ------------------------------------------------------------------
 
+  private void grantInlinePlaceholders() {
+    when(player.hasPermission(PromptPresentationExpander.INLINE_PLACEHOLDER_PERMISSION))
+        .thenReturn(true);
+  }
+
+  @Test
+  void consoleAuthoredInlineTagIsExpandedWithoutRecipientPermission() {
+    var recording = new PromptPresentationExpander((p, value) -> "[" + value + "]");
+    var tag =
+        new PromptTag(
+            "<a:%player_name%>",
+            "a",
+            null,
+            "%player_name%",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            List.of(),
+            false,
+            null);
+
+    var inline =
+        (AnvilPrompt) recording.expandInline(player, InlineTagMapper.toPromptDefinition(tag), true);
+    var inlineDialog = recording.expandInlineDialog(player, tag, true);
+
+    assertEquals("[%player_name%]", inline.promptText());
+    assertEquals("[%player_name%]", inlineDialog.displayText());
+  }
+
+  @Test
+  void inlineTagNeverReachesDelegateButPresetDefinitionStillDoes() {
+    var calls = new ArrayList<String>();
+    var recording =
+        new PromptPresentationExpander(
+            (p, value) -> {
+              calls.add(value);
+              return "[" + value + "]";
+            });
+    var tag =
+        new PromptTag(
+            "<a:%player_name%>",
+            "a",
+            null,
+            "%player_name%",
+            true,
+            null,
+            PromptTag.AnswerType.NONE,
+            List.of(),
+            false,
+            new TitleConfig("%server_name%", "%player_uuid%", 20));
+
+    var inline =
+        (AnvilPrompt) recording.expandInline(player, InlineTagMapper.toPromptDefinition(tag));
+    var inlineDialog = recording.expandInlineDialog(player, tag);
+
+    assertEquals("%player_name%", inline.promptText());
+    assertEquals("%server_name%", inline.titleDisplay().main());
+    assertEquals("%player_uuid%", inline.titleDisplay().sub());
+    assertEquals("%player_name%", inlineDialog.displayText());
+    assertEquals("%server_name%", inlineDialog.title().main());
+    assertTrue(calls.isEmpty(), "inline text must never reach the expansion delegate: " + calls);
+
+    var preset =
+        (ChatPrompt)
+            recording.expand(
+                player,
+                new ChatPrompt(
+                    "chat", "p", "%player_name%", new CancelBehavior(false, "", false, ""), true));
+
+    assertEquals("[%player_name%]", preset.promptText());
+    assertEquals(List.of("%player_name%"), calls);
+  }
+
+  @Test
+  void inlineCompoundSubTagsNeverReachDelegate() {
+    var calls = new ArrayList<String>();
+    var recording =
+        new PromptPresentationExpander(
+            (p, value) -> {
+              calls.add(value);
+              return "[" + value + "]";
+            });
+    var row = new PromptTag("<d:text:%player_name%>", "d", "text", "%player_name%");
+    var block =
+        new PromptTag(
+            "<d:text:%player_name%>",
+            "d", null, "", true, null, PromptTag.AnswerType.NONE, List.of(row), false);
+
+    var out = recording.expandInlineDialog(player, block);
+
+    assertEquals("%player_name%", out.subTags().get(0).displayText());
+    assertTrue(calls.isEmpty());
+  }
+
+  @Test
+  void inlineTagIsExpandedForPlayersHoldingTheOptInPermission() {
+    grantInlinePlaceholders();
+    var tag = new PromptTag("<a:%player_name%>", "a", null, "%player_name%");
+
+    var out = (AnvilPrompt) expander.expandInline(player, InlineTagMapper.toPromptDefinition(tag));
+
+    assertEquals("[%player_name%]", out.promptText());
+  }
+
+  @Test
+  void unexpandedInlineTextIsStillLengthBounded() {
+    var text = "x".repeat(PromptPresentationExpander.MAX_DISPLAY_LENGTH + 10);
+    var tag = new PromptTag("<a:" + text + ">", "a", null, text);
+
+    var out = (AnvilPrompt) expander.expandInline(player, InlineTagMapper.toPromptDefinition(tag));
+
+    assertEquals(PromptPresentationExpander.MAX_DISPLAY_LENGTH, out.promptText().length());
+  }
+
   @Test
   void inlineDialogExpandsEverySubTagDisplayTextAndTitle() {
+    grantInlinePlaceholders();
     var titleRow = new PromptTag("<d:title:Header %a%>", "d", "title", "Header %a%");
     var bodyRow = new PromptTag("<d:body:Note %b%>", "d", "body", "Note %b%");
     var textRow = new PromptTag("<d:text:Enter %c%>", "d", "text", "Enter %c%");
@@ -434,6 +551,7 @@ class PromptPresentationExpanderTest {
 
   @Test
   void inlineDialogWithoutTitleConfigKeepsNullTitle() {
+    grantInlinePlaceholders();
     var tag = new PromptTag("<d:text:Enter %a%>", "d", "text", "Enter %a%");
     var out = expander.expandInlineDialog(player, tag);
     assertEquals("[Enter %a%]", out.displayText());
@@ -443,6 +561,7 @@ class PromptPresentationExpanderTest {
 
   @Test
   void inlineDialogEmptyMainIsPreservedForFactoryFallback() {
+    grantInlinePlaceholders();
     var tag =
         new PromptTag(
             "<d:text:Enter %a%>",

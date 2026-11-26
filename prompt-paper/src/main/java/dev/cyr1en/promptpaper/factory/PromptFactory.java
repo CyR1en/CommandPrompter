@@ -199,6 +199,19 @@ public class PromptFactory {
   }
 
   /**
+   * Builds the screen for a definition mapped from an inline tag. Inline text is player-authored,
+   * so it goes through {@link PromptPresentationExpander#expandInline} instead of the preset path.
+   */
+  private InputScreen createInline(
+      Player player, PromptDefinition def, DialogCompletionContext context, boolean trustedOrigin) {
+    plugin
+        .getPluginLogger()
+        .debug("PromptFactory.createInline: player=" + player.getName() + " type=" + def.type());
+    return createExpanded(
+        player, presentationExpander.expandInline(player, def, trustedOrigin), context);
+  }
+
+  /**
    * Builds the screen from an already-expanded definition. Never expands again — the public {@link
    * #create(Player, PromptDefinition, DialogCompletionContext)} is the only entry point allowed to
    * materialize placeholders.
@@ -238,14 +251,30 @@ public class PromptFactory {
    *   <li><b>Presets</b> look up the registry with the <b>raw</b> {@code displayText} (the id is a
    *       semantic key, never expanded) and delegate to {@link #create}, which expands the resolved
    *       definition once.
-   *   <li><b>Inline dialogs / compound tags</b> expand a presentation-only copy of the tag via
+   *   <li><b>Inline dialogs / compound tags</b> materialize a presentation-only copy of the tag via
    *       {@link PromptPresentationExpander#expandInlineDialog} and build the dialog screen
    *       directly from that copy.
-   *   <li><b>Other inline tags</b> map the raw tag and delegate to {@link #create}, which expands
-   *       once.
+   *   <li><b>Other inline tags</b> map the raw tag and materialize it once via {@link
+   *       PromptPresentationExpander#expandInline}.
    * </ul>
+   *
+   * <p>Inline text is typed by the player, so placeholders in it are only resolved for players
+   * holding {@code promptpaper.inline.placeholders} or for a trusted origin (see the four-argument
+   * overload); preset text is always resolved.
    */
   public InputScreen createFromTag(Player player, PromptTag tag, DialogCompletionContext context) {
+    return createFromTag(player, tag, context, false);
+  }
+
+  /**
+   * As {@link #createFromTag(Player, PromptTag, DialogCompletionContext)}.
+   *
+   * @param trustedOrigin {@code true} when the command line holding the tag was written by the
+   *     console ({@code /consoledelegate}, {@code /playerdelegate}) rather than typed by a player;
+   *     placeholders in its inline text are then resolved.
+   */
+  public InputScreen createFromTag(
+      Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {
     if (tag == null) throw new IllegalArgumentException("PromptTag must not be null");
     if (tag.isPreset()) {
       // Lookup uses the raw displayText — a PAPI-looking preset id must never be expanded.
@@ -278,12 +307,12 @@ public class PromptFactory {
     if (isDialog) {
       // Expand the presentation-only copy of the tag, then build the dialog screen directly so
       // the expanded fields are materialized exactly once.
-      var expandedTag = presentationExpander.expandInlineDialog(player, tag);
+      var expandedTag = presentationExpander.expandInlineDialog(player, tag, trustedOrigin);
       var dialogScreen = new DialogPromptScreen(plugin, player, expandedTag, promptConfig, context);
       return wrapWithTagTitle(player, expandedTag, dialogScreen);
     }
     var def = InlineTagMapper.toPromptDefinition(tag, mappings);
-    return create(player, def, context);
+    return createInline(player, def, context, trustedOrigin);
   }
 
   private ChatPromptScreen createChat(Player player, ChatPrompt chat) {

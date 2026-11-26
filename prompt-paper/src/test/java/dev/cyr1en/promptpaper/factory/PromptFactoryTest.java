@@ -814,18 +814,44 @@ class PromptFactoryTest extends MockBukkitTest {
   }
 
   /**
-   * A non-dialog inline tag flows through {@link InlineTagMapper} on the raw tag and then {@link
-   * PromptFactory#create}, so the display text is expanded exactly once (never twice by the mapper
-   * and the factory).
+   * Inline tag text is typed by the player, so neither the mapped (non-dialog) path nor the inline
+   * dialog path may send it to the expansion delegate.
    */
   @Test
-  void inlineTagDisplayTextIsExpandedExactlyOnce() {
+  void inlineTagDisplayTextNeverReachesExpander() {
+    List<String> expanded = new ArrayList<>();
+    var testFactory = factoryWithExpander(expanded);
+
+    var anvil = new PromptTag("<a:Enter %player_name%>", "a", null, "Enter %player_name%");
+    assertInstanceOf(AnvilPromptScreen.class, testFactory.createFromTag(createPlayer(), anvil));
+
+    var dialog = new PromptTag("<d:text:Enter %player_name%>", "d", "text", "Enter %player_name%");
+    try {
+      testFactory.createFromTag(createPlayer("Other"), dialog);
+    } catch (NoClassDefFoundError ignored) {
+      // Paper's dialog API is absent from the test classpath; the tag is materialized before the
+      // dialog screen is constructed, so the assertion below still covers the dialog path.
+    }
+
+    assertTrue(expanded.isEmpty(), "inline text reached the expander: " + expanded);
+  }
+
+  /**
+   * With the opt-in permission, a non-dialog inline tag flows through {@link InlineTagMapper} on
+   * the raw tag and is expanded exactly once (never twice by the mapper and the factory).
+   */
+  @Test
+  void inlineTagDisplayTextIsExpandedExactlyOnceWithOptInPermission() {
     var tag = new PromptTag("<a:Enter %player_name%>", "a", null, "Enter %player_name%");
 
     List<String> expanded = new ArrayList<>();
     var testFactory = factoryWithExpander(expanded);
+    var player = createPlayer();
+    player
+        .addAttachment(plugin)
+        .setPermission(PromptPresentationExpander.INLINE_PLACEHOLDER_PERMISSION, true);
 
-    var screen = testFactory.createFromTag(createPlayer(), tag);
+    var screen = testFactory.createFromTag(player, tag);
 
     assertInstanceOf(AnvilPromptScreen.class, screen);
     assertEquals(1, Collections.frequency(expanded, "Enter %player_name%"));

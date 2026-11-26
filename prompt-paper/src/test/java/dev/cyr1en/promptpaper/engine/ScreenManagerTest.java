@@ -147,6 +147,40 @@ class ScreenManagerTest extends MockBukkitTest {
   }
 
   @Test
+  void onlyDelegatedInlineTagsAreCreatedWithTrustedOrigin() {
+    var origins = new java.util.ArrayList<Boolean>();
+    var recording =
+        new ScreenManager.ScreenCreator() {
+          @Override
+          public dev.cyr1en.promptui.InputScreen create(
+              Player p,
+              dev.cyr1en.promptcore.PromptTag tag,
+              dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext context) {
+            return factory.createFromTag(p, tag, context);
+          }
+
+          @Override
+          public dev.cyr1en.promptui.InputScreen create(
+              Player p,
+              dev.cyr1en.promptcore.PromptTag tag,
+              dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext context,
+              boolean trustedOrigin) {
+            origins.add(trustedOrigin);
+            return factory.createFromTag(p, tag, context, trustedOrigin);
+          }
+        };
+    var manager = new ScreenManager(plugin, engine, factory, scheduler, recording, null);
+
+    manager.startDelegatedSession(
+        createPlayer(), "/cmd <test>", ScreenManager.DispatchMode.CONSOLE, null);
+    manager.startSession(createPlayer(), "/cmd <test>");
+    manager.startDelegatedSession(
+        createPlayer(), "/cmd <test>", ScreenManager.DispatchMode.ATTACHMENT, "some.key");
+
+    assertEquals(java.util.List.of(true, false, true), origins);
+  }
+
+  @Test
   void handleChatInputProcessesAnswer() {
     var player = createPlayer();
     screenManager.startSession(player, "/cmd <test>");
@@ -489,7 +523,7 @@ class ScreenManagerTest extends MockBukkitTest {
                 java.util.Map.of()));
 
     var dummyScreen = org.mockito.Mockito.mock(dev.cyr1en.promptui.InputScreen.class);
-    when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any()))
+    when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any(), eq(false)))
         .thenReturn(dummyScreen);
 
     var player = createPlayer();
@@ -498,7 +532,8 @@ class ScreenManagerTest extends MockBukkitTest {
     var captor =
         org.mockito.ArgumentCaptor.forClass(
             dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext.class);
-    verify(mockFactory).createFromTag(eq(player), any(PromptTag.class), captor.capture());
+    verify(mockFactory)
+        .createFromTag(eq(player), any(PromptTag.class), captor.capture(), eq(false));
 
     assertNotNull(captor.getValue());
     assertEquals("/cmd ", captor.getValue().partialCommand());
@@ -529,7 +564,7 @@ class ScreenManagerTest extends MockBukkitTest {
     when(registry.getPrompt("my_conf_preset")).thenReturn(java.util.Optional.of(dialog));
 
     var dummyScreen = org.mockito.Mockito.mock(dev.cyr1en.promptui.InputScreen.class);
-    when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any()))
+    when(mockFactory.createFromTag(any(Player.class), any(PromptTag.class), any(), eq(false)))
         .thenReturn(dummyScreen);
 
     var player = createPlayer();
@@ -538,7 +573,8 @@ class ScreenManagerTest extends MockBukkitTest {
     var captor =
         org.mockito.ArgumentCaptor.forClass(
             dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext.class);
-    verify(mockFactory).createFromTag(eq(player), any(PromptTag.class), captor.capture());
+    verify(mockFactory)
+        .createFromTag(eq(player), any(PromptTag.class), captor.capture(), eq(false));
 
     assertNull(captor.getValue());
   }
