@@ -292,4 +292,15 @@ class CustomFlagsParserTest {
     assertEquals("Pick weapon", custom.displayText());
     assertTrue(custom.allowsArgs());
   }
+
+  @Test
+  @DisplayName("-allowargs is stored as \"true\" and an explicit false does not opt in")
+  void allowArgsValueIsChecked() {
+    var builtIn = parser.parse("/cmd <Message -allowargs>").promptTags().get(0);
+    assertEquals("true", builtIn.flags().get(PromptTag.ALLOW_ARGS_FLAG));
+
+    var disabled = parser.parse("/give <ecoitem:Pick weapon -allowargs:false>").promptTags().get(0);
+    assertEquals("false", disabled.flags().get(PromptTag.ALLOW_ARGS_FLAG));
+    assertFalse(disabled.allowsArgs());
+  }
 }

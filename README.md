@@ -27,8 +27,8 @@ arguments or entity selectors to such a command, answers in delegated sessions m
 argument by default: an answer that contains whitespace or starts with `@` is rejected and the
 prompt is shown again.
 
-* Add the `-allowargs` flag to a prompt (for a JSON preset, `"flags": {"allowargs": "true"}`) only
-  when it really needs multi-word answers, e.g.
+* Add the `-allowargs` flag to a prompt (for a JSON preset,
+  `"behavior": {"flags": {"allowargs": "true"}}`) only when it really needs multi-word answers, e.g.
   `/cd %target_player% say <Message -allowargs -iv:msg>`.
 * Always pair console-run prompts with an input validator (`-iv:<alias>`) or the `-int` answer type
   so the answer is limited to what the command expects. This is required for any prompt that uses

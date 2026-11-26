@@ -453,7 +453,7 @@ public final class PromptSession {
    * @param input the raw input string
    * @return the sanitized string, or null/empty if input was null/empty
    */
-  static String sanitize(String input) {
+  public static String sanitize(String input) {
     if (input == null || input.isEmpty()) return input;
     // Strip color codes and decorative symbols
     var noColor = input.replaceAll("(?i)[§&][0-9a-fklmnor]", "");

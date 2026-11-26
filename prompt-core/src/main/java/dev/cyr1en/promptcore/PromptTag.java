@@ -302,7 +302,8 @@ public record PromptTag(
 
   /** Whether this tag opts in to multi-argument answers in delegated sessions. */
   public boolean allowsArgs() {
-    return flags.containsKey(ALLOW_ARGS_FLAG);
+    var value = flags.get(ALLOW_ARGS_FLAG);
+    return value != null && "true".equalsIgnoreCase(value.trim());
   }
 
   /** Whether this tag has an attached breakIf condition. */

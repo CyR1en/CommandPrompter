@@ -621,7 +621,7 @@ public class CommandLineParser {
     // Log a one-shot migration hint if using the deprecated trailing-kind form.
     if (filter == null) warnIfTrailingKind(rawContent);
 
-    Map<String, String> flags = allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "") : Map.of();
+    Map<String, String> flags = allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "true") : Map.of();
     if (!isBuiltInKey(key)) {
       var flagResult = extractTrailingCustomFlags(remainder);
       remainder = flagResult.remainingContent();
@@ -925,7 +925,7 @@ public class CommandLineParser {
             false,
             title,
             timeout,
-            allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "") : Map.of(),
+            allowArgs ? Map.of(PromptTag.ALLOW_ARGS_FLAG, "true") : Map.of(),
             breakIf));
   }
 

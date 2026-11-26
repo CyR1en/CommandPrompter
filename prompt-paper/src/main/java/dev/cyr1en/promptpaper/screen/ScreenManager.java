@@ -2,6 +2,7 @@ package dev.cyr1en.promptpaper.screen;
 
 import dev.cyr1en.promptcore.CancelReason;
 import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptcore.logic.condition.ConditionBindings;
 import dev.cyr1en.promptpaper.CommandPrompter;
@@ -1433,6 +1434,13 @@ public class ScreenManager {
   private boolean isUnsafeDelegatedAnswer(Player player, String answer, PromptTag tag) {
     if (!dispatchModes.containsKey(player.getUniqueId())) return false;
     if (tag.allowsArgs()) return false;
+    // PromptSession sanitizes the answer after validation, which can expose a selector that was
+    // hidden behind stripped characters (e.g. "&a@a" or "$@a" become "@a").
+    return isMultiArgumentOrSelector(answer)
+        || isMultiArgumentOrSelector(PromptSession.sanitize(answer));
+  }
+
+  private static boolean isMultiArgumentOrSelector(String answer) {
     return answer.startsWith("@") || answer.chars().anyMatch(ScreenManager::isArgumentSeparator);
   }
 
