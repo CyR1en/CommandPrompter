@@ -270,8 +270,8 @@ public class PromptFactory {
    * As {@link #createFromTag(Player, PromptTag, DialogCompletionContext)}.
    *
    * @param trustedOrigin {@code true} when the command line holding the tag was written by the
-   *     console ({@code /consoledelegate}) rather than typed by a player; placeholders in its
-   *     inline text are then resolved.
+   *     console ({@code /consoledelegate}, {@code /playerdelegate}) rather than typed by a player;
+   *     placeholders in its inline text are then resolved.
    */
   public InputScreen createFromTag(
       Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {

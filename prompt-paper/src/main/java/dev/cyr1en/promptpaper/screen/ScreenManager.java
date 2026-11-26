@@ -55,7 +55,7 @@ public class ScreenManager {
 
     /**
      * @param trustedOrigin whether the command line was written by the console ({@code
-     *     /consoledelegate}) instead of typed by a player
+     *     /consoledelegate}, {@code /playerdelegate}) instead of typed by a player
      */
     default InputScreen create(
         Player player, PromptTag tag, DialogCompletionContext context, boolean trustedOrigin) {
@@ -550,8 +550,9 @@ public class ScreenManager {
         }
       } else {
         var context = buildCompletionContext(player, tag);
-        // A /consoledelegate command line was written by the console, not typed by this player.
-        var trustedOrigin = dispatchModes.get(uuid) == DispatchMode.CONSOLE;
+        // Both delegate commands are console-only, so the console wrote this command line.
+        var mode = dispatchModes.get(uuid);
+        var trustedOrigin = mode == DispatchMode.CONSOLE || mode == DispatchMode.ATTACHMENT;
         screen =
             screenCreator != null
                 ? screenCreator.create(player, tag, context, trustedOrigin)

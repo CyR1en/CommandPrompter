@@ -56,7 +56,7 @@ import org.bukkit.entity.Player;
  * tags are written on the command line by the player, so {@link #expandInline} and {@link
  * #expandInlineDialog} leave their text unexpanded (length-bounded only) unless the player holds
  * {@value #INLINE_PLACEHOLDER_PERMISSION} or the caller marks the tag as written by the console
- * ({@code /consoledelegate}).
+ * ({@code /consoledelegate}, {@code /playerdelegate}).
  *
  * <h2>Never expanded</h2>
  *
@@ -208,7 +208,7 @@ final class PromptPresentationExpander {
 
   /**
    * @param trustedOrigin {@code true} when the inline tag was written by the console ({@code
-   *     /consoledelegate}), not typed by a player; such text is expanded.
+   *     /consoledelegate}, {@code /playerdelegate}), not typed by a player; such text is expanded.
    */
   PromptDefinition expandInline(Player player, PromptDefinition raw, boolean trustedOrigin) {
     return forInline(player, trustedOrigin).expand(player, raw);

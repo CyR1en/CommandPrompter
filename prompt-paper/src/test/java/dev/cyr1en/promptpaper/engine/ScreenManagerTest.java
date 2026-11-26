@@ -147,7 +147,7 @@ class ScreenManagerTest extends MockBukkitTest {
   }
 
   @Test
-  void onlyConsoleDelegatedInlineTagsAreCreatedWithTrustedOrigin() {
+  void onlyDelegatedInlineTagsAreCreatedWithTrustedOrigin() {
     var origins = new java.util.ArrayList<Boolean>();
     var recording =
         new ScreenManager.ScreenCreator() {
@@ -177,7 +177,7 @@ class ScreenManagerTest extends MockBukkitTest {
     manager.startDelegatedSession(
         createPlayer(), "/cmd <test>", ScreenManager.DispatchMode.ATTACHMENT, "some.key");
 
-    assertEquals(java.util.List.of(true, false, false), origins);
+    assertEquals(java.util.List.of(true, false, true), origins);
   }
 
   @Test
