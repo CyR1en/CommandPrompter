@@ -1,5 +1,7 @@
 package dev.cyr1en.promptpaper.util;
 
+import java.util.Arrays;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -63,7 +65,7 @@ public final class FormatUtil {
       if (!FORMAT_SPECIFIER_PATTERN.matcher(candidate).matches()) {
         String escaped = candidate.startsWith("%") ? "%%" + candidate.substring(1) : candidate;
         if (escaped.endsWith("%")) escaped = escaped.substring(0, escaped.length() - 1) + "%%";
-        matcher.appendReplacement(sb, escaped);
+        matcher.appendReplacement(sb, Matcher.quoteReplacement(escaped));
       }
     }
     matcher.appendTail(sb);
@@ -77,19 +79,10 @@ public final class FormatUtil {
    */
   public static String safeFormat(String str, Object... args) {
     if (str == null) return null;
-    if (!validFormats(str)) str = escapeInvalidFormats(str);
-
-    int count = countValidFormatSpecifiers(str);
-    Object[] usableArgs = args;
-    if (args.length < count) {
-      usableArgs = new Object[count];
-      System.arraycopy(args, 0, usableArgs, 0, args.length);
-    } else if (args.length > count) {
-      usableArgs = new Object[count];
-      System.arraycopy(args, 0, usableArgs, 0, count);
-    }
     try {
-      return String.format(str, usableArgs);
+      var format = validFormats(str) ? str : escapeInvalidFormats(str);
+      int count = countValidFormatSpecifiers(format);
+      return String.format(format, args.length == count ? args : Arrays.copyOf(args, count));
     } catch (Exception e) {
       return str;
     }

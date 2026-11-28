@@ -16,8 +16,11 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.preset.ApprovalGateDefinition;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
 import dev.cyr1en.promptpaper.preset.ChatPrompt;
+import dev.cyr1en.promptpaper.preset.ConfirmationPrompt;
+import dev.cyr1en.promptpaper.preset.ItemPrompt;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.preset.PresetSnapshot;
+import dev.cyr1en.promptpaper.preset.PromptBehavior;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,6 +80,41 @@ class PromptEnginePresetSanitizeRegressionTest extends MockBukkitTest {
     assertSame(
         snapshot,
         engine.getInceptionArtifacts(player.getUniqueId()).orElseThrow().presetSnapshot());
+  }
+
+  @Test
+  void topLevelPresetTimeoutReachesSessionTagWhenBehaviorDoesNotSetOne() {
+    var item =
+        new ItemPrompt("item", "item", "Pick an item", null, null, null, null, true, null, 5);
+    var behavior = new PromptBehavior(null, null, null, Map.of("theme", "dark"), null);
+    var confirmation =
+        new ConfirmationPrompt(
+            "confirmation",
+            "confirm",
+            null,
+            null,
+            "Continue?",
+            null,
+            null,
+            false,
+            null,
+            true,
+            null,
+            9,
+            behavior);
+    when(registry.getSnapshot())
+        .thenReturn(
+            new PresetSnapshot(
+                Map.of("item", item, "confirm", confirmation), Map.of(), Map.of(), Map.of()));
+    var player = createPlayer();
+
+    assertTrue(engine.intercept(player, "say <@item> <@confirm>").isPresent());
+
+    var tags = engine.getSession(player).orElseThrow().parsedCommand().promptTags();
+    assertAll(
+        () -> assertEquals(5, tags.get(0).timeout()),
+        () -> assertEquals(9, tags.get(1).timeout()),
+        () -> assertEquals("dark", tags.get(1).flags().get("theme")));
   }
 
   @Test

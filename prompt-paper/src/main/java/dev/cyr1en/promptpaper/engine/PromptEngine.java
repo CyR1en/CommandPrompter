@@ -378,12 +378,8 @@ public class PromptEngine {
           new InterceptResult.RejectedFailClosed("Structural command parse failed: " + safeMsg));
     }
 
-    var presetSnapshot =
-        plugin != null
-                && plugin.getPresetRegistry() != null
-                && plugin.getPresetRegistry().getSnapshot() != null
-            ? plugin.getPresetRegistry().getSnapshot()
-            : PresetSnapshot.empty();
+    var presetRegistry = plugin != null ? plugin.getPresetRegistry() : null;
+    var presetSnapshot = presetRegistry != null ? presetRegistry.getSnapshot() : null;
 
     // Fail-fast: any unresolved preset ID or validator alias aborts the command flow.
     var missingPrompts = findMissingPromptPresets(parsed, presetSnapshot);
@@ -488,7 +484,7 @@ public class PromptEngine {
                       candidateIncarnation,
                       0L,
                       planDefinition,
-                      presetSnapshot,
+                      presetSnapshot != null ? presetSnapshot : PresetSnapshot.empty(),
                       List.copyOf(effectiveParsed.postCmds())));
               return PromptSession.start(uuid.toString(), effectiveParsed, candidateIncarnation);
             });
@@ -573,15 +569,18 @@ public class PromptEngine {
                           : registry != null
                               ? registry.getPrompt(tag.displayText()).orElse(null)
                               : null;
+                  var timeout = definition != null ? definition.timeout() : null;
                   return definition != null && definition.behavior() != null
-                      ? definition.behavior().apply(tag, sanitize)
-                      : withSanitize(tag, sanitize);
+                      ? definition.behavior().apply(tag, sanitize, timeout)
+                      : withSanitizeAndTimeout(
+                          tag, sanitize, timeout != null ? timeout : tag.timeout());
                 })
             .toList();
     return withPromptTags(parsed, adjustedTags);
   }
 
-  private static PromptTag withSanitize(PromptTag tag, boolean sanitize) {
+  private static PromptTag withSanitizeAndTimeout(
+      PromptTag tag, boolean sanitize, Integer timeout) {
     return new PromptTag(
         tag.rawTag(),
         tag.key(),
@@ -593,7 +592,7 @@ public class PromptEngine {
         tag.subTags(),
         tag.preset(),
         tag.title(),
-        tag.timeout(),
+        timeout,
         tag.flags(),
         tag.breakIf());
   }
@@ -826,8 +825,6 @@ public class PromptEngine {
       lastInterceptResults.remove(uuid);
       if (cancelledIncarnation.get() >= 0) {
         getEffectiveLeaseRegistry().releasePromptIfExact(uuid, cancelledIncarnation.get());
-      } else {
-        getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
       }
       var coordinator = getExecutionCoordinator();
       if (coordinator != null) {
@@ -946,8 +943,6 @@ public class PromptEngine {
       lastInterceptResults.remove(uuid);
       if (s != null) {
         getEffectiveLeaseRegistry().releasePromptIfExact(uuid, s.incarnation());
-      } else {
-        getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
       }
     }
   }
@@ -1127,25 +1122,17 @@ public class PromptEngine {
   private List<String> findMissingPostCommandPresets(
       ParsedCommand parsed, PresetSnapshot snapshot) {
     var registry = plugin != null ? plugin.getPresetRegistry() : null;
-    if (registry == null && snapshot == null) {
-      return parsed.postCmds().stream()
-          .filter(PostCommandMeta::isPreset)
-          .map(PostCommandMeta::command)
-          .toList();
-    }
     return parsed.postCmds().stream()
         .filter(PostCommandMeta::isPreset)
         .map(PostCommandMeta::command)
         .filter(
-            id -> {
-              if (snapshot != null && snapshot.getPostCommand(id).isPresent()) {
-                return false;
-              }
-              if (registry != null && registry.getPostCommand(id).isPresent()) {
-                return false;
-              }
-              return true;
-            })
+            id ->
+                snapshot != null
+                    ? snapshot.getPostCommand(id).isEmpty()
+                        && snapshot.getConditionalPostCommand(id).isEmpty()
+                    : registry == null
+                        || (registry.getPostCommand(id).isEmpty()
+                            && registry.getConditionalPostCommand(id).isEmpty()))
         .toList();
   }
 

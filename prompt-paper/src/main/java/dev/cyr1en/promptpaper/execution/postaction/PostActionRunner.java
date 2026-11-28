@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import org.bukkit.entity.Player;
 
 /**
@@ -64,6 +65,7 @@ public final class PostActionRunner {
   private final PapiReferenceResolver papiResolver;
   private final PostActionCallback callback;
   private final TemplateSyntax syntax;
+  private final BooleanSupplier executionRegistered;
 
   private final ExecutionId capturedExecutionId;
   private final UUID capturedInitiatorUuid;
@@ -96,6 +98,7 @@ public final class PostActionRunner {
       PostActionScheduler scheduler,
       PapiReferenceResolver papiResolver,
       TemplateSyntax syntax,
+      BooleanSupplier executionRegistered,
       PostActionCallback callback) {
     this.player = Objects.requireNonNull(player, "player must not be null");
     this.initiatorExecutor =
@@ -107,6 +110,7 @@ public final class PostActionRunner {
     this.scheduler = Objects.requireNonNull(scheduler, "scheduler must not be null");
     this.papiResolver = papiResolver != null ? papiResolver : PapiReferenceResolver.empty();
     this.syntax = syntax != null ? syntax : TemplateSyntax.DEFAULT;
+    this.executionRegistered = executionRegistered;
     this.callback = Objects.requireNonNull(callback, "callback must not be null");
 
     this.inputCompletion = instance.getInputCompletion();
@@ -147,6 +151,7 @@ public final class PostActionRunner {
         scheduler,
         papiResolver,
         TemplateSyntax.DEFAULT,
+        () -> true,
         callback);
   }
 
@@ -164,6 +169,7 @@ public final class PostActionRunner {
    * @param scheduler timer/scheduler seam for delayed actions
    * @param papiResolver placeholder resolver for PAPI references
    * @param syntax template syntax delimiters
+   * @param executionRegistered whether the coordinator still owns the execution
    * @param callback completion callback invoked exactly once
    */
   public static void execute(
@@ -176,6 +182,7 @@ public final class PostActionRunner {
       PostActionScheduler scheduler,
       PapiReferenceResolver papiResolver,
       TemplateSyntax syntax,
+      BooleanSupplier executionRegistered,
       PostActionCallback callback) {
     PostActionRunner runner =
         new PostActionRunner(
@@ -188,6 +195,7 @@ public final class PostActionRunner {
             scheduler,
             papiResolver,
             syntax,
+            executionRegistered,
             callback);
     runner.start();
   }
@@ -486,7 +494,12 @@ public final class PostActionRunner {
             resolved.executeAs(),
             resolved.provenance(),
             initiatorExecutor,
-            resolved.sourceId());
+            resolved.sourceId(),
+            () ->
+                executionRegistered.getAsBoolean()
+                    && instance.getStage() == ExecutionStage.POST_ACTIONS
+                    && !completed.get()
+                    && currentStep.get() == step);
 
     try {
       dispatcher.dispatch(

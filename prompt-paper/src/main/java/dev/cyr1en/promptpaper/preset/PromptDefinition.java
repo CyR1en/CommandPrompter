@@ -28,6 +28,11 @@ public sealed interface PromptDefinition
   /** Optional execution options shared by every structured preset type. */
   PromptBehavior behavior();
 
+  /** Optional top-level timeout in seconds, used when behavior does not override it. */
+  default Integer timeout() {
+    return null;
+  }
+
   /** The unique identifier referenced by {@code <@id>} tags in command strings. */
   String id();
 

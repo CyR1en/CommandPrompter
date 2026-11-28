@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,6 +17,7 @@ import static org.mockito.Mockito.when;
 import dev.cyr1en.promptcore.i18n.Placeholder;
 import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
 import dev.cyr1en.promptcore.parser.CommandLineParser;
+import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PaperConfigLoader;
 import dev.cyr1en.promptpaper.engine.PromptEngine;
@@ -26,14 +28,20 @@ import dev.cyr1en.promptpaper.item.catalog.ItemCatalogRegistry;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
 import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.threadedregions.scheduler.RegionScheduler;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+import java.util.Arrays;
+import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventPriority;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.RegisteredListener;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -98,6 +106,40 @@ class ReloadCommandTest extends MockBukkitTest {
     when(engine.beginReload()).thenReturn(true);
 
     cmd = new ReloadCommand(plugin);
+  }
+
+  @Test
+  void reloadReRegistersFallbackChatListenerAtChangedPriority()
+      throws ReflectiveOperationException {
+    doCallRealMethod().when(plugin).refreshChatListenerPriority();
+    when(loader.getPromptConfig()).thenReturn(promptConfig);
+    when(promptConfig.responseListenerPriority()).thenReturn("LOWEST");
+    for (var fieldName : List.of("hookContainer", "pluginLogger")) {
+      var field = CommandPrompter.class.getDeclaredField(fieldName);
+      field.setAccessible(true);
+      field.set(
+          plugin, fieldName.equals("hookContainer") ? plugin.getHookContainer() : pluginLogger);
+    }
+    var resolveChatListener = CommandPrompter.class.getDeclaredMethod("resolveChatListener");
+    resolveChatListener.setAccessible(true);
+    try {
+      resolveChatListener.invoke(plugin);
+      assertEquals(List.of(EventPriority.LOWEST), fallbackChatPriorities());
+
+      when(promptConfig.responseListenerPriority()).thenReturn("HIGH");
+      cmd.executeReload(mock(CommandSender.class));
+
+      assertEquals(List.of(EventPriority.HIGH), fallbackChatPriorities());
+    } finally {
+      AsyncChatEvent.getHandlerList().unregister((Plugin) plugin);
+    }
+  }
+
+  private List<EventPriority> fallbackChatPriorities() {
+    return Arrays.stream(AsyncChatEvent.getHandlerList().getRegisteredListeners())
+        .filter(registration -> registration.getPlugin() == plugin)
+        .map(RegisteredListener::getPriority)
+        .toList();
   }
 
   @Test

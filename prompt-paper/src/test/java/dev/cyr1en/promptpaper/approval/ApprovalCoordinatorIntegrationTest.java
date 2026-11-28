@@ -27,6 +27,7 @@ import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.SelfApprovalPolicy;
 import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,6 +44,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +62,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   private ExecutionCoordinator executionCoordinator;
   private ApprovalCapabilityRegistry capabilityRegistry;
   private PlayerInteractionLeaseRegistry leaseRegistry;
+  private Clock leaseClock;
   private ResponseCommand responseCommand;
 
   private List<String> commandExecutions;
@@ -69,7 +74,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     lenient().when(plugin.getExecutionRegistry()).thenReturn(registry);
 
     capabilityRegistry = new ApprovalCapabilityRegistry();
-    leaseRegistry = new PlayerInteractionLeaseRegistry();
+    leaseClock = mock(Clock.class);
+    when(leaseClock.instant()).thenReturn(Instant.parse("2026-08-18T12:00:00Z"));
+    leaseRegistry = new PlayerInteractionLeaseRegistry(leaseClock);
 
     engine = new PromptEngine(plugin, scheduler, null, registry, leaseRegistry);
     lenient().when(plugin.getEngine()).thenReturn(engine);
@@ -2442,10 +2449,12 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
 
   @Test
   @DisplayName(
-      "PHASE 5.4: Repeated sequential gates (2 and 3 gates) retain claim between outcomes and release after final")
+      "PHASE 5.4: Repeated sequential gates retain claim between outcomes and release after final")
   void testRepeatedSequentialGatesRetainClaimBetweenOutcomesAndReleaseAfterFinal() {
     Player initiator = createPlayer("Alice");
     Player approver = createPlayer("Bob");
+    var secondApprover = createPlayer("Charlie");
+    Instant start = leaseClock.instant();
 
     ApprovalGateDefinition gate1 =
         new ApprovalGateDefinition(
@@ -2458,9 +2467,9 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     ApprovalGateDefinition gate2 =
         new ApprovalGateDefinition(
             "g2",
-            TemplateCompiler.compile("Bob"),
+            TemplateCompiler.compile("Charlie"),
             TemplateCompiler.compile("Second approval?"),
-            30,
+            300,
             SelfApprovalPolicy.AUTO_APPROVE,
             null);
     ApprovalGateDefinition gate3 =
@@ -2504,20 +2513,36 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     assertEquals("g1", cap1.gateId());
     assertTrue(leaseRegistry.isLeased(approver.getUniqueId()));
 
+    doCallRealMethod().when(plugin).onPlayerQuit(any(PlayerQuitEvent.class));
+    server
+        .getPluginManager()
+        .registerEvent(
+            PlayerQuitEvent.class,
+            plugin,
+            EventPriority.NORMAL,
+            (listener, event) -> plugin.onPlayerQuit((PlayerQuitEvent) event),
+            plugin);
+    try {
+      assertTrue(secondApprover.disconnect());
+      assertTrue(secondApprover.reconnect());
+    } finally {
+      PlayerQuitEvent.getHandlerList().unregister((Listener) plugin);
+    }
+
     // Bob confirms Gate 1
     responseCommand.executeResponse(approver, cap1.nonce(), "confirm");
 
-    // Between Gate 1 outcome and Gate 2: lease is RETAINED for Bob!
+    when(leaseClock.instant()).thenReturn(start.plusSeconds(120));
     assertTrue(
         leaseRegistry.isLeased(approver.getUniqueId()),
         "Lease must be retained after gate 1 for repeated target");
 
     // Gate 2 is active
-    ApprovalCapability cap2 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
+    ApprovalCapability cap2 =
+        capabilityRegistry.getByTarget(secondApprover.getUniqueId()).orElseThrow();
     assertEquals("g2", cap2.gateId());
 
-    // Bob confirms Gate 2
-    responseCommand.executeResponse(approver, cap2.nonce(), "confirm");
+    responseCommand.executeResponse(secondApprover, cap2.nonce(), "confirm");
 
     // Between Gate 2 outcome and Gate 3: lease is STILL RETAINED for Bob!
     assertTrue(
