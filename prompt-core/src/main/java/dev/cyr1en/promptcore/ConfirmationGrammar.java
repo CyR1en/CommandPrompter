@@ -7,7 +7,8 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Deterministic parser for confirmation prompt syntax (<c:...> / <confirm:...>).
+ * Deterministic parser for confirmation prompt syntax ({@code <c:...>}, {@code <confirm:...>}, or
+ * {@code <confirmation:...>}).
  *
  * <p>Validates and extracts prompt text, button labels, presentation mode override, value-mode
  * flag, and sound keys according to the confirmation prompt grammar specification.
@@ -23,11 +24,13 @@ public final class ConfirmationGrammar {
    * Checks whether the given key is a recognized confirmation prompt key (case-insensitive).
    *
    * @param key the prompt key to test
-   * @return true if key is "c" or "confirm", false otherwise
+   * @return true if key is a built-in confirmation alias, false otherwise
    */
   public static boolean isConfirmationKey(String key) {
     if (key == null) return false;
-    return key.equalsIgnoreCase("c") || key.equalsIgnoreCase("confirm");
+    return key.equalsIgnoreCase("c")
+        || key.equalsIgnoreCase("confirm")
+        || key.equalsIgnoreCase("confirmation");
   }
 
   /**
@@ -42,9 +45,10 @@ public final class ConfirmationGrammar {
     Objects.requireNonNull(tag, "PromptTag cannot be null");
     if (!isConfirmationKey(tag.key())) {
       throw new IllegalArgumentException(
-          "PromptTag key is not a confirmation key ('c' or 'confirm'): " + tag.key());
+          "PromptTag key is not a confirmation key ('c', 'confirm', or 'confirmation'): "
+              + tag.key());
     }
-    return parse(tag.displayText());
+    return parse(tag.grammarSource());
   }
 
   /**

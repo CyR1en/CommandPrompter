@@ -264,7 +264,7 @@ public final class InlineTagMapper {
 
   private static ConfirmationPrompt toConfirmationPrompt(
       PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
-    var syntax = ConfirmationGrammar.parse(tag.displayText());
+    var syntax = ConfirmationGrammar.parse(tag.grammarSource());
     return new ConfirmationPrompt(
         "confirmation",
         id,
@@ -283,7 +283,7 @@ public final class InlineTagMapper {
 
   private static ItemPrompt toItemPrompt(
       PromptTag tag, String id, boolean sanitize, TitleConfig titleConfig) {
-    var syntax = ItemGrammar.parse(tag.displayText());
+    var syntax = ItemGrammar.parse(tag.grammarSource());
     return new ItemPrompt(
         "item",
         id,

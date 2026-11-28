@@ -168,6 +168,19 @@ public record ParsedCommand(
     return postCmds.stream().filter(PostCommandMeta::onCancel).toList();
   }
 
+  /** Returns the command template with parsed prompt, post-action, and gate tags removed. */
+  public String primaryTemplate() {
+    if (templateSpans.isEmpty()) return templateCommand;
+
+    var primary = new StringBuilder(rawTemplateCommand.length());
+    int cursor = 0;
+    for (var span : templateSpans) {
+      primary.append(unescape(rawTemplateCommand.substring(cursor, span.start()), parserConfig));
+      cursor = span.end();
+    }
+    return primary.append(unescape(rawTemplateCommand.substring(cursor), parserConfig)).toString();
+  }
+
   /**
    * Build a "partial command" string suitable for Brigadier parsing at the current prompt position.
    *
