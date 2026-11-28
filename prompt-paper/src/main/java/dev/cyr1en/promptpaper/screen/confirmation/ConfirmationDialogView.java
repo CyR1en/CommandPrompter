@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.screen.confirmation;
 
 import dev.cyr1en.promptpaper.config.sub.DialogConfig;
+import dev.cyr1en.promptpaper.screen.dialog.DialogLifecycle;
 import dev.cyr1en.promptui.ComponentUtil;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
@@ -40,6 +41,7 @@ public class ConfirmationDialogView implements ConfirmationView {
   private final Component declineLabel;
   private final Component declineTooltip;
   private final DialogLauncher launcher;
+  private final Duration responseLifetime;
 
   private Consumer<ConfirmationOutcome> callback;
   private Consumer<Throwable> failureCallback;
@@ -108,6 +110,30 @@ public class ConfirmationDialogView implements ConfirmationView {
       Component declineLabel,
       Component declineTooltip,
       DialogLauncher launcher) {
+    this(
+        plugin,
+        player,
+        title,
+        body,
+        confirmLabel,
+        confirmTooltip,
+        declineLabel,
+        declineTooltip,
+        launcher,
+        ClickCallback.DEFAULT_LIFETIME);
+  }
+
+  ConfirmationDialogView(
+      Plugin plugin,
+      Player player,
+      Component title,
+      Component body,
+      Component confirmLabel,
+      Component confirmTooltip,
+      Component declineLabel,
+      Component declineTooltip,
+      DialogLauncher launcher,
+      Duration responseLifetime) {
     this.plugin = Objects.requireNonNull(plugin, "plugin must not be null");
     this.player = Objects.requireNonNull(player, "player must not be null");
     this.title = title != null ? title : DEFAULT_TITLE;
@@ -117,6 +143,7 @@ public class ConfirmationDialogView implements ConfirmationView {
     this.declineLabel = declineLabel != null ? declineLabel : DEFAULT_DECLINE_LABEL;
     this.declineTooltip = declineTooltip;
     this.launcher = launcher;
+    this.responseLifetime = responseLifetime;
   }
 
   public ConfirmationDialogView(Plugin plugin, Player player, String title, String body) {
@@ -365,11 +392,16 @@ public class ConfirmationDialogView implements ConfirmationView {
 
     @Override
     public void show(Player targetPlayer, Runnable onConfirm, Runnable onDecline) {
-      var options = ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(5)).build();
+      var options = DialogLifecycle.clickOptions(responseLifetime);
 
       var confirmBtnBuilder =
           ActionButton.builder(confirmLabel)
-              .action(DialogAction.customClick((view, audience) -> onConfirm.run(), options));
+              .action(
+                  DialogAction.customClick(
+                      (view, audience) -> {
+                        if (DialogLifecycle.isOwner(targetPlayer, audience)) onConfirm.run();
+                      },
+                      options));
       if (confirmTooltip != null && !confirmTooltip.equals(Component.empty())) {
         confirmBtnBuilder.tooltip(confirmTooltip);
       }
@@ -377,7 +409,12 @@ public class ConfirmationDialogView implements ConfirmationView {
 
       var declineBtnBuilder =
           ActionButton.builder(declineLabel)
-              .action(DialogAction.customClick((view, audience) -> onDecline.run(), options));
+              .action(
+                  DialogAction.customClick(
+                      (view, audience) -> {
+                        if (DialogLifecycle.isOwner(targetPlayer, audience)) onDecline.run();
+                      },
+                      options));
       if (declineTooltip != null && !declineTooltip.equals(Component.empty())) {
         declineBtnBuilder.tooltip(declineTooltip);
       }

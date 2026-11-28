@@ -1,11 +1,13 @@
 package dev.cyr1en.promptpaper.screen.confirmation;
 
 import dev.cyr1en.promptcore.ConfirmationMode;
+import dev.cyr1en.promptcore.PromptTag;
+import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.factory.MaterialMapper;
 import dev.cyr1en.promptpaper.preset.ConfirmationPrompt;
+import dev.cyr1en.promptpaper.screen.dialog.DialogLifecycle;
 import dev.cyr1en.promptui.ComponentUtil;
-import java.time.Duration;
 import java.util.List;
 import org.bukkit.entity.Player;
 
@@ -26,6 +28,25 @@ public final class ConfirmationScreenFactory {
             ? screenConfig.defaultMode()
             : ConfirmationMode.GUI;
     var mode = confirmation.mode() != null ? confirmation.mode() : defaultMode;
+    var sessionOpt =
+        plugin.getEngine() != null
+            ? plugin.getEngine().getSession(player)
+            : java.util.Optional.<PromptSession>empty();
+    var config = plugin.getConfigLoader().getConfig();
+    int timeoutSeconds =
+        sessionOpt
+            .flatMap(PromptSession::currentPrompt)
+            .map(PromptTag::timeout)
+            .orElseGet(
+                () -> {
+                  if (confirmation.behavior() != null
+                      && confirmation.behavior().timeout() != null) {
+                    return confirmation.behavior().timeout();
+                  }
+                  if (confirmation.timeout() != null) return confirmation.timeout();
+                  return config != null ? config.promptTimeout() : 60;
+                });
+    var responseLifetime = DialogLifecycle.responseLifetime(timeoutSeconds);
 
     var dialogTitle =
         confirmation.title() != null
@@ -50,7 +71,16 @@ public final class ConfirmationScreenFactory {
                 : ComponentUtil.mini("Cancel"));
     var dialogView =
         new ConfirmationDialogView(
-            plugin, player, dialogTitle, dialogBody, dialogConfirm, dialogCancel);
+            plugin,
+            player,
+            dialogTitle,
+            dialogBody,
+            dialogConfirm,
+            null,
+            dialogCancel,
+            null,
+            null,
+            responseLifetime);
 
     ConfirmationGuiConfig guiConfig;
     if (screenConfig != null) {
@@ -129,25 +159,9 @@ public final class ConfirmationScreenFactory {
                 ? ComponentUtil.mini(screenConfig.defaultCancelLabel())
                 : ConfirmationChatView.DEFAULT_CANCEL_LABEL);
 
-    var sessionOpt =
-        plugin.getEngine() != null
-            ? plugin.getEngine().getSession(player)
-            : java.util.Optional.<dev.cyr1en.promptcore.session.PromptSession>empty();
-    long incarnation =
-        sessionOpt.map(dev.cyr1en.promptcore.session.PromptSession::incarnation).orElse(0L);
-    long generation =
-        sessionOpt.map(dev.cyr1en.promptcore.session.PromptSession::generation).orElse(0L);
-    int promptIndex =
-        sessionOpt.map(dev.cyr1en.promptcore.session.PromptSession::currentIndex).orElse(0);
-    int timeoutSecs;
-    if (confirmation.timeout() != null) {
-      timeoutSecs = confirmation.timeout();
-    } else if (plugin.getConfigLoader() != null && plugin.getConfigLoader().getConfig() != null) {
-      timeoutSecs = plugin.getConfigLoader().getConfig().promptTimeout();
-    } else {
-      timeoutSecs = 60;
-    }
-    long effectiveTtl = timeoutSecs > 0 ? Math.min(timeoutSecs, 3600) : 3600;
+    long incarnation = sessionOpt.map(PromptSession::incarnation).orElse(0L);
+    long generation = sessionOpt.map(PromptSession::generation).orElse(0L);
+    int promptIndex = sessionOpt.map(PromptSession::currentIndex).orElse(0);
 
     var registry =
         plugin.getNonceRegistry() != null ? plugin.getNonceRegistry() : new NonceResponseRegistry();
@@ -162,7 +176,7 @@ public final class ConfirmationScreenFactory {
             incarnation,
             generation,
             promptIndex,
-            Duration.ofSeconds(effectiveTtl));
+            responseLifetime);
 
     List<ConfirmationView> fallbackChain =
         switch (mode) {
@@ -204,6 +218,12 @@ public final class ConfirmationScreenFactory {
     String confirmValue = valueMode ? "true" : ConfirmationPromptScreen.DEFAULT_CONFIRM_VALUE;
     String declineValue = valueMode ? "false" : ConfirmationPromptScreen.DEFAULT_DECLINE_VALUE;
     return new ConfirmationPromptScreen(
-        fallbackChain, confirmValue, declineValue, !valueMode, soundAction, valueMode);
+        fallbackChain,
+        confirmValue,
+        declineValue,
+        !valueMode,
+        soundAction,
+        valueMode,
+        timeoutSeconds);
   }
 }

@@ -231,6 +231,25 @@ class ConfirmationFlowIntegrationTest extends MockBukkitTest {
   }
 
   @Test
+  void chatConfirmationCanBeAnsweredAfterAnHourWhenTimeoutIsDisabled() {
+    when(config.promptTimeout()).thenReturn(0);
+    var start = Instant.parse("2026-01-01T00:00:00Z");
+    var clock = mock(java.time.Clock.class);
+    when(clock.instant()).thenReturn(start, start.plus(Duration.ofHours(2)));
+    var registry = new NonceResponseRegistry(clock);
+    when(plugin.getNonceRegistry()).thenReturn(registry);
+    var player = createPlayer();
+    screenManager.startSession(player, "/say <c:Continue? -mode:chat>");
+    var screen = (ConfirmationPromptScreen) screenManager.getActiveScreen(player);
+    var chat = (ConfirmationChatView) screen.activeView().orElseThrow();
+
+    responseCommand.executeResponse(player, chat.getActiveNonce().orElseThrow(), "confirm");
+    performTicks(5);
+
+    assertInstanceOf(ConfirmationOutcome.Confirmed.class, screen.lastOutcome().orElseThrow());
+  }
+
+  @Test
   void conf03_gatingDeclineThroughResponseServiceNoPrimaryDispatchAndOneCancelPcm() {
     var player = createPlayer("GatingDeclineNonceUser");
 
