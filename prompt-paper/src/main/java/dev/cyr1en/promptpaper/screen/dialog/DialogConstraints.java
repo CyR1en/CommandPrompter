@@ -21,6 +21,31 @@ public record DialogConstraints(
     float step,
     float initial,
     /* tab-only */ Integer maxButtons) {
+  List<String> choiceIds() {
+    var ids = options.stream().map(String::trim).filter(id -> !id.isEmpty()).toList();
+    return ids.isEmpty() ? List.of("") : ids;
+  }
+
+  public boolean acceptsChoice(String value) {
+    return value != null && choiceIds().contains(value);
+  }
+
+  public boolean acceptsText(String value) {
+    return value != null
+        && value.length() <= maxLength
+        && value.chars().filter(ch -> ch == '\n').count() < multilineMaxLines;
+  }
+
+  public boolean acceptsNumber(Float value) {
+    if (value == null || !Float.isFinite(value)) {
+      return false;
+    }
+    // Minecraft checks the slider position in float arithmetic, which can round at the endpoints.
+    var position = (value - min) / (max - min);
+    var steps = Math.round((value - initial) / step);
+    return position >= 0f && position <= 1f && value == initial + steps * step;
+  }
+
   /**
    * Parses a raw filter string into constraints, falling back to the given {@link DialogConfig}
    * defaults for any unspecified values.

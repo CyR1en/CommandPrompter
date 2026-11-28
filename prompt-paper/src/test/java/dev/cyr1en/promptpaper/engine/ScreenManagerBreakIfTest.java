@@ -25,6 +25,8 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ScreenManagerBreakIfTest extends MockBukkitTest {
 
@@ -147,10 +149,11 @@ class ScreenManagerBreakIfTest extends MockBukkitTest {
   // Single prompt breakIf tests
   // =========================================================================
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(strings = {"skip", "&askip"})
   @DisplayName(
       "FLOW-06: Single prompt with breakIf=true cancels with MANUAL, dispatches cancel PCM, no primary dispatch")
-  void singlePromptBreakIfTrueCancelsWithManualAndDispatchesCancelPCMs() {
+  void singlePromptBreakIfTrueCancelsWithManualAndDispatchesCancelPCMs(String answer) {
     when(config.showCancelled()).thenReturn(true);
     var player = createPlayer("SingleBreakUser");
     screenManager.startSession(
@@ -159,8 +162,7 @@ class ScreenManagerBreakIfTest extends MockBukkitTest {
     assertTrue(engine.hasActiveSession(player));
     assertTrue(screenManager.hasActiveScreen(player));
 
-    // Submit "skip" matching the condition
-    screenManager.handleChatInput(player, "skip");
+    screenManager.handleChatInput(player, answer);
     performTicks(20);
 
     // Session must be terminated and active screen unlinked
@@ -287,7 +289,7 @@ class ScreenManagerBreakIfTest extends MockBukkitTest {
 
     var screen = (FakeDialogScreen) screenManager.getActiveScreen(player);
     assertNotNull(screen);
-    screen.emit(AnswerEncoding.encode(List.of("x", "y")));
+    screen.emit(AnswerEncoding.encode(List.of("x", "&ay")));
     performTicks(20);
 
     assertFalse(engine.hasActiveSession(player), "Session must be cancelled on compound breakIf");

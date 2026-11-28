@@ -1,7 +1,11 @@
 package dev.cyr1en.promptpaper.screen.dialog;
 
 import dev.cyr1en.promptui.ScreenResult;
+import java.time.Duration;
 import java.util.function.Consumer;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.text.event.ClickCallback;
+import org.bukkit.entity.Player;
 
 /**
  * Tracks the open/result lifecycle of a native dialog without depending on Paper's versioned dialog
@@ -11,6 +15,26 @@ public final class DialogLifecycle {
 
   private Consumer<ScreenResult> callback;
   private boolean open;
+
+  public static boolean isOwner(Player player, Audience audience) {
+    return audience instanceof Player responder
+        && responder.getUniqueId().equals(player.getUniqueId());
+  }
+
+  public static Duration responseLifetime(int timeoutSeconds) {
+    // The session counts ticks, so give wall-clock expiry room for slow ticks.
+    return timeoutSeconds > 0
+        ? Duration.ofSeconds(4L * timeoutSeconds)
+        : ClickCallback.DEFAULT_LIFETIME;
+  }
+
+  public static ClickCallback.Options clickOptions(Duration lifetime) {
+    // Paper counts a use before passing us the audience. The screen guards completion itself.
+    return ClickCallback.Options.builder()
+        .uses(ClickCallback.UNLIMITED_USES)
+        .lifetime(lifetime)
+        .build();
+  }
 
   /** Marks the client dialog as open. */
   public void opened() {

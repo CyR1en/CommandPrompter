@@ -14,12 +14,18 @@ import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.factory.PromptFactory;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.screen.dialog.AnswerEncoding;
+import dev.cyr1en.promptpaper.screen.dialog.DialogCompletionContext;
+import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenResult;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ScreenManagerTest extends MockBukkitTest {
 
@@ -187,6 +193,19 @@ class ScreenManagerTest extends MockBukkitTest {
     assertTrue(screenManager.hasChatScreen(player));
     screenManager.handleChatInput(player, "myValue");
     assertFalse(screenManager.hasActiveScreen(player));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void integerValidationUsesTheConfiguredSanitization(boolean sanitize) {
+    var player = createPlayer();
+    var flags = sanitize ? "-int" : "-int -ds";
+    screenManager.startSession(player, "/cmd <Number " + flags + "> <Next>");
+
+    screenManager.handleChatInput(player, "&a42");
+
+    var session = engine.getSession(player).orElseThrow();
+    assertEquals(sanitize ? List.of("42") : List.of(), session.answers());
   }
 
   @Test
@@ -540,6 +559,30 @@ class ScreenManagerTest extends MockBukkitTest {
     assertEquals(player, captor.getValue().player());
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"dialog", "pick"})
+  void dialogAliasesBuildTabCompletionContext(String alias) {
+    when(configLoader.getPromptConfig().getScreenMappings())
+        .thenReturn(Map.of("pick", ScreenType.DIALOG));
+    var context = new AtomicReference<DialogCompletionContext>();
+    var manager =
+        new ScreenManager(
+            plugin,
+            engine,
+            factory,
+            scheduler,
+            (p, tag, ctx) -> {
+              context.set(ctx);
+              return org.mockito.Mockito.mock(InputScreen.class);
+            });
+    var player = createPlayer();
+
+    manager.startSession(player, "/cmd <" + alias + ":tab:Pick>");
+
+    assertNotNull(context.get());
+    assertEquals("/cmd ", context.get().partialCommand());
+  }
+
   @Test
   void presetDialogWithoutTabCompletionPassesNullContext() {
     var mockFactory = org.mockito.Mockito.mock(PromptFactory.class);
@@ -606,6 +649,45 @@ class ScreenManagerTest extends MockBukkitTest {
     performTicks(20);
 
     assertFalse(screenManager.hasActiveScreen(player));
+    assertFalse(engine.hasActiveSession(player));
+  }
+
+  @Test
+  void synchronousScreenCompletionPreservesTheNextPromptsTimeout() {
+    var callback = new AtomicReference<Consumer<ScreenResult>>();
+    var firstScreen = org.mockito.Mockito.mock(InputScreen.class);
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              callback.set(invocation.getArgument(0));
+              return null;
+            })
+        .when(firstScreen)
+        .onResult(any());
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              callback.get().accept(ScreenResult.answer("first"));
+              return null;
+            })
+        .when(firstScreen)
+        .open();
+    var manager =
+        new ScreenManager(
+            plugin,
+            engine,
+            factory,
+            scheduler,
+            (p, tag, ctx) ->
+                tag.displayText().equals("first")
+                    ? firstScreen
+                    : factory.createFromTag(p, tag, ctx));
+    var player = createPlayer();
+
+    manager.startSession(player, "/cmd <first -timeout:1> <second -timeout:2>");
+    assertEquals(1, engine.getSession(player).orElseThrow().currentIndex());
+
+    performTicks(20);
+    assertTrue(engine.hasActiveSession(player));
+    performTicks(20);
     assertFalse(engine.hasActiveSession(player));
   }
 
