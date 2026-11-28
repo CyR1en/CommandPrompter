@@ -81,10 +81,6 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
       item.applyUUID();
       inventory.setItem(SLOT_RESULT, item.getItem());
     }
-
-    if (isPlayerInventoryUsed()) {
-      playerGuiComponent.display();
-    }
   }
 
   /** Shows the anvil GUI, subscribing to rename text changes on first open. */
@@ -111,7 +107,7 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
   }
 
   /**
-   * Dispatches a click to the appropriate anvil slot (first, second, result, or player inventory).
+   * Dispatches a click to the appropriate anvil slot (first, second, or result).
    *
    * @return true if the click was consumed
    */
@@ -131,10 +127,7 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
         }
         yield false;
       }
-      default -> {
-        int slot = rawSlot - 3;
-        yield playerGuiComponent.click(this, event, slot);
-      }
+      default -> false;
     };
   }
 
@@ -153,6 +146,12 @@ public final class AnvilGui extends NamedGui implements InventoryBased {
     return resultComponent;
   }
 
+  @Override
+  public boolean isPlayerInventoryUsed() {
+    return false;
+  }
+
+  /** Retained for compatibility. Anvil GUIs render only their three top slots. */
   @NotNull
   public GuiComponent getPlayerGuiComponent() {
     return playerGuiComponent;
