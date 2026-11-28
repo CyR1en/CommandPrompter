@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import dev.cyr1en.promptpaper.MockBukkitTest;
+import dev.cyr1en.promptpaper.preset.PresetRegistry;
+import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptui.AnvilItemPresentation.Slot;
 import dev.cyr1en.promptui.util.BedrockUtil;
 import java.nio.file.Files;
@@ -27,6 +29,24 @@ class GeyserStandaloneSupportTest extends MockBukkitTest {
     Files.write(data.resolve("compat/standalone.key"), key);
     when(config.geyserAnvilPatch()).thenReturn(true);
     BedrockUtil.reset();
+  }
+
+  @Test
+  void patchAssetsRegisterPlayerUiSearchMaterials() throws Exception {
+    when(promptConfig.anvilItem()).thenReturn("PAPER");
+    when(promptConfig.anvilCancelItem()).thenReturn("BARRIER");
+    when(promptConfig.searchAnvilItem()).thenReturn("NAME_TAG");
+    when(promptConfig.cancelItem()).thenReturn("REDSTONE");
+    var presets = mock(PresetRegistry.class);
+    when(plugin.getPresetRegistry()).thenReturn(presets);
+    when(presets.snapshot()).thenReturn(PresetSnapshot.empty());
+
+    try (var support = new GeyserStandaloneSupport(plugin)) {
+      var assets = support.assets();
+      var materials = Set.of("paper", "barrier", "name_tag", "redstone");
+      assertEquals(materials, assets.materials().keySet());
+      assertEquals(materials, AnvilPatchProtocol.decode(assets.announcement(), key));
+    }
   }
 
   @Test

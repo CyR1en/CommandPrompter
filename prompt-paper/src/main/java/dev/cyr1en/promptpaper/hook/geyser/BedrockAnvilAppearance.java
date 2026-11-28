@@ -33,6 +33,8 @@ record BedrockAnvilAppearance(Kind kind, String value) {
     var materials = EnumSet.of(Material.PAPER);
     addMaterial(materials, config.anvilItem());
     addMaterial(materials, config.anvilCancelItem());
+    addMaterial(materials, config.searchAnvilItem());
+    addMaterial(materials, config.cancelItem());
     for (var prompt : plugin.getPresetRegistry().snapshot().prompts().values()) {
       if (prompt instanceof AnvilPrompt anvil) {
         addMaterial(materials, anvil.leftButton().buttonIcon());
