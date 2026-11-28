@@ -22,8 +22,10 @@ public final class DialogLifecycle {
   }
 
   public static Duration responseLifetime(int timeoutSeconds) {
-    // Paper retains registered callbacks until expiry, even after the dialog closes.
-    return timeoutSeconds > 0 ? Duration.ofSeconds(timeoutSeconds) : ClickCallback.DEFAULT_LIFETIME;
+    // The session counts ticks, so give wall-clock expiry room for slow ticks.
+    return timeoutSeconds > 0
+        ? Duration.ofSeconds(4L * timeoutSeconds)
+        : ClickCallback.DEFAULT_LIFETIME;
   }
 
   public static ClickCallback.Options clickOptions(Duration lifetime) {

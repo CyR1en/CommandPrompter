@@ -37,12 +37,13 @@ public record DialogConstraints(
   }
 
   public boolean acceptsNumber(Float value) {
-    if (value == null || !Float.isFinite(value) || !(value >= min && value <= max)) {
+    if (value == null || !Float.isFinite(value)) {
       return false;
     }
-    // Minecraft snaps the slider to initial + N * step using float arithmetic.
+    // Minecraft checks the slider position in float arithmetic, which can round at the endpoints.
+    var position = (value - min) / (max - min);
     var steps = Math.round((value - initial) / step);
-    return value == initial + steps * step;
+    return position >= 0f && position <= 1f && value == initial + steps * step;
   }
 
   /**
