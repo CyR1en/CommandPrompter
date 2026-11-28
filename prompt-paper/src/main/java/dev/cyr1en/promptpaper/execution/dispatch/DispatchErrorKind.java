@@ -17,5 +17,7 @@ public enum DispatchErrorKind {
   /** Target or initiator player entity scheduler was retired or unavailable. */
   SCHEDULER_RETIRED,
   /** A command event listener cancelled the finished command, so it never ran. */
-  CANCELLED_BY_LISTENER
+  CANCELLED_BY_LISTENER,
+  /** The execution ended before the scheduled command could be dispatched. */
+  EXECUTION_CANCELLED
 }

@@ -3,6 +3,7 @@ package dev.cyr1en.promptpaper.execution.dispatch;
 import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import org.bukkit.entity.Player;
 
 /** Immutable request parameters for executing an immediate action. */
@@ -12,10 +13,22 @@ public record ImmediateActionRequest(
     ExecuteAs executeAs,
     ActionProvenance provenance,
     PlayerExecutor initiatorExecutor,
-    String sourceId) {
+    String sourceId,
+    BooleanSupplier canDispatch) {
+  public ImmediateActionRequest(
+      Player player,
+      String command,
+      ExecuteAs executeAs,
+      ActionProvenance provenance,
+      PlayerExecutor initiatorExecutor,
+      String sourceId) {
+    this(player, command, executeAs, provenance, initiatorExecutor, sourceId, () -> true);
+  }
+
   public ImmediateActionRequest {
     Objects.requireNonNull(player, "player must not be null");
     Objects.requireNonNull(command, "command must not be null");
+    Objects.requireNonNull(canDispatch, "canDispatch must not be null");
     if (executeAs == null) {
       executeAs = ExecuteAs.PLAYER;
     }

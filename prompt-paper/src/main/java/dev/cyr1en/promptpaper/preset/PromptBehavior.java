@@ -39,7 +39,7 @@ public record PromptBehavior(
         tag.breakIf() == null ? null : tag.breakIf().source());
   }
 
-  public PromptTag apply(PromptTag tag, boolean sanitize) {
+  public PromptTag apply(PromptTag tag, boolean sanitize, Integer fallbackTimeout) {
     return new PromptTag(
         tag.rawTag(),
         tag.key(),
@@ -51,7 +51,7 @@ public record PromptBehavior(
         tag.subTags(),
         tag.preset(),
         tag.title(),
-        timeout,
+        timeout != null ? timeout : fallbackTimeout,
         flags,
         breakIf == null ? null : Condition.compile(breakIf));
   }

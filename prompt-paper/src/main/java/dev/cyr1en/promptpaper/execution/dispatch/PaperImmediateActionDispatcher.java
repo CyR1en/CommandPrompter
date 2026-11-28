@@ -5,6 +5,7 @@ import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -81,7 +82,7 @@ public class PaperImmediateActionDispatcher implements ImmediateActionDispatcher
         return;
       }
 
-      dispatchConsole(initiator, commandToExecute, safeCallback);
+      dispatchConsole(initiator, commandToExecute, request.canDispatch(), safeCallback);
     } else {
       dispatchPlayer(initiator, player, commandToExecute, safeCallback);
     }
@@ -111,15 +112,22 @@ public class PaperImmediateActionDispatcher implements ImmediateActionDispatcher
   }
 
   private void dispatchConsole(
-      PlayerExecutor initiator, String command, ActionDispatchCallback callback) {
+      PlayerExecutor initiator,
+      String command,
+      BooleanSupplier canDispatch,
+      ActionDispatchCallback callback) {
     try {
       scheduler.runSync(
           () -> {
             DispatchOutcome outcome;
             try {
               var consoleSender = Bukkit.getConsoleSender();
-              boolean ok = Bukkit.dispatchCommand(consoleSender, command);
-              if (ok) {
+              if (!canDispatch.getAsBoolean()) {
+                outcome =
+                    DispatchOutcome.failure(
+                        DispatchErrorKind.EXECUTION_CANCELLED,
+                        "execution cancelled before dispatch");
+              } else if (Bukkit.dispatchCommand(consoleSender, command)) {
                 outcome = DispatchOutcome.success();
               } else {
                 outcome =

@@ -724,7 +724,15 @@ public class ExecutionCoordinator {
 
     ImmediateActionRequest req =
         new ImmediateActionRequest(
-            player, renderedCommand, executeAs, provenance, initiatorExecutor, sourceId);
+            player,
+            renderedCommand,
+            executeAs,
+            provenance,
+            initiatorExecutor,
+            sourceId,
+            () ->
+                registry.getByExecutionId(executionId).orElse(null) == instance
+                    && instance.getStage() == ExecutionStage.PRE_DISPATCH_GATES);
 
     try {
       immediateActionDispatcher.dispatch(
@@ -895,7 +903,15 @@ public class ExecutionCoordinator {
 
     PrimaryDispatchRequest request =
         new PrimaryDispatchRequest(
-            player, command, mode, attachmentContext, initiatorExecutor, null);
+            player,
+            command,
+            mode,
+            attachmentContext,
+            initiatorExecutor,
+            null,
+            () ->
+                registry.getByExecutionId(executionId).orElse(null) == instance
+                    && instance.getStage() == ExecutionStage.PRIMARY_DISPATCH);
 
     long expectedIncarnation = completion.incarnation();
 
@@ -997,6 +1013,7 @@ public class ExecutionCoordinator {
           postActionScheduler,
           papiResolver,
           templateSyntax,
+          () -> registry.getByExecutionId(executionId).orElse(null) == instance,
           result -> {
             try {
               initiatorExecutor.execute(

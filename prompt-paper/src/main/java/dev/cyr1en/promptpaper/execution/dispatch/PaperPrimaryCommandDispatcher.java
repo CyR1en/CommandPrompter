@@ -4,6 +4,7 @@ import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -69,7 +70,7 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
 
     switch (request.mode()) {
       case PLAYER -> dispatchPlayer(initiator, player, commandToExecute, safeCallback);
-      case CONSOLE -> dispatchConsole(commandToExecute, safeCallback);
+      case CONSOLE -> dispatchConsole(commandToExecute, request.canDispatch(), safeCallback);
       case ATTACHMENT ->
           dispatchAttachment(
               initiator, player, commandToExecute, request.attachmentContext(), safeCallback);
@@ -120,15 +121,20 @@ public class PaperPrimaryCommandDispatcher implements PrimaryCommandDispatcher {
         DispatchErrorKind.DISPATCH_RETURNED_FALSE, "dispatch returned false");
   }
 
-  private void dispatchConsole(String command, PrimaryDispatchCallback callback) {
+  private void dispatchConsole(
+      String command, BooleanSupplier canDispatch, PrimaryDispatchCallback callback) {
     try {
       scheduler.runSync(
           () -> {
             DispatchOutcome outcome;
             try {
               var consoleSender = Bukkit.getConsoleSender();
-              boolean ok = Bukkit.dispatchCommand(consoleSender, command);
-              if (ok) {
+              if (!canDispatch.getAsBoolean()) {
+                outcome =
+                    DispatchOutcome.failure(
+                        DispatchErrorKind.EXECUTION_CANCELLED,
+                        "execution cancelled before dispatch");
+              } else if (Bukkit.dispatchCommand(consoleSender, command)) {
                 outcome = DispatchOutcome.success();
               } else {
                 outcome =

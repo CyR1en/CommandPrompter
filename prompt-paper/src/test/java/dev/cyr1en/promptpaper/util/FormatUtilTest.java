@@ -44,6 +44,12 @@ class FormatUtilTest {
   }
 
   @Test
+  void malformedPercentTokensKeepLiteralDollarSignsAndBackslashes() {
+    assertEquals("<@bad%foo$bar%> done", FormatUtil.safeFormat("<@bad%foo$bar%> %s", "done"));
+    assertEquals("<@bad%foo\\bar%> done", FormatUtil.safeFormat("<@bad%foo\\bar%> %s", "done"));
+  }
+
+  @Test
   void countValidFormatSpecifiers() {
     assertEquals(2, FormatUtil.countValidFormatSpecifiers("%s %d"));
   }

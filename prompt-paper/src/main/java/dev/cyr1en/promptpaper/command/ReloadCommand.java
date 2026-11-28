@@ -180,6 +180,8 @@ public class ReloadCommand extends PromptCommand implements Command<CommandSourc
               if (engine != null) engine.publishParser(preparedParser);
             });
 
+        plugin.refreshChatListenerPriority();
+
         try {
           plugin.getPluginLogger().reload(preparedConfig.config());
           if (previousConfig != null

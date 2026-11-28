@@ -58,7 +58,7 @@ public record PlayerInteractionLease(
         null,
         ClaimType.APPROVAL,
         acquiredAt,
-        Objects.requireNonNull(expiresAt, "expiresAt must not be null"));
+        expiresAt);
   }
 
   public static PlayerInteractionLease forPrompt(
