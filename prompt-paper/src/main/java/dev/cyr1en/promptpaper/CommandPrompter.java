@@ -37,7 +37,6 @@ import dev.cyr1en.promptpaper.util.PaperScheduler;
 import dev.cyr1en.promptpaper.util.PluginLogger;
 import dev.cyr1en.promptpaper.util.Scheduler;
 import dev.cyr1en.promptui.api.CommandPrompterAPI;
-import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.Map;
 import org.bstats.bukkit.Metrics;
@@ -66,6 +65,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
   private ScreenManager screenManager;
   private HeadCache headCache;
   private HookContainer hookContainer;
+  private ChatPromptListener fallbackChatListener;
   private GeyserStandaloneSupport geyserStandaloneSupport;
   private PresetRegistry presetRegistry;
   private ItemCatalogRegistry itemCatalogRegistry;
@@ -313,17 +313,14 @@ public class CommandPrompter extends JavaPlugin implements Listener {
         return;
       }
     }
-    var listener = new ChatPromptListener(this, screenManager);
-    getServer()
-        .getPluginManager()
-        .registerEvent(
-            AsyncChatEvent.class,
-            listener,
-            listener.resolvePriority(),
-            (registeredListener, event) -> listener.onPlayerChat((AsyncChatEvent) event),
-            this,
-            false);
+    fallbackChatListener = new ChatPromptListener(this, screenManager);
+    refreshChatListenerPriority();
     pluginLogger.info("Using default Bukkit chat listener");
+  }
+
+  /** Applies the chat event priority when Bukkit is handling chat responses. */
+  public void refreshChatListenerPriority() {
+    if (fallbackChatListener != null) fallbackChatListener.refreshRegistration();
   }
 
   /** Cancels all active screens and sessions for a disconnecting player. */
@@ -358,6 +355,7 @@ public class CommandPrompter extends JavaPlugin implements Listener {
   @Override
   public void onDisable() {
     activeLifecycle = false;
+    fallbackChatListener = null;
     var registry = getCustomScreenRegistry();
     if (registry != null) {
       registry.freeze();

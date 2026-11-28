@@ -2,6 +2,7 @@ package dev.cyr1en.promptpaper.execution.dispatch;
 
 import dev.cyr1en.promptpaper.custom.PlayerExecutor;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import org.bukkit.entity.Player;
 
 /** Immutable request parameters for executing a primary prompt command. */
@@ -11,10 +12,22 @@ public record PrimaryDispatchRequest(
     DispatchMode mode,
     PermissionAttachmentContext attachmentContext,
     PlayerExecutor initiatorExecutor,
-    String sourceId) {
+    String sourceId,
+    BooleanSupplier canDispatch) {
+  public PrimaryDispatchRequest(
+      Player player,
+      String command,
+      DispatchMode mode,
+      PermissionAttachmentContext attachmentContext,
+      PlayerExecutor initiatorExecutor,
+      String sourceId) {
+    this(player, command, mode, attachmentContext, initiatorExecutor, sourceId, () -> true);
+  }
+
   public PrimaryDispatchRequest {
     Objects.requireNonNull(player, "player must not be null");
     Objects.requireNonNull(command, "command must not be null");
+    Objects.requireNonNull(canDispatch, "canDispatch must not be null");
     if (mode == null) {
       mode = DispatchMode.PLAYER;
     }

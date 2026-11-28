@@ -36,15 +36,14 @@ public final class PlayerInteractionLeaseRegistry {
    *
    * @param player the player UUID to lease
    * @param executionId the execution acquiring the lease
-   * @param ttl lease duration
+   * @param ttl optional lease duration, or null to hold until explicitly released
    * @return optional containing the lease if acquired, or empty if rejected due to collision
    */
   public synchronized Optional<PlayerInteractionLease> acquire(
       UUID player, ExecutionId executionId, Duration ttl) {
     Objects.requireNonNull(player, "player must not be null");
     Objects.requireNonNull(executionId, "executionId must not be null");
-    Objects.requireNonNull(ttl, "ttl must not be null");
-    if (ttl.isNegative() || ttl.isZero()) {
+    if (ttl != null && (ttl.isNegative() || ttl.isZero())) {
       throw new IllegalArgumentException("ttl must be positive");
     }
 
@@ -60,8 +59,9 @@ public final class PlayerInteractionLeaseRegistry {
       }
     }
 
+    Instant expiresAt = ttl != null ? now.plus(ttl) : null;
     PlayerInteractionLease lease =
-        PlayerInteractionLease.forApproval(player, executionId, now, now.plus(ttl));
+        PlayerInteractionLease.forApproval(player, executionId, now, expiresAt);
     leases.put(player, lease);
     return Optional.of(lease);
   }

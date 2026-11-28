@@ -17,10 +17,30 @@ public class ChatPromptListener implements Listener {
 
   private final CommandPrompter plugin;
   private final ScreenManager screenManager;
+  private EventPriority registeredPriority;
 
   public ChatPromptListener(CommandPrompter plugin, ScreenManager screenManager) {
     this.plugin = plugin;
     this.screenManager = screenManager;
+  }
+
+  /** Registers the Bukkit chat handler at the current configured priority. */
+  public void refreshRegistration() {
+    var priority = resolvePriority();
+    if (priority == registeredPriority) return;
+
+    if (registeredPriority != null) AsyncChatEvent.getHandlerList().unregister(this);
+    plugin
+        .getServer()
+        .getPluginManager()
+        .registerEvent(
+            AsyncChatEvent.class,
+            this,
+            priority,
+            (registeredListener, event) -> onPlayerChat((AsyncChatEvent) event),
+            plugin,
+            false);
+    registeredPriority = priority;
   }
 
   /**

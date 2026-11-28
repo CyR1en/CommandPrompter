@@ -34,9 +34,11 @@ import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import dev.cyr1en.promptpaper.preset.TrustedPresetAction;
 import dev.cyr1en.promptpaper.screen.ScreenManager;
 import dev.cyr1en.promptpaper.util.CancellableTask;
+import dev.cyr1en.promptpaper.util.Scheduler;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("Phase 5.5 PostActionRunner Lifecycle Integration Tests")
 class PostActionLifecycleIntegrationTest extends MockBukkitTest {
@@ -159,6 +163,62 @@ class PostActionLifecycleIntegrationTest extends MockBukkitTest {
           }
         };
     server.getCommandMap().register("test", cmd);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void cancellationDropsQueuedConsoleDispatch(boolean consolePrimary) {
+    var player = createPlayer();
+    player.setOp(true);
+    var consoleTasks = new ArrayDeque<Runnable>();
+    var consoleScheduler = mock(Scheduler.class);
+    doAnswer(
+            invocation -> {
+              consoleTasks.add(invocation.getArgument(0));
+              return null;
+            })
+        .when(consoleScheduler)
+        .runSync(any(Runnable.class));
+    var coordinator =
+        new ExecutionCoordinator(
+            plugin,
+            engine,
+            registry,
+            new PaperPrimaryCommandDispatcher(plugin, consoleScheduler),
+            new PaperImmediateActionDispatcher(plugin, consoleScheduler),
+            null,
+            p -> (task, retired) -> task.run());
+
+    presetPostCommands.put(
+        "reward",
+        new PostCommand("reward", "eco reward", ExecutionPolicy.ON_COMPLETE, ExecuteAs.CONSOLE, 0));
+    var postCommands =
+        consolePrimary
+            ? List.<PostCommandMeta>of()
+            : List.of(
+                new PostCommandMeta("reward", new int[0], 0, false, DispatchTarget.CONSOLE, true));
+    var result = new SessionResult("goodcmd", List.of(), postCommands, List.of());
+    var completion =
+        InputCompletion.of(
+            player.getUniqueId(),
+            1L,
+            1L,
+            result,
+            null,
+            currentSnapshot(),
+            consolePrimary ? DispatchContextSnapshot.console() : DispatchContextSnapshot.player(),
+            postCommands);
+
+    var instance = coordinator.coordinate(player, completion, result).orElseThrow();
+    var expectedCommands = consolePrimary ? List.<String>of() : List.of("goodcmd");
+    assertEquals(expectedCommands, dispatchedCommands);
+    assertEquals(1, consoleTasks.size());
+
+    assertTrue(coordinator.cancel(player.getUniqueId()));
+    consoleTasks.remove().run();
+
+    assertEquals(expectedCommands, dispatchedCommands);
+    assertEquals(ExecutionStage.CANCELLED, instance.getStage());
   }
 
   @Test
