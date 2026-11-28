@@ -63,8 +63,8 @@ public abstract class Gui {
   }
 
   /**
-   * Opens this GUI for the given player. Caches the player's inventory first, then opens the
-   * inventory. Subclasses must call {@code super.show(humanEntity)} after preparing the inventory.
+   * Opens this GUI for the given player, caching their inventory when the GUI uses it. Subclasses
+   * must call {@code super.show(humanEntity)} after preparing the inventory.
    */
   public void show(@NotNull HumanEntity humanEntity) {
     Inventory target = inventory;
@@ -109,7 +109,7 @@ public abstract class Gui {
     }
   }
 
-  /** Closes preceding menus before caching inventory, including items returned on close. */
+  /** Closes preceding menus and caches the player's inventory if this GUI renders it. */
   public boolean prepareOpen(@NotNull HumanEntity humanEntity) {
     Set<Gui> closed = new HashSet<>();
     Set<Inventory> closedInventories = new HashSet<>();
@@ -133,13 +133,14 @@ public abstract class Gui {
     }
     // A close callback can open a GUI that the enclosing platform close then displaces.
     for (Gui gui : getActiveGuis()) {
-      if (gui != this && gui.humanEntityCache.contains(humanEntity)) {
+      if (gui != this
+          && (gui.isViewer(humanEntity) || gui.humanEntityCache.contains(humanEntity))) {
         gui.humanEntityCache.restoreAndForget(humanEntity);
         gui.removeViewer(humanEntity);
         removeInventoryIfUnused(gui);
       }
     }
-    return humanEntityCache.storeAndClear(humanEntity);
+    return isPlayerInventoryUsed() && humanEntityCache.storeAndClear(humanEntity);
   }
 
   /** Updates the GUI contents. Called before showing and when dirty. */
