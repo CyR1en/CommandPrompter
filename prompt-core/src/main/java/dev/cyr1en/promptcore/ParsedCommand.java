@@ -168,6 +168,20 @@ public record ParsedCommand(
     return postCmds.stream().filter(PostCommandMeta::onCancel).toList();
   }
 
+  /** Returns the primary command text between parsed tags, in source order. */
+  public List<String> primaryTemplateFragments() {
+    if (templateSpans.isEmpty()) return List.of(templateCommand);
+
+    var fragments = new ArrayList<String>(templateSpans.size() + 1);
+    int cursor = 0;
+    for (var span : templateSpans) {
+      fragments.add(unescape(rawTemplateCommand.substring(cursor, span.start()), parserConfig));
+      cursor = span.end();
+    }
+    fragments.add(unescape(rawTemplateCommand.substring(cursor), parserConfig));
+    return List.copyOf(fragments);
+  }
+
   /**
    * Build a "partial command" string suitable for Brigadier parsing at the current prompt position.
    *

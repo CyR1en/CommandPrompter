@@ -480,8 +480,7 @@ class CommandLineParserTest {
   }
 
   @Test
-  void unifiedDialogForm_deprecationWarningFiresForLegacyForm() {
-    // Deprecation warning fires for legacy form.
+  void unifiedDialogForm_deprecationWarningFiresOnceForDistinctLegacyTags() {
     var logger = java.util.logging.Logger.getLogger(CommandLineParser.class.getName());
     var captured = new java.util.ArrayList<java.util.logging.LogRecord>();
     var handler =
@@ -500,17 +499,19 @@ class CommandLineParserTest {
     logger.addHandler(handler);
     try {
       parser.parse("/test <d:Title bool>");
+      parser.parse("/test <d:Another title num>");
     } finally {
       logger.removeHandler(handler);
     }
-    assertTrue(
+    assertEquals(
+        1,
         captured.stream()
-            .anyMatch(
+            .filter(
                 r ->
                     r.getLevel() == java.util.logging.Level.WARNING
                         && r.getMessage() != null
-                        && r.getMessage().contains("trailing-kind")),
-        "Expected a deprecation warning for legacy trailing-kind form");
+                        && r.getMessage().contains("trailing-kind"))
+            .count());
   }
 
   @Test
@@ -730,6 +731,50 @@ class CommandLineParserTest {
 
     assertEquals("hello@console", pcm.command());
     assertEquals(DispatchTarget.PASSTHROUGH, pcm.dispatchTarget());
+  }
+
+  @Test
+  void pcmTargetIgnoresQuotedAndEscapedText() {
+    var command = "tell someone \"hello \\\" @console there\" \\@console";
+    var literal = parser.parse("/say <> <! " + command + ">").postCmds().getFirst();
+    assertEquals(command, literal.command());
+    assertEquals(DispatchTarget.PASSTHROUGH, literal.dispatchTarget());
+
+    var targeted = parser.parse("/say <> <! " + command + " @player>").postCmds().getFirst();
+    assertEquals(command, targeted.command());
+    assertEquals(DispatchTarget.PLAYER, targeted.dispatchTarget());
+  }
+
+  @Test
+  void compoundDialogPreservesQuotedColonsAndBracketedFilters() {
+    var rows =
+        parser
+            .parse("/say <d:\"Time: now\" && d:choice[a:b,c]:Other>")
+            .promptTags()
+            .getFirst()
+            .subTags();
+
+    assertNull(rows.getFirst().filter());
+    assertEquals("\"Time: now\"", rows.getFirst().displayText());
+    assertEquals("choice[a:b,c]", rows.get(1).filter());
+    assertEquals("Other", rows.get(1).displayText());
+  }
+
+  @Test
+  void compoundDialogPreservesFiltersOnPaddedRowKeys() {
+    var rows =
+        parser
+            .parse("/say <d:text:Name && d :body:Instructions && d :num[0,9]:Count>")
+            .promptTags()
+            .getFirst()
+            .subTags();
+
+    assertEquals("d", rows.get(1).key());
+    assertEquals("body", rows.get(1).filter());
+    assertEquals("Instructions", rows.get(1).displayText());
+    assertEquals("d", rows.get(2).key());
+    assertEquals("num[0,9]", rows.get(2).filter());
+    assertEquals("Count", rows.get(2).displayText());
   }
 
   @Test
@@ -1113,6 +1158,21 @@ class CommandLineParserTest {
         dev.cyr1en.promptcore.ConfirmationGrammar.parse(parsed.promptTags().getFirst())
             .promptText());
     assertEquals("Next", parsed.promptTags().get(1).displayText());
+  }
+
+  @Test
+  void confirmationAndItemGrammarsReceiveOriginalEscapes() {
+    var tags = parser.parse("/say <c:\"Path C:\\\\\"> <i:\"Path C:\\\\\">").promptTags();
+    assertEquals("Path C:\\", ConfirmationGrammar.parse(tags.getFirst()).promptText());
+    assertEquals("Path C:\\", ItemGrammar.parse(tags.getLast()).promptText());
+    assertEquals("\"Path C:\\\"", tags.getFirst().displayText());
+  }
+
+  @Test
+  void confirmationStillUnescapesCustomTagDelimiters() {
+    var customParser = new CommandLineParser(new ParserConfig("[[", "]]", "%%"));
+    var tag = customParser.parse("/say [[c:Confirm %%]] suffix]]").promptTags().getFirst();
+    assertEquals("Confirm ]] suffix", ConfirmationGrammar.parse(tag).promptText());
   }
 
   @Test

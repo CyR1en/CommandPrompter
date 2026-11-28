@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.parser.CommandLineParser;
+import dev.cyr1en.promptpaper.config.ScreenType;
 import dev.cyr1en.promptpaper.config.sub.DialogConfig;
 import dev.cyr1en.promptpaper.preset.*;
 import java.util.Map;
@@ -15,7 +16,13 @@ class InlinePresetConversionTest {
     var definition =
         InlineTagMapper.toPromptDefinition(
             tag,
-            Map.of("ask", dev.cyr1en.promptpaper.config.ScreenType.CHAT),
+            Map.of(
+                "ask",
+                ScreenType.CHAT,
+                "approve",
+                ScreenType.CONFIRMATION,
+                "pick",
+                ScreenType.ITEM),
             "saved",
             DialogConfig.legacy("Configured title", "Confirm", "Yes", "Cancel", "No"));
     var gson = PresetGson.presetGson();
@@ -47,6 +54,19 @@ class InlinePresetConversionTest {
                 "item")
             .entrySet()) {
       assertEquals(entry.getValue(), convert(entry.getKey()).type());
+    }
+  }
+
+  @Test
+  void confirmationAndItemPreserveTrailingBackslashInQuotedText() {
+    for (var key : java.util.List.of("i", "pick")) {
+      var item = assertInstanceOf(ItemPrompt.class, convert("<" + key + ":\"Path C:\\\\\">"));
+      assertEquals("Path C:\\", item.promptText());
+    }
+    for (var key : java.util.List.of("c", "confirm", "confirmation", "approve")) {
+      var confirmation =
+          assertInstanceOf(ConfirmationPrompt.class, convert("<" + key + ":\"Path C:\\\\\">"));
+      assertEquals("Path C:\\", confirmation.promptText());
     }
   }
 
