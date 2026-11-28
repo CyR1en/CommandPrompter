@@ -825,8 +825,6 @@ public class PromptEngine {
       lastInterceptResults.remove(uuid);
       if (cancelledIncarnation.get() >= 0) {
         getEffectiveLeaseRegistry().releasePromptIfExact(uuid, cancelledIncarnation.get());
-      } else {
-        getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
       }
       var coordinator = getExecutionCoordinator();
       if (coordinator != null) {
@@ -945,8 +943,6 @@ public class PromptEngine {
       lastInterceptResults.remove(uuid);
       if (s != null) {
         getEffectiveLeaseRegistry().releasePromptIfExact(uuid, s.incarnation());
-      } else {
-        getEffectiveLeaseRegistry().releaseAllForPlayer(uuid);
       }
     }
   }

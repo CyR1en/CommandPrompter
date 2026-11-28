@@ -44,6 +44,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -2450,7 +2453,7 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
   void testRepeatedSequentialGatesRetainClaimBetweenOutcomesAndReleaseAfterFinal() {
     Player initiator = createPlayer("Alice");
     Player approver = createPlayer("Bob");
-    Player secondApprover = createPlayer("Charlie");
+    var secondApprover = createPlayer("Charlie");
     Instant start = leaseClock.instant();
 
     ApprovalGateDefinition gate1 =
@@ -2509,6 +2512,22 @@ class ApprovalCoordinatorIntegrationTest extends MockBukkitTest {
     ApprovalCapability cap1 = capabilityRegistry.getByTarget(approver.getUniqueId()).orElseThrow();
     assertEquals("g1", cap1.gateId());
     assertTrue(leaseRegistry.isLeased(approver.getUniqueId()));
+
+    doCallRealMethod().when(plugin).onPlayerQuit(any(PlayerQuitEvent.class));
+    server
+        .getPluginManager()
+        .registerEvent(
+            PlayerQuitEvent.class,
+            plugin,
+            EventPriority.NORMAL,
+            (listener, event) -> plugin.onPlayerQuit((PlayerQuitEvent) event),
+            plugin);
+    try {
+      assertTrue(secondApprover.disconnect());
+      assertTrue(secondApprover.reconnect());
+    } finally {
+      PlayerQuitEvent.getHandlerList().unregister((Listener) plugin);
+    }
 
     // Bob confirms Gate 1
     responseCommand.executeResponse(approver, cap1.nonce(), "confirm");
