@@ -1,6 +1,8 @@
 package dev.cyr1en.promptpaper.custom;
 
 import dev.cyr1en.promptui.api.PromptScreenFactory;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -14,6 +16,8 @@ import java.util.function.Supplier;
  * lifecycle teardown share a single per-token lifecycle gate.
  */
 public final class CustomScreenToken implements CustomScreenHandle {
+
+  private static final ThreadLocal<List<Runnable>> PENDING_CALLBACKS = new ThreadLocal<>();
 
   private final Object gate = new Object();
   private final long providerId;
@@ -70,33 +74,44 @@ public final class CustomScreenToken implements CustomScreenHandle {
 
   @Override
   public boolean runIfActive(Runnable action) {
-    synchronized (gate) {
-      if (state != ProviderState.ACTIVE) {
-        return false;
-      }
-      action.run();
-      return true;
-    }
+    return callIfActive(
+            () -> {
+              action.run();
+              return true;
+            })
+        .isPresent();
+  }
+
+  static void afterInvocation(Runnable callback) {
+    var callbacks = PENDING_CALLBACKS.get();
+    if (callbacks == null) callback.run();
+    else callbacks.add(callback);
   }
 
   @Override
   public <T> Optional<T> callIfActive(Supplier<T> action) {
-    synchronized (gate) {
-      if (state != ProviderState.ACTIVE) {
-        return Optional.empty();
+    var callbacks = PENDING_CALLBACKS.get();
+    boolean outermost = callbacks == null;
+    if (outermost) {
+      callbacks = new ArrayList<>();
+      PENDING_CALLBACKS.set(callbacks);
+    }
+    try {
+      synchronized (gate) {
+        return state == ProviderState.ACTIVE ? Optional.ofNullable(action.get()) : Optional.empty();
       }
-      return Optional.ofNullable(action.get());
+    } finally {
+      if (outermost) {
+        // A host callback can open another provider's screen on the same region.
+        PENDING_CALLBACKS.remove();
+        callbacks.forEach(Runnable::run);
+      }
     }
   }
 
   @Override
   public <T> Optional<T> invokeFactory(Function<PromptScreenFactory, T> action) {
-    synchronized (gate) {
-      if (state != ProviderState.ACTIVE || factory == null) {
-        return Optional.empty();
-      }
-      return Optional.ofNullable(action.apply(factory));
-    }
+    return callIfActive(() -> action.apply(factory));
   }
 
   /**

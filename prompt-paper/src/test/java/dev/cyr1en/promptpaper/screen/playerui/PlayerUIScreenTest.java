@@ -2,10 +2,14 @@ package dev.cyr1en.promptpaper.screen.playerui;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,24 +18,37 @@ import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.hook.HookContainer;
 import dev.cyr1en.promptpaper.hook.hooks.FilterHook;
+import dev.cyr1en.promptpaper.hook.hooks.GeyserHook;
 import dev.cyr1en.promptpaper.hook.hooks.VanishHook;
 import dev.cyr1en.promptpaper.preset.PlayerUiPrompt;
 import dev.cyr1en.promptpaper.preset.UIButton;
 import dev.cyr1en.promptpaper.testutil.TestPlayerMock;
 import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.AnvilItemPresentation;
 import dev.cyr1en.promptui.ScreenProvider;
 import dev.cyr1en.promptui.ScreenResult;
+import dev.cyr1en.promptui.gui.Gui;
 import dev.cyr1en.promptui.gui.GuiItem;
+import dev.cyr1en.promptui.gui.GuiListener;
 import dev.cyr1en.promptui.pane.StaticPane;
+import dev.cyr1en.promptui.util.BedrockUtil;
+import io.papermc.paper.chat.ChatRenderer;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import io.papermc.paper.threadedregions.scheduler.EntityScheduler;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import net.kyori.adventure.chat.SignedMessage;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -39,12 +56,17 @@ import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 
 class PlayerUIScreenTest extends MockBukkitTest {
 
@@ -52,9 +74,21 @@ class PlayerUIScreenTest extends MockBukkitTest {
   private PlayerUIScreen screen;
   private AtomicReference<ScreenResult> resultRef;
   private org.bukkit.entity.Player player;
+  private MockedStatic<Bukkit> bukkit;
 
   @BeforeEach
   void setUpPlayerUI() {
+    // MockBukkit implements chest creation only for legacy titles.
+    bukkit = mockStatic(Bukkit.class, CALLS_REAL_METHODS);
+    bukkit
+        .when(
+            () ->
+                Bukkit.createInventory(any(InventoryHolder.class), anyInt(), any(Component.class)))
+        .thenAnswer(
+            call ->
+                server.createInventory(
+                    call.<InventoryHolder>getArgument(0), call.<Integer>getArgument(1)));
+    new GuiListener(plugin);
     player = createPlayer("TestPlayer");
     tag = new PromptTag("<p:Choose>", "p", null, "Choose");
 
@@ -98,6 +132,12 @@ class PlayerUIScreenTest extends MockBukkitTest {
     screen.onResult(resultRef::set);
   }
 
+  @AfterEach
+  void clearPlayerUiTestState() {
+    Gui.clearRegistry();
+    bukkit.close();
+  }
+
   @Test
   void constructorStoresTag() {
     assertNotNull(screen);
@@ -126,9 +166,6 @@ class PlayerUIScreenTest extends MockBukkitTest {
   /**
    * Regression test for the vanish leak: a filtered prompt must never display a head for a player
    * hidden by a vanish plugin, and the vanished player must not enter the head cache.
-   *
-   * <p>{@link #getFilteredHeads()} is invoked reflectively because MockBukkit cannot create the
-   * chest inventory used by {@link ChestGui}.
    */
   @Test
   void filteredPromptExcludesVanishedPlayers() throws Exception {
@@ -273,18 +310,8 @@ class PlayerUIScreenTest extends MockBukkitTest {
 
     var searchScreen = new PlayerUIScreen(plugin, player, tag, null, List.of(provider));
 
-    // Populate the private currentHeads from the (fresh-from-Bukkit) head list.
-    var getFilteredHeads = PlayerUIScreen.class.getDeclaredMethod("getFilteredHeads");
-    getFilteredHeads.setAccessible(true);
-    @SuppressWarnings("unchecked")
-    var heads = (List<ItemStack>) getFilteredHeads.invoke(searchScreen);
-    var currentHeadsField = PlayerUIScreen.class.getDeclaredField("currentHeads");
-    currentHeadsField.setAccessible(true);
-    currentHeadsField.set(searchScreen, heads);
-
-    var startSearch = PlayerUIScreen.class.getDeclaredMethod("startSearch");
-    startSearch.setAccessible(true);
-    startSearch.invoke(searchScreen);
+    searchScreen.open();
+    startSearch(searchScreen);
 
     verify(anvilScreen).configure(configCaptor.capture());
     var config = configCaptor.getValue();
@@ -303,11 +330,9 @@ class PlayerUIScreenTest extends MockBukkitTest {
     onResult.accept(ScreenResult.answer("near"));
     performOneTick();
 
-    @SuppressWarnings("unchecked")
-    var currentHeads = (List<ItemStack>) currentHeadsField.get(searchScreen);
     assertEquals(
         List.of("Nearby"),
-        owningPlayerNames(currentHeads),
+        displayedPlayers(player),
         "the anvil search term must filter the displayed heads case-insensitively");
   }
 
@@ -323,17 +348,8 @@ class PlayerUIScreenTest extends MockBukkitTest {
 
     var searchScreen = new PlayerUIScreen(plugin, player, tag, null, List.of());
 
-    var getFilteredHeads = PlayerUIScreen.class.getDeclaredMethod("getFilteredHeads");
-    getFilteredHeads.setAccessible(true);
-    @SuppressWarnings("unchecked")
-    var heads = (List<ItemStack>) getFilteredHeads.invoke(searchScreen);
-    var currentHeadsField = PlayerUIScreen.class.getDeclaredField("currentHeads");
-    currentHeadsField.setAccessible(true);
-    currentHeadsField.set(searchScreen, heads);
-
-    var startSearch = PlayerUIScreen.class.getDeclaredMethod("startSearch");
-    startSearch.setAccessible(true);
-    startSearch.invoke(searchScreen);
+    searchScreen.open();
+    startSearch(searchScreen);
 
     String instruction = ((org.mockbukkit.mockbukkit.entity.PlayerMock) player).nextMessage();
     assertNotNull(instruction, "chat fallback must send the search instruction");
@@ -342,15 +358,200 @@ class PlayerUIScreenTest extends MockBukkitTest {
         "chat fallback message should mention search, was: " + instruction);
     verify(i18n).get(eq("player_ui.search_instruction"), same(player));
 
-    player.chat("near");
-    server.getScheduler().waitAsyncEventsFinished();
+    chat(player, "near");
 
-    @SuppressWarnings("unchecked")
-    var currentHeads = (List<ItemStack>) currentHeadsField.get(searchScreen);
     assertEquals(
         List.of("Nearby"),
-        owningPlayerNames(currentHeads),
+        displayedPlayers(player),
         "the chat search term must filter the displayed heads case-insensitively");
+  }
+
+  @Test
+  void closingPlayerUiCancelsPendingSearchAnvilOpen() throws Exception {
+    var anvil = mock(AnvilInputScreen.class);
+    var pendingOpen = server.getScheduler().runTask(plugin, () -> fail("orphaned anvil opened"));
+    doAnswer(
+            call -> {
+              pendingOpen.cancel();
+              return null;
+            })
+        .when(anvil)
+        .close();
+    var searchScreen = screenWithAnvil(anvil);
+    searchScreen.open();
+    startSearch(searchScreen);
+    verify(anvil).open();
+
+    searchScreen.close();
+
+    verify(anvil).close();
+    assertTrue(pendingOpen.isCancelled());
+  }
+
+  @Test
+  void chatSearchQueuesOnlyTheFirstMessage() throws Exception {
+    var queued = new ArrayDeque<Consumer<ScheduledTask>>();
+    var entityScheduler = mock(EntityScheduler.class);
+    var scheduled = mock(ScheduledTask.class);
+    when(entityScheduler.run(eq(plugin), any(), any()))
+        .thenAnswer(
+            call -> {
+              queued.add(call.getArgument(1));
+              return scheduled;
+            });
+    var searching =
+        new TestPlayerMock(server, "Searcher") {
+          @Override
+          public EntityScheduler getScheduler() {
+            return entityScheduler;
+          }
+        };
+    server.addPlayer(searching);
+    stubRealCacheWithBuiltins();
+    createPlayer("Nearby");
+    createPlayer("Other");
+    var searchScreen = new PlayerUIScreen(plugin, searching, tag, null, List.of());
+    searchScreen.open();
+    startSearch(searchScreen);
+
+    chat(searching, "near");
+    chat(searching, "other");
+
+    assertEquals(1, queued.size());
+    queued.remove().accept(scheduled);
+    assertEquals(List.of("Nearby"), displayedPlayers(searching));
+  }
+
+  @Test
+  void replacingChestDoesNotDeliverExitFromPreviousChest() {
+    screen.open();
+
+    screen.open();
+
+    assertNull(resultRef.get());
+    player.closeInventory();
+    assertTrue(resultRef.get().cancelled());
+  }
+
+  @Test
+  void searchRebuildsFromOnlineEligiblePlayersForEveryQuery() throws Exception {
+    stubRealCacheWithBuiltins();
+    var vanish = mock(VanishHook.class);
+    when(plugin.getHookContainer().getFirstHooked(VanishHook.class))
+        .thenReturn(Optional.of(vanish));
+    var ghost = createPlayer("OldGhost");
+    var offline = createPlayer("OldOffline");
+    createPlayer("NewTarget");
+    screen.open();
+    assertTrue(displayedPlayers(player).containsAll(List.of("OldGhost", "OldOffline")));
+
+    startSearch(screen);
+    when(vanish.isInvisible(ghost)).thenReturn(true);
+    offline.disconnect();
+    createPlayer("OldVisible");
+    chat(player, "old");
+    assertEquals(List.of("OldVisible"), displayedPlayers(player));
+
+    startSearch(screen);
+    chat(player, "new");
+    assertEquals(List.of("NewTarget"), displayedPlayers(player));
+  }
+
+  @Test
+  void staleHeadsCannotSelectVanishedOfflineOrFilteredPlayers() {
+    var cache = stubRealCacheWithBuiltins();
+    var vanish = mock(VanishHook.class);
+    when(plugin.getHookContainer().getFirstHooked(VanishHook.class))
+        .thenReturn(Optional.of(vanish));
+    var ghost = createPlayer("Ghost");
+    var offline = createPlayer("Offline");
+    var moving = createPlayer("Moving");
+    var heads =
+        List.of(ghost, offline, moving).stream()
+            .map(p -> cache.getHeadFor(p).orElseThrow())
+            .toList();
+    var filtered = buildFilteredScreen("r10");
+    filtered.onResult(resultRef::set);
+    filtered.open();
+
+    when(vanish.isInvisible(ghost)).thenReturn(true);
+    offline.disconnect();
+    teleportRelative(moving, 100, 0);
+
+    for (var head : heads) {
+      filtered.selectHead(head);
+      assertNull(resultRef.get());
+    }
+    assertTrue(filtered.isOpen());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void bedrockSearchUsesNativeRenameOrGeyserPresentation(boolean patched) throws Exception {
+    var hooks = mock(HookContainer.class);
+    var geyser = mock(GeyserHook.class);
+    var presentation = AnvilItemPresentation.IDENTITY;
+    when(plugin.getHookContainer()).thenReturn(hooks);
+    when(hooks.getHook(GeyserHook.class)).thenReturn(Optional.of(geyser));
+    when(geyser.isAnvilPatchEnabled()).thenReturn(patched);
+    lenient().when(geyser.itemPresentation()).thenReturn(presentation);
+    lenient().when(promptConfig.anvilResultItem()).thenReturn("PAPER");
+    var anvil = mock(AnvilInputScreen.class);
+    var searchScreen = screenWithAnvil(anvil);
+    BedrockUtil.setBedrockChecker(player.getUniqueId()::equals);
+    try {
+      startSearch(searchScreen);
+
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<Map<String, String>> config = ArgumentCaptor.forClass(Map.class);
+      verify(anvil).configure(config.capture());
+      assertEquals(Boolean.toString(patched), config.getValue().get("geyserAnvilPatch"));
+      assertEquals(Boolean.toString(patched), config.getValue().get("enableCancelItem"));
+      if (patched) {
+        assertEquals("NAME_TAG", config.getValue().get("anvilItem"));
+        verify(anvil).setItemPresentation(presentation);
+      } else {
+        assertEquals("PAPER", config.getValue().get("anvilItem"));
+        assertEquals("PAPER", config.getValue().get("anvilResultItem"));
+      }
+      verify(anvil).open();
+    } finally {
+      BedrockUtil.reset();
+    }
+  }
+
+  private PlayerUIScreen screenWithAnvil(AnvilInputScreen anvil) {
+    var provider = mock(ScreenProvider.class);
+    when(provider.createAnvil(any(), any(), any())).thenReturn(anvil);
+    return new PlayerUIScreen(plugin, player, tag, null, List.of(provider));
+  }
+
+  private static void startSearch(PlayerUIScreen screen) throws Exception {
+    var startSearch = PlayerUIScreen.class.getDeclaredMethod("startSearch");
+    startSearch.setAccessible(true);
+    startSearch.invoke(screen);
+  }
+
+  private static List<String> displayedPlayers(Player player) {
+    return owningPlayerNames(
+        Arrays.stream(player.getOpenInventory().getTopInventory().getContents())
+            .filter(Objects::nonNull)
+            .toList());
+  }
+
+  private void chat(Player player, String message) {
+    var text = Component.text(message);
+    server
+        .getPluginManager()
+        .callEvent(
+            new AsyncChatEvent(
+                false,
+                player,
+                Set.of(),
+                ChatRenderer.defaultRenderer(),
+                text,
+                text,
+                SignedMessage.system(message, null)));
   }
 
   /**
