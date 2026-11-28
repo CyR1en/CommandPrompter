@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -99,6 +100,7 @@ class ConfirmationGuiViewTest extends MockBukkitTest {
 
     assertTrue(clickEvent.isCancelled());
     assertEquals(Event.Result.DENY, clickEvent.getResult());
+    server.getScheduler().performOneTick();
     assertEquals(1, outcomeCount.get());
     assertInstanceOf(ConfirmationOutcome.Confirmed.class, outcomeRef.get());
     assertFalse(view.isOpen());
@@ -123,6 +125,7 @@ class ConfirmationGuiViewTest extends MockBukkitTest {
 
     assertTrue(clickEvent.isCancelled());
     assertEquals(Event.Result.DENY, clickEvent.getResult());
+    server.getScheduler().performOneTick();
     assertEquals(1, outcomeCount.get());
     assertInstanceOf(ConfirmationOutcome.Declined.class, outcomeRef.get());
     assertFalse(view.isOpen());
@@ -187,22 +190,40 @@ class ConfirmationGuiViewTest extends MockBukkitTest {
     view.close();
 
     assertFalse(view.isOpen());
-    assertFalse(view.isListenerRegistered());
+    assertTrue(view.isListenerRegistered());
     assertEquals(0, outcomeCount.get());
 
     // Closing the inventory on Bukkit side emits nothing
     var invView = player.getOpenInventory();
     var closeEvent = new InventoryCloseEvent(invView);
     server.getPluginManager().callEvent(closeEvent);
+    server.getScheduler().performOneTick();
     assertEquals(0, outcomeCount.get());
+    assertFalse(view.isListenerRegistered());
   }
 
   @Test
-  void duplicateClicksEmitOnlyOnce() {
+  void deferredCloseLeavesAnInventoryOpenedAfterCloseWasRequested() {
+    view.open(outcome -> fail("Programmatic close must not emit an outcome"));
+    view.close();
+    var replacement = Bukkit.createInventory(null, 9);
+    player.openInventory(replacement);
+
+    server.getScheduler().performOneTick();
+
+    assertSame(replacement, player.getOpenInventory().getTopInventory());
+    assertFalse(view.isListenerRegistered());
+  }
+
+  @Test
+  void terminalClickKeepsProtectionUntilCloseAndThenOpensNextInventory() {
+    var replacement = Bukkit.createInventory(null, 9);
     view.open(
         outcome -> {
-          outcomeRef.set(outcome);
+          assertNotEquals(view.getInventory(), player.getOpenInventory().getTopInventory());
+          assertFalse(view.isListenerRegistered());
           outcomeCount.incrementAndGet();
+          player.openInventory(replacement);
         });
     server.getScheduler().performOneTick();
 
@@ -217,7 +238,11 @@ class ConfirmationGuiViewTest extends MockBukkitTest {
     server.getPluginManager().callEvent(click1);
     server.getPluginManager().callEvent(click2);
 
+    assertTrue(click2.isCancelled());
+    assertEquals(0, outcomeCount.get());
+    server.getScheduler().performOneTick();
     assertEquals(1, outcomeCount.get());
+    assertSame(replacement, player.getOpenInventory().getTopInventory());
   }
 
   @Test

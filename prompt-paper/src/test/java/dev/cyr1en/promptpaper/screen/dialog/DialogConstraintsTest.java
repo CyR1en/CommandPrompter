@@ -1,6 +1,7 @@
 package dev.cyr1en.promptpaper.screen.dialog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.cyr1en.promptpaper.config.sub.DialogConfig;
@@ -11,6 +12,38 @@ class DialogConstraintsTest {
 
   private final DialogConfig defaults =
       DialogConfig.legacy("Title", "Confirm", "Tooltip", "Cancel", "Tooltip");
+
+  @Test
+  void submittedValuesMustMatchTheRenderedInputConstraints() {
+    var text = DialogConstraints.from("text[5,2]", defaults);
+    assertTrue(text.acceptsText("ab\ncd"));
+    assertFalse(text.acceptsText("abcdef"));
+    assertFalse(text.acceptsText("a\nb\nc"));
+    assertFalse(text.acceptsText(null));
+
+    var choice = DialogConstraints.from("choice[red, blue]", defaults);
+    assertTrue(choice.acceptsChoice("blue"));
+    assertFalse(choice.acceptsChoice(" blue"));
+    assertFalse(choice.acceptsChoice("green"));
+    assertFalse(choice.acceptsChoice(null));
+
+    var number = DialogConstraints.from("num[0,1,0.2,0.3]", defaults);
+    assertTrue(number.acceptsNumber(0.3f + 2 * 0.2f));
+    assertFalse(number.acceptsNumber(0.6f));
+    assertFalse(number.acceptsNumber(1.1f));
+    assertFalse(number.acceptsNumber(Float.NaN));
+    assertFalse(number.acceptsNumber(Float.POSITIVE_INFINITY));
+    assertFalse(number.acceptsNumber(null));
+  }
+
+  @Test
+  void acceptsRoundedMinecraftSliderEndpoint() {
+    var number = DialogConstraints.from("num[-1,0,0.1,-0.9]", defaults);
+
+    assertTrue(number.acceptsNumber(5.9604645e-8f));
+    assertFalse(number.acceptsNumber(0.1f));
+    assertFalse(number.acceptsNumber(1e-8f));
+  }
 
   @Test
   void emptyFilterUsesTextDefaults() {

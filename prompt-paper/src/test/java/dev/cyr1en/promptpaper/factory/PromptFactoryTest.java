@@ -891,7 +891,7 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(1), chatView.getTtl());
+    assertEquals(java.time.Duration.ofSeconds(4), chatView.getTtl());
   }
 
   @Test
@@ -909,7 +909,7 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(45), chatView.getTtl());
+    assertEquals(java.time.Duration.ofSeconds(180), chatView.getTtl());
   }
 
   @Test
@@ -940,11 +940,11 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(15), chatView.getTtl());
+    assertEquals(java.time.Duration.ofSeconds(60), chatView.getTtl());
   }
 
   @Test
-  void createConfirmation_globalTimeoutZero_capsTtlAt3600() {
+  void createConfirmation_globalTimeoutZero_usesDefaultCallbackLifetime() {
     Mockito.when(config.promptTimeout()).thenReturn(0);
     var preset =
         new ConfirmationPrompt(
@@ -971,11 +971,11 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(3600), chatView.getTtl());
+    assertEquals(net.kyori.adventure.text.event.ClickCallback.DEFAULT_LIFETIME, chatView.getTtl());
   }
 
   @Test
-  void createConfirmation_maxTimeout_capsTtlAt3600() {
+  void createConfirmation_maxTimeout_includesTickLagAllowance() {
     Mockito.when(config.promptTimeout()).thenReturn(3600);
     var preset =
         new ConfirmationPrompt(
@@ -1002,7 +1002,7 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(3600), chatView.getTtl());
+    assertEquals(java.time.Duration.ofHours(4), chatView.getTtl());
   }
 
   // ------------------------------------------------------------------

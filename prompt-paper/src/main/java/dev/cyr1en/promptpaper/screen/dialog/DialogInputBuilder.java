@@ -62,16 +62,10 @@ public final class DialogInputBuilder {
   public static DialogInput buildChoice(DialogConstraints c, Component label, String key) {
     var entries = new ArrayList<SingleOptionDialogInput.OptionEntry>();
     var first = true;
-    for (var option : c.options()) {
-      var trimmed = option.trim();
-      if (trimmed.isEmpty()) continue;
+    for (var option : c.choiceIds()) {
       // Set id as display label to keep parsed answer identical to selection.
-      entries.add(SingleOptionDialogInput.OptionEntry.create(trimmed, null, first));
+      entries.add(SingleOptionDialogInput.OptionEntry.create(option, null, first));
       first = false;
-    }
-    // Fallback to empty option if zero options supplied, avoiding client rejection.
-    if (entries.isEmpty()) {
-      entries.add(SingleOptionDialogInput.OptionEntry.create("", null, true));
     }
     return DialogInput.singleOption(key, label, List.copyOf(entries))
         .width(DEFAULT_WIDTH)

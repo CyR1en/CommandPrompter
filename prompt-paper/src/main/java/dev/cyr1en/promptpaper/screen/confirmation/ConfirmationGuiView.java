@@ -49,7 +49,7 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
   private Inventory inventory;
 
   private boolean open;
-  private boolean programmaticClose;
+  private boolean closeScheduled;
   private boolean listenerRegistered;
 
   public ConfirmationGuiView(Plugin plugin, Player player) {
@@ -68,9 +68,8 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
 
   @Override
   public synchronized void open(Consumer<ConfirmationOutcome> callback) {
-    if (open) return;
+    if (open || closeScheduled) return;
     this.callback = Objects.requireNonNull(callback, "callback must not be null");
-    this.programmaticClose = false;
 
     try {
       this.holder = new ConfirmationGuiHolder(this);
@@ -129,13 +128,8 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
 
   @Override
   public synchronized void close() {
-    if (!open) return;
-    this.open = false;
-    this.programmaticClose = true;
     this.callback = null;
-    unregisterListener();
-
-    player.getScheduler().run(plugin, task -> player.closeInventory(), null);
+    finishOnNextTick(null);
   }
 
   @Override
@@ -148,40 +142,41 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
     this.failureCallback = failureCallback;
   }
 
-  private void handleConfirm() {
-    Consumer<ConfirmationOutcome> cb = null;
-    synchronized (this) {
-      if (!open) return;
-      this.open = false;
-      this.programmaticClose = true;
-      unregisterListener();
-      cb = this.callback;
-      this.callback = null;
-    }
+  private synchronized void finishOnNextTick(ConfirmationOutcome outcome) {
+    if (!open) return;
+    open = false;
+    closeScheduled = true;
 
-    player.getScheduler().run(plugin, task -> player.closeInventory(), null);
-
-    if (cb != null) {
-      cb.accept(ConfirmationOutcome.confirmed());
+    var task =
+        player
+            .getScheduler()
+            .runDelayed(
+                plugin,
+                scheduled -> {
+                  Consumer<ConfirmationOutcome> cb;
+                  synchronized (this) {
+                    try {
+                      if (isMatchingInventory(player.getOpenInventory(), null, player)) {
+                        player.closeInventory();
+                      }
+                      cb = callback;
+                    } finally {
+                      clearPendingClose();
+                    }
+                  }
+                  if (cb != null && outcome != null) cb.accept(outcome);
+                },
+                this::clearPendingClose,
+                1L);
+    if (task == null) {
+      clearPendingClose();
     }
   }
 
-  private void handleDecline() {
-    Consumer<ConfirmationOutcome> cb = null;
-    synchronized (this) {
-      if (!open) return;
-      this.open = false;
-      this.programmaticClose = true;
-      unregisterListener();
-      cb = this.callback;
-      this.callback = null;
-    }
-
-    player.getScheduler().run(plugin, task -> player.closeInventory(), null);
-
-    if (cb != null) {
-      cb.accept(ConfirmationOutcome.declined());
-    }
+  private synchronized void clearPendingClose() {
+    closeScheduled = false;
+    callback = null;
+    unregisterListener();
   }
 
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -202,9 +197,9 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
     int slot = event.getSlot();
     if (event.getClick() == ClickType.LEFT || event.getClick() == ClickType.RIGHT) {
       if (slot == config.confirmSlot()) {
-        handleConfirm();
+        finishOnNextTick(ConfirmationOutcome.confirmed());
       } else if (slot == config.declineSlot()) {
-        handleDecline();
+        finishOnNextTick(ConfirmationOutcome.declined());
       }
     }
   }
@@ -223,10 +218,7 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
 
     Consumer<ConfirmationOutcome> cb = null;
     synchronized (this) {
-      if (!open || programmaticClose) {
-        unregisterListener();
-        return;
-      }
+      if (!open) return;
       this.open = false;
       unregisterListener();
       cb = this.callback;
@@ -245,11 +237,11 @@ public class ConfirmationGuiView implements ConfirmationView, Listener {
     Consumer<ConfirmationOutcome> cb = null;
     synchronized (this) {
       if (!open) {
+        this.callback = null;
         unregisterListener();
         return;
       }
       this.open = false;
-      this.programmaticClose = true;
       unregisterListener();
       cb = this.callback;
       this.callback = null;

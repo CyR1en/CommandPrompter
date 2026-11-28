@@ -2,6 +2,7 @@ package dev.cyr1en.promptpaper.screen;
 
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptcore.i18n.Placeholder;
+import dev.cyr1en.promptcore.session.PromptSession;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
 import dev.cyr1en.promptpaper.config.sub.DialogConfig;
@@ -31,7 +32,6 @@ import io.papermc.paper.registry.data.dialog.DialogBase.DialogAfterAction;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -60,7 +60,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
   private final List<ActionButtonConfig> staticActions;
   private final MaterialMapper materialMapper;
 
-  private final PromptConfig promptConfig;
+  private final ClickCallback.Options clickOptions;
   private final DialogConfig dialogConfig;
   private final DialogCompletionContext context;
   private final TabCompletionService tabCompletionService;
@@ -108,7 +108,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
       }
     }
     this.customTitle = foundTitle;
-    this.promptConfig = promptConfig;
+    this.clickOptions = clickOptions(tag.timeout());
     this.dialogConfig = promptConfig.dialogConfig();
     this.context = context;
     this.tabCompletionService = new TabCompletionService();
@@ -144,7 +144,17 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     this.tag = null;
     this.rows = List.of();
     this.dialogPrompt = dialogPrompt;
-    this.promptConfig = promptConfig;
+    var presetTimeout = dialogPrompt.behavior() != null ? dialogPrompt.behavior().timeout() : null;
+    var engine = plugin.getEngine();
+    this.clickOptions =
+        clickOptions(
+            engine == null
+                ? presetTimeout
+                : engine
+                    .getSession(player)
+                    .flatMap(PromptSession::currentPrompt)
+                    .map(PromptTag::timeout)
+                    .orElse(presetTimeout));
     this.dialogConfig = promptConfig.dialogConfig();
     this.context = context;
     this.tabCompletionService = new TabCompletionService();
@@ -203,7 +213,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
               this::tabCompletions);
       effectiveAnswerCount = computePresetAnswerCount();
       openFromDialogPrompt();
-    } else if (kind == DialogInputKind.TAB && context != null && context.hasCompletions()) {
+    } else if (kind == DialogInputKind.TAB) {
       effectiveAnswerCount = 1;
       openTab();
     } else {
@@ -280,12 +290,12 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             "Opening d:tab prompt for "
                 + player.getName()
                 + " partial=\""
-                + context.partialCommand()
+                + (context != null ? context.partialCommand() : "")
                 + "\"");
 
     var constraints = DialogConstraints.from(rows.get(0).filter(), dialogConfig);
     int maxButtons = constraints.maxButtons();
-    var completions = tabCompletionService.complete(context.player(), context.partialCommand());
+    var completions = tabCompletions();
 
     plugin
         .getPluginLogger()
@@ -313,14 +323,11 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     var buttons = new ArrayList<ActionButton>(completions.size());
     for (var completion : completions) {
       var label = Component.text(completion);
-      var completionCaptured = completion;
       var button =
           ActionButton.builder(label)
               .tooltip(label)
               .width(DEFAULT_BUTTON_WIDTH)
-              .action(
-                  DialogAction.customClick(
-                      (view, audience) -> onTabClick(completionCaptured), clickOptions()))
+              .action(playerAction(view -> onTabClick(completion)))
               .build();
       buttons.add(button);
     }
@@ -336,22 +343,14 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
   }
 
   private void onTabClick(String completion) {
-    player
-        .getScheduler()
-        .run(
-            plugin,
-            scheduledTask -> {
-              if (!lifecycle.isOpen()) return;
-              plugin.getPluginLogger().debug("d:tab button clicked for " + player.getName());
-              finish(ScreenResult.answer(completion));
-            },
-            null);
+    plugin.getPluginLogger().debug("Tab button clicked for " + player.getName());
+    finish(ScreenResult.answer(completion));
   }
 
   private ActionButton buildExitButton() {
     return ActionButton.builder(ComponentUtil.mini(dialogConfig.cancel().label()))
         .tooltip(ComponentUtil.mini(dialogConfig.cancel().tooltip()))
-        .action(DialogAction.customClick((view, audience) -> onCancel(), clickOptions()))
+        .action(playerAction(view -> onCancel()))
         .build();
   }
 
@@ -366,51 +365,8 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
                 player,
                 Placeholder.of("count", String.valueOf(completionCount)));
     var label = Component.text(tag.displayText());
-    var textConstraints = DialogConstraints.from(null, dialogConfig);
-    var input = DialogInputBuilder.buildText(textConstraints, label, "answer");
-
-    var options = clickOptions();
-    var confirmBtn =
-        ActionButton.builder(ComponentUtil.mini(dialogConfig.confirm().label()))
-            .tooltip(ComponentUtil.mini(dialogConfig.confirm().tooltip()))
-            .action(
-                DialogAction.customClick((view, audience) -> onTabFallbackConfirm(view), options))
-            .build();
-    var cancelBtn =
-        ActionButton.builder(ComponentUtil.mini(dialogConfig.cancel().label()))
-            .tooltip(ComponentUtil.mini(dialogConfig.cancel().tooltip()))
-            .action(DialogAction.customClick((view, audience) -> onCancel(), options))
-            .build();
-
-    return Dialog.create(
-        factory ->
-            factory
-                .empty()
-                .base(
-                    promptBase(title)
-                        .body(List.of(DialogBody.plainMessage(notice)))
-                        .inputs(List.of(input))
-                        .build())
-                .type(
-                    io.papermc.paper.registry.data.dialog.type.DialogType.confirmation(
-                        confirmBtn, cancelBtn)));
-  }
-
-  private void onTabFallbackConfirm(DialogResponseView view) {
-    player
-        .getScheduler()
-        .run(
-            plugin,
-            scheduledTask -> {
-              if (!lifecycle.isOpen()) return;
-              var v = view.getText("answer");
-              if (v == null) v = "";
-              // Apply the same text-input sanitization as the standard path.
-              String answer = tag.sanitize() ? v : ComponentUtil.miniToLegacy(v);
-              plugin.getPluginLogger().debug("d:tab fallback confirmed for " + player.getName());
-              finish(ScreenResult.answer(answer));
-            },
-            null);
+    var input = DialogInputBuilder.buildText(DialogConstraints.from(null, dialogConfig), label);
+    return buildDialogWithButtons(title, List.of(DialogBody.plainMessage(notice)), List.of(input));
   }
 
   /** Returns the explicit inline or preset title, or the configured default. */
@@ -418,24 +374,42 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     return customTitle != null ? customTitle : dialogConfig.title();
   }
 
-  private static ClickCallback.Options clickOptions() {
-    return ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(5)).build();
+  private ClickCallback.Options clickOptions(Integer timeoutOverride) {
+    int timeout =
+        timeoutOverride != null
+            ? timeoutOverride
+            : plugin.getConfigLoader().getConfig().promptTimeout();
+    return DialogLifecycle.clickOptions(DialogLifecycle.responseLifetime(timeout));
+  }
+
+  private DialogAction playerAction(Consumer<DialogResponseView> action) {
+    return DialogAction.customClick(
+        (view, audience) -> {
+          if (!DialogLifecycle.isOwner(player, audience)) return;
+          player
+              .getScheduler()
+              .run(
+                  plugin,
+                  task -> {
+                    if (lifecycle.isOpen()) action.accept(view);
+                  },
+                  null);
+        },
+        clickOptions);
   }
 
   private Dialog buildDialogWithButtons(
       Component title, List<DialogBody> bodies, List<DialogInput> inputs) {
-    var options = clickOptions();
-
     var confirmBtn =
         ActionButton.builder(ComponentUtil.mini(dialogConfig.confirm().label()))
             .tooltip(ComponentUtil.mini(dialogConfig.confirm().tooltip()))
-            .action(DialogAction.customClick((view, audience) -> onConfirm(view), options))
+            .action(playerAction(this::onConfirm))
             .build();
 
     var cancelBtn =
         ActionButton.builder(ComponentUtil.mini(dialogConfig.cancel().label()))
             .tooltip(ComponentUtil.mini(dialogConfig.cancel().tooltip()))
-            .action(DialogAction.customClick((view, audience) -> onCancel(), options))
+            .action(playerAction(view -> onCancel()))
             .build();
 
     return Dialog.create(
@@ -474,26 +448,22 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     var inputs = new ArrayList<DialogInput>(rows.size());
     for (int i = 0; i < rows.size(); i++) {
       var row = rows.get(i);
-      var constraints = DialogConstraints.from(row.filter(), dialogConfig);
+      var constraints = constraintsForInlineRow(row);
       // Skip layout rows; keep indices aligned with subTags.
       if (constraints.kind() == DialogInputKind.TITLE || constraints.kind() == DialogInputKind.BODY)
         continue;
       var label = ComponentUtil.mini(row.displayText());
       var key = keyFor(i);
-      inputs.add(
-          switch (constraints.kind()) {
-            case NUMBER -> DialogInputBuilder.buildNumber(constraints, label, key);
-            case CHOICE -> DialogInputBuilder.buildChoice(constraints, label, key);
-            case TEXT -> DialogInputBuilder.buildText(constraints, label, key);
-            // TAB kind is handled separately in openTab().
-            case TAB ->
-                throw new UnsupportedOperationException(
-                    "TAB prompts must use the multiAction dialog flow, not buildInputs()");
-            // Unreachable: handled by the continue above.
-            case TITLE, BODY -> throw new UnsupportedOperationException("unreachable");
-          });
+      inputs.add(buildInput(constraints, label, key));
     }
     return inputs;
+  }
+
+  private DialogConstraints constraintsForInlineRow(PromptTag row) {
+    var constraints = DialogConstraints.from(row.filter(), dialogConfig);
+    return constraints.kind() == DialogInputKind.TAB
+        ? DialogConstraints.from(null, dialogConfig)
+        : constraints;
   }
 
   /**
@@ -506,87 +476,52 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
   }
 
   private void onConfirm(DialogResponseView view) {
-    // Switch to player scheduler as dialog callbacks fire on network thread.
-    player
-        .getScheduler()
-        .run(
-            plugin,
-            scheduledTask -> {
-              if (!lifecycle.isOpen()) return;
-              var answers = readAnswers(view);
-              plugin
-                  .getPluginLogger()
-                  .debug(
-                      "Dialog confirmed for "
-                          + player.getName()
-                          + " key="
-                          + tag.key()
-                          + " rows="
-                          + rows.size()
-                          + " answers="
-                          + answers.size());
-              finish(ScreenResult.answer(encodeAnswers(answers)));
-            },
-            null);
+    var answers = new ArrayList<String>(rows.size());
+    for (int i = 0; i < rows.size(); i++) {
+      var constraints = constraintsForInlineRow(rows.get(i));
+      if (!constraints.kind().isAnswerBearing()) continue;
+      var answer = readOneAnswer(view, constraints, keyFor(i));
+      if (answer == null) {
+        rejectResponse();
+        return;
+      }
+      answers.add(answer);
+    }
+    finish(ScreenResult.answer(encodeAnswers(answers)));
   }
 
   private void onCancel() {
-    player
-        .getScheduler()
-        .run(
-            plugin,
-            scheduledTask -> {
-              if (!lifecycle.isOpen()) return;
-              plugin.getPluginLogger().debug("Dialog cancelled for " + player.getName());
-              finish(ScreenResult.manualCancel());
-            },
-            null);
+    plugin.getPluginLogger().debug("Dialog cancelled for " + player.getName());
+    finish(ScreenResult.manualCancel());
   }
 
-  /**
-   * Reads one answer per answer-bearing row from the response view, coercing each to its expected
-   * type (number, choice, text). TITLE/BODY layout rows are kept for rendering but skipped here —
-   * they never produce answers, so they do not occupy answer or payload positions. Original UI
-   * input keys remain sparse (indexed by row position).
-   */
-  private List<String> readAnswers(DialogResponseView view) {
-    var answers = new ArrayList<String>(rows.size());
-    for (int i = 0; i < rows.size(); i++) {
-      var row = rows.get(i);
-      var constraints = DialogConstraints.from(row.filter(), dialogConfig);
-      if (!constraints.kind().isAnswerBearing()) continue;
-      var key = keyFor(i);
-      answers.add(readOneAnswer(view, constraints, key));
-    }
-    return answers;
+  private void rejectResponse() {
+    plugin.getPluginLogger().debug("Rejected invalid dialog response for " + player.getName());
+    finish(ScreenResult.error());
   }
 
-  private String readOneAnswer(DialogResponseView view, DialogConstraints c, String key) {
-    return switch (c.kind()) {
-      // TAB kind captures its answer via per-button lambdas and never
-      // reaches this method.
-      case TAB -> "";
-      // TITLE and BODY rows carry no input widget; they just provide layout.
-      case TITLE, BODY -> "";
+  private String readOneAnswer(DialogResponseView view, DialogConstraints constraints, String key) {
+    return switch (constraints.kind()) {
       case TEXT -> {
-        var v = view.getText(key);
-        if (v == null) yield "";
-        // Convert MiniMessage tags to legacy §X codes for downstream commands.
-        yield tag.sanitize() ? v : ComponentUtil.miniToLegacy(v);
+        var value = view.getText(key);
+        if (!constraints.acceptsText(value)) yield null;
+        var sanitize = tag != null ? tag.sanitize() : dialogPrompt.sanitize();
+        yield sanitize ? value : ComponentUtil.miniToLegacy(value);
       }
       case CHOICE -> {
-        // Choice id matches display label, so return the label.
-        var v = view.getText(key);
-        yield v == null ? "" : v;
+        var value = view.getText(key);
+        yield constraints.acceptsChoice(value) ? value : null;
       }
       case NUMBER -> {
-        var v = view.getFloat(key);
-        if (v == null) yield "0";
-        if (c.step() == 1.0f && v.floatValue() == Math.floor(v.floatValue())) {
-          yield Long.toString(v.longValue());
+        var value = view.getFloat(key);
+        if (!constraints.acceptsNumber(value)) yield null;
+        var bounded = Math.clamp(value, constraints.min(), constraints.max());
+        if ((dialogPrompt != null || constraints.step() == 1f) && Math.floor(bounded) == bounded) {
+          yield Long.toString((long) bounded);
         }
-        yield Float.toString(v);
+        yield Float.toString(bounded);
       }
+      case TAB, TITLE, BODY -> throw new IllegalArgumentException("Expected an input row");
     };
   }
 
@@ -677,7 +612,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
       var row = inputRows.get(i);
       var label = ComponentUtil.mini(row.label());
       var key = keyFor(i);
-      inputs.add(buildInputForRow(row, label, key));
+      inputs.add(buildInput(constraintsForPresetRow(row), label, key));
     }
     if (needsTabFallbackNotice()) {
       var fallbackLabel = ComponentUtil.mini(effectiveTitle());
@@ -689,20 +624,20 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     return List.copyOf(inputs);
   }
 
-  private DialogInput buildInputForRow(DialogRow row, Component label, String key) {
+  private DialogConstraints constraintsForPresetRow(DialogRow row) {
     return switch (row.inputType()) {
-      case TEXT -> {
-        var c = constraintsForTextRow(row);
-        yield DialogInputBuilder.buildText(c, label, key);
-      }
-      case NUMBER -> {
-        var c = constraintsForNumberRow(row);
-        yield DialogInputBuilder.buildNumber(c, label, key);
-      }
-      case CHOICE -> {
-        var c = constraintsForChoiceRow(row);
-        yield DialogInputBuilder.buildChoice(c, label, key);
-      }
+      case TEXT -> constraintsForTextRow(row);
+      case NUMBER -> constraintsForNumberRow(row);
+      case CHOICE -> constraintsForChoiceRow(row);
+    };
+  }
+
+  private DialogInput buildInput(DialogConstraints constraints, Component label, String key) {
+    return switch (constraints.kind()) {
+      case TEXT -> DialogInputBuilder.buildText(constraints, label, key);
+      case NUMBER -> DialogInputBuilder.buildNumber(constraints, label, key);
+      case CHOICE -> DialogInputBuilder.buildChoice(constraints, label, key);
+      case TAB, TITLE, BODY -> throw new IllegalArgumentException("Expected an input row");
     };
   }
 
@@ -780,7 +715,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
 
   /**
    * Translates the {@link DialogRow#constraints()} array for a {@code choice} row into a {@link
-   * DialogConstraints} record. The option ids default to the JSON constraint values verbatim.
+   * DialogConstraints} record. The option ids are trimmed by the input builder.
    */
   private DialogConstraints constraintsForChoiceRow(DialogRow row) {
     return new DialogConstraints(
@@ -946,7 +881,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
    * {@link ScreenResult#cancel()}.
    */
   private ActionButton buildCancelActionButton(ActionButtonConfig config) {
-    return buildViewConsumingButton(config, this::onCancelFromView);
+    return buildViewConsumingButton(config, view -> onCancel());
   }
 
   /**
@@ -955,27 +890,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
    * the main thread.
    */
   private ActionButton buildAnswerButton(ActionButtonConfig config, String answerValue) {
-    var label = ComponentUtil.mini(config.label());
-    var builder = ActionButton.builder(label);
-    if (config.tooltip() != null) {
-      builder = builder.tooltip(ComponentUtil.mini(config.tooltip()));
-    }
-    return builder
-        .width(DEFAULT_BUTTON_WIDTH)
-        .action(
-            DialogAction.customClick(
-                (view, audience) ->
-                    player
-                        .getScheduler()
-                        .run(
-                            plugin,
-                            scheduledTask -> {
-                              if (!lifecycle.isOpen()) return;
-                              finish(ScreenResult.answer(answerValue));
-                            },
-                            null),
-                clickOptions()))
-        .build();
+    return buildViewConsumingButton(config, view -> finish(ScreenResult.answer(answerValue)));
   }
 
   /**
@@ -990,14 +905,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     if (config.tooltip() != null) {
       builder = builder.tooltip(ComponentUtil.mini(config.tooltip()));
     }
-    return builder
-        .width(DEFAULT_BUTTON_WIDTH)
-        .action(
-            DialogAction.customClick(
-                (view, audience) ->
-                    player.getScheduler().run(plugin, scheduledTask -> onClick.accept(view), null),
-                clickOptions()))
-        .build();
+    return builder.width(DEFAULT_BUTTON_WIDTH).action(playerAction(onClick)).build();
   }
 
   /**
@@ -1009,8 +917,7 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
     return ActionButton.builder(label)
         .tooltip(label)
         .width(DEFAULT_BUTTON_WIDTH)
-        .action(
-            DialogAction.customClick((view, audience) -> onTabClick(completion), clickOptions()))
+        .action(playerAction(view -> onTabClick(completion)))
         .build();
   }
 
@@ -1052,78 +959,30 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
             Placeholder.of("count", String.valueOf(completions.size())));
   }
 
-  /**
-   * Click handler for the cancel-style buttons (cancel, exit). Called from the player scheduler.
-   */
-  private void onCancelFromView(DialogResponseView view) {
-    if (!lifecycle.isOpen()) return;
-    plugin.getPluginLogger().debug("Dialog cancelled (from view) for " + player.getName());
-    finish(ScreenResult.manualCancel());
-  }
-
-  /**
-   * Click handler for the confirm button in a multi-action / tab-fallback dialog. Reads the input
-   * values from the response view and submits the encoded answers.
-   */
+  /** Reads the configured preset rows and the injected fallback input, when present. */
   private void onMultiActionConfirm(DialogResponseView view) {
-    if (!lifecycle.isOpen()) return;
-    var answers = readAnswersFromDialogPrompt(view);
-    plugin
-        .getPluginLogger()
-        .debug(
-            "Dialog confirmed for "
-                + player.getName()
-                + " id="
-                + dialogPrompt.id()
-                + " rows="
-                + inputRows.size()
-                + " answers="
-                + answers.size());
-    finish(ScreenResult.answer(encodeAnswers(answers)));
-  }
-
-  /**
-   * Reads one answer per configured input row from the response view. For a tab-completion
-   * fallback, an extra entry is appended for the injected text input. Numeric values that have no
-   * fractional part are returned as long strings so downstream substitution receives a clean
-   * integer.
-   */
-  private List<String> readAnswersFromDialogPrompt(DialogResponseView view) {
     var answers = new ArrayList<String>(inputRows.size() + 1);
     for (int i = 0; i < inputRows.size(); i++) {
-      var row = inputRows.get(i);
-      var key = keyFor(i);
-      answers.add(readOneAnswerForRow(view, row, key));
-    }
-    if (needsTabFallbackNotice()) {
-      var v = view.getText(DialogInputBuilder.FALLBACK_INPUT_KEY);
-      var answer = v == null ? "" : (dialogPrompt.sanitize() ? v : ComponentUtil.miniToLegacy(v));
+      var answer = readOneAnswer(view, constraintsForPresetRow(inputRows.get(i)), keyFor(i));
+      if (answer == null) {
+        rejectResponse();
+        return;
+      }
       answers.add(answer);
     }
-    return answers;
-  }
-
-  private String readOneAnswerForRow(DialogResponseView view, DialogRow row, String key) {
-    return switch (row.inputType()) {
-      case TEXT -> {
-        var v = view.getText(key);
-        if (v == null) yield "";
-        yield dialogPrompt.sanitize() ? v : ComponentUtil.miniToLegacy(v);
+    if (needsTabFallbackNotice()) {
+      var answer =
+          readOneAnswer(
+              view,
+              DialogConstraints.from(null, dialogConfig),
+              DialogInputBuilder.FALLBACK_INPUT_KEY);
+      if (answer == null) {
+        rejectResponse();
+        return;
       }
-      case CHOICE -> {
-        var v = view.getText(key);
-        yield v == null ? "" : v;
-      }
-      case NUMBER -> {
-        var v = view.getFloat(key);
-        if (v == null) yield "0";
-        // Integral values return as integers to prevent decimals like "1.0".
-        if (Math.floor(v) == v) {
-          yield Long.toString(v.longValue());
-        }
-        yield Float.toString(v);
-      }
-    };
+      answers.add(answer);
+    }
+    finish(ScreenResult.answer(encodeAnswers(answers)));
   }
 
   /**
