@@ -5,8 +5,14 @@ import dev.cyr1en.promptcore.PostCommandMeta;
 import dev.cyr1en.promptcore.logic.transform.CompiledTemplate;
 import dev.cyr1en.promptcore.logic.transform.TemplateCompiler;
 import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
+import dev.cyr1en.promptcore.logic.transform.TransformErrorCode;
+import dev.cyr1en.promptcore.logic.transform.TransformException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 /**
  * Adapter between legacy {@link ParsedCommand}/{@link PostCommandMeta} and modern {@link
@@ -49,7 +55,8 @@ public final class ExecutionPlanAdapter {
     Objects.requireNonNull(gates, "gates must not be null");
     Objects.requireNonNull(syntax, "syntax must not be null");
 
-    var primaryCompiled = TemplateCompiler.compile(parsedCommand.templateCommand(), syntax);
+    var primaryCompiled =
+        TemplateCompiler.compileFragments(parsedCommand.primaryTemplateFragments(), syntax);
     var postActions =
         parsedCommand.postCmds().stream().map(pcm -> toPostActionSpec(pcm, syntax)).toList();
 
@@ -72,11 +79,12 @@ public final class ExecutionPlanAdapter {
           new PostActionSpec.PresetReference(
               pcm.command(), pcm.answerIndices(), trigger, pcm.dispatchTarget());
     } else {
-      CompiledTemplate compiledTemplate = TemplateCompiler.compile(pcm.command(), syntax);
-      int[] indices = pcm.answerIndices();
-      if (indices.length == 0 && !compiledTemplate.referencedKeys().isEmpty()) {
-        indices = PostActionSpec.extractAnswerIndices(compiledTemplate);
-      }
+      var compiledTemplate = compilePostAction(pcm.command(), syntax);
+      var indices =
+          IntStream.concat(
+                  Arrays.stream(pcm.answerIndices()),
+                  Arrays.stream(PostActionSpec.extractAnswerIndices(compiledTemplate)))
+              .toArray();
       baseSpec =
           new PostActionSpec.ImmediateCommand(
               compiledTemplate, indices, trigger, pcm.dispatchTarget());
@@ -86,6 +94,46 @@ public final class ExecutionPlanAdapter {
       return new PostActionSpec.Delayed(baseSpec, pcm.delayTicks(), trigger);
     }
     return baseSpec;
+  }
+
+  private static CompiledTemplate compilePostAction(String command, TemplateSyntax syntax) {
+    // Match Paper's ActionTemplateCompiler for legacy inputs and escaped percent signs.
+    var separator = syntax.transformSeparator();
+    var inputPattern =
+        Pattern.compile(
+            "^input(?::(\\d+))?(?:" + Pattern.quote(separator) + "(.*))?$", Pattern.DOTALL);
+    return TemplateCompiler.compile(
+        command,
+        syntax,
+        (body, offset) -> {
+          var trimmed = body.strip();
+          var input = inputPattern.matcher(trimmed);
+          if (!input.matches()) return trimmed;
+
+          var digits = input.group(1);
+          int index = 1;
+          if (digits != null) {
+            try {
+              index = Integer.parseInt(digits);
+            } catch (NumberFormatException e) {
+              throw new TransformException(
+                  TransformErrorCode.MALFORMED_PLACEHOLDER,
+                  "Input placeholder index is invalid: " + digits + " at index " + offset);
+            }
+            if (index < 1) {
+              throw new TransformException(
+                  TransformErrorCode.MALFORMED_PLACEHOLDER,
+                  "Input placeholder index must be positive (>= 1), got: "
+                      + index
+                      + " at index "
+                      + offset);
+            }
+          }
+          var transformer = input.group(2);
+          var key = String.valueOf(index - 1);
+          return transformer == null || transformer.isBlank() ? key : key + separator + transformer;
+        },
+        Set.of("%"));
   }
 
   /**

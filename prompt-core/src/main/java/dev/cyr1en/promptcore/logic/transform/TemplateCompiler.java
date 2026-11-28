@@ -47,6 +47,18 @@ public final class TemplateCompiler {
     return compile(source, syntax, (body, _) -> body, Set.of());
   }
 
+  /** Compiles each fragment independently so template syntax cannot cross fragment boundaries. */
+  public static CompiledTemplate compileFragments(List<String> fragments, TemplateSyntax syntax) {
+    Objects.requireNonNull(syntax, "syntax must not be null");
+    var source = String.join("", fragments);
+    checkSourceLength(source);
+    var segments = new ArrayList<TemplateSegment>();
+    for (var fragment : fragments) {
+      segments.addAll(compile(fragment, syntax).segments());
+    }
+    return new CompiledTemplate(source, segments);
+  }
+
   /**
    * Compiles with a placeholder normalizer and additional single-pass literal escapes. Escaped
    * literals remain typed so downstream compilers cannot reinterpret them as extension syntax.
@@ -67,14 +79,7 @@ public final class TemplateCompiler {
       throw new IllegalArgumentException("additional literal escapes must not be empty");
     }
 
-    if (source.length() > TransformLimits.MAX_TEMPLATE_LENGTH) {
-      throw new TransformException(
-          TransformErrorCode.TEMPLATE_TOO_LONG,
-          "Template source length exceeds limit of "
-              + TransformLimits.MAX_TEMPLATE_LENGTH
-              + ": "
-              + source.length());
-    }
+    checkSourceLength(source);
 
     for (int i = 0; i < source.length(); i++) {
       char c = source.charAt(i);
@@ -225,6 +230,17 @@ public final class TemplateCompiler {
     flushLiteral(segments, literalBuffer);
 
     return new CompiledTemplate(source, segments);
+  }
+
+  private static void checkSourceLength(String source) {
+    if (source.length() > TransformLimits.MAX_TEMPLATE_LENGTH) {
+      throw new TransformException(
+          TransformErrorCode.TEMPLATE_TOO_LONG,
+          "Template source length exceeds limit of "
+              + TransformLimits.MAX_TEMPLATE_LENGTH
+              + ": "
+              + source.length());
+    }
   }
 
   private static void flushLiteral(List<TemplateSegment> segments, StringBuilder literalBuffer) {

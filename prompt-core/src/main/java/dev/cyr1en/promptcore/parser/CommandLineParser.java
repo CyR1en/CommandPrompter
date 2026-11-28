@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
@@ -61,7 +61,7 @@ public class CommandLineParser {
 
   private final ParserConfig config;
   private final TagFilter tagFilter;
-  private final Set<String> seenDeprecationWarnings = ConcurrentHashMap.newKeySet();
+  private final AtomicBoolean trailingKindWarningLogged = new AtomicBoolean();
 
   /** Maximum allowed prompt tags in a single command. */
   public static final int MAX_PROMPT_TAGS = 16;
@@ -422,7 +422,8 @@ public class CommandLineParser {
 
   private boolean isConfirmationOpener(String s, int index) {
     return s.regionMatches(true, index, "c:", 0, 2)
-        || s.regionMatches(true, index, "confirm:", 0, 8);
+        || s.regionMatches(true, index, "confirm:", 0, 8)
+        || s.regionMatches(true, index, "confirmation:", 0, 13);
   }
 
   private boolean isItemOpener(String s, int index) {
@@ -484,12 +485,11 @@ public class CommandLineParser {
 
     // Extract dispatch target (@console / @player)
     var target = DispatchTarget.PASSTHROUGH;
-    var targetMatcher = PCM_TARGET.matcher(content);
-    if (targetMatcher.find()) {
-      target = DispatchTarget.valueOf(targetMatcher.group(1).toUpperCase(Locale.ROOT));
-      content =
-          (content.substring(0, targetMatcher.start()) + content.substring(targetMatcher.end()))
-              .trim();
+    var targets = flagMatches(PCM_TARGET, content);
+    if (!targets.isEmpty()) {
+      var match = targets.getFirst();
+      target = DispatchTarget.valueOf(match.group(1).toUpperCase(Locale.ROOT));
+      content = (content.substring(0, match.start()) + content.substring(match.end())).trim();
     }
 
     // Extract answer references ({N})
@@ -553,42 +553,10 @@ public class CommandLineParser {
       return;
     }
 
-    String key;
-    String filter = null;
-    String remainder;
-
-    if (rawContent.startsWith("-")) {
-      key = "";
-      remainder = rawContent;
-    } else {
-      var firstColon = rawContent.indexOf(':');
-      if (firstColon < 0
-          || rawContent.substring(0, firstColon).contains(" ")
-          || rawContent.substring(0, firstColon).contains("-")
-          || rawContent.substring(0, firstColon).contains("\"")) {
-        key = "";
-        remainder = rawContent;
-      } else {
-        var rawKey = rawContent.substring(0, firstColon).trim();
-        key = rawKey.toLowerCase(Locale.ROOT);
-        var rest = rawContent.substring(firstColon + 1);
-        if (ConfirmationGrammar.isConfirmationKey(key) || ItemGrammar.isItemKey(key)) {
-          remainder = rest;
-        } else {
-          var secondColon = rest.indexOf(':');
-          if (secondColon >= 0
-              && !rest.startsWith("\"")
-              && !rest.substring(0, secondColon).contains(" ")
-              && !rest.substring(0, secondColon).contains("\"")
-              && !hasUnbracketedHyphen(rest.substring(0, secondColon))) {
-            filter = rest.substring(0, secondColon).trim();
-            remainder = rest.substring(secondColon + 1);
-          } else {
-            remainder = rest;
-          }
-        }
-      }
-    }
+    var tagContent = splitTagContent(rawContent, false);
+    var key = tagContent.key().toLowerCase(Locale.ROOT);
+    var filter = tagContent.filter();
+    var remainder = tagContent.remainder();
 
     Condition breakIf = null;
     if (isBuiltInKey(key)) {
@@ -628,12 +596,13 @@ public class CommandLineParser {
       flags = flagResult.flags();
     }
 
-    var displayText = unescape(remainder).trim();
-
+    var displayText = unescape(remainder);
+    // Confirmation and item parse backslash escapes themselves.
+    var grammarSource = config.escape().equals("\\") ? remainder : displayText;
     if (ConfirmationGrammar.isConfirmationKey(key)) {
-      ConfirmationGrammar.parse(remainder);
+      ConfirmationGrammar.parse(grammarSource);
     } else if (ItemGrammar.isItemKey(key)) {
-      ItemGrammar.parse(remainder);
+      ItemGrammar.parse(grammarSource);
     }
 
     LOG.fine("Tag: key=" + key + " type=" + type + " sanitize=" + sanitize + " timeout=" + timeout);
@@ -643,7 +612,7 @@ public class CommandLineParser {
             fullTag,
             key,
             filter,
-            displayText,
+            displayText.trim(),
             sanitize,
             validatorAlias,
             type,
@@ -652,18 +621,51 @@ public class CommandLineParser {
             title,
             timeout,
             flags,
-            breakIf));
+            breakIf,
+            grammarSource));
   }
 
-  private static boolean hasUnbracketedHyphen(String content) {
+  private record TagContent(String key, String filter, String remainder) {}
+
+  private TagContent splitTagContent(String content, boolean compoundRow) {
+    var firstColon = content.indexOf(':');
+    if (firstColon < 0) return new TagContent("", null, content);
+
+    var prefix = content.substring(0, firstColon);
+    if (compoundRow) prefix = prefix.trim();
+    if (prefix.contains(" ") || prefix.contains("-") || prefix.contains("\"")) {
+      return new TagContent("", null, content);
+    }
+
+    var key = prefix.trim();
+    var rest = content.substring(firstColon + 1);
+    if (ConfirmationGrammar.isConfirmationKey(key) || ItemGrammar.isItemKey(key)) {
+      return new TagContent(key, null, rest);
+    }
+    var filterEnd = findFilterSeparator(rest);
+    if (filterEnd < 0) return new TagContent(key, null, rest);
+    return new TagContent(key, rest.substring(0, filterEnd).trim(), rest.substring(filterEnd + 1));
+  }
+
+  private int findFilterSeparator(String content) {
     int depth = 0;
+    boolean inQuotes = false;
     for (int i = 0; i < content.length(); i++) {
+      if (content.startsWith(config.escape(), i)) {
+        i += config.escape().length();
+        continue;
+      }
       char c = content.charAt(i);
+      if (depth == 0) {
+        if (c == ':') return i;
+        if (c == '"' || c == '-' || Character.isWhitespace(c)) return -1;
+      }
+      if (c == '"') inQuotes = !inQuotes;
+      if (inQuotes) continue;
       if (c == '[') depth++;
       else if (c == ']' && depth > 0) depth--;
-      else if (c == '-' && depth == 0) return true;
     }
-    return false;
+    return -1;
   }
 
   /**
@@ -939,36 +941,13 @@ public class CommandLineParser {
       boolean sanitize,
       String validatorAlias,
       PromptTag.AnswerType type) {
-    String key;
-    String filter = null;
-    String remainder;
-    if (subContent.startsWith("-")) {
-      key = "";
-      filter = null;
-      remainder = subContent;
-    } else {
-      var firstColon = subContent.indexOf(':');
-      if (firstColon < 0) {
-        key = "";
-        remainder = subContent;
-      } else {
-        key = subContent.substring(0, firstColon).trim();
-        var rest = subContent.substring(firstColon + 1);
-        var secondColon = rest.indexOf(':');
-        if (secondColon >= 0 && !rest.substring(0, secondColon).contains(" ")) {
-          filter = rest.substring(0, secondColon).trim();
-          remainder = rest.substring(secondColon + 1);
-        } else {
-          remainder = rest;
-        }
-      }
-    }
-    var displayText = unescape(remainder).trim();
+    var content = splitTagContent(subContent, true);
+    var displayText = unescape(content.remainder());
     return new PromptTag(
         fullTag,
-        key,
-        filter,
-        displayText,
+        content.key(),
+        content.filter(),
+        displayText.trim(),
         sanitize,
         validatorAlias,
         type,
@@ -977,7 +956,8 @@ public class CommandLineParser {
         null,
         null,
         Map.of(),
-        null);
+        null,
+        config.escape().equals("\\") ? content.remainder() : displayText);
   }
 
   /**
@@ -1156,7 +1136,7 @@ public class CommandLineParser {
     var key = rawContent.substring(0, firstColon).trim();
     if (!"d".equals(key)) return; // only warn for the default dialog key
     if (!TRAILING_KIND_DETECT.matcher(rawContent).find()) return;
-    if (!seenDeprecationWarnings.add(rawContent)) return; // dedup across parses
+    if (!trailingKindWarningLogged.compareAndSet(false, true)) return;
     LOG.warning(
         "Deprecated trailing-kind dialog syntax detected. Use the unified form '<d:kind[constraints]:display>'. "
             + "The trailing form is no longer parsed; the prompt will be a text field.");
