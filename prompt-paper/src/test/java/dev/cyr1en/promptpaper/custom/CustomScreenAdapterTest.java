@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class CustomScreenAdapterTest {
 
@@ -44,6 +47,63 @@ class CustomScreenAdapterTest {
     eventOrder = Collections.synchronizedList(new ArrayList<>());
     verifier = new TrackingVerifier(eventOrder, validSnapshot);
     adapter = new CustomScreenAdapter(handle, delegate, executor, validSnapshot, verifier);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void synchronousOpenCallbackRunsOutsideProviderGate(boolean failOpen) {
+    var token = new CustomScreenToken(1, "custom_screen", "TestPlugin", (p, ctx) -> null);
+    var callbackCouldAcquireGate = new AtomicBoolean();
+    var delegate =
+        new FakeInputScreen() {
+          @Override
+          public void open() {
+            if (failOpen) fireOpenFailure(new IllegalStateException("open failed"));
+            else fireResult(ScreenResult.answer("done"));
+          }
+        };
+    var adapter =
+        new CustomScreenAdapter(
+            token, delegate, (task, retired) -> task.run(), validSnapshot, verifier);
+
+    try (var otherRegion = Executors.newSingleThreadExecutor()) {
+      Runnable checkGate =
+          () -> {
+            try {
+              callbackCouldAcquireGate.set(
+                  otherRegion.submit(token::isActive).get(1, TimeUnit.SECONDS));
+            } catch (Exception ignored) {
+              // The provider gate could not be acquired from the other region.
+            }
+          };
+      adapter.onResult(result -> checkGate.run());
+      adapter.onOpenFailure(failure -> checkGate.run());
+      adapter.open();
+    }
+
+    assertTrue(callbackCouldAcquireGate.get());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void lazyDelegateNeverOpensWhenCallbackRegistrationFails(boolean failOnResult) {
+    var error = new IllegalStateException("registration failed");
+    if (failOnResult) delegate.throwOnOnResult = error;
+    else delegate.throwOnOnOpenFailure = error;
+    var lazy = CustomScreenAdapter.lazy(handle, () -> delegate, executor, validSnapshot, verifier);
+    var failure = new AtomicReference<Throwable>();
+    lazy.onOpenFailure(
+        thrown -> {
+          failure.set(thrown);
+          lazy.close();
+        });
+
+    lazy.open();
+    executor.runAll();
+
+    assertSame(error, failure.get());
+    assertEquals(1, delegate.closeCalls.get());
+    assertEquals(0, delegate.openCalls.get());
   }
 
   @Nested
