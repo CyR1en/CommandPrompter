@@ -944,7 +944,7 @@ class PromptFactoryTest extends MockBukkitTest {
   }
 
   @Test
-  void createConfirmation_globalTimeoutZero_capsTtlAt3600() {
+  void createConfirmation_globalTimeoutZero_usesDefaultCallbackLifetime() {
     Mockito.when(config.promptTimeout()).thenReturn(0);
     var preset =
         new ConfirmationPrompt(
@@ -971,7 +971,7 @@ class PromptFactoryTest extends MockBukkitTest {
             .map(v -> (dev.cyr1en.promptpaper.screen.confirmation.ConfirmationChatView) v)
             .findFirst()
             .orElseThrow();
-    assertEquals(java.time.Duration.ofSeconds(3600), chatView.getTtl());
+    assertEquals(net.kyori.adventure.text.event.ClickCallback.DEFAULT_LIFETIME, chatView.getTtl());
   }
 
   @Test
