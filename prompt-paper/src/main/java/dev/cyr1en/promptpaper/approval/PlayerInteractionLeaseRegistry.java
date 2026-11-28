@@ -158,19 +158,6 @@ public final class PlayerInteractionLeaseRegistry {
   }
 
   /**
-   * Releases any lease or claim held for the player.
-   *
-   * @param player player UUID
-   * @return true if a lease was removed
-   */
-  public synchronized boolean releaseAllForPlayer(UUID player) {
-    if (player == null) {
-      return false;
-    }
-    return leases.remove(player) != null;
-  }
-
-  /**
    * Gets the active lease for a player, if any. Expired leases are pruned on lookup.
    *
    * @param player player UUID
