@@ -761,6 +761,23 @@ class CommandLineParserTest {
   }
 
   @Test
+  void compoundDialogPreservesFiltersOnPaddedRowKeys() {
+    var rows =
+        parser
+            .parse("/say <d:text:Name && d :body:Instructions && d :num[0,9]:Count>")
+            .promptTags()
+            .getFirst()
+            .subTags();
+
+    assertEquals("d", rows.get(1).key());
+    assertEquals("body", rows.get(1).filter());
+    assertEquals("Instructions", rows.get(1).displayText());
+    assertEquals("d", rows.get(2).key());
+    assertEquals("num[0,9]", rows.get(2).filter());
+    assertEquals("Count", rows.get(2).displayText());
+  }
+
+  @Test
   void flagsDoNotMatchDisplayTextSubstrings() {
     var result = parser.parse("/say <a:cost-int cost-str cost-ds cost-iv:required>");
     var tag = result.promptTags().get(0);

@@ -168,17 +168,18 @@ public record ParsedCommand(
     return postCmds.stream().filter(PostCommandMeta::onCancel).toList();
   }
 
-  /** Returns the command template with parsed prompt, post-action, and gate tags removed. */
-  public String primaryTemplate() {
-    if (templateSpans.isEmpty()) return templateCommand;
+  /** Returns the primary command text between parsed tags, in source order. */
+  public List<String> primaryTemplateFragments() {
+    if (templateSpans.isEmpty()) return List.of(templateCommand);
 
-    var primary = new StringBuilder(rawTemplateCommand.length());
+    var fragments = new ArrayList<String>(templateSpans.size() + 1);
     int cursor = 0;
     for (var span : templateSpans) {
-      primary.append(unescape(rawTemplateCommand.substring(cursor, span.start()), parserConfig));
+      fragments.add(unescape(rawTemplateCommand.substring(cursor, span.start()), parserConfig));
       cursor = span.end();
     }
-    return primary.append(unescape(rawTemplateCommand.substring(cursor), parserConfig)).toString();
+    fragments.add(unescape(rawTemplateCommand.substring(cursor), parserConfig));
+    return List.copyOf(fragments);
   }
 
   /**

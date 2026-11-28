@@ -27,6 +27,16 @@ class ExecutionPlanAdapterTest {
   }
 
   @Test
+  void promptSpansKeepTemplateDelimitersFromJoining() {
+    var parsed = new CommandLineParser().parse("/say [<p:Player>[VIP] welcome]");
+    var syntax = new TemplateSyntax("[[", "]]", "|", "\\");
+
+    var template = ExecutionPlanAdapter.fromParsedCommand(parsed, syntax).primaryCommandTemplate();
+
+    assertEquals("/say [[VIP] welcome]", template.render(List.of()).getOrThrow());
+  }
+
+  @Test
   void postActionNormalizesLegacyInputsAndPreservesPercentTokens() {
     var parsed =
         new CommandLineParser()
