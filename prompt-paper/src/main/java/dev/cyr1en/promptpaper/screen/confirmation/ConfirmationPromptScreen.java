@@ -27,6 +27,7 @@ public class ConfirmationPromptScreen implements InputScreen {
   private final boolean declineAsCancel;
   private final Runnable onOpen;
   private final boolean valueMode;
+  private final Integer timeoutSeconds;
 
   private Consumer<ScreenResult> callback;
   private Consumer<Throwable> openFailureCallback;
@@ -80,6 +81,17 @@ public class ConfirmationPromptScreen implements InputScreen {
       boolean declineAsCancel,
       Runnable onOpen,
       boolean valueMode) {
+    this(fallbackChain, confirmValue, declineValue, declineAsCancel, onOpen, valueMode, null);
+  }
+
+  ConfirmationPromptScreen(
+      List<ConfirmationView> fallbackChain,
+      String confirmValue,
+      String declineValue,
+      boolean declineAsCancel,
+      Runnable onOpen,
+      boolean valueMode,
+      Integer timeoutSeconds) {
     Objects.requireNonNull(fallbackChain, "fallbackChain must not be null");
     if (fallbackChain.isEmpty()) {
       throw new IllegalArgumentException("fallbackChain must not be empty");
@@ -93,6 +105,11 @@ public class ConfirmationPromptScreen implements InputScreen {
     this.declineAsCancel = declineAsCancel;
     this.onOpen = onOpen;
     this.valueMode = valueMode;
+    this.timeoutSeconds = timeoutSeconds;
+  }
+
+  public Integer timeoutSeconds() {
+    return timeoutSeconds;
   }
 
   @Override
