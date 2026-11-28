@@ -55,7 +55,8 @@ public final class ExecutionPlanAdapter {
     Objects.requireNonNull(gates, "gates must not be null");
     Objects.requireNonNull(syntax, "syntax must not be null");
 
-    var primaryCompiled = TemplateCompiler.compile(parsedCommand.primaryTemplate(), syntax);
+    var primaryCompiled =
+        TemplateCompiler.compileFragments(parsedCommand.primaryTemplateFragments(), syntax);
     var postActions =
         parsedCommand.postCmds().stream().map(pcm -> toPostActionSpec(pcm, syntax)).toList();
 

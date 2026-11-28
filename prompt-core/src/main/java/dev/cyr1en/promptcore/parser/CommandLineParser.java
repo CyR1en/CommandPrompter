@@ -553,7 +553,7 @@ public class CommandLineParser {
       return;
     }
 
-    var tagContent = splitTagContent(rawContent);
+    var tagContent = splitTagContent(rawContent, false);
     var key = tagContent.key().toLowerCase(Locale.ROOT);
     var filter = tagContent.filter();
     var remainder = tagContent.remainder();
@@ -627,11 +627,12 @@ public class CommandLineParser {
 
   private record TagContent(String key, String filter, String remainder) {}
 
-  private TagContent splitTagContent(String content) {
+  private TagContent splitTagContent(String content, boolean compoundRow) {
     var firstColon = content.indexOf(':');
     if (firstColon < 0) return new TagContent("", null, content);
 
     var prefix = content.substring(0, firstColon);
+    if (compoundRow) prefix = prefix.trim();
     if (prefix.contains(" ") || prefix.contains("-") || prefix.contains("\"")) {
       return new TagContent("", null, content);
     }
@@ -940,7 +941,7 @@ public class CommandLineParser {
       boolean sanitize,
       String validatorAlias,
       PromptTag.AnswerType type) {
-    var content = splitTagContent(subContent);
+    var content = splitTagContent(subContent, true);
     var displayText = unescape(content.remainder());
     return new PromptTag(
         fullTag,
