@@ -83,18 +83,23 @@ public final class HumanEntityCache {
     }
   }
 
-  /** Adds cached storage to the death drops and consumes the snapshot. */
-  public synchronized void dropAndForget(
-      @NotNull HumanEntity entity, @NotNull List<ItemStack> drops) {
-    ItemStack[] saved = cache.remove(entity);
+  /** Drops cached storage on confirmed death and consumes the snapshot. */
+  public void dropAndForget(@NotNull HumanEntity entity) {
+    ItemStack[] saved;
+    synchronized (this) {
+      saved = cache.remove(entity);
+    }
     if (saved == null) return;
+    var location = entity.getLocation();
+    var world = entity.getWorld();
     for (ItemStack item : saved) {
       if (item != null
           && !item.isEmpty()
           && item.getEnchantments().keySet().stream()
               .noneMatch(
                   enchantment -> EnchantmentKeys.VANISHING_CURSE.key().equals(enchantment.key()))) {
-        drops.add(item);
+        // World drops have no manual PlayerDropItemEvent to return items to the dying player.
+        world.dropItemNaturally(location, item);
       }
     }
   }

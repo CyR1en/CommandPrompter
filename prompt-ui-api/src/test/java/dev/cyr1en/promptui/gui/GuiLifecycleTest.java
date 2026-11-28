@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,10 +13,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
+import org.bukkit.Location;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -76,33 +77,70 @@ class GuiLifecycleTest {
     when(storage.getItem(0)).thenReturn(original);
     gui.getHumanEntityCache().storeAndClear(player);
 
-    var drops = new ArrayList<ItemStack>();
+    var world = mock(World.class);
+    var location = new Location(world, 0, 0, 0);
+    when(player.getWorld()).thenReturn(world);
+    when(player.getLocation()).thenReturn(location);
     var death = mock(PlayerDeathEvent.class);
     when(death.getEntity()).thenReturn(player);
-    when(death.getKeepInventory()).thenReturn(keepInventory);
-    when(death.getDrops()).thenReturn(drops);
 
     listener.onPlayerDeath(death);
-    assertFalse(gui.getHumanEntityCache().contains(player));
+    assertTrue(gui.getHumanEntityCache().contains(player));
+    verify(death, never()).getDrops();
+    verify(world, never()).dropItemNaturally(location, original);
+    when(death.getKeepInventory()).thenReturn(keepInventory);
     listener.onInventoryClose(new InventoryCloseEvent(view, InventoryCloseEvent.Reason.DEATH));
 
-    assertEquals(keepInventory ? List.of() : List.of(original), drops);
+    assertFalse(gui.getHumanEntityCache().contains(player));
+    verify(world, keepInventory ? never() : times(1)).dropItemNaturally(location, original);
     verify(storage, keepInventory ? times(1) : never()).setItem(0, original);
   }
 
-  @ParameterizedTest
-  @CsvSource({"SWAP_OFFHAND,3", "NUMBER_KEY,3", "SWAP_OFFHAND,0"})
-  void anvilCancelsSwapsThatCouldMoveItemsIntoTemporarySlots(ClickType clickType, int rawSlot) {
+  @Test
+  void deathCancelledAfterOurListenerLeavesTheSnapshotAvailableOnClose() {
     var gui = openAnvil();
+    var original = mock(ItemStack.class);
+    when(original.clone()).thenReturn(original);
+    when(storage.getItem(0)).thenReturn(original);
     gui.getHumanEntityCache().storeAndClear(player);
+    var death = mock(PlayerDeathEvent.class);
+    when(death.getEntity()).thenReturn(player);
+
+    listener.onPlayerDeath(death);
+    when(death.isCancelled()).thenReturn(true);
+    listener.onInventoryClose(new InventoryCloseEvent(view, InventoryCloseEvent.Reason.PLAYER));
+
+    verify(storage).setItem(0, original);
+    assertFalse(gui.getHumanEntityCache().contains(player));
+  }
+
+  @Test
+  void preparingATopOnlyAnvilLeavesStorageAvailableForNativeDeathDrops() {
+    var gui = openAnvil();
+    when(storage.getItem(0)).thenReturn(mock(ItemStack.class));
+
+    assertFalse(gui.prepareOpen(player));
+
+    assertFalse(gui.getHumanEntityCache().contains(player));
+    verify(storage, never()).setItem(anyInt(), any());
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "SWAP_OFFHAND,HOTBAR_SWAP,3",
+    "NUMBER_KEY,HOTBAR_SWAP,3",
+    "SWAP_OFFHAND,HOTBAR_SWAP,0",
+    "NUMBER_KEY,HOTBAR_SWAP,0",
+    "DOUBLE_CLICK,COLLECT_TO_CURSOR,0",
+    "SHIFT_LEFT,MOVE_TO_OTHER_INVENTORY,0"
+  })
+  void anvilBlocksTransfersFromTheLivePlayerInventory(
+      ClickType clickType, InventoryAction action, int rawSlot) {
+    var gui = openAnvil();
+    gui.prepareOpen(player);
     when(view.getInventory(rawSlot)).thenReturn(rawSlot < 3 ? gui.getInventory() : storage);
     var event =
-        new InventoryClickEvent(
-            view,
-            InventoryType.SlotType.CONTAINER,
-            rawSlot,
-            clickType,
-            InventoryAction.HOTBAR_SWAP);
+        new InventoryClickEvent(view, InventoryType.SlotType.CONTAINER, rawSlot, clickType, action);
 
     listener.onInventoryClick(event);
 
