@@ -36,9 +36,17 @@ class DialogLifecycleTest {
   }
 
   @Test
+  void callbackLifetimeOutlastsPromptTimeoutAtTenTicksPerSecond() {
+    var tickTimeout = 30 * 20;
+    var elapsedAtTenTps = Duration.ofSeconds(tickTimeout / 10);
+
+    assertTrue(DialogLifecycle.responseLifetime(30).compareTo(elapsedAtTenTps) > 0);
+  }
+
+  @Test
   void callbackLifetimeSupportsTheMaxPromptTimeoutAndDisabledTimeout() {
     assertEquals(
-        Duration.ofHours(1),
+        Duration.ofHours(4),
         DialogLifecycle.clickOptions(DialogLifecycle.responseLifetime(3600)).lifetime());
     assertTrue(DialogLifecycle.responseLifetime(0).compareTo(Duration.ofHours(1)) > 0);
   }

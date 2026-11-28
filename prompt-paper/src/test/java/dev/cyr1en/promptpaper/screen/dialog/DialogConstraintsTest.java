@@ -37,6 +37,15 @@ class DialogConstraintsTest {
   }
 
   @Test
+  void acceptsRoundedMinecraftSliderEndpoint() {
+    var number = DialogConstraints.from("num[-1,0,0.1,-0.9]", defaults);
+
+    assertTrue(number.acceptsNumber(5.9604645e-8f));
+    assertFalse(number.acceptsNumber(0.1f));
+    assertFalse(number.acceptsNumber(1e-8f));
+  }
+
+  @Test
   void emptyFilterUsesTextDefaults() {
     var c = DialogConstraints.from(null, defaults);
     assertEquals(DialogInputKind.TEXT, c.kind());

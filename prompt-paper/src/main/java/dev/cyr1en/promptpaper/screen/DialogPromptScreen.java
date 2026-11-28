@@ -515,10 +515,11 @@ public class DialogPromptScreen implements InputScreen, DialogScreen {
       case NUMBER -> {
         var value = view.getFloat(key);
         if (!constraints.acceptsNumber(value)) yield null;
-        if ((dialogPrompt != null || constraints.step() == 1f) && Math.floor(value) == value) {
-          yield Long.toString(value.longValue());
+        var bounded = Math.clamp(value, constraints.min(), constraints.max());
+        if ((dialogPrompt != null || constraints.step() == 1f) && Math.floor(bounded) == bounded) {
+          yield Long.toString((long) bounded);
         }
-        yield Float.toString(value);
+        yield Float.toString(bounded);
       }
       case TAB, TITLE, BODY -> throw new IllegalArgumentException("Expected an input row");
     };
