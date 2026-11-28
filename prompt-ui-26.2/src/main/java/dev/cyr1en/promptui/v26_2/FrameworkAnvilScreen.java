@@ -40,7 +40,8 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
     NEW,
     CLOSED,
     OPENING,
-    OPEN
+    OPEN,
+    COMPLETING
   }
 
   public FrameworkAnvilScreen(
@@ -300,6 +301,10 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
    * players could then keep. Waiting one tick lets the server resync the cancelled click first.
    */
   private void completeAfterClick(ScreenResult result) {
+    synchronized (this) {
+      if (state != State.OPEN) return;
+      state = State.COMPLETING;
+    }
     try {
       ScheduledTask task =
           player.getScheduler().run(plugin, ignored -> complete(result, true), null);
@@ -318,7 +323,7 @@ public final class FrameworkAnvilScreen implements AnvilInputScreen {
     ScheduledTask task;
     Consumer<ScreenResult> resultCallback;
     synchronized (this) {
-      if (state == State.CLOSED) return;
+      if (state == State.CLOSED || (state == State.COMPLETING && !closePlayer)) return;
       state = State.CLOSED;
       task = openTask;
       openTask = null;
