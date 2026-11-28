@@ -6,10 +6,54 @@ import dev.cyr1en.promptcore.DispatchTarget;
 import dev.cyr1en.promptcore.ParsedCommand;
 import dev.cyr1en.promptcore.ParserConfig;
 import dev.cyr1en.promptcore.PostCommandMeta;
+import dev.cyr1en.promptcore.logic.transform.TemplateSyntax;
+import dev.cyr1en.promptcore.parser.CommandLineParser;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ExecutionPlanAdapterTest {
+
+  @Test
+  void primaryTemplateExcludesPromptLabelsPostActionsAndGates() {
+    var parsed =
+        new CommandLineParser()
+            .parse("/say \\<red\\> <Type {first name}> {0} <! say {1}> <!gate:@approval>");
+
+    var plan = ExecutionPlanAdapter.fromParsedCommand(parsed);
+
+    assertEquals("/say <red>  {0}  ", plan.primaryCommandTemplate().source());
+    assertEquals(1, plan.postActionCount());
+    assertEquals(1, plan.gateCount());
+  }
+
+  @Test
+  void postActionNormalizesLegacyInputsAndPreservesPercentTokens() {
+    var parsed =
+        new CommandLineParser()
+            .parse("/say <> <! say {0} {input} {input:2:upper} \\%player_name\\%>");
+    var action =
+        assertInstanceOf(
+            PostActionSpec.ImmediateCommand.class,
+            ExecutionPlanAdapter.fromParsedCommand(parsed).postActions().getFirst());
+
+    assertEquals(
+        "say one one TWO %player_name%",
+        action.commandTemplate().render(new String[] {"one", "two"}).getOrThrow());
+    assertArrayEquals(new int[] {0, 1}, action.answerIndices());
+  }
+
+  @Test
+  void postActionUsesConfiguredTemplateSyntaxForInputTransformers() {
+    var parsed = new CommandLineParser().parse("/say <> <! say [[input:2|upper]]>");
+    var syntax = new TemplateSyntax("[[", "]]", "|", "\\");
+    var action =
+        assertInstanceOf(
+            PostActionSpec.ImmediateCommand.class,
+            ExecutionPlanAdapter.fromParsedCommand(parsed, syntax).postActions().getFirst());
+
+    assertEquals(
+        "say TWO", action.commandTemplate().render(new String[] {"one", "two"}).getOrThrow());
+  }
 
   @Test
   void testFromParsedCommandImmediateAndPreset() {

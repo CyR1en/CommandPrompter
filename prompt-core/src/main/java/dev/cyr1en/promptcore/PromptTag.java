@@ -59,6 +59,7 @@ import java.util.Objects;
  * @param flags immutable map of custom trailing flag names to string values (e.g. {@code
  *     -rarity:rare})
  * @param breakIf optional compiled condition to evaluate for early flow termination
+ * @param grammarSource tag content with parser flags removed and grammar escapes intact
  */
 public record PromptTag(
     String rawTag,
@@ -73,7 +74,8 @@ public record PromptTag(
     TitleConfig title,
     Integer timeout,
     Map<String, String> flags,
-    Condition breakIf) {
+    Condition breakIf,
+    String grammarSource) {
 
   /**
    * Flag name ({@code -allowargs}) stored in {@link #flags()} when a prompt may be answered with
@@ -97,12 +99,45 @@ public record PromptTag(
     Objects.requireNonNull(key);
     Objects.requireNonNull(displayText);
     Objects.requireNonNull(type);
+    Objects.requireNonNull(grammarSource);
     if (timeout != null && (timeout < 1 || timeout > 3600)) {
       throw new IllegalArgumentException(
           "Timeout must be between 1 and 3600 seconds, got: " + timeout);
     }
     subTags = subTags == null ? List.of() : List.copyOf(subTags);
     flags = flags == null ? Map.of() : Map.copyOf(flags);
+  }
+
+  /** Constructor for callers that supply their own display text as grammar source. */
+  public PromptTag(
+      String rawTag,
+      String key,
+      String filter,
+      String displayText,
+      boolean sanitize,
+      String validatorAlias,
+      AnswerType type,
+      List<PromptTag> subTags,
+      boolean preset,
+      TitleConfig title,
+      Integer timeout,
+      Map<String, String> flags,
+      Condition breakIf) {
+    this(
+        rawTag,
+        key,
+        filter,
+        displayText,
+        sanitize,
+        validatorAlias,
+        type,
+        subTags,
+        preset,
+        title,
+        timeout,
+        flags,
+        breakIf,
+        displayText);
   }
 
   /**

@@ -92,7 +92,7 @@ public final class ItemGrammar {
       throw new IllegalArgumentException(
           "PromptTag key is not an item key ('i' or 'item'): " + tag.key());
     }
-    return parse(tag.displayText());
+    return parse(tag.grammarSource());
   }
 
   /**
