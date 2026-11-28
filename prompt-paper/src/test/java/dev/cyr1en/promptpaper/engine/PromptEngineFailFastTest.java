@@ -11,11 +11,14 @@ import static org.mockito.Mockito.when;
 import dev.cyr1en.promptpaper.MockBukkitTest;
 import dev.cyr1en.promptpaper.preset.CancelBehavior;
 import dev.cyr1en.promptpaper.preset.ChatPrompt;
+import dev.cyr1en.promptpaper.preset.ConditionalPostCommandDefinition;
 import dev.cyr1en.promptpaper.preset.ExecuteAs;
 import dev.cyr1en.promptpaper.preset.ExecutionPolicy;
 import dev.cyr1en.promptpaper.preset.PostCommand;
 import dev.cyr1en.promptpaper.preset.PresetRegistry;
+import dev.cyr1en.promptpaper.preset.PresetSnapshot;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,6 +129,20 @@ class PromptEngineFailFastTest extends MockBukkitTest {
     assertTrue(sanTag.sanitize(), "sanitize=true preset must strip §cHello");
     assertEquals("san", sanTag.displayText());
     assertEquals(List.of("Hello"), engine.submit(sanPlayer, "§cHello").orElseThrow().answers());
+  }
+
+  @Test
+  void capturedConditionalPostCommandPresetStartsSession() {
+    var conditional = mock(ConditionalPostCommandDefinition.class);
+    var snapshot =
+        new PresetSnapshot(Map.of(), Map.of(), Map.of(), Map.of("conditional", conditional));
+    when(registry.getSnapshot()).thenReturn(snapshot);
+
+    var player = createPlayer();
+    assertTrue(engine.intercept(player, "/cmd <why> <!@conditional>").isPresent());
+    assertSame(
+        snapshot,
+        engine.getInceptionArtifacts(player.getUniqueId()).orElseThrow().presetSnapshot());
   }
 
   // --- fail-fast paths ---

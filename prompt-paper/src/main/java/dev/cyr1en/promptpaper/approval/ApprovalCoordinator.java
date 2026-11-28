@@ -493,11 +493,8 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
             }
           }
 
-          // Establish provisional exact interaction claim
-          Duration ttl = Duration.ofSeconds(Math.max(60, candidate.definition().timeout() * 2L));
-          Optional<PlayerInteractionLease> leaseOpt =
-              leaseRegistry.acquire(targetUuid, executionId, ttl);
-          if (leaseOpt.isEmpty()) {
+          // Hold the claim through this target's last gate, or until execution cleanup.
+          if (leaseRegistry.acquire(targetUuid, executionId, null).isEmpty()) {
             rollbackProvisionalClaims(provisionalClaimsSoFar, executionId);
             callback.onResult(
                 PreDispatchGateResult.error(
@@ -681,14 +678,14 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
           }
           String renderedMsg = msgResult.renderedText();
 
-          Duration ttl = Duration.ofSeconds(gate.timeout());
-          Optional<PlayerInteractionLease> leaseOpt =
-              leaseRegistry.acquire(targetUuid, executionId, ttl);
-          if (leaseOpt.isEmpty()) {
+          if (leaseRegistry
+              .getLease(targetUuid)
+              .filter(lease -> executionId.equals(lease.executionId()))
+              .isEmpty()) {
             cleanupExecution(executionId, plan);
             callback.onResult(
                 PreDispatchGateResult.error(
-                    "Failed to acquire interaction lease for approver " + targetPlayer.getName()));
+                    "Missing interaction lease for approver " + targetPlayer.getName()));
             return;
           }
 
@@ -699,7 +696,7 @@ public class ApprovalCoordinator implements PreDispatchGateHandler {
                   initiatorUuid,
                   instance.getIncarnation(),
                   targetUuid,
-                  ttl);
+                  Duration.ofSeconds(gate.timeout()));
           if (capOpt.isEmpty()) {
             cleanupExecution(executionId, plan);
             callback.onResult(
