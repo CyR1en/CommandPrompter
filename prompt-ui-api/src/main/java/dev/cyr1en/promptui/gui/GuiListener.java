@@ -1,12 +1,17 @@
 package dev.cyr1en.promptui.gui;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -23,6 +28,8 @@ import org.jetbrains.annotations.NotNull;
  * {@link Gui} instances are tracked and their callbacks are invoked through this listener.
  */
 public final class GuiListener implements Listener {
+
+  private final Map<HumanEntity, PlayerDeathEvent> pendingDeaths = new ConcurrentHashMap<>();
 
   /** Creates and registers this listener with the Bukkit plugin manager. */
   public GuiListener(@NotNull JavaPlugin plugin) {
@@ -47,6 +54,16 @@ public final class GuiListener implements Listener {
     Gui gui = Gui.getGui(event.getInventory());
     if (gui == null) return;
 
+    var click = event.getClick();
+    boolean readOnlyPlayerInventory = !gui.isPlayerInventoryUsed();
+    boolean protectedTransfer =
+        (click == ClickType.SWAP_OFFHAND
+                && (readOnlyPlayerInventory
+                    || gui.getHumanEntityCache().contains(event.getWhoClicked())))
+            || (readOnlyPlayerInventory
+                && (click == ClickType.NUMBER_KEY
+                    || event.getAction() == InventoryAction.COLLECT_TO_CURSOR
+                    || event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY));
     gui.callOnGlobalClick(event);
 
     InventoryView view = event.getView();
@@ -68,7 +85,7 @@ public final class GuiListener implements Listener {
     }
 
     boolean consumed = gui.click(event);
-    if (consumed) {
+    if (consumed || protectedTransfer) {
       event.setCancelled(true);
     }
   }
@@ -106,15 +123,22 @@ public final class GuiListener implements Listener {
   /** Fires the close callback, unregisters the GUI, and restores the player's cached inventory. */
   @EventHandler(priority = EventPriority.LOWEST)
   public void onInventoryClose(@NotNull InventoryCloseEvent event) {
+    HumanEntity player = event.getPlayer();
+    var death = pendingDeaths.remove(player);
     Gui gui = Gui.getGui(event.getInventory());
     if (gui == null) return;
 
-    HumanEntity player = event.getPlayer();
-    boolean lastViewer = gui.removeViewer(player);
-    gui.getHumanEntityCache().restoreAndForget(player);
-    if (lastViewer) {
-      Gui.removeInventories(gui);
+    gui.removeViewer(player);
+    var cache = gui.getHumanEntityCache();
+    if (event.getReason() == InventoryCloseEvent.Reason.DEATH
+        && death != null
+        && !death.isCancelled()
+        && !death.getKeepInventory()) {
+      cache.dropAndForget(player);
+    } else {
+      cache.restoreAndForget(player);
     }
+    Gui.removeInventoryIfUnused(gui);
 
     try {
       gui.callOnClose(event);
@@ -131,11 +155,23 @@ public final class GuiListener implements Listener {
     }
   }
 
+  /** Remembers the death event until Paper closes the GUI and commits to the death. */
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void onPlayerDeath(@NotNull PlayerDeathEvent event) {
+    var player = event.getEntity();
+    for (Gui gui : Gui.getActiveGuis()) {
+      if (gui.getHumanEntityCache().contains(player)) {
+        pendingDeaths.put(player, event);
+        return;
+      }
+    }
+  }
+
   /**
    * Intercepts item pickups for players with an open GUI, adding the item to the cache instead of
    * the player's inventory.
    */
-  @EventHandler(priority = EventPriority.LOWEST)
+  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
   public void onEntityPickupItem(@NotNull EntityPickupItemEvent event) {
     if (!(event.getEntity() instanceof HumanEntity player)) return;
     for (Gui gui : Gui.getActiveGuis()) {
@@ -178,6 +214,7 @@ public final class GuiListener implements Listener {
       Gui.removeInventories(gui);
       gui.removeViewerAll();
     }
+    pendingDeaths.clear();
     Gui.clearRegistry();
   }
 }

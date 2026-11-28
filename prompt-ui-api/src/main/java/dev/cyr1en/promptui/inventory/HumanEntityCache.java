@@ -1,5 +1,6 @@
 package dev.cyr1en.promptui.inventory;
 
+import io.papermc.paper.registry.keys.EnchantmentKeys;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,27 @@ public final class HumanEntityCache {
         for (int i = 0; i < 36; i++) {
           inventory.setItem(i, saved[i]);
         }
+      }
+    }
+  }
+
+  /** Drops cached storage on confirmed death and consumes the snapshot. */
+  public void dropAndForget(@NotNull HumanEntity entity) {
+    ItemStack[] saved;
+    synchronized (this) {
+      saved = cache.remove(entity);
+    }
+    if (saved == null) return;
+    var location = entity.getLocation();
+    var world = entity.getWorld();
+    for (ItemStack item : saved) {
+      if (item != null
+          && !item.isEmpty()
+          && item.getEnchantments().keySet().stream()
+              .noneMatch(
+                  enchantment -> EnchantmentKeys.VANISHING_CURSE.key().equals(enchantment.key()))) {
+        // World drops have no manual PlayerDropItemEvent to return items to the dying player.
+        world.dropItemNaturally(location, item);
       }
     }
   }
