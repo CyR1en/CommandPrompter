@@ -131,6 +131,7 @@ public class CustomScreenAdapter implements InputScreen {
 
     playerExecutor.execute(
         () -> {
+          if (terminalDelivered.get()) return;
           // Advisory & provider state check after hop
           if (detached.get() || !handle.isActive()) {
             if (terminalDelivered.compareAndSet(false, true)) {
@@ -166,6 +167,7 @@ public class CustomScreenAdapter implements InputScreen {
                 }
                 delegateRef.set(delegate);
                 bindDelegateCallbacks();
+                if (terminalDelivered.get() || !verifier.verify(snapshot)) return;
               } catch (Throwable t) {
                 if (terminalDelivered.compareAndSet(false, true)) {
                   deliverError(t);
@@ -183,17 +185,17 @@ public class CustomScreenAdapter implements InputScreen {
           }
 
           InputScreen finalDelegate = delegate;
-          boolean opened =
-              handle.runIfActive(
-                  () -> {
-                    try {
-                      finalDelegate.open();
-                    } catch (Throwable t) {
-                      if (terminalDelivered.compareAndSet(false, true)) {
-                        deliverError(t);
-                      }
-                    }
-                  });
+          boolean opened;
+          try {
+            opened =
+                handle.runIfActive(
+                    () -> {
+                      if (!detached.get() && !terminalDelivered.get()) finalDelegate.open();
+                    });
+          } catch (Throwable t) {
+            if (terminalDelivered.compareAndSet(false, true)) deliverError(t);
+            return;
+          }
 
           if (!opened) {
             if (terminalDelivered.compareAndSet(false, true)) {
@@ -315,48 +317,40 @@ public class CustomScreenAdapter implements InputScreen {
   }
 
   private void bindDelegateCallbacks() {
-    if (detached.get() || !handle.isActive()) {
-      return;
-    }
     InputScreen delegate = delegateRef.get();
-    if (delegate != null && delegateCallbacksRegistered.compareAndSet(false, true)) {
-      boolean bound =
-          handle.runIfActive(
-              () -> {
-                try {
-                  delegate.onResult(this::handleDelegateResult);
-                } catch (Throwable t) {
-                  handleRegistrationError(t);
-                  return;
-                }
-                try {
-                  delegate.onOpenFailure(this::handleDelegateOpenFailure);
-                } catch (Throwable t) {
-                  handleRegistrationError(t);
-                }
-              });
-      if (!bound) {
-        delegateCallbacksRegistered.set(false);
-      }
-    }
+    if (delegate == null || detached.get() || delegateCallbacksRegistered.get()) return;
+    handle.runIfActive(
+        () -> {
+          if (detached.get() || !delegateCallbacksRegistered.compareAndSet(false, true)) return;
+          try {
+            delegate.onResult(this::handleDelegateResult);
+            delegate.onOpenFailure(this::handleDelegateOpenFailure);
+          } catch (Throwable t) {
+            handleRegistrationError(t);
+          }
+        });
   }
 
   private void handleRegistrationError(Throwable t) {
-    playerExecutor.execute(
+    if (terminalDelivered.compareAndSet(false, true)) {
+      executeAfterInvocation(
+          () -> {
+            if (!detached.get() && handle.isActive()) deliverError(t);
+          });
+    }
+  }
+
+  private void executeAfterInvocation(Runnable task) {
+    CustomScreenToken.afterInvocation(
         () -> {
-          if (!detached.get() && terminalDelivered.compareAndSet(false, true)) {
-            deliverError(t);
+          if (!detached.get() && handle.isActive()) {
+            playerExecutor.execute(task, this::handleRetirement);
           }
-        },
-        this::handleRetirement);
+        });
   }
 
   private void handleDelegateResult(ScreenResult result) {
-    if (detached.get() || !handle.isActive()) {
-      return;
-    }
-
-    playerExecutor.execute(
+    executeAfterInvocation(
         () -> {
           if (detached.get() || !handle.isActive()) {
             return;
@@ -378,16 +372,11 @@ public class CustomScreenAdapter implements InputScreen {
               // Contained
             }
           }
-        },
-        this::handleRetirement);
+        });
   }
 
   private void handleDelegateOpenFailure(Throwable error) {
-    if (detached.get() || !handle.isActive()) {
-      return;
-    }
-
-    playerExecutor.execute(
+    executeAfterInvocation(
         () -> {
           if (detached.get() || !handle.isActive()) {
             return;
@@ -403,8 +392,7 @@ public class CustomScreenAdapter implements InputScreen {
 
           deliverError(
               error != null ? error : new IllegalStateException("Open failure with null error"));
-        },
-        this::handleRetirement);
+        });
   }
 
   private void deliverError(Throwable error) {

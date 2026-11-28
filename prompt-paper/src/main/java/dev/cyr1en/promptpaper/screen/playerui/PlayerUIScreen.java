@@ -3,7 +3,9 @@ package dev.cyr1en.promptpaper.screen.playerui;
 import dev.cyr1en.promptcore.PromptTag;
 import dev.cyr1en.promptpaper.CommandPrompter;
 import dev.cyr1en.promptpaper.config.PromptConfig;
+import dev.cyr1en.promptpaper.hook.hooks.GeyserHook;
 import dev.cyr1en.promptui.AnvilInputScreen;
+import dev.cyr1en.promptui.AnvilItemPresentation;
 import dev.cyr1en.promptui.ComponentUtil;
 import dev.cyr1en.promptui.InputScreen;
 import dev.cyr1en.promptui.ScreenProvider;
@@ -13,12 +15,16 @@ import dev.cyr1en.promptui.gui.GuiItem;
 import dev.cyr1en.promptui.gui.Slot;
 import dev.cyr1en.promptui.pane.PaginatedPane;
 import dev.cyr1en.promptui.pane.StaticPane;
+import dev.cyr1en.promptui.util.BedrockUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -45,7 +51,8 @@ public class PlayerUIScreen implements InputScreen {
   private Consumer<ScreenResult> callback;
   private ChestGui gui;
   private PaginatedPane headPane;
-  private List<ItemStack> currentHeads;
+  private String searchQuery;
+  private AnvilInputScreen searchAnvil;
   private final AtomicLong lifecycleToken = new AtomicLong();
   private boolean open;
   private Listener searchListener;
@@ -85,7 +92,24 @@ public class PlayerUIScreen implements InputScreen {
 
   private void openInternal(long token) {
     if (lifecycleToken.get() != token) return;
-    if (currentHeads == null) currentHeads = getFilteredHeads();
+    var heads = getFilteredHeads();
+    if (searchQuery != null) {
+      var term = searchQuery.toLowerCase(Locale.ROOT);
+      var serializer = PlainTextComponentSerializer.plainText();
+      heads =
+          heads.stream()
+              .filter(
+                  head -> {
+                    var meta = head.getItemMeta();
+                    return meta != null
+                        && meta.displayName() != null
+                        && serializer
+                            .serialize(meta.displayName())
+                            .toLowerCase(Locale.ROOT)
+                            .contains(term);
+                  })
+              .toList();
+    }
 
     registerQuitListener();
 
@@ -95,7 +119,7 @@ public class PlayerUIScreen implements InputScreen {
             "Opening PlayerUI for "
                 + player.getName()
                 + " heads="
-                + currentHeads.size()
+                + heads.size()
                 + " filter="
                 + tag.filter());
 
@@ -103,7 +127,8 @@ public class PlayerUIScreen implements InputScreen {
     var size = promptConfig.playerUISize();
     int rows = size / 9;
 
-    gui = new ChestGui(plugin, rows);
+    var openingGui = new ChestGui(plugin, rows);
+    gui = openingGui;
     gui.setTitle(ComponentUtil.mini(tag.displayText()));
     gui.setPlayerInventoryUsed(false);
 
@@ -112,15 +137,15 @@ public class PlayerUIScreen implements InputScreen {
 
     headPane = new PaginatedPane(9, rows - 1);
     int pageSize = 9 * (rows - 1);
-    if (currentHeads.isEmpty()) {
+    if (heads.isEmpty()) {
       var emptyPane = new StaticPane(9, rows - 1);
       emptyPane.addItem(buildEmptyStateItem(promptConfig), 4, Math.max(0, (rows - 2) / 2));
       headPane.addPane(emptyPane);
     } else {
-      for (int i = 0; i < currentHeads.size(); i += pageSize) {
+      for (int i = 0; i < heads.size(); i += pageSize) {
         StaticPane page = new StaticPane(9, rows - 1);
-        for (int j = i; j < Math.min(i + pageSize, currentHeads.size()); j++) {
-          ItemStack head = currentHeads.get(j).clone();
+        for (int j = i; j < Math.min(i + pageSize, heads.size()); j++) {
+          ItemStack head = heads.get(j).clone();
           int x = (j - i) % 9;
           int y = (j - i) / 9;
           page.addItem(new GuiItem(head, event -> selectHead(head)), x, y);
@@ -136,8 +161,9 @@ public class PlayerUIScreen implements InputScreen {
 
     gui.setOnClose(
         event -> {
-          if (open) {
+          if (gui == openingGui && open) {
             open = false;
+            gui = null;
             unregisterListeners();
             if (callback != null) {
               callback.accept(ScreenResult.guiExit());
@@ -226,8 +252,15 @@ public class PlayerUIScreen implements InputScreen {
 
   /** Answers the prompt with the player the clicked head belongs to, if it belongs to one. */
   void selectHead(ItemStack head) {
-    var name = plugin.getHeadCache().getOwnerName(head);
+    var headCache = plugin.getHeadCache();
+    var name = headCache.getOwnerName(head);
     if (name == null) return;
+    var target = Bukkit.getPlayerExact(name);
+    if (target == null
+        || !target.isOnline()
+        || headCache.isVanished(target)
+        || headCache.extractFilters(tag.filter()).stream()
+            .anyMatch(filter -> !filter.filter(player).contains(target))) return;
     close();
     if (callback != null) callback.accept(ScreenResult.answer(name));
   }
@@ -398,18 +431,21 @@ public class PlayerUIScreen implements InputScreen {
 
   /**
    * Starts a search for a player: tries each {@link ScreenProvider} to open an anvil input first,
-   * and falls back to a chat message when no provider succeeds. The result filters the currently
-   * displayed heads and reopens the GUI with the matching subset.
+   * and falls back to a chat message when no provider succeeds.
    */
   private void startSearch() {
-    var token = lifecycleToken.get();
-    var playerUuid = player.getUniqueId();
+    var token = lifecycleToken.incrementAndGet();
     plugin.getPluginLogger().debug("PlayerUI search started for " + player.getName());
     open = false;
+    gui = null;
     player.closeInventory();
+    openSearch(0, token, player.getUniqueId());
+  }
 
-    for (var provider : providers) {
-      if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+  private void openSearch(int firstProvider, long token, UUID playerUuid) {
+    if (lifecycleToken.get() != token) return;
+    for (int i = firstProvider; i < providers.size(); i++) {
+      if (tryOpenAnvilSearch(i, token, playerUuid)) return;
     }
     startChatSearch(token, playerUuid);
   }
@@ -420,11 +456,18 @@ public class PlayerUIScreen implements InputScreen {
    * @return true if the provider produced an {@link AnvilInputScreen} that was configured and
    *     opened; false otherwise
    */
-  private boolean tryOpenAnvilSearch(ScreenProvider provider, long token, UUID playerUuid) {
+  private boolean tryOpenAnvilSearch(int providerIndex, long token, UUID playerUuid) {
+    var provider = providers.get(providerIndex);
+    AnvilInputScreen attempted = null;
     try {
       var cfg = plugin.getConfigLoader().getPromptConfig();
       var candidate = provider.createAnvil(plugin, player, cfg.searchAnvilItemTitle());
       if (candidate instanceof AnvilInputScreen anvilScreen) {
+        attempted = anvilScreen;
+        searchAnvil = anvilScreen;
+        boolean bedrock = BedrockUtil.isBedrockPlayer(player);
+        var presentation = getSearchAnvilPresentation(playerUuid, bedrock);
+        boolean nativeBedrock = bedrock && presentation.isEmpty();
         var config = new HashMap<String, String>();
         config.put("enableTitle", "true");
         config.put("customTitle", cfg.searchAnvilItemTitle());
@@ -432,13 +475,38 @@ public class PlayerUIScreen implements InputScreen {
         config.put("anvilItem", cfg.searchAnvilItem());
         config.put("itemCustomModelData", String.valueOf(cfg.searchAnvilItemCustomModelData()));
         config.put("displayText", cfg.searchAnvilItemText());
-        config.put("enableCancelItem", "true");
+        config.put("geyserAnvilPatch", String.valueOf(presentation.isPresent()));
+        config.put("enableCancelItem", String.valueOf(!nativeBedrock));
         config.put("anvilCancelItem", cfg.cancelItem());
+        if (nativeBedrock) {
+          // Bedrock predicts a rename recipe with matching input and result items.
+          var material = cfg.anvilResultItem();
+          var modelData = String.valueOf(cfg.resultItemCustomModelData());
+          var hideTooltips = String.valueOf(cfg.resultItemHideTooltips());
+          var enchanted = String.valueOf(cfg.resultItemAnvilEnchanted());
+          config.put("enableFirstItem", "true");
+          config.put("anvilItem", material);
+          config.put("anvilResultItem", material);
+          config.put("itemCustomModelData", modelData);
+          config.put("resultItemCustomModelData", modelData);
+          config.put("itemHideTooltips", hideTooltips);
+          config.put("resultItemHideTooltips", hideTooltips);
+          config.put("itemAnvilEnchanted", enchanted);
+          config.put("resultItemAnvilEnchanted", enchanted);
+        }
         anvilScreen.configure(config);
+        presentation.ifPresent(anvilScreen::setItemPresentation);
         anvilScreen.onResult(result -> handleSearchResult(result, token, anvilScreen));
         anvilScreen.onOpenFailure(
-            failure -> continueWithNextProviderOrChatFallback(provider, token, playerUuid));
-        anvilScreen.open();
+            failure -> {
+              if (lifecycleToken.get() != token || searchAnvil != anvilScreen) return;
+              closeSearchAnvil();
+              openSearch(providerIndex + 1, token, playerUuid);
+            });
+        if (searchAnvil == anvilScreen) {
+          if (lifecycleToken.get() == token) anvilScreen.open();
+          else closeSearchAnvil();
+        }
         plugin
             .getPluginLogger()
             .debug(
@@ -446,6 +514,10 @@ public class PlayerUIScreen implements InputScreen {
         return true;
       }
     } catch (Throwable t) {
+      if (attempted != null) {
+        if (searchAnvil != attempted) return true;
+        closeSearchAnvil();
+      }
       plugin
           .getPluginLogger()
           .debug(
@@ -457,32 +529,26 @@ public class PlayerUIScreen implements InputScreen {
     return false;
   }
 
-  /**
-   * Continues the search after an anvil provider failed asynchronously: tries the remaining
-   * providers, then falls back to chat.
-   */
-  private void continueWithNextProviderOrChatFallback(
-      ScreenProvider failedProvider, long token, UUID playerUuid) {
-    if (lifecycleToken.get() != token) return;
-    plugin
-        .getPluginLogger()
-        .debug(
-            "PlayerUI anvil search provider failed asynchronously: "
-                + failedProvider.getClass().getSimpleName());
-    for (var provider : providers) {
-      if (provider == failedProvider) continue;
-      if (tryOpenAnvilSearch(provider, token, playerUuid)) return;
+  private Optional<AnvilItemPresentation> getSearchAnvilPresentation(
+      UUID playerUuid, boolean bedrock) {
+    var standalone = plugin.getGeyserStandaloneSupport();
+    var presentation =
+        standalone == null
+            ? Optional.<AnvilItemPresentation>empty()
+            : standalone.itemPresentation(playerUuid);
+    var hooks = plugin.getHookContainer();
+    if (presentation.isPresent() || !bedrock || hooks == null) {
+      return presentation;
     }
-    startChatSearch(token, playerUuid);
+    return hooks
+        .getHook(GeyserHook.class)
+        .filter(GeyserHook::isAnvilPatchEnabled)
+        .map(GeyserHook::itemPresentation);
   }
 
-  /**
-   * Handles the result of an anvil search: a cancellation reopens the GUI with the existing heads,
-   * otherwise the answer filters the current head list (case-insensitive display-name match) before
-   * reopening.
-   */
   private void handleSearchResult(ScreenResult result, long token, AnvilInputScreen source) {
-    if (lifecycleToken.get() != token) return;
+    if (lifecycleToken.get() != token || searchAnvil != source) return;
+    closeSearchAnvil();
     plugin
         .getPluginLogger()
         .debug(
@@ -492,11 +558,6 @@ public class PlayerUIScreen implements InputScreen {
                 + result.cancelled()
                 + " source="
                 + source.getClass().getSimpleName());
-    if (result.cancelled()) {
-      open();
-      return;
-    }
-    var term = result.answer();
     try {
       var task =
           player
@@ -504,12 +565,9 @@ public class PlayerUIScreen implements InputScreen {
               .run(
                   plugin,
                   st -> {
-                    if (lifecycleToken.get() != token || currentHeads == null) return;
-                    plugin
-                        .getPluginLogger()
-                        .debug("PlayerUI search started; pre-filter=" + currentHeads.size());
-                    filterCurrentHeads(term);
-                    open();
+                    if (lifecycleToken.get() != token) return;
+                    if (!result.cancelled()) searchQuery = result.answer();
+                    openInternal(token);
                   },
                   () -> {});
       if (task == null) discardScreenState(player.getUniqueId());
@@ -520,7 +578,7 @@ public class PlayerUIScreen implements InputScreen {
 
   /**
    * Falls back to the chat-based search: instructs the player to type the search term and listens
-   * for the next chat message to filter the currently displayed heads.
+   * for the next chat message to use as the search term.
    */
   private void startChatSearch(long token, UUID playerUuid) {
     player.sendMessage(
@@ -532,10 +590,12 @@ public class PlayerUIScreen implements InputScreen {
     }
     var listener =
         new org.bukkit.event.Listener() {
+          private final AtomicBoolean claimed = new AtomicBoolean();
+
           @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.LOWEST)
           public void onChat(io.papermc.paper.event.player.AsyncChatEvent event) {
             if (!event.getPlayer().getUniqueId().equals(playerUuid)) return;
-            if (lifecycleToken.get() != token) return;
+            if (lifecycleToken.get() != token || !claimed.compareAndSet(false, true)) return;
             event.setCancelled(true);
             var search = PlainTextComponentSerializer.plainText().serialize(event.message());
 
@@ -546,16 +606,11 @@ public class PlayerUIScreen implements InputScreen {
                       .run(
                           plugin,
                           st -> {
-                            if (lifecycleToken.get() != token || currentHeads == null) return;
-                            plugin
-                                .getPluginLogger()
-                                .debug(
-                                    "PlayerUI chat search started; pre-filter="
-                                        + currentHeads.size());
+                            if (lifecycleToken.get() != token) return;
                             HandlerList.unregisterAll(this);
                             searchListener = null;
-                            filterCurrentHeads(search);
-                            open();
+                            searchQuery = search;
+                            openInternal(token);
                           },
                           () -> {});
               if (task == null) discardScreenState(playerUuid);
@@ -568,22 +623,17 @@ public class PlayerUIScreen implements InputScreen {
     Bukkit.getPluginManager().registerEvents(listener, plugin);
   }
 
-  private void filterCurrentHeads(String search) {
-    var serializer = PlainTextComponentSerializer.plainText();
-    var normalizedSearch = search.toLowerCase();
-    currentHeads =
-        new ArrayList<>(
-            currentHeads.stream()
-                .filter(
-                    item -> {
-                      var meta = item.getItemMeta();
-                      if (meta == null || meta.displayName() == null) return false;
-                      return serializer
-                          .serialize(meta.displayName())
-                          .toLowerCase()
-                          .contains(normalizedSearch);
-                    })
-                .toList());
+  private void closeSearchAnvil() {
+    var anvil = searchAnvil;
+    searchAnvil = null;
+    if (anvil == null) return;
+    try {
+      anvil.close();
+    } catch (Throwable failure) {
+      plugin
+          .getPluginLogger()
+          .debug("PlayerUI anvil search cleanup failed: " + failure.getMessage());
+    }
   }
 
   private void registerQuitListener() {
@@ -597,6 +647,7 @@ public class PlayerUIScreen implements InputScreen {
             if (event.getPlayer().getUniqueId().equals(player.getUniqueId())) {
               invalidateCallbacks();
               unregisterListeners();
+              closeSearchAnvil();
             }
           }
         };
@@ -662,6 +713,7 @@ public class PlayerUIScreen implements InputScreen {
                 + " searchActive="
                 + (searchListener != null));
     unregisterListeners();
+    closeSearchAnvil();
     if (gui != null) {
       player.closeInventory();
       gui = null;
